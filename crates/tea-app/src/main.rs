@@ -65,6 +65,8 @@ fn builtin_extensions() -> Vec<Box<dyn AnyExtension>> {
     list.push(Box::new(tea_ext_problems::ProblemsExtension::new()));
     #[cfg(feature = "ext-terminal")]
     list.push(Box::new(tea_ext_terminal::TerminalExtension::new()));
+    #[cfg(feature = "ext-git")]
+    list.push(Box::new(tea_ext_git::GitExtension::new()));
     list
 }
 
@@ -287,7 +289,9 @@ impl App {
                 Request::OpenFileAt { path, line, column } => tasks.push(self.open_file_at(path, line, column)),
                 Request::RegisterPanel { id, title, slot, visible } => {
                     let ext_id = self.extensions[ext].id();
-                    let slot = self.config.extension(ext_id).slot.unwrap_or(slot);
+                    // Itens da barra de status ficam nela; o `slot` do config move os outros painéis.
+                    let slot =
+                        if slot == Slot::Status { slot } else { self.config.extension(ext_id).slot.unwrap_or(slot) };
                     self.panels.push(Panel { ext, id, title, slot, visible });
                     if slot == Slot::Bottom && visible && self.active_bottom.is_none() {
                         self.active_bottom = Some(self.panels.len() - 1);
@@ -1121,7 +1125,7 @@ mod tests {
         ids.dedup();
         assert_eq!(ids.len(), CORE_COMMANDS.len(), "ids repetidos");
 
-        let ext_commands = ["filetree.toggle", "filetree.reveal", "search.focus", "problems.focus", "problems.next", "terminal.focus"];
+        let ext_commands = ["filetree.toggle", "filetree.reveal", "search.focus", "problems.focus", "problems.next", "terminal.focus", "git.focus"];
         let cfg = Config::from_layers(&[("padrão".into(), config::DEFAULT_CONFIG.into())]);
         for (chord, cmd) in &cfg.keys {
             assert!(ids.contains(&cmd.as_str()) || ext_commands.contains(&cmd.as_str()), "{chord} -> {cmd}");

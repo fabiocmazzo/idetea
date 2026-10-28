@@ -12,5 +12,11 @@ cargo run --release -p tea-editor --example large_file -- 50000 [--write grande.
 ```
 
 Atalhos: `Ctrl+Shift+P` (ou `F1`) abre a paleta com todos os comandos e atalhos. `Ctrl+Shift+T` abre o terminal
-(nele, `Ctrl+letra` vai para o shell; os atalhos `Ctrl+Shift` da IDE continuam valendo).
+(nele, `Ctrl+letra` vai para o shell; os atalhos `Ctrl+Shift` da IDE continuam valendo). `Ctrl+Shift+G` mostra as mudanças do git.
 Config: comando "Config: abrir config global".
+
+
+teste
+
+
+

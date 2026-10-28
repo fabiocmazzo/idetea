@@ -3588,6 +3588,7 @@ dependencies = [
  "tea-core",
  "tea-editor",
  "tea-ext-filetree",
+ "tea-ext-git",
  "tea-ext-problems",
  "tea-ext-search",
  "tea-ext-statusbar",
@@ -3620,6 +3621,14 @@ dependencies = [
  "iced",
  "tea-core",
  "trash",
+]
+
+[[package]]
+name = "tea-ext-git"
+version = "0.0.1"
+dependencies = [
+ "iced",
+ "tea-core",
 ]
 
 [[package]]

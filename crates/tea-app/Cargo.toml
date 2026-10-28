@@ -9,12 +9,13 @@ name = "idetea"
 path = "src/main.rs"
 
 [features]
-default = ["ext-filetree", "ext-statusbar", "ext-search", "ext-problems", "ext-terminal"]
+default = ["ext-filetree", "ext-statusbar", "ext-search", "ext-problems", "ext-terminal", "ext-git"]
 ext-filetree = ["dep:tea-ext-filetree"]
 ext-statusbar = ["dep:tea-ext-statusbar"]
 ext-search = ["dep:tea-ext-search"]
 ext-problems = ["dep:tea-ext-problems"]
 ext-terminal = ["dep:tea-ext-terminal"]
+ext-git = ["dep:tea-ext-git"]
 
 [dependencies]
 iced.workspace = true
@@ -25,4 +26,5 @@ tea-ext-statusbar = { workspace = true, optional = true }
 tea-ext-search = { workspace = true, optional = true }
 tea-ext-problems = { workspace = true, optional = true }
 tea-ext-terminal = { workspace = true, optional = true }
+tea-ext-git = { workspace = true, optional = true }
 tea-lsp.workspace = true

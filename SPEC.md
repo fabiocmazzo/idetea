@@ -11,14 +11,13 @@ O núcleo só sabe editar arquivos. Todo o resto (árvore de arquivos, terminal,
 - **Rápida:** inicia em menos de 200 ms e não trava com arquivos grandes.
 - **Núcleo pequeno:** o núcleo não conhece nenhuma extensão específica.
 - **Desacoplada:** tudo pode ser compilado junto, mas cada parte vive em uma crate separada e pode ser desligada.
-- **Extensível depois:** plugins de terceiros sem recompilar a IDE (fase 3).
+- **Extensível depois:** plugins de terceiros sem recompilar a IDE (fase 4).
 
 ## Não-objetivos (por enquanto)
 
 - Paridade com VS Code ou JetBrains.
 - Marketplace de extensões.
 - Edição colaborativa ou remota.
-- Debugger (DAP), que pode ser reavaliado depois da fase 3.
 
 ## Decisões de arquitetura
 
@@ -32,7 +31,7 @@ Por isso as extensões ficam em três camadas:
 |---|---|---|---|
 | **Extensões internas** | Crates do workspace que implementam a trait `Extension`, ligadas por feature do cargo e pela config | Sim, com widgets iced completos | Árvore de arquivos, terminal, abas, barra de status |
 | **Linguagens** | LSP (processo separado, JSON-RPC) | Não (só dados) | rust-analyzer, pyright, gopls |
-| **Plugins de terceiros** (fase 3) | WASM via `wasmtime` com interfaces WIT versionadas (mesmo modelo do Zed) | Só por protocolo declarativo: árvore, lista, texto, botão, input, que o host renderiza | Comandos, formatadores, painéis simples |
+| **Plugins de terceiros** (fase 4) | WASM via `wasmtime` com interfaces WIT versionadas (mesmo modelo do Zed) | Só por protocolo declarativo: árvore, lista, texto, botão, input, que o host renderiza | Comandos, formatadores, painéis simples |
 
 **Descartado:** `.so`/`.dll` dinâmicas em Rust. A ABI é instável, exige `unsafe`, um crash derruba a IDE e o suporte multiplataforma é ruim.
 **Possível no futuro:** scripting leve (Lua via `mlua`) só para config e macros, se houver demanda.
@@ -69,7 +68,8 @@ idetea/
 │       ├── tea-ext-statusbar/  # barra de status
 │       ├── tea-ext-search/     # busca no projeto
 │       ├── tea-ext-problems/   # erros e avisos
-│       └── tea-ext-terminal/   # terminal (alacritty via iced_term)
+│       ├── tea-ext-terminal/   # terminal (alacritty via iced_term)
+│       └── tea-ext-git/        # git (chama o binário git)
 └── Cargo.toml           # workspace + features (filetree, terminal, lsp...)
 ```
 
@@ -271,15 +271,51 @@ arrastar painéis, encodings além de UTF-8.
 - `IDETEA_LSP_LOG=1` mostra o log dos servidores no terminal.
 - Fora por enquanto: sublinhado de erro no próprio editor (o widget não suporta: precisaria de PR upstream ou fork), formatar ao salvar.
 
-### Fase 3 — Plugins externos
+### Fase 3 — Git e polimento
+
+Os plugins WASM ficaram para depois do polimento: a API das extensões ainda vai mudar, e congelá-la antes seria cedo demais.
+
+- [x] Integração com git (extensão interna `git`, usando o `git` instalado): branch/↑↓/nº de mudanças na barra de status;
+      painel "Git" (`Ctrl+Shift+G`) com mudanças no stage e fora dele, `+`/`−` por arquivo ou tudo, commit com mensagem,
+      diff colorido do arquivo selecionado (clique numa linha abre o arquivo nela). Atualiza ao salvar e quando o `.git` muda
+      (commit/checkout no terminal), olhando a data de `index`, `HEAD`, `logs/HEAD` e `FETCH_HEAD` a cada segundo.
+- [x] Teste manual do git na tela: aprovado.
+      Fora por enquanto: push/pull (use o terminal), descartar mudanças, marcas de diff no editor (o widget não suporta),
+      cores de status na árvore de arquivos.
+
+Polimento, nesta ordem (o diálogo vem primeiro porque menu de contexto e configurações usam ele):
+
+- [ ] **Diálogo de confirmação** desenhado pela IDE (camada sobre a janela, como a palette; segue o tema; Enter/Esc).
+      Usado em: apagar arquivo, fechar aba com alterações, sair com alterações. Diálogo nativo (`rfd`) só para escolher
+      arquivo ou pasta ("Salvar como", "Abrir pasta").
+- [ ] **Árvore de arquivos:** ícones pequenos com tooltip no lugar de "+Arq"/"+Pasta" (fonte de ícones embutida)
+      e menu do botão direito (novo arquivo, nova pasta, renomear, apagar...). O menu de contexto é um componente reutilizável.
+- [ ] **Help:** atalhos (gerados do mapa de teclas, sempre atualizados) e um guia curto (config, painéis, terminal).
+- [ ] **Painel de configurações:** tema, fonte, extensões e tabela de atalhos editável. Grava no `config.toml`
+      preservando comentários (`toml_edit`).
+
+#### Decisões da Fase 3
+
+- **Git chama o binário `git`** (não `gix`/`libgit2`): sem dependência pesada e com o mesmo comportamento do git do usuário
+  (config, hooks, credenciais). Comandos rodam em threads, fora da interface. Sem `git` no PATH ou fora de um repositório, a extensão fica quieta.
+  O `status` usa `--no-optional-locks` para não disputar o index com o git do terminal (nem disparar o próprio observador).
+- Itens da barra de status não mudam de slot pelo config: o `slot` de `[extensions]` move só os outros painéis da extensão.
+
+### Fase 4 — Plugins externos
 - [ ] Host WASM (`wasmtime`) + WIT versionado.
 - [ ] Protocolo de UI declarativa para painéis de plugins.
-- [ ] Integração com git (como plugin ou extensão interna).
+- **Plugins WASM têm confiança total:** um plugin instalado pode ler e escrever no disco e rodar processos, como extensões do VS Code.
+  Não há sandbox de permissões (decisão do usuário). Instale só plugins em que você confia.
+
+### Fase 5 — Debug
+- [ ] Spike: o `iced-code-editor` consegue mostrar breakpoints na margem e destacar a linha atual sem fork?
+- [ ] Cliente DAP próprio (como o do LSP): breakpoints, continuar/próximo/entrar/sair, pilha e variáveis.
+      Adaptadores: `codelldb` (Rust/C/C++), `debugpy`, `delve`...
 
 ## Riscos
 
 - **`iced-code-editor` é jovem** (v0.5, um único mantenedor, evolui rápido: 0.3 → 0.5 em ~6 meses). É mitigado pela fachada
   `tea-editor`. A performance foi validada na Fase 0.
 - **`syntect` vs tree-sitter:** o `syntect` é bom para highlight, mas não serve para recursos estruturais. Reavaliar na fase 2.
-- **API de extensão instável no início:** aceitável enquanto só houver extensões internas. Congelar e versionar antes da fase 3.
+- **API de extensão instável no início:** aceitável enquanto só houver extensões internas. Congelar e versionar antes da fase 4.
 - **WASM aumenta o binário** (~10–20 MB) e o tempo de build. Fica atrás de uma feature `wasm-plugins`.
