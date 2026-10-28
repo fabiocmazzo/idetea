@@ -39,10 +39,13 @@ Se a árvore de arquivos precisar de algo que a API não oferece, a API está in
 
 ### Editor
 
-- Widget: `iced-code-editor` (canvas, highlight via `syntect`, undo/redo, clipboard).
-- Fica **isolado atrás de uma trait própria** (`EditorView`) para poder ser trocado depois
-  (por exemplo por um editor próprio com tree-sitter) sem quebrar as extensões.
-- Buffer de texto do núcleo: `ropey` (independente do widget).
+- Widget: `iced-code-editor` 0.5 (canvas, highlight via `syntect`, undo/redo, clipboard,
+  busca e substituição, folding, multi-cursor, modo vim, cliente LSP).
+- Fica **isolado atrás da fachada `tea_editor::Editor`**, com mensagem opaca (`EditorMessage`).
+  Nenhuma outra crate importa `iced_code_editor`. Trocar o widget mexe só em `tea-editor`.
+  (Na Fase 0 a fachada concreta se mostrou suficiente. Uma trait `EditorView` só vale a pena se houver dois widgets.)
+- O buffer de texto fica dentro do widget por enquanto. Um buffer próprio (`ropey`) só entra se
+  LSP ou extensões precisarem ler texto sem passar pelo widget.
 
 ### Layout
 
@@ -55,7 +58,7 @@ Se a árvore de arquivos precisar de algo que a API não oferece, a API está in
 idetea/
 ├── crates/
 │   ├── tea-core/        # buffers, comandos, keybindings, config, eventos, trait Extension
-│   ├── tea-editor/      # wrapper do iced-code-editor (implementa EditorView)
+│   ├── tea-editor/      # fachada sobre o iced-code-editor
 │   ├── tea-app/         # binário: janela iced, layout de slots, carrega extensões
 │   └── ext/
 │       ├── tea-ext-filetree/
@@ -65,21 +68,28 @@ idetea/
 └── Cargo.toml           # workspace + features (filetree, terminal, lsp...)
 ```
 
-## API de extensão (rascunho)
+## API de extensão (implementada em `tea-core`)
 
 ```rust
-pub trait Extension: Send {
-    fn id(&self) -> &'static str;
-    fn activate(&mut self, ctx: &mut ExtensionContext);   // registra comandos, painéis, keybindings
-    fn on_event(&mut self, ev: &CoreEvent, ctx: &mut ExtensionContext) {}
-    fn update(&mut self, msg: ExtMessage, ctx: &mut ExtensionContext) -> Task<ExtMessage>;
-    fn view(&self, panel: PanelId) -> Element<'_, ExtMessage>;
+pub trait Extension: 'static {
+    type Message: Clone + Debug + Send + Sync + 'static;   // cada extensão tem seu tipo
+    fn id(&self) -> &'static str;                            // também é o prefixo dos comandos
+    fn activate(&mut self, ctx: &mut Context) -> Task<Self::Message>;
+    fn on_event(&mut self, ev: &CoreEvent, ctx: &mut Context) -> Task<Self::Message> { .. }
+    fn on_command(&mut self, cmd: &str, ctx: &mut Context) -> Task<Self::Message> { .. }
+    fn update(&mut self, msg: Self::Message, ctx: &mut Context) -> Task<Self::Message>;
+    fn view(&self, panel: PanelId) -> Element<'_, Self::Message>;
 }
 ```
 
-- `ExtensionContext`: abrir e salvar arquivos, ler o workspace, registrar comandos, mostrar notificações, ler config.
-- `CoreEvent`: arquivo aberto, salvo ou alterado, aba ativa mudou, config recarregada...
-- `ExtMessage`: mensagem opaca roteada pelo app de volta à extensão dona (`Box<dyn Any>` + id).
+- **Tipada para quem escreve a extensão, apagada para o app:** uma impl automática converte
+  qualquer `Extension` em `AnyExtension` (object safe), e a mensagem vira `ExtMessage`
+  (`Arc<dyn Any>`). Só a extensão dona faz o downcast.
+- `Context`: lê a raiz do projeto e o arquivo ativo. Faz **pedidos** (`Request`): abrir arquivo,
+  registrar painel ou comando, rodar comando, notificar. O app executa os pedidos depois que a chamada retorna,
+  então a extensão nunca segura referência ao estado do app.
+- `CoreEvent`: `FileOpened`, `FileSaved`, `ActiveFileChanged` (mais virão: config recarregada, arquivo alterado no disco...).
+- Comandos são strings `"<extensão>.<ação>"`. O app roteia pelo prefixo.
 - A comunicação entre extensões é só por **comandos** e **eventos**, nunca por chamada direta.
 
 ## Configuração
@@ -101,13 +111,36 @@ statusbar = { enabled = true }
 ## Roadmap
 
 ### Fase 0 — Spike (validar riscos)
-- [ ] Janela iced com `iced-code-editor` abrindo um arquivo grande (≥ 50k linhas) e medindo a performance.
-- [ ] Protótipo da trait `Extension` com um painel lateral trivial.
+- [x] Janela iced com `iced-code-editor` abrindo um arquivo grande (≥ 50k linhas) e medindo a performance.
+- [x] Protótipo da trait `Extension` com um painel lateral trivial (`tea-ext-demo`).
+- [x] Teste manual de scroll e digitação fluidos com o arquivo grande: aprovado (fluido e rápido).
+
+**Resultados** (release, `cargo run --release -p tea-editor --example large_file -- N`):
+
+| Operação | 50k linhas (1,7 MB) | 200k linhas (6,9 MB) |
+|---|---|---|
+| Custo fixo do 1º editor (carga do syntect) | ~9 ms | ~9 ms |
+| Abrir (`CodeEditor::new`) | ~2,3 ms | ~9 ms |
+| Digitar 1000 caracteres no meio | ~1,6 ms | ~2,6 ms |
+| Buscar texto | ~1,1 ms | ~2,8 ms |
+| Desfazer tudo | ~3–4 ms | ~11 ms |
+| Boot do app já com o arquivo aberto | 12 ms | — |
+
+O highlight é preguiçoso (só linhas visíveis), por isso abrir é barato.
+O binário release sem símbolos tem ~22 MB (iced/wgpu + dados do syntect + fontes de ícones do widget).
+
+**Pegadinhas encontradas:**
+- O editor só aceita teclado com `request_focus()` **e** `CanvasFocusGained`. Sem isso, abrir um arquivo
+  pela lista lateral deixava o editor surdo até levar um clique. Já resolvido em `Editor::focus`.
+- `iced::keyboard::listen()` só recebe teclas que nenhum widget consumiu. Atalhos globais usam
+  `iced::event::listen_with`.
+- O widget traz command palette e diálogos próprios. A palette dele fica desligada, porque a da IDE será global.
+- O modo vim emite `WriteRequested` (`:w`). O app precisa tratar isso como `file.save` (Fase 1).
 
 ### Fase 1 — MVP
 - [ ] Abrir e salvar arquivos, várias abas, indicador de "modificado".
 - [ ] Syntax highlight e temas claro e escuro.
-- [ ] Buscar e substituir no arquivo.
+- [ ] Buscar e substituir no arquivo (já vem no widget, só precisa ligar a atalhos e comandos).
 - [ ] Command palette (todos os comandos registrados, incluindo os das extensões).
 - [ ] Config TOML e keybindings configuráveis.
 - [ ] Extensão `filetree` (abrir pasta, navegar, criar, renomear e apagar).
@@ -115,6 +148,7 @@ statusbar = { enabled = true }
 
 ### Fase 2 — IDE
 - [ ] Extensão `lsp`: diagnósticos, autocomplete, hover, ir para definição.
+  Avaliar o cliente LSP que já vem no widget (`LspClient`, feature `lsp-process`) antes de escrever um próprio.
 - [ ] Extensão `terminal` (`alacritty_terminal` + renderização iced).
 - [ ] Busca no projeto (`grep`/`ignore` crates).
 
@@ -125,7 +159,8 @@ statusbar = { enabled = true }
 
 ## Riscos
 
-- **`iced-code-editor` é jovem** (v0.3.x, um único mantenedor). É mitigado pela trait `EditorView` e pelo spike da fase 0.
+- **`iced-code-editor` é jovem** (v0.5, um único mantenedor, evolui rápido: 0.3 → 0.5 em ~6 meses). É mitigado pela fachada
+  `tea-editor`. A performance foi validada na Fase 0.
 - **`syntect` vs tree-sitter:** o `syntect` é bom para highlight, mas não serve para recursos estruturais. Reavaliar na fase 2.
 - **API de extensão instável no início:** aceitável enquanto só houver extensões internas. Congelar e versionar antes da fase 3.
 - **WASM aumenta o binário** (~10–20 MB) e o tempo de build. Fica atrás de uma feature `wasm-plugins`.

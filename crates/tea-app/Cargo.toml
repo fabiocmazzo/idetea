@@ -1,0 +1,19 @@
+[package]
+name = "tea-app"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "idetea"
+path = "src/main.rs"
+
+[features]
+default = ["ext-demo"]
+ext-demo = ["dep:tea-ext-demo"]
+
+[dependencies]
+iced.workspace = true
+tea-core.workspace = true
+tea-editor.workspace = true
+tea-ext-demo = { workspace = true, optional = true }
