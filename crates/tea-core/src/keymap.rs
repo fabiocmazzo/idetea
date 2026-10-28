@@ -141,12 +141,16 @@ impl Keymap {
 
     /// Primeiro atalho de um comando, para mostrar na palette.
     pub fn chord_for(&self, command: &str) -> Option<&Chord> {
+        self.chords_for(command).into_iter().next()
+    }
+
+    /// Todos os atalhos de um comando, o mais curto primeiro (ordem estável).
+    pub fn chords_for(&self, command: &str) -> Vec<&Chord> {
         let mut found: Vec<&Chord> =
             self.bindings.iter().filter(|(_, c)| c.as_str() == command).map(|(k, _)| k).collect();
-        // Ordem estável: o mais curto primeiro.
         found.sort_by_key(|c| c.to_string());
         found.sort_by_key(|c| c.to_string().len());
-        found.first().copied()
+        found
     }
 
     /// Atalhos da IDE que valem mesmo com o foco num painel que usa o teclado todo

@@ -44,7 +44,7 @@ git = { enabled = true, slot = "bottom" }
 # Atalhos que o editor já usa (Ctrl+F, Ctrl+H, Ctrl+G, Ctrl+Z, Ctrl+D...) têm prioridade quando ele tem foco.
 [keys]
 "ctrl+shift+p" = "palette.open"
-"f1" = "palette.open"
+"f1" = "help.open"
 "ctrl+s" = "file.save"
 "ctrl+shift+s" = "file.save_as"
 "ctrl+n" = "file.new"

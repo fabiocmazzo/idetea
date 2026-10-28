@@ -5,6 +5,7 @@
 mod cli;
 mod context_menu;
 mod dialog;
+mod help;
 mod lsp;
 mod palette;
 mod pass_keys;
@@ -79,6 +80,7 @@ fn builtin_extensions() -> Vec<Box<dyn AnyExtension>> {
 /// Comandos do núcleo: (id, título).
 const CORE_COMMANDS: &[(&str, &str)] = &[
     ("palette.open", "Paleta de comandos"),
+    ("help.open", "Ajuda: atalhos e guia"),
     ("file.new", "Arquivo: novo"),
     ("file.save", "Arquivo: salvar"),
     ("file.save_as", "Arquivo: salvar como…"),
@@ -158,6 +160,7 @@ struct App {
     pointer_over_panel: bool,
     dialog: Option<dialog::Open>,
     menu: Option<context_menu::Open>,
+    help: Option<help::Help>,
     last_status: EditorStatus,
 }
 
@@ -175,6 +178,7 @@ enum Message {
     Palette(palette::Msg),
     Dialog(dialog::Msg),
     Menu(context_menu::Msg),
+    Help(help::Msg),
     Frame(Instant),
     PointerOverPanel(bool),
     MousePressed,
@@ -224,6 +228,7 @@ impl App {
             pointer_over_panel: false,
             dialog: None,
             menu: None,
+            help: None,
             last_status: EditorStatus::default(),
             config,
         };
@@ -716,6 +721,14 @@ impl App {
 
         match id {
             "palette.open" => self.open_palette(Palette::commands()),
+            "help.open" => {
+                if self.help.is_some() {
+                    self.close_help();
+                    Task::none()
+                } else {
+                    self.open_help()
+                }
+            }
             "file.new" => {
                 let i = self.push_tab(Editor::scratch(""));
                 self.set_active(i)
@@ -859,6 +872,21 @@ impl App {
 
     // ---- Diálogos --------------------------------------------------------------
 
+    fn open_help(&mut self) -> Task<Message> {
+        self.palette = None;
+        self.menu = None;
+        self.editor_mut().lose_focus();
+        self.help = Some(help::Help::new(help::Tab::Shortcuts));
+        operation::focus(help::input_id())
+    }
+
+    fn close_help(&mut self) {
+        self.help = None;
+        if self.dialog.is_none() && self.palette.is_none() {
+            self.editor_mut().focus();
+        }
+    }
+
     fn open_menu(&mut self, menu: tea_core::menu::Menu, owner: usize) -> Task<Message> {
         if self.dialog.is_some() {
             return Task::none();
@@ -988,6 +1016,13 @@ impl App {
             }
             return Task::none();
         }
+        // Ajuda aberta: Esc ou o próprio atalho fecham; o resto fica com a busca dela.
+        if self.dialog.is_none() && self.help.is_some() {
+            if key == keyboard::Key::Named(Named::Escape) || command.as_deref() == Some("help.open") {
+                self.close_help();
+            }
+            return Task::none();
+        }
         // Diálogo aberto: só ele responde ao teclado.
         if let Some(d) = &mut self.dialog {
             match key {
@@ -1057,6 +1092,19 @@ impl App {
             Message::Dialog(dialog::Msg::Choose(choice)) => self.choose_dialog(choice),
             Message::Menu(context_menu::Msg::Choose(i)) => self.choose_menu(Some(i)),
             Message::Menu(context_menu::Msg::Close) => self.choose_menu(None),
+            Message::Help(help::Msg::Close) => {
+                self.close_help();
+                Task::none()
+            }
+            Message::Help(msg) => {
+                let was = self.help.as_ref().map(help::Help::tab);
+                if let Some(h) = &mut self.help {
+                    h.update(msg);
+                }
+                // Voltou para "Atalhos": o campo de busca pega o teclado de novo.
+                let now = self.help.as_ref().map(help::Help::tab);
+                if was != now && now == Some(help::Tab::Shortcuts) { operation::focus(help::input_id()) } else { Task::none() }
+            }
             Message::Frame(now) => {
                 self.editor_mut().tick(now);
                 if let Some(s) = &mut self.splash {
@@ -1124,6 +1172,14 @@ impl App {
                 .align_x(iced::Center);
             // Clique fora fecha.
             layers = layers.push(opaque(mouse_area(overlay).on_press(Message::Palette(palette::Msg::Close))));
+        }
+        if let Some(h) = &self.help {
+            let about = help::AboutInfo {
+                root: &self.root,
+                global_config: self.global_config.as_deref(),
+                project_config: config::project_config_path(&self.root),
+            };
+            layers = layers.push(h.view(&self.commands, &self.keymap, about).map(Message::Help));
         }
         if let Some(m) = &self.menu {
             layers = layers.push(m.view(&self.keymap).map(Message::Menu));

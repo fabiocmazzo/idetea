@@ -309,7 +309,13 @@ Polimento, nesta ordem (o diálogo vem primeiro porque menu de contexto e config
       no espaço vazio: itens da raiz + atualizar e recolher tudo.
 - [x] Teste manual do menu na tela: aprovado.
 - [ ] Menu de contexto nas abas e no painel do git (o componente já existe).
-- [ ] **Help:** atalhos (gerados do mapa de teclas, sempre atualizados) e um guia curto (config, painéis, terminal).
+- [x] **Help** (`F1` / `help.open`, janela sobre a IDE, Esc fecha):
+      **Atalhos** — todos os comandos agrupados (núcleo e extensões, com id e teclas atuais) + atalhos fixos do editor, com filtro;
+      **Guia** — primeiros passos, arquivos, árvore, painel inferior, terminal, git, LSP e config. O texto cita comandos como
+      `{file.save}` e a tela mostra o atalho atual do usuário (teste garante que todo comando citado existe);
+      **Sobre** — versão, caminhos dos configs e créditos (inclui a atribuição dos Codicons).
+      `F1` passou a abrir a ajuda; a paleta continua em `Ctrl+Shift+P`.
+- [x] Teste manual da ajuda na tela: aprovado.
 - [ ] **Painel de configurações:** tema, fonte, extensões e tabela de atalhos editável. Grava no `config.toml`
       preservando comentários (`toml_edit`).
 
