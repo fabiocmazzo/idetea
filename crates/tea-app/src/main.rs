@@ -3,6 +3,7 @@
 //! Uso: `idetea [--no-splash] [caminho...]` (ver `cli.rs`).
 
 mod cli;
+mod lsp;
 mod palette;
 mod splash;
 
@@ -14,7 +15,7 @@ use iced::widget::{button, column, container, mouse_area, opaque, operation, row
 use iced::{Element, Fill, Subscription, Task, Theme, keyboard, mouse, window};
 use tea_core::config::{self, Config};
 use tea_core::keymap::{Chord, Keymap};
-use tea_core::{AnyExtension, Context, CoreEvent, EditorStatus, ExtMessage, PanelId, Request, Slot};
+use tea_core::{AnyExtension, Context, CoreEvent, Diagnostic, EditorStatus, ExtMessage, PanelId, Request, Severity, Slot};
 use tea_editor::{Editor, EditorAction, EditorMessage};
 
 use palette::{CommandInfo, Palette};
@@ -57,6 +58,10 @@ fn builtin_extensions() -> Vec<Box<dyn AnyExtension>> {
     list.push(Box::new(tea_ext_filetree::FileTreeExtension::new()));
     #[cfg(feature = "ext-statusbar")]
     list.push(Box::new(tea_ext_statusbar::StatusBarExtension::new()));
+    #[cfg(feature = "ext-search")]
+    list.push(Box::new(tea_ext_search::SearchExtension::new()));
+    #[cfg(feature = "ext-problems")]
+    list.push(Box::new(tea_ext_problems::ProblemsExtension::new()));
     list
 }
 
@@ -78,6 +83,10 @@ const CORE_COMMANDS: &[(&str, &str)] = &[
     ("editor.fold_all", "Editor: recolher todos os blocos"),
     ("editor.unfold_all", "Editor: expandir todos os blocos"),
     ("editor.toggle_vim", "Editor: ligar/desligar modo vim"),
+    ("lsp.definition", "LSP: ir para definição"),
+    ("lsp.hover", "LSP: mostrar documentação no cursor"),
+    ("lsp.format", "LSP: formatar arquivo"),
+    ("lsp.restart", "LSP: reiniciar servidores"),
     ("theme.toggle", "Tema: alternar claro/escuro"),
     ("config.open", "Config: abrir config global"),
     ("config.open_project", "Config: abrir config do projeto"),
@@ -118,7 +127,10 @@ struct App {
 
     extensions: Vec<Box<dyn AnyExtension>>,
     panels: Vec<Panel>,
+    lsp: lsp::LspManager,
     commands: Vec<CommandInfo>,
+    /// Painel em destaque no slot inferior (índice em `panels`), que mostra um painel por vez em abas.
+    active_bottom: Option<usize>,
 
     palette: Option<Palette>,
     splash: Option<Splash>,
@@ -136,12 +148,14 @@ enum Message {
     Ext(usize, ExtMessage),
     SelectTab(u64),
     CloseTab(u64),
+    SelectBottom(usize),
     Key { key: keyboard::Key, modifiers: keyboard::Modifiers, captured: bool },
     Palette(palette::Msg),
     Frame(Instant),
     PointerOverPanel(bool),
     MousePressed,
     CloseRequested,
+    Lsp(tea_lsp::Event),
 }
 
 impl App {
@@ -158,7 +172,15 @@ impl App {
         let extensions =
             builtin_extensions().into_iter().filter(|e| config.extension(e.id()).enabled).collect();
 
+        // Eventos dos servidores LSP chegam por este canal (de outras threads).
+        let (lsp_tx, lsp_rx) = iced::futures::channel::mpsc::unbounded();
+        let sink: tea_lsp::EventSink = std::sync::Arc::new(move |e| {
+            let _ = lsp_tx.unbounded_send(e);
+        });
+        let lsp = lsp::LspManager::new(&root, &config.lsp, sink);
+
         let mut app = Self {
+            lsp,
             root,
             global_config,
             keymap,
@@ -168,6 +190,7 @@ impl App {
             next_tab_id: 0,
             extensions,
             panels: Vec::new(),
+            active_bottom: None,
             commands: CORE_COMMANDS
                 .iter()
                 .map(|(id, title)| CommandInfo { id: id.to_string(), title: title.to_string() })
@@ -182,7 +205,7 @@ impl App {
         };
         app.push_tab(Editor::scratch(""));
 
-        let mut tasks = Vec::new();
+        let mut tasks = vec![Task::run(lsp_rx, Message::Lsp)];
         // Extensões primeiro: assim elas recebem os eventos dos arquivos abertos abaixo.
         for i in 0..app.extensions.len() {
             tasks.push(app.call_ext(i, |e, ctx| e.activate(ctx)));
@@ -254,17 +277,21 @@ impl App {
         for request in requests {
             match request {
                 Request::OpenFile(path) => tasks.push(self.open_file(path)),
-                Request::RegisterPanel { id, title, slot } => {
+                Request::OpenFileAt { path, line, column } => tasks.push(self.open_file_at(path, line, column)),
+                Request::RegisterPanel { id, title, slot, visible } => {
                     let ext_id = self.extensions[ext].id();
                     let slot = self.config.extension(ext_id).slot.unwrap_or(slot);
-                    self.panels.push(Panel { ext, id, title, slot, visible: true });
+                    self.panels.push(Panel { ext, id, title, slot, visible });
+                    if slot == Slot::Bottom && visible && self.active_bottom.is_none() {
+                        self.active_bottom = Some(self.panels.len() - 1);
+                    }
                 }
                 Request::RegisterCommand { id, title } => self.commands.push(CommandInfo { id, title }),
                 Request::RunCommand(id) => tasks.push(self.run_command(&id)),
                 Request::Notify(msg) => tasks.push(self.notify(msg)),
                 Request::PanelVisibility { id, visible } => {
-                    if let Some(p) = self.panels.iter_mut().find(|p| p.ext == ext && p.id == id) {
-                        p.visible = visible.unwrap_or(!p.visible);
+                    if let Some(i) = self.panels.iter().position(|p| p.ext == ext && p.id == id) {
+                        self.set_panel_visible(i, visible);
                     }
                 }
                 Request::PathRenamed { from, to } => tasks.push(self.path_renamed(&from, &to)),
@@ -338,10 +365,127 @@ impl App {
                 } else {
                     Task::none()
                 };
+                let lsp = self.ensure_lsp(i);
                 let opened = self.broadcast(CoreEvent::FileOpened(path));
-                Task::batch([opened, note, self.set_active(i)])
+                Task::batch([opened, note, lsp, self.set_active(i)])
             }
             Err(err) => self.notify(format!("Erro ao abrir {}: {err}", path.display())),
+        }
+    }
+
+    fn open_file_at(&mut self, path: PathBuf, line: usize, column: usize) -> Task<Message> {
+        let open = self.open_file(path.clone());
+        // Só posiciona se o arquivo abriu (ou já estava aberto).
+        if self.active_path() != Some(path.as_path()) {
+            return open;
+        }
+        let tab_id = self.tabs[self.active].id;
+        let goto = self.editor_mut().goto(line, column).map(move |m| Message::Editor(tab_id, m));
+        Task::batch([open, goto, self.emit_status(false)])
+    }
+
+    /// Liga a aba ao servidor de linguagem do arquivo, se houver.
+    fn ensure_lsp(&mut self, i: usize) -> Task<Message> {
+        let editor = &self.tabs[i].editor;
+        let Some(path) = editor.path().map(Path::to_path_buf) else { return Task::none() };
+        if editor.lsp_server().is_some() {
+            return Task::none();
+        }
+        match self.lsp.client_for(&path) {
+            Ok(Some((client, language))) => {
+                self.tabs[i].editor.attach_lsp(client, &language);
+                Task::none()
+            }
+            Ok(None) => Task::none(),
+            Err(msg) => self.notify(msg),
+        }
+    }
+
+    fn handle_lsp(&mut self, event: tea_lsp::Event) -> Task<Message> {
+        use tea_lsp::Event as E;
+        let tab_for = |app: &Self, path: &Path| app.tabs.iter().position(|t| t.editor.path() == Some(path));
+        match event {
+            E::Diagnostics { server, path, diagnostics } => {
+                let items = diagnostics
+                    .into_iter()
+                    .map(|d| Diagnostic {
+                        line: d.range.start.line as usize + 1,
+                        column: d.range.start.character as usize + 1,
+                        severity: match d.severity {
+                            tea_lsp::Severity::Error => Severity::Error,
+                            tea_lsp::Severity::Warning => Severity::Warning,
+                            tea_lsp::Severity::Info => Severity::Info,
+                            tea_lsp::Severity::Hint => Severity::Hint,
+                        },
+                        message: d.message,
+                        source: d.source,
+                        code: d.code,
+                    })
+                    .collect();
+                self.broadcast(CoreEvent::Diagnostics { source: server, path, items })
+            }
+            E::Hover { path, text } => {
+                if self.active_path() == Some(path.as_path()) {
+                    self.editor_mut().show_hover(text);
+                }
+                Task::none()
+            }
+            E::Completion { path, items } => {
+                if self.active_path() == Some(path.as_path()) {
+                    self.editor_mut().show_completions(items);
+                }
+                Task::none()
+            }
+            E::Definition { path, position } => {
+                self.open_file_at(path, position.line as usize + 1, position.character as usize + 1)
+            }
+            E::DefinitionNotFound => self.notify("Definição não encontrada"),
+            E::Formatting { path, edits } => {
+                if let Some(i) = tab_for(self, &path) {
+                    self.tabs[i].editor.apply_formatting(&edits);
+                    return Task::batch([self.notify("Arquivo formatado"), self.emit_status(false)]);
+                }
+                Task::none()
+            }
+            E::Progress { server, title, message, percentage, done } => {
+                let text = (!done).then(|| {
+                    let mut t = title;
+                    if let Some(m) = message {
+                        t = if t.is_empty() { m } else { format!("{t} {m}") };
+                    }
+                    if let Some(p) = percentage {
+                        t = format!("{t} {p}%");
+                    }
+                    t
+                });
+                self.broadcast(CoreEvent::Activity { source: server, text })
+            }
+            E::Message { server, level, text } => {
+                let prefix = match level {
+                    tea_lsp::MessageLevel::Error => "erro: ",
+                    tea_lsp::MessageLevel::Warning => "aviso: ",
+                    tea_lsp::MessageLevel::Info => "",
+                };
+                self.notify(format!("{server}: {prefix}{text}"))
+            }
+            E::Log { server, text } => {
+                if std::env::var_os("IDETEA_LSP_LOG").is_some() {
+                    eprintln!("[{server}] {text}");
+                }
+                Task::none()
+            }
+            E::Ready { server } => self.broadcast(CoreEvent::Activity { source: server, text: None }),
+            E::Exited { server, reason } => {
+                self.lsp.on_exit(&server, &reason);
+                for tab in &mut self.tabs {
+                    if tab.editor.lsp_server() == Some(server.as_str()) {
+                        tab.editor.detach_lsp();
+                    }
+                }
+                let activity = self.broadcast(CoreEvent::Activity { source: server.clone(), text: None });
+                let note = self.notify(format!("{server} parou — {reason}. Use \"LSP: reiniciar servidores\"."));
+                Task::batch([activity, note])
+            }
         }
     }
 
@@ -401,7 +545,8 @@ impl App {
         let path = if path.is_absolute() { path } else { self.root.join(path) };
         let result = self.editor_mut().save_as(&path);
         let ok = result.is_ok();
-        let saved = self.after_save(result);
+        let lsp = if ok { self.ensure_lsp(self.active) } else { Task::none() };
+        let saved = Task::batch([self.after_save(result), lsp]);
         let changed = if ok { self.broadcast(CoreEvent::ActiveFileChanged(Some(path))) } else { Task::none() };
         Task::batch([saved, changed])
     }
@@ -433,11 +578,13 @@ impl App {
                 active_changed |= i == self.active;
             }
         }
+        let relink: Vec<Task<Message>> = (0..self.tabs.len()).map(|i| self.ensure_lsp(i)).collect();
+        let relink = Task::batch(relink);
         if active_changed {
             let path = self.active_path().map(Path::to_path_buf);
-            Task::batch([self.broadcast(CoreEvent::ActiveFileChanged(path)), self.emit_status(false)])
+            Task::batch([relink, self.broadcast(CoreEvent::ActiveFileChanged(path)), self.emit_status(false)])
         } else {
-            Task::none()
+            relink
         }
     }
 
@@ -469,6 +616,7 @@ impl App {
         problems.extend(key_errors);
         problems.extend(theme_error);
         self.keymap = keymap;
+        self.lsp.update_config(&config.lsp);
         self.config = config;
         self.set_theme(theme);
         let font_size = self.config.ui.font_size;
@@ -551,6 +699,32 @@ impl App {
                 self.set_theme(next);
                 Task::none()
             }
+            "lsp.definition" => {
+                if self.editor_mut().request_definition() {
+                    Task::none()
+                } else {
+                    self.notify("Nenhum servidor de linguagem para este arquivo")
+                }
+            }
+            "lsp.hover" => {
+                self.editor_mut().request_hover();
+                Task::none()
+            }
+            "lsp.format" => {
+                if self.editor_mut().request_formatting() {
+                    Task::none()
+                } else {
+                    self.notify("Formatação indisponível para este arquivo")
+                }
+            }
+            "lsp.restart" => {
+                self.lsp.restart();
+                for tab in &mut self.tabs {
+                    tab.editor.detach_lsp();
+                }
+                let relink: Vec<Task<Message>> = (0..self.tabs.len()).map(|i| self.ensure_lsp(i)).collect();
+                Task::batch([Task::batch(relink), self.notify("Servidores de linguagem reiniciados")])
+            }
             "config.open" => self.open_config(true),
             "config.open_project" => self.open_config(false),
             "config.reload" => self.reload_config(),
@@ -573,6 +747,26 @@ impl App {
         }
     }
 
+    /// `None` alterna. No slot inferior, mostrar um painel também o coloca em destaque.
+    fn set_panel_visible(&mut self, i: usize, visible: Option<bool>) {
+        let p = &mut self.panels[i];
+        if p.slot == Slot::Bottom {
+            let showing = self.active_bottom == Some(i) && p.visible;
+            let show = visible.unwrap_or(!showing);
+            if show {
+                p.visible = true;
+                self.active_bottom = Some(i);
+            } else if self.active_bottom == Some(i) {
+                p.visible = false;
+                // Passa o destaque para outro painel inferior visível, se houver.
+                self.active_bottom =
+                    self.panels.iter().position(|q| q.slot == Slot::Bottom && q.visible);
+            }
+        } else {
+            p.visible = visible.unwrap_or(!p.visible);
+        }
+    }
+
     fn toggle_slot(&mut self, slot: Slot) -> Task<Message> {
         let any_visible = self.panels.iter().any(|p| p.slot == slot && p.visible);
         for p in self.panels.iter_mut().filter(|p| p.slot == slot) {
@@ -587,6 +781,7 @@ impl App {
             self.pending_quit = true;
             return self.notify(format!("{unsaved} aba(s) com alterações. Saia de novo para descartar."));
         }
+        self.lsp.shutdown_all();
         iced::exit()
     }
 
@@ -682,9 +877,14 @@ impl App {
                 None => Task::none(),
             },
             Message::CloseTab(id) => self.close_tab(id, false),
+            Message::SelectBottom(i) => {
+                self.active_bottom = Some(i);
+                Task::none()
+            }
             Message::Key { key, modifiers, captured } => self.on_key(key, modifiers, captured),
             Message::Palette(msg) => self.palette_update(msg),
             Message::Frame(now) => {
+                self.editor_mut().tick(now);
                 if let Some(s) = &mut self.splash {
                     s.tick(now);
                     if s.is_finished() {
@@ -707,6 +907,7 @@ impl App {
                 Task::none()
             }
             Message::CloseRequested => self.request_quit(),
+            Message::Lsp(event) => self.handle_lsp(event),
         }
     }
 
@@ -722,7 +923,12 @@ impl App {
             _ => None,
         });
         let close = window::close_requests().map(|_| Message::CloseRequested);
-        let frames = if self.splash.is_some() { window::frames().map(Message::Frame) } else { Subscription::none() };
+        // Quadros só quando há animação (splash) ou hover esperando o mouse parar.
+        let frames = if self.splash.is_some() || self.editor().needs_tick() {
+            window::frames().map(Message::Frame)
+        } else {
+            Subscription::none()
+        };
         Subscription::batch([input, close, frames])
     }
 
@@ -765,8 +971,8 @@ impl App {
         let editor = tab.editor.view().map(move |m| Message::Editor(tab_id, m));
 
         let mut center = column![tabs, editor].spacing(4).width(Fill).height(Fill);
-        if let Some(bottom) = self.slot_view(Slot::Bottom) {
-            center = center.push(rule::horizontal(1)).push(container(bottom).height(240));
+        if let Some(bottom) = self.bottom_view() {
+            center = center.push(rule::horizontal(1)).push(container(bottom).height(260));
         }
 
         let mut body = row![].height(Fill);
@@ -783,6 +989,32 @@ impl App {
             page = page.push(rule::horizontal(1)).push(status);
         }
         page.into()
+    }
+
+    /// Slot inferior: abas com os painéis visíveis e só o painel em destaque aberto.
+    fn bottom_view(&self) -> Option<Element<'_, Message>> {
+        let visible: Vec<usize> =
+            (0..self.panels.len()).filter(|&i| self.panels[i].slot == Slot::Bottom && self.panels[i].visible).collect();
+        let active = self.active_bottom.filter(|i| visible.contains(i)).or(visible.first().copied())?;
+        let tabs = row(visible.iter().map(|&i| {
+            let style = if i == active { button::secondary } else { button::text };
+            button(text(self.panels[i].title.to_uppercase()).size(11))
+                .on_press(Message::SelectBottom(i))
+                .style(style)
+                .padding([2, 8])
+                .into()
+        }))
+        .spacing(2);
+        let p = &self.panels[active];
+        let ext = p.ext;
+        let body = self.extensions[ext].view(p.id).map(move |m| Message::Ext(ext, m));
+        let content = column![tabs, body].spacing(4).padding(4);
+        Some(
+            mouse_area(content)
+                .on_enter(Message::PointerOverPanel(true))
+                .on_exit(Message::PointerOverPanel(false))
+                .into(),
+        )
     }
 
     /// Painéis visíveis de um slot, um embaixo do outro (ou lado a lado na barra de status).
@@ -858,7 +1090,7 @@ mod tests {
         ids.dedup();
         assert_eq!(ids.len(), CORE_COMMANDS.len(), "ids repetidos");
 
-        let ext_commands = ["filetree.toggle", "filetree.reveal"];
+        let ext_commands = ["filetree.toggle", "filetree.reveal", "search.focus", "problems.focus", "problems.next"];
         let cfg = Config::from_layers(&[("padrão".into(), config::DEFAULT_CONFIG.into())]);
         for (chord, cmd) in &cfg.keys {
             assert!(ids.contains(&cmd.as_str()) || ext_commands.contains(&cmd.as_str()), "{chord} -> {cmd}");

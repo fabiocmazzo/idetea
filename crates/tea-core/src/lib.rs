@@ -40,6 +40,31 @@ pub enum CoreEvent {
     Notification(String),
     /// Config recarregado (ex.: depois de salvar o config.toml).
     ConfigReloaded,
+    /// Diagnósticos de um arquivo (substituem os anteriores desse arquivo e dessa fonte).
+    Diagnostics { source: String, path: PathBuf, items: Vec<Diagnostic> },
+    /// Trabalho em segundo plano (ex.: "rust-analyzer: indexando 40%"). `text: None` = terminou.
+    Activity { source: String, text: Option<String> },
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum Severity {
+    Error,
+    Warning,
+    Info,
+    Hint,
+}
+
+/// Erro, aviso ou dica sobre um trecho de arquivo.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Diagnostic {
+    /// Começam em 1 (coluna em caracteres).
+    pub line: usize,
+    pub column: usize,
+    pub severity: Severity,
+    pub message: String,
+    /// Quem gerou: "rustc", "clippy", "clangd"...
+    pub source: Option<String>,
+    pub code: Option<String>,
 }
 
 /// Resumo do editor ativo, para barras de status e afins.
@@ -59,7 +84,9 @@ pub struct EditorStatus {
 #[derive(Debug, Clone)]
 pub enum Request {
     OpenFile(PathBuf),
-    RegisterPanel { id: PanelId, title: String, slot: Slot },
+    /// Abre e posiciona o cursor. Linha e coluna começam em 1 (coluna em caracteres).
+    OpenFileAt { path: PathBuf, line: usize, column: usize },
+    RegisterPanel { id: PanelId, title: String, slot: Slot, visible: bool },
     RegisterCommand { id: String, title: String },
     RunCommand(String),
     Notify(String),
@@ -96,8 +123,17 @@ impl<'a> Context<'a> {
         self.requests.push(Request::OpenFile(path.into()));
     }
 
+    pub fn open_file_at(&mut self, path: impl Into<PathBuf>, line: usize, column: usize) {
+        self.requests.push(Request::OpenFileAt { path: path.into(), line, column });
+    }
+
     pub fn register_panel(&mut self, id: PanelId, title: impl Into<String>, slot: Slot) {
-        self.requests.push(Request::RegisterPanel { id, title: title.into(), slot });
+        self.requests.push(Request::RegisterPanel { id, title: title.into(), slot, visible: true });
+    }
+
+    /// Registra um painel que só aparece quando a extensão pedir (`show_panel`).
+    pub fn register_panel_hidden(&mut self, id: PanelId, title: impl Into<String>, slot: Slot) {
+        self.requests.push(Request::RegisterPanel { id, title: title.into(), slot, visible: false });
     }
 
     /// Registra um comando. O id deve ter o prefixo da extensão, ex.: `"demo.refresh"`.

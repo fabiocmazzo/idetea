@@ -22,10 +22,21 @@ splash = true
 theme = "dark"
 font_size = 14
 
+# Servidores de linguagem (LSP). Embutidos: rust-analyzer, clangd, pyright,
+# typescript, gopls, lua. Só iniciam se o comando existir no PATH.
+[lsp]
+enabled = true
+# Exemplos:
+# servers.rust-analyzer = { command = "/caminho/rust-analyzer" }
+# servers.clangd = { enabled = false }
+# servers.zls = { command = "zls", languages = { zig = "zig" } }
+
 # Extensões: enabled = liga/desliga (precisa reiniciar); slot = "left", "right" ou "bottom".
 [extensions]
 filetree = { enabled = true, slot = "left" }
 statusbar = { enabled = true }
+search = { enabled = true, slot = "bottom" }
+problems = { enabled = true, slot = "bottom" }
 
 # Atalhos: "combinação" = "comando". Comando vazio ("") desliga o atalho.
 # Atalhos que o editor já usa (Ctrl+F, Ctrl+H, Ctrl+G, Ctrl+Z, Ctrl+D...) têm prioridade quando ele tem foco.
@@ -40,6 +51,13 @@ statusbar = { enabled = true }
 "ctrl+pageup" = "tab.prev"
 "ctrl+b" = "filetree.toggle"
 "ctrl+shift+e" = "filetree.reveal"
+"ctrl+shift+f" = "search.focus"
+"ctrl+shift+j" = "view.toggle_bottom"
+"ctrl+shift+m" = "problems.focus"
+"f8" = "problems.next"
+"f12" = "lsp.definition"
+"ctrl+shift+k" = "lsp.hover"
+"ctrl+shift+i" = "lsp.format"
 "ctrl+shift+t" = "theme.toggle"
 "ctrl+q" = "app.quit"
 "#;
@@ -71,9 +89,35 @@ impl Default for ExtensionConfig {
     }
 }
 
+#[derive(Debug, Clone, Deserialize)]
+#[serde(default)]
+pub struct LspConfig {
+    pub enabled: bool,
+    /// Sobrescreve ou acrescenta servidores, por nome.
+    pub servers: BTreeMap<String, LspServerConfig>,
+}
+
+impl Default for LspConfig {
+    fn default() -> Self {
+        Self { enabled: true, servers: BTreeMap::new() }
+    }
+}
+
+/// Campos ausentes mantêm o padrão do servidor embutido de mesmo nome.
+#[derive(Debug, Clone, Default, Deserialize)]
+#[serde(default)]
+pub struct LspServerConfig {
+    pub enabled: Option<bool>,
+    pub command: Option<String>,
+    pub args: Option<Vec<String>>,
+    /// Extensão de arquivo → languageId. Ex.: `{ rs = "rust" }`.
+    pub languages: Option<BTreeMap<String, String>>,
+}
+
 #[derive(Debug, Clone, Default)]
 pub struct Config {
     pub ui: UiConfig,
+    pub lsp: LspConfig,
     pub extensions: BTreeMap<String, ExtensionConfig>,
     /// Atalhos na ordem das camadas (os últimos vencem).
     pub keys: Vec<(String, String)>,
@@ -130,10 +174,11 @@ impl Config {
 
         let ui = take_section(&mut merged, "ui", &mut errors);
         let extensions = take_section(&mut merged, "extensions", &mut errors);
+        let lsp = take_section(&mut merged, "lsp", &mut errors);
         for unknown in merged.keys() {
             errors.push(format!("seção desconhecida: [{unknown}]"));
         }
-        Self { ui, extensions, keys, errors }
+        Self { ui, lsp, extensions, keys, errors }
     }
 
     /// Config de uma extensão (padrão: ligada, slot escolhido pela extensão).
@@ -222,6 +267,18 @@ mod tests {
         let c = layers(&[DEFAULT_CONFIG, "[ui\nsplash = ", "[ui]\nsplash = \"sim\"\n[outra]\nx = 1"]);
         assert_eq!(c.errors.len(), 3, "{:?}", c.errors);
         assert!(c.ui.splash); // [ui] inválido cai no padrão
+    }
+
+    #[test]
+    fn lsp_overrides() {
+        let c = layers(&[
+            DEFAULT_CONFIG,
+            "[lsp.servers.clangd]\nenabled = false\n[lsp.servers.zls]\ncommand = \"zls\"\nlanguages = { zig = \"zig\" }",
+        ]);
+        assert!(c.errors.is_empty(), "{:?}", c.errors);
+        assert!(c.lsp.enabled);
+        assert_eq!(c.lsp.servers["clangd"].enabled, Some(false));
+        assert_eq!(c.lsp.servers["zls"].languages.as_ref().unwrap()["zig"], "zig");
     }
 
     #[test]

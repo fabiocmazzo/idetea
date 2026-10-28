@@ -1,5 +1,7 @@
 # IDE TEA
 
+**Just code. Add ice.**
+
 IDE rápida e extensível em Rust. Veja [SPEC.md](SPEC.md).
 
 ```sh

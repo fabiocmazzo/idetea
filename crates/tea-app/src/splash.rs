@@ -71,7 +71,7 @@ impl Splash {
             .size(84)
             .font(Font { weight: font::Weight::Light, ..Font::DEFAULT })
             .style(move |t: &Theme| text::Style { color: Some(fade(t.extended_palette().primary.strong.color, alpha)) });
-        let subtitle = text("rápida · leve · extensível").size(15).style(move |t: &Theme| text::Style {
+        let subtitle = text("Just code. Add ice.").size(15).style(move |t: &Theme| text::Style {
             color: Some(fade(t.extended_palette().background.base.text, alpha * 0.7)),
         });
         let bar = container(

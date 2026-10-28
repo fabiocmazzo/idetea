@@ -1,5 +1,8 @@
 # IDE TEA — Especificação
 
+> **IDE TEA. Just code. Add ice.**
+> (Trocadilho com *Iced Tea*: a IDE é feita com o [iced](https://github.com/iced-rs/iced).)
+
 IDE rápida, customizável, em Rust puro (o máximo possível) e sem exageros.
 O núcleo só sabe editar arquivos. Todo o resto (árvore de arquivos, terminal, LSP...) é extensão.
 
@@ -59,12 +62,14 @@ idetea/
 ├── crates/
 │   ├── tea-core/        # buffers, comandos, keybindings, config, eventos, trait Extension
 │   ├── tea-editor/      # fachada sobre o iced-code-editor
-│   ├── tea-app/         # binário: janela iced, layout de slots, carrega extensões
+│   ├── tea-lsp/         # cliente LSP (processo, JSON-RPC, posições), sem UI
+│   ├── tea-app/         # binário: janela iced, layout de slots, carrega extensões, gerencia LSP
 │   └── ext/
 │       ├── tea-ext-filetree/   # árvore de arquivos
 │       ├── tea-ext-statusbar/  # barra de status
-│       ├── tea-ext-terminal/   # fase 2
-│       └── tea-ext-lsp/        # fase 2
+│       ├── tea-ext-search/     # busca no projeto
+│       ├── tea-ext-problems/   # erros e avisos
+│       └── tea-ext-terminal/   # fase 2 (pendente)
 └── Cargo.toml           # workspace + features (filetree, terminal, lsp...)
 ```
 
@@ -223,10 +228,30 @@ Fora do MVP (anotado para depois): abrir arquivo rápido por nome (`Ctrl+P`), ob
 arrastar painéis, encodings além de UTF-8.
 
 ### Fase 2 — IDE
-- [ ] Extensão `lsp`: diagnósticos, autocomplete, hover, ir para definição.
-  Avaliar o cliente LSP que já vem no widget (`LspClient`, feature `lsp-process`) antes de escrever um próprio.
+- [x] Busca no projeto (extensão `search`, painel inferior): busca enquanto digita, respeita `.gitignore`,
+      opções Aa / palavra inteira / regex, paralela (85 mil arquivos em ~0,2 s), clique abre na linha.
+- [x] LSP com cliente próprio (`tea-lsp`): diagnósticos, hover, autocomplete, ir para definição, formatar.
+- [x] Extensão `problems` (painel inferior) + contagem de erros/avisos na barra de status.
+- [x] Teste manual do LSP na tela (hover, menu de autocomplete, Ctrl+Clique): aprovado.
 - [ ] Extensão `terminal` (`alacritty_terminal` + renderização iced).
-- [ ] Busca no projeto (`grep`/`ignore` crates).
+
+#### Decisões do LSP
+
+- **Cliente próprio em vez do embutido no widget**: o do `iced-code-editor` ignora `publishDiagnostics`.
+  O nosso implementa a trait `LspClient` do widget, então hover, autocomplete e definição continuam usando a UI pronta dele.
+- **Camadas**: `tea-lsp` (processo + JSON-RPC, sem UI) → `tea-editor` (ponte com o widget, overlay, menu)
+  → `tea-app` (um servidor por linguagem, iniciado no primeiro arquivo) → extensões recebem `CoreEvent::Diagnostics`/`Activity`.
+  O LSP não é uma extensão: ele precisa do editor por dentro. Só a parte visual (problemas, status) é extensão.
+- **Posições**: pedimos `utf-32` ao servidor (rust-analyzer e clangd aceitam), assim colunas = caracteres.
+  Se ele só falar UTF-16, o cliente converte usando uma cópia do texto.
+- **Menu de autocomplete**: o widget não sabe que o menu está aberto. Um widget `KeyGate` intercepta ↑/↓/Enter/Tab/Esc só nessa hora.
+- **Hover**: pedido depois de 450 ms com o mouse parado. Os quadros de animação (`window::frames`) só ficam ativos enquanto isso.
+- **Falhas**: um servidor que não existe ou morre gera **um** aviso com o motivo (ex.: última linha do stderr) e não é reiniciado sozinho.
+  "LSP: reiniciar servidores" tenta de novo.
+- Servidores embutidos: rust-analyzer, clangd, pyright, typescript-language-server, gopls, lua-language-server.
+  Configuráveis em `[lsp.servers.<nome>]` (trocar comando, desligar, adicionar novos).
+- `IDETEA_LSP_LOG=1` mostra o log dos servidores no terminal.
+- Fora por enquanto: sublinhado de erro no próprio editor (o widget não suporta: precisaria de PR upstream ou fork), formatar ao salvar.
 
 ### Fase 3 — Plugins externos
 - [ ] Host WASM (`wasmtime`) + WIT versionado.

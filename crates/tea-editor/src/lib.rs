@@ -3,21 +3,48 @@
 //! O resto da IDE só usa os tipos deste crate. Trocar o `iced-code-editor`
 //! por outro widget deve mexer só aqui.
 
+mod key_gate;
+mod lsp;
+
+use std::collections::HashMap;
 use std::io;
 use std::path::{Path, PathBuf};
+use std::time::Instant;
 
+use iced::keyboard::key::Named;
+use iced::widget::stack;
 use iced::{Element, Task, Theme};
-use iced_code_editor::{CodeEditor, Message as Inner, theme};
+use iced_code_editor::{
+    CodeEditor, LspDocument, LspOverlayMessage, LspOverlayState, LspTextChange, Message as Inner, theme,
+    view_lsp_overlay,
+};
+
+use key_gate::KeyGate;
+use lsp::PendingHover;
 
 /// Mensagem interna do editor. Opaca para quem está de fora.
 #[derive(Debug, Clone)]
-pub struct EditorMessage(Inner);
+pub struct EditorMessage(Msg);
+
+#[derive(Debug, Clone)]
+enum Msg {
+    Widget(Inner),
+    Overlay(LspOverlayMessage),
+}
 
 impl EditorMessage {
     /// O editor pediu para salvar (`Ctrl+S` com foco nele, ou `:w` no modo vim).
     pub fn is_save_request(&self) -> bool {
-        matches!(self.0, Inner::WriteRequested)
+        matches!(self.0, Msg::Widget(Inner::WriteRequested))
     }
+}
+
+/// LSP ligado neste editor.
+struct LspLink {
+    client: tea_lsp::Client,
+    language_id: String,
+    /// Rótulo → texto a inserir, da última resposta de autocomplete.
+    completions: HashMap<String, String>,
 }
 
 /// Ações de edição que a IDE expõe como comandos.
@@ -55,6 +82,10 @@ pub struct Editor {
     line_ending: LineEnding,
     /// Arquivo ainda não existe no disco (aberto pela linha de comando).
     is_new: bool,
+    theme: Theme,
+    lsp: Option<LspLink>,
+    overlay: LspOverlayState,
+    hover: Option<PendingHover>,
 }
 
 impl Editor {
@@ -92,7 +123,16 @@ impl Editor {
         // A command palette é da IDE, não do widget.
         inner.set_command_palette_enabled(false);
         inner.set_language(iced_code_editor::Language::PortugueseBR);
-        Self { path: path.map(Path::to_path_buf), inner, line_ending, is_new }
+        Self {
+            path: path.map(Path::to_path_buf),
+            inner,
+            line_ending,
+            is_new,
+            theme: Theme::TokyoNight,
+            lsp: None,
+            overlay: LspOverlayState::new(),
+            hover: None,
+        }
     }
 
     pub fn path(&self) -> Option<&Path> {
@@ -146,7 +186,11 @@ impl Editor {
     }
 
     /// Salva em outro caminho e passa a editar esse arquivo.
+    /// Depois de mudar de caminho, o LSP é desligado: o app religa conforme a nova linguagem.
     pub fn save_as(&mut self, path: &Path) -> io::Result<()> {
+        if self.path.as_deref() != Some(path) {
+            self.detach_lsp();
+        }
         self.write_to(path)?;
         if self.path.as_deref() != Some(path) {
             self.path = Some(path.to_path_buf());
@@ -168,11 +212,15 @@ impl Editor {
         std::fs::write(path, text)?;
         self.inner.mark_saved();
         self.is_new = false;
+        if self.lsp.is_some() {
+            self.inner.lsp_did_save();
+        }
         Ok(())
     }
 
     /// O arquivo foi renomeado ou movido por fora (ex.: árvore de arquivos).
     pub fn set_path(&mut self, path: PathBuf) {
+        self.detach_lsp();
         self.inner.set_syntax(&syntax_for(Some(&path)));
         self.path = Some(path);
     }
@@ -183,6 +231,7 @@ impl Editor {
 
     pub fn set_theme(&mut self, theme: &Theme) {
         self.inner.set_theme(theme::from_iced_theme(theme));
+        self.theme = theme.clone();
     }
 
     pub fn set_font_size(&mut self, size: f32) {
@@ -202,6 +251,11 @@ impl Editor {
         self.inner.lose_focus();
     }
 
+    /// Move o cursor. Linha e coluna começam em 1 (coluna em caracteres).
+    pub fn goto(&mut self, line: usize, column: usize) -> Task<EditorMessage> {
+        self.widget(Inner::GotoPosition(line.saturating_sub(1), column.saturating_sub(1)))
+    }
+
     pub fn run(&mut self, action: EditorAction) -> Task<EditorMessage> {
         let msg = match action {
             EditorAction::Find => Inner::OpenSearch,
@@ -215,15 +269,242 @@ impl Editor {
             EditorAction::ToggleVim => Inner::ToggleVimMode,
         };
         self.focus();
-        self.inner.update(&msg).map(EditorMessage)
+        self.widget(msg)
+    }
+
+    fn widget(&mut self, msg: Inner) -> Task<EditorMessage> {
+        self.inner.update(&msg).map(|m| EditorMessage(Msg::Widget(m)))
     }
 
     pub fn update(&mut self, message: EditorMessage) -> Task<EditorMessage> {
-        self.inner.update(&message.0).map(EditorMessage)
+        match message.0 {
+            Msg::Widget(msg) => {
+                match &msg {
+                    Inner::MouseHover(point) => {
+                        if self.overlay.hover_visible && !self.overlay.hover_interactive {
+                            self.overlay.clear_hover();
+                        }
+                        if self.lsp.is_some() {
+                            self.hover = Some(PendingHover { point: *point, since: Instant::now() });
+                        }
+                    }
+                    Inner::JumpClick(point) => {
+                        let point = *point;
+                        let task = self.widget(msg);
+                        if self.lsp.is_some() {
+                            self.inner.lsp_request_definition_at(point);
+                        }
+                        return task;
+                    }
+                    Inner::MouseClick(_) | Inner::Scrolled(_) => {
+                        self.hover = None;
+                        self.overlay.clear_hover();
+                        self.overlay.clear_completions();
+                    }
+                    _ => {
+                        // Digitar ou mover o cursor esconde o hover.
+                        if !self.overlay.hover_interactive {
+                            self.overlay.clear_hover();
+                        }
+                    }
+                }
+                let task = self.widget(msg);
+                if self.overlay.completion_visible {
+                    self.refresh_completion_filter();
+                }
+                task
+            }
+            Msg::Overlay(msg) => {
+                match msg {
+                    LspOverlayMessage::HoverEntered => self.overlay.hover_interactive = true,
+                    LspOverlayMessage::HoverExited => {
+                        self.overlay.hover_interactive = false;
+                        self.overlay.clear_hover();
+                    }
+                    LspOverlayMessage::CompletionSelected(i) => self.accept_completion(i),
+                    LspOverlayMessage::CompletionClosed => self.overlay.clear_completions(),
+                    LspOverlayMessage::CompletionNavigateUp => self.overlay.navigate(-1),
+                    LspOverlayMessage::CompletionNavigateDown => self.overlay.navigate(1),
+                    LspOverlayMessage::CompletionConfirm => self.accept_completion(self.overlay.completion_selected),
+                }
+                Task::none()
+            }
+        }
     }
 
     pub fn view(&self) -> Element<'_, EditorMessage> {
-        self.inner.view().map(EditorMessage)
+        let editor = self.inner.view().map(|m| EditorMessage(Msg::Widget(m)));
+        let content: Element<'_, EditorMessage> = if self.lsp.is_some() {
+            let overlay = view_lsp_overlay(
+                &self.overlay,
+                &self.inner,
+                &self.theme,
+                self.inner.font_size(),
+                self.inner.line_height(),
+                |m| EditorMessage(Msg::Overlay(m)),
+            );
+            stack![editor, overlay].into()
+        } else {
+            editor
+        };
+        KeyGate::new(content)
+            .intercept(self.overlay.completion_visible, |key| {
+                let m = match key {
+                    Named::ArrowUp => LspOverlayMessage::CompletionNavigateUp,
+                    Named::ArrowDown => LspOverlayMessage::CompletionNavigateDown,
+                    Named::Enter | Named::Tab => LspOverlayMessage::CompletionConfirm,
+                    Named::Escape => LspOverlayMessage::CompletionClosed,
+                    _ => return None,
+                };
+                Some(EditorMessage(Msg::Overlay(m)))
+            })
+            .into()
+    }
+
+    // ---- LSP ---------------------------------------------------------------
+
+    /// Liga o editor a um servidor LSP. Precisa de caminho.
+    pub fn attach_lsp(&mut self, client: tea_lsp::Client, language_id: &str) {
+        let Some(path) = self.path.clone() else { return };
+        self.detach_lsp();
+        let uri = tea_lsp::uri::path_to_uri(&path);
+        let bridge = lsp::Bridge { client: client.clone(), path };
+        self.inner.attach_lsp(Box::new(bridge), LspDocument::new(uri, language_id));
+        self.lsp = Some(LspLink { client, language_id: language_id.to_string(), completions: HashMap::new() });
+    }
+
+    pub fn detach_lsp(&mut self) {
+        if self.lsp.take().is_some() {
+            self.inner.detach_lsp();
+        }
+        self.overlay.clear_hover();
+        self.overlay.clear_completions();
+        self.hover = None;
+    }
+
+    /// Nome do servidor ligado, se houver.
+    pub fn lsp_server(&self) -> Option<&str> {
+        self.lsp.as_ref().map(|l| l.client.name())
+    }
+
+    pub fn lsp_language(&self) -> Option<&str> {
+        self.lsp.as_ref().map(|l| l.language_id.as_str())
+    }
+
+    /// Há um hover esperando o mouse parar: o app deve chamar [`Editor::tick`].
+    pub fn needs_tick(&self) -> bool {
+        self.hover.is_some()
+    }
+
+    pub fn tick(&mut self, now: Instant) {
+        let Some(h) = &self.hover else { return };
+        if !h.is_due(now) {
+            return;
+        }
+        let point = h.point;
+        self.hover = None;
+        if let Some((_, anchor)) = self.inner.lsp_hover_anchor_at_point(point)
+            && self.inner.lsp_request_hover_at(point)
+        {
+            self.overlay.set_hover_position(anchor);
+        }
+    }
+
+    pub fn show_hover(&mut self, text: String) {
+        if self.overlay.hover_position.is_some() {
+            self.overlay.show_hover(text);
+        }
+    }
+
+    /// Hover no cursor (comando, sem mouse).
+    pub fn request_hover(&mut self) {
+        if self.lsp.is_some()
+            && let Some(p) = self.inner.cursor_screen_position()
+        {
+            self.overlay.set_hover_position(p);
+            self.inner.lsp_request_hover();
+        }
+    }
+
+    pub fn request_definition(&mut self) -> bool {
+        if self.lsp.is_none() {
+            return false;
+        }
+        self.inner.lsp_request_definition();
+        true
+    }
+
+    pub fn request_formatting(&mut self) -> bool {
+        self.lsp.is_some() && self.inner.lsp_request_formatting()
+    }
+
+    pub fn apply_formatting(&mut self, edits: &[tea_lsp::TextEdit]) {
+        let changes: Vec<LspTextChange> = edits
+            .iter()
+            .map(|e| LspTextChange { range: lsp::to_widget_range(e.range), text: e.new_text.clone() })
+            .collect();
+        self.inner.apply_lsp_text_edits(&changes);
+    }
+
+    pub fn show_completions(&mut self, items: Vec<tea_lsp::CompletionItem>) {
+        let Some(link) = &mut self.lsp else { return };
+        if items.is_empty() || self.overlay.completion_suppressed {
+            self.overlay.clear_completions();
+            return;
+        }
+        let mut labels = Vec::with_capacity(items.len());
+        link.completions.clear();
+        for item in items {
+            labels.push(item.label.clone());
+            link.completions.insert(item.label, item.insert);
+        }
+        let position = self.inner.cursor_screen_position().unwrap_or_default();
+        self.overlay.completion_filter = self.current_prefix().map(|(p, _)| p).unwrap_or_default();
+        self.overlay.set_completions(labels, position);
+    }
+
+    /// Prefixo da palavra no cursor e se o menu ainda faz sentido.
+    fn current_prefix(&mut self) -> Option<(String, bool)> {
+        let link = self.lsp.as_ref()?;
+        let path = self.path.as_deref()?;
+        self.inner.lsp_flush_pending_changes();
+        let (line, column) = self.inner.cursor_position();
+        let text = link.client.line_text(path, line as u32)?;
+        Some(lsp::completion_prefix(&text, column))
+    }
+
+    fn refresh_completion_filter(&mut self) {
+        match self.current_prefix() {
+            Some((prefix, true)) => {
+                self.overlay.completion_filter = prefix;
+                self.overlay.filter_completions();
+            }
+            _ => self.overlay.clear_completions(),
+        }
+    }
+
+    fn accept_completion(&mut self, index: usize) {
+        let Some(label) = self.overlay.completion_items.get(index).cloned() else { return };
+        let insert = self.lsp.as_ref().and_then(|l| l.completions.get(&label).cloned()).unwrap_or(label);
+        self.overlay.clear_completions();
+        let Some(link) = &self.lsp else { return };
+        let Some(path) = self.path.as_deref() else { return };
+        self.inner.lsp_flush_pending_changes();
+        let (line, column) = self.inner.cursor_position();
+        let start = link.client.line_text(path, line as u32).map_or(column, |t| lsp::word_start(&t, column));
+        let range = tea_lsp::Range {
+            start: tea_lsp::Position::new(line as u32, start as u32),
+            end: tea_lsp::Position::new(line as u32, column as u32),
+        };
+        self.inner.apply_lsp_text_edits(&[LspTextChange { range: lsp::to_widget_range(range), text: insert }]);
+        self.focus();
+    }
+}
+
+impl Drop for Editor {
+    /// Fechar a aba avisa o servidor (`didClose`).
+    fn drop(&mut self) {
+        self.detach_lsp();
     }
 }
 

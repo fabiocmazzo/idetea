@@ -1381,6 +1381,7 @@ dependencies = [
  "iced_aw",
  "iced_font_awesome",
  "rust-i18n",
+ "serde_json",
  "syntect",
  "unicode-width",
  "web-time",
@@ -3393,7 +3394,10 @@ dependencies = [
  "tea-core",
  "tea-editor",
  "tea-ext-filetree",
+ "tea-ext-problems",
+ "tea-ext-search",
  "tea-ext-statusbar",
+ "tea-lsp",
 ]
 
 [[package]]
@@ -3411,6 +3415,7 @@ version = "0.0.1"
 dependencies = [
  "iced",
  "iced-code-editor",
+ "tea-lsp",
 ]
 
 [[package]]
@@ -3423,11 +3428,36 @@ dependencies = [
 ]
 
 [[package]]
+name = "tea-ext-problems"
+version = "0.0.1"
+dependencies = [
+ "iced",
+ "tea-core",
+]
+
+[[package]]
+name = "tea-ext-search"
+version = "0.0.1"
+dependencies = [
+ "iced",
+ "ignore",
+ "regex",
+ "tea-core",
+]
+
+[[package]]
 name = "tea-ext-statusbar"
 version = "0.0.1"
 dependencies = [
  "iced",
  "tea-core",
+]
+
+[[package]]
+name = "tea-lsp"
+version = "0.0.1"
+dependencies = [
+ "serde_json",
 ]
 
 [[package]]
