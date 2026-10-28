@@ -92,6 +92,40 @@ pub trait Extension: 'static {
 - Comandos são strings `"<extensão>.<ação>"`. O app roteia pelo prefixo.
 - A comunicação entre extensões é só por **comandos** e **eventos**, nunca por chamada direta.
 
+## Inicialização
+
+### Linha de comando
+
+`idetea [caminho...]`
+
+- A **pasta do projeto** (raiz da árvore de arquivos) é sempre a **pasta atual** de onde a IDE foi chamada.
+  A exceção é quando o argumento é uma pasta: aí ela vira a raiz.
+- **Todo arquivo passado na linha de comando é sempre aberto** numa aba, mesmo que esteja fora da pasta atual.
+  Com vários arquivos, abre todos e o último fica ativo.
+- A árvore de arquivos mostra a raiz **e** revela (expande e destaca) o arquivo ativo, quando ele está dentro dela.
+- Um caminho que não existe abre uma aba nova com esse nome, e o arquivo é criado ao salvar.
+
+| Comando | Raiz da árvore | Abas abertas |
+|---|---|---|
+| `idetea` | pasta atual | nenhuma (aba vazia) |
+| `idetea src/main.rs` | pasta atual | `src/main.rs` |
+| `idetea ~/outro/projeto` | `~/outro/projeto` | nenhuma |
+| `idetea a.rs b.rs` | pasta atual | `a.rs`, `b.rs` (ativa) |
+
+(Na Fase 0, `idetea arquivo` usava a pasta do arquivo como raiz. Isso muda na Fase 1.)
+
+### Splash screen
+
+- Splash elegante ao abrir: logo/nome "IDE TEA", versão e uma animação discreta (fade).
+- Fica na tela **no mínimo 2 segundos** e some com fade. Se o carregamento demorar mais, ela fica até tudo estar pronto
+  (config lida, extensões ativadas, arquivos da linha de comando abertos).
+- O carregamento acontece **por trás** da splash. Os 2 segundos não somam ao tempo de boot, e a IDE já está pronta quando a splash some.
+- Pode ser desligada, para testes e desenvolvimento:
+  - flag `--no-splash`;
+  - variável de ambiente `IDETEA_NO_SPLASH=1`;
+  - config: `[ui] splash = false`.
+- O padrão é ligada.
+
 ## Configuração
 
 - `~/.config/idetea/config.toml` (global) + `.idetea/config.toml` (projeto).
@@ -102,6 +136,9 @@ pub trait Extension: 'static {
 [extensions]
 filetree = { enabled = true, slot = "left" }
 statusbar = { enabled = true }
+
+[ui]
+splash = true
 
 [keys]
 "ctrl+p" = "palette.open"
@@ -145,6 +182,9 @@ O binário release sem símbolos tem ~22 MB (iced/wgpu + dados do syntect + font
 - [ ] Config TOML e keybindings configuráveis.
 - [ ] Extensão `filetree` (abrir pasta, navegar, criar, renomear e apagar).
 - [ ] Extensão `statusbar` (linha/coluna, linguagem, encoding).
+- [ ] Linha de comando: raiz = pasta atual e arquivos passados sempre abertos (ver "Inicialização").
+- [ ] Árvore de arquivos revela o arquivo ativo.
+- [ ] Splash screen elegante, com mínimo de 2 s e desligável por `--no-splash`, `IDETEA_NO_SPLASH=1` ou config.
 
 ### Fase 2 — IDE
 - [ ] Extensão `lsp`: diagnósticos, autocomplete, hover, ir para definição.
