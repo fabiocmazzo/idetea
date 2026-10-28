@@ -49,6 +49,7 @@ fn main() -> iced::Result {
                 .title(App::title)
                 .subscription(App::subscription)
                 .theme(App::theme)
+                .font(tea_core::icons::FONT_BYTES)
                 .exit_on_close_request(false)
                 .run()
         }

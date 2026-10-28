@@ -7,6 +7,7 @@ use std::time::{Duration, Instant};
 
 use iced::widget::{button, row, space, text};
 use iced::{Element, Task, Theme};
+use tea_core::icons::{Icon, icon};
 use tea_core::{Context, CoreEvent, EditorStatus, Extension, PanelId, Severity, Slot};
 
 const PANEL: PanelId = PanelId("bar");
@@ -103,14 +104,17 @@ impl Extension for StatusBarExtension {
         let (errors, warnings) = self.totals();
         let problems = button(
             row![
-                text(format!("✖ {errors}")).size(size).style(move |t: &Theme| text::Style {
+                icon(Icon::Error).size(13).style(move |t: &Theme| text::Style {
                     color: (errors > 0).then(|| t.extended_palette().danger.base.color),
                 }),
-                text(format!("⚠ {warnings}")).size(size).style(move |t: &Theme| text::Style {
+                text(errors).size(size),
+                icon(Icon::Warning).size(13).style(move |t: &Theme| text::Style {
                     color: (warnings > 0).then(|| t.extended_palette().warning.base.color),
                 }),
+                text(warnings).size(size),
             ]
-            .spacing(6),
+            .spacing(4)
+            .align_y(iced::Center),
         )
         .on_press(Message::OpenProblems)
         .style(button::text)

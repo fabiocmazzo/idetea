@@ -11,6 +11,7 @@ use std::sync::Arc;
 use iced::{Element, Subscription, Task, Theme};
 
 pub mod config;
+pub mod icons;
 pub mod keymap;
 
 /// Onde um painel aparece na janela.

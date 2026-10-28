@@ -294,8 +294,13 @@ Polimento, nesta ordem (o diálogo vem primeiro porque menu de contexto e config
       Com o diálogo aberto nenhum outro atalho funciona e nada embaixo fica com o foco.
 - [x] Teste manual do diálogo na tela: aprovado.
 - [ ] Diálogo nativo (`rfd`) para escolher arquivo ou pasta ("Salvar como", "Abrir pasta").
-- [ ] **Árvore de arquivos:** ícones pequenos com tooltip no lugar de "+Arq"/"+Pasta" (fonte de ícones embutida)
-      e menu do botão direito (novo arquivo, nova pasta, renomear, apagar...). O menu de contexto é um componente reutilizável.
+- [x] **Ícones:** fonte Codicons embutida (80 KB, CC BY 4.0, ver `crates/tea-core/assets/NOTICE.md`) e módulo
+      `tea_core::icons` (`icon(Icon::X)`, `icon_button(Icon::X, "dica", msg)` com tooltip após 450 ms).
+      Árvore: barra com ícones (novo arquivo/pasta, renomear, apagar, atualizar, recolher), setas e ícones de pasta/arquivo nas linhas.
+      Git e barra de status também usam os ícones.
+      Escolhida no lugar da Lucide (944 KB inteira): é pequena e já traz ícones de git, terminal e debug.
+- [x] Teste manual dos ícones na tela: aprovado.
+- [ ] **Menu do botão direito** na árvore (novo arquivo, nova pasta, renomear, apagar...). Componente reutilizável (abas, git).
 - [ ] **Help:** atalhos (gerados do mapa de teclas, sempre atualizados) e um guia curto (config, painéis, terminal).
 - [ ] **Painel de configurações:** tema, fonte, extensões e tabela de atalhos editável. Grava no `config.toml`
       preservando comentários (`toml_edit`).

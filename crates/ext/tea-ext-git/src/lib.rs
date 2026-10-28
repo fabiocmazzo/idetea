@@ -10,6 +10,7 @@ use std::time::{Duration, SystemTime};
 use iced::futures::channel::{mpsc, oneshot};
 use iced::widget::{Id, button, column, container, operation, row, rule, scrollable, space, text, text_input};
 use iced::{Element, Fill, Font, Subscription, Task, Theme};
+use tea_core::icons::{Icon, icon, icon_button};
 use tea_core::{Context, CoreEvent, Extension, PanelId, Slot};
 
 pub use git::{Entry, Repo, Status};
@@ -293,32 +294,30 @@ fn status_color(c: char) -> fn(&Theme) -> text::Style {
     }
 }
 
-fn small_button(label: &str, msg: Message) -> Element<'_, Message> {
-    button(text(label).size(12)).on_press(msg).style(button::text).padding([0, 5]).into()
-}
 
 impl GitExtension {
     fn bar_view(&self) -> Element<'_, Message> {
         let Some(st) = &self.status else { return space::horizontal().width(0).into() };
-        let mut label = format!("⎇ {}", st.head_label());
+        let mut label = row![icon(Icon::SourceControl).size(13), text(st.head_label()).size(12)].spacing(4);
         if st.ahead > 0 {
-            label.push_str(&format!(" ↑{}", st.ahead));
+            label = label.push(row![icon(Icon::ArrowUp).size(12), text(st.ahead).size(12)]);
         }
         if st.behind > 0 {
-            label.push_str(&format!(" ↓{}", st.behind));
+            label = label.push(row![icon(Icon::ArrowDown).size(12), text(st.behind).size(12)]);
         }
         if !st.entries.is_empty() {
-            label.push_str(&format!(" ●{}", st.entries.len()));
+            label = label.push(text(format!("●{}", st.entries.len())).size(12));
         }
-        button(text(label).size(12)).on_press(Message::Refresh).style(button::text).padding([0, 4]).into()
+        button(label.align_y(iced::Center)).on_press(Message::Refresh).style(button::text).padding([0, 4]).into()
     }
 
     fn changes_view(&self) -> Element<'_, Message> {
         let head = self.status.as_ref().map(Status::head_label).unwrap_or_default();
         let header = row![
-            text(format!("⎇ {head}")).size(13),
+            icon(Icon::SourceControl).size(14),
+            text(head).size(13),
             space::horizontal(),
-            small_button("↻", Message::Refresh),
+            icon_button(Icon::Refresh, "Atualizar", Some(Message::Refresh)),
         ]
         .align_y(iced::Center);
 
@@ -338,13 +337,13 @@ impl GitExtension {
             let staged: Vec<&Entry> = st.entries.iter().filter(|e| e.staged.is_some()).collect();
             let unstaged: Vec<&Entry> = st.entries.iter().filter(|e| e.unstaged.is_some()).collect();
             if !staged.is_empty() {
-                list = list.push(self.section("No stage", staged.len(), small_button("−", Message::UnstageAll)));
+                list = list.push(self.section("No stage", staged.len(), icon_button(Icon::Remove, "Tirar tudo do stage", Some(Message::UnstageAll))));
                 for e in staged {
                     list = list.push(self.entry_row(e, true));
                 }
             }
             if !unstaged.is_empty() {
-                list = list.push(self.section("Mudanças", unstaged.len(), small_button("+", Message::StageAll)));
+                list = list.push(self.section("Mudanças", unstaged.len(), icon_button(Icon::Add, "Adicionar tudo ao stage", Some(Message::StageAll))));
                 for e in unstaged {
                     list = list.push(self.entry_row(e, false));
                 }
@@ -381,9 +380,9 @@ impl GitExtension {
         .spacing(6)
         .align_y(iced::Center);
         let toggle = if staged {
-            small_button("−", Message::Unstage(e.path.clone()))
+            icon_button(Icon::Remove, "Tirar do stage", Some(Message::Unstage(e.path.clone())))
         } else {
-            small_button("+", Message::Stage(e.path.clone()))
+            icon_button(Icon::Add, "Adicionar ao stage", Some(Message::Stage(e.path.clone())))
         };
         row![
             button(label)
@@ -391,7 +390,7 @@ impl GitExtension {
                 .style(if selected { button::secondary } else { button::text })
                 .padding([1, 4])
                 .width(Fill),
-            small_button("↗", Message::Open(e.path.clone())),
+            icon_button(Icon::GoToFile, "Abrir arquivo", Some(Message::Open(e.path.clone()))),
             toggle,
         ]
         .align_y(iced::Center)
@@ -408,7 +407,7 @@ impl GitExtension {
             text(&sel.path).size(12),
             text(if sel.staged { "  (stage)" } else { "" }).size(11).style(text::secondary),
             space::horizontal(),
-            small_button("Abrir", Message::Open(sel.path.clone())),
+            icon_button(Icon::GoToFile, "Abrir arquivo", Some(Message::Open(sel.path.clone()))),
         ]
         .align_y(iced::Center);
         if let Some(e) = &sel.error {

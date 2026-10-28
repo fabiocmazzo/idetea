@@ -6,8 +6,9 @@
 use std::collections::{HashMap, HashSet};
 use std::path::{Component, Path, PathBuf};
 
-use iced::widget::{Id, button, column, operation, row, scrollable, space, text, text_input};
+use iced::widget::{Id, button, column, container, operation, row, scrollable, space, text, text_input};
 use iced::{Element, Fill, Length, Task};
+use tea_core::icons::{Icon, icon, icon_button};
 use tea_core::{ButtonKind, Context, CoreEvent, Dialog, Extension, PanelId, Slot};
 
 const PANEL: PanelId = PanelId("tree");
@@ -407,20 +408,18 @@ impl Extension for FileTreeExtension {
     }
 
     fn view(&self, _panel: PanelId) -> Element<'_, Message> {
-        let tool = |label: &'static str, msg: Option<Message>| {
-            button(text(label).size(12)).on_press_maybe(msg).style(button::text).padding([2, 6])
-        };
         let has_sel = self.selected.is_some();
         let toolbar = row![
             text(display_name(&self.root)).size(13),
             space::horizontal(),
-            tool("+Arq", Some(Message::NewFile)),
-            tool("+Pasta", Some(Message::NewFolder)),
-            tool("Ren", has_sel.then_some(Message::Rename)),
-            tool("Del", has_sel.then_some(Message::Delete)),
-            tool("↻", Some(Message::Refresh)),
-            tool("⊟", Some(Message::CollapseAll)),
+            icon_button(Icon::NewFile, "Novo arquivo", Some(Message::NewFile)),
+            icon_button(Icon::NewFolder, "Nova pasta", Some(Message::NewFolder)),
+            icon_button(Icon::Edit, "Renomear", has_sel.then_some(Message::Rename)),
+            icon_button(Icon::Trash, "Apagar (lixeira)", has_sel.then_some(Message::Delete)),
+            icon_button(Icon::Refresh, "Atualizar", Some(Message::Refresh)),
+            icon_button(Icon::CollapseAll, "Recolher tudo", Some(Message::CollapseAll)),
         ]
+        .spacing(1)
         .align_y(iced::Center);
 
         let mut list = column![];
@@ -458,10 +457,16 @@ impl Extension for FileTreeExtension {
 impl FileTreeExtension {
     fn entry_row<'a>(&'a self, depth: usize, entry: &'a Entry) -> Element<'a, Message> {
         let name = display_name(&entry.path);
-        let icon = match (entry.is_dir, self.expanded.contains(&entry.path)) {
-            (true, true) => "▾",
-            (true, false) => "▸",
-            (false, _) => " ",
+        let expanded = self.expanded.contains(&entry.path);
+        let chevron: Element<'a, Message> = match (entry.is_dir, expanded) {
+            (true, true) => icon(Icon::ChevronDown).size(14).style(text::secondary).into(),
+            (true, false) => icon(Icon::ChevronRight).size(14).style(text::secondary).into(),
+            (false, _) => space::horizontal().width(14).into(),
+        };
+        let kind = match (entry.is_dir, expanded) {
+            (true, true) => Icon::FolderOpened,
+            (true, false) => Icon::Folder,
+            (false, _) => Icon::File,
         };
         let is_active = self.active.as_deref() == Some(entry.path.as_path());
         let is_selected = self.selected.as_deref() == Some(entry.path.as_path());
@@ -472,7 +477,8 @@ impl FileTreeExtension {
         };
         let label = row![
             space::horizontal().width(depth as f32 * INDENT),
-            text(icon).size(12).width(14),
+            container(chevron).width(16),
+            container(icon(kind).size(14).style(text::secondary)).width(20),
             text(name).size(13).style(move |theme: &iced::Theme| {
                 let palette = theme.extended_palette();
                 text::Style { color: is_active.then_some(palette.primary.strong.color) }
