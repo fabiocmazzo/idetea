@@ -10,9 +10,13 @@ license = "MIT"
 [workspace.dependencies]
 iced = "0.14"
 iced-code-editor = "0.5"
+serde = { version = "1", features = ["derive"] }
+toml = "1"
+trash = "5"
 tea-core = { path = "crates/tea-core" }
 tea-editor = { path = "crates/tea-editor" }
-tea-ext-demo = { path = "crates/ext/tea-ext-demo" }
+tea-ext-filetree = { path = "crates/ext/tea-ext-filetree" }
+tea-ext-statusbar = { path = "crates/ext/tea-ext-statusbar" }
 
 [profile.release]
 lto = "thin"

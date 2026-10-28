@@ -61,8 +61,8 @@ idetea/
 │   ├── tea-editor/      # fachada sobre o iced-code-editor
 │   ├── tea-app/         # binário: janela iced, layout de slots, carrega extensões
 │   └── ext/
-│       ├── tea-ext-filetree/
-│       ├── tea-ext-statusbar/
+│       ├── tea-ext-filetree/   # árvore de arquivos
+│       ├── tea-ext-statusbar/  # barra de status
 │       ├── tea-ext-terminal/   # fase 2
 │       └── tea-ext-lsp/        # fase 2
 └── Cargo.toml           # workspace + features (filetree, terminal, lsp...)
@@ -128,22 +128,54 @@ pub trait Extension: 'static {
 
 ## Configuração
 
-- `~/.config/idetea/config.toml` (global) + `.idetea/config.toml` (projeto).
-- Recarrega ao salvar.
-- Keybindings, tema, extensões ativas e slot de cada painel.
+- Camadas: padrões embutidos (`tea_core::config::DEFAULT_CONFIG`) → global → projeto.
+  - Global: `$XDG_CONFIG_HOME/idetea/config.toml` (ou `~/.config/idetea/config.toml`).
+    O comando "Config: abrir config global" cria o arquivo já com os padrões comentados.
+  - Projeto: `<raiz>/.idetea/config.toml`.
+- O merge é profundo: `filetree = { slot = "right" }` no projeto mantém `enabled` do global.
+- Recarrega ao salvar qualquer um dos dois pela IDE (tema, fonte e atalhos). Ligar ou desligar extensão só vale ao reiniciar.
+- Um erro no config não impede a IDE de abrir: a parte válida é usada e os problemas aparecem na barra de status.
 
 ```toml
+[ui]
+splash = true
+theme = "dark"        # "dark", "light" ou nome de tema do iced ("Nord", "Dracula"...)
+font_size = 14
+
 [extensions]
 filetree = { enabled = true, slot = "left" }
 statusbar = { enabled = true }
 
-[ui]
-splash = true
-
 [keys]
-"ctrl+p" = "palette.open"
+"ctrl+shift+p" = "palette.open"
 "ctrl+b" = "filetree.toggle"
+"ctrl+s" = ""          # texto vazio desliga um atalho padrão
 ```
+
+### Atalhos: quem tem prioridade
+
+1. **Palette aberta:** `Esc` fecha, `↑`/`↓` navegam e `Enter` executa. O atalho da palette também fecha.
+2. **Widget com foco** (editor, campos de texto): se ele usou a tecla, a IDE não faz nada.
+   O editor já trata `Ctrl+F/H/G` (buscar, substituir, ir para linha), `Ctrl+Z/Y`, `Ctrl+D`, `Ctrl+K/J` (dobrar)
+   e `Ctrl+S` (emite `WriteRequested`, que a IDE trata como `file.save`, assim como o `:w` do modo vim).
+3. **Mapa de atalhos da IDE** (`[keys]`) para o resto.
+
+`Ctrl+Tab` é usado pelo editor (insere tab), então a troca de abas usa `Ctrl+PageUp`/`Ctrl+PageDown`.
+
+### Comandos do núcleo
+
+`palette.open`, `file.{new,save,save_as,close}`, `tab.{next,prev}`,
+`editor.{find,replace,goto_line,undo,redo,select_all,fold_all,unfold_all,toggle_vim}`,
+`theme.toggle`, `config.{open,open_project,reload}`, `view.toggle_{left,right,bottom}`, `app.quit`.
+Extensões registram os delas com o próprio prefixo (`filetree.*`).
+
+### Segurança contra perda de dados
+
+- Fechar aba com alterações: o primeiro "fechar" avisa e o segundo descarta.
+- Sair (`Ctrl+Q` ou o X da janela) com abas alteradas: mesma regra.
+- Apagar na árvore: pede confirmação e **move para a lixeira** (crate `trash`), sem apagar de vez.
+- Arquivo apagado ou renomeado pela árvore: as abas são atualizadas. Aba com alterações nunca é fechada sozinha.
+- CRLF é preservado ao salvar. Arquivos que não são UTF-8 não abrem (com aviso), em vez de serem corrompidos.
 
 ## Roadmap
 
@@ -175,16 +207,20 @@ O binário release sem símbolos tem ~22 MB (iced/wgpu + dados do syntect + font
 - O modo vim emite `WriteRequested` (`:w`). O app precisa tratar isso como `file.save` (Fase 1).
 
 ### Fase 1 — MVP
-- [ ] Abrir e salvar arquivos, várias abas, indicador de "modificado".
-- [ ] Syntax highlight e temas claro e escuro.
-- [ ] Buscar e substituir no arquivo (já vem no widget, só precisa ligar a atalhos e comandos).
-- [ ] Command palette (todos os comandos registrados, incluindo os das extensões).
-- [ ] Config TOML e keybindings configuráveis.
-- [ ] Extensão `filetree` (abrir pasta, navegar, criar, renomear e apagar).
-- [ ] Extensão `statusbar` (linha/coluna, linguagem, encoding).
-- [ ] Linha de comando: raiz = pasta atual e arquivos passados sempre abertos (ver "Inicialização").
-- [ ] Árvore de arquivos revela o arquivo ativo.
-- [ ] Splash screen elegante, com mínimo de 2 s e desligável por `--no-splash`, `IDETEA_NO_SPLASH=1` ou config.
+- [x] Abrir e salvar arquivos, várias abas, indicador de "modificado", salvar como, aviso ao fechar com alterações.
+- [x] Syntax highlight e temas claro e escuro (`theme.toggle`, `[ui] theme`).
+- [x] Buscar e substituir no arquivo (do widget, exposto como comandos).
+- [x] Command palette (todos os comandos registrados, incluindo os das extensões, com busca aproximada e atalho ao lado).
+- [x] Config TOML em camadas e keybindings configuráveis, recarregados ao salvar.
+- [x] Extensão `filetree` (navegar, abrir, criar, renomear, apagar para a lixeira).
+- [x] Extensão `statusbar` (notificação, modificado, linha/coluna, linguagem, encoding, LF/CRLF).
+- [x] Linha de comando: raiz = pasta atual e arquivos passados sempre abertos (ver "Inicialização").
+- [x] Árvore de arquivos revela o arquivo ativo.
+- [x] Splash screen com fade, mínimo de 2 s e desligável por `--no-splash`, `IDETEA_NO_SPLASH=1` ou config.
+- [x] Teste manual de tudo acima na tela: aprovado.
+
+Fora do MVP (anotado para depois): abrir arquivo rápido por nome (`Ctrl+P`), observar mudanças no disco (`notify`),
+arrastar painéis, encodings além de UTF-8.
 
 ### Fase 2 — IDE
 - [ ] Extensão `lsp`: diagnósticos, autocomplete, hover, ir para definição.

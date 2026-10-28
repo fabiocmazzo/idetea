@@ -9,11 +9,13 @@ name = "idetea"
 path = "src/main.rs"
 
 [features]
-default = ["ext-demo"]
-ext-demo = ["dep:tea-ext-demo"]
+default = ["ext-filetree", "ext-statusbar"]
+ext-filetree = ["dep:tea-ext-filetree"]
+ext-statusbar = ["dep:tea-ext-statusbar"]
 
 [dependencies]
 iced.workspace = true
 tea-core.workspace = true
 tea-editor.workspace = true
-tea-ext-demo = { workspace = true, optional = true }
+tea-ext-filetree = { workspace = true, optional = true }
+tea-ext-statusbar = { workspace = true, optional = true }

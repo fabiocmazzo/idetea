@@ -10,12 +10,18 @@ use std::sync::Arc;
 
 use iced::{Element, Task};
 
+pub mod config;
+pub mod keymap;
+
 /// Onde um painel aparece na janela.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Deserialize)]
+#[serde(rename_all = "lowercase")]
 pub enum Slot {
     Left,
     Right,
     Bottom,
+    /// Faixa fina no rodapé da janela (barra de status).
+    Status,
 }
 
 /// Identifica um painel dentro da extensão que o registrou.
@@ -28,6 +34,25 @@ pub enum CoreEvent {
     FileOpened(PathBuf),
     FileSaved(PathBuf),
     ActiveFileChanged(Option<PathBuf>),
+    /// Estado do editor ativo mudou (cursor, linguagem, modificado...).
+    EditorStatus(EditorStatus),
+    /// Mensagem curta para o usuário (vinda do núcleo ou de outra extensão).
+    Notification(String),
+    /// Config recarregado (ex.: depois de salvar o config.toml).
+    ConfigReloaded,
+}
+
+/// Resumo do editor ativo, para barras de status e afins.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct EditorStatus {
+    pub path: Option<PathBuf>,
+    /// Linha e coluna, começando em 1.
+    pub line: usize,
+    pub column: usize,
+    pub language: String,
+    pub modified: bool,
+    pub encoding: &'static str,
+    pub line_ending: &'static str,
 }
 
 /// Pedido de uma extensão para o app. O app executa depois que a chamada retorna.
@@ -38,6 +63,12 @@ pub enum Request {
     RegisterCommand { id: String, title: String },
     RunCommand(String),
     Notify(String),
+    /// Muda a visibilidade de um painel desta extensão. `None` alterna.
+    PanelVisibility { id: PanelId, visible: Option<bool> },
+    /// A extensão renomeou um arquivo ou pasta no disco: o app atualiza as abas.
+    PathRenamed { from: PathBuf, to: PathBuf },
+    /// A extensão apagou um arquivo ou pasta no disco: o app fecha as abas sem alterações.
+    PathDeleted(PathBuf),
 }
 
 /// O que uma extensão pode ler e pedir durante uma chamada.
@@ -80,6 +111,22 @@ impl<'a> Context<'a> {
 
     pub fn notify(&mut self, text: impl Into<String>) {
         self.requests.push(Request::Notify(text.into()));
+    }
+
+    pub fn toggle_panel(&mut self, id: PanelId) {
+        self.requests.push(Request::PanelVisibility { id, visible: None });
+    }
+
+    pub fn show_panel(&mut self, id: PanelId) {
+        self.requests.push(Request::PanelVisibility { id, visible: Some(true) });
+    }
+
+    pub fn path_renamed(&mut self, from: impl Into<PathBuf>, to: impl Into<PathBuf>) {
+        self.requests.push(Request::PathRenamed { from: from.into(), to: to.into() });
+    }
+
+    pub fn path_deleted(&mut self, path: impl Into<PathBuf>) {
+        self.requests.push(Request::PathDeleted(path.into()));
     }
 
     pub fn into_requests(self) -> Vec<Request> {

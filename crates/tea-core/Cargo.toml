@@ -6,3 +6,5 @@ license.workspace = true
 
 [dependencies]
 iced.workspace = true
+serde.workspace = true
+toml.workspace = true
