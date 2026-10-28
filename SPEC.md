@@ -182,9 +182,10 @@ Extensões registram os delas com o próprio prefixo (`filetree.*`).
 
 ### Segurança contra perda de dados
 
-- Fechar aba com alterações: o primeiro "fechar" avisa e o segundo descarta.
-- Sair (`Ctrl+Q` ou o X da janela) com abas alteradas: mesma regra.
-- Apagar na árvore: pede confirmação e **move para a lixeira** (crate `trash`), sem apagar de vez.
+- Fechar aba com alterações: diálogo **Salvar** (Enter) / Descartar / Cancelar.
+- Sair (`Ctrl+Q` ou o X da janela) com abas alteradas: diálogo com a lista delas, **Salvar tudo e sair** (Enter) / Sair sem salvar / Cancelar.
+  Se alguma não puder ser salva (erro ou aba sem nome), a IDE não sai.
+- Apagar na árvore: diálogo de confirmação e **move para a lixeira** (crate `trash`), sem apagar de vez.
 - Arquivo apagado ou renomeado pela árvore: as abas são atualizadas. Aba com alterações nunca é fechada sozinha.
 - CRLF é preservado ao salvar. Arquivos que não são UTF-8 não abrem (com aviso), em vez de serem corrompidos.
 
@@ -285,9 +286,14 @@ Os plugins WASM ficaram para depois do polimento: a API das extensões ainda vai
 
 Polimento, nesta ordem (o diálogo vem primeiro porque menu de contexto e configurações usam ele):
 
-- [ ] **Diálogo de confirmação** desenhado pela IDE (camada sobre a janela, como a palette; segue o tema; Enter/Esc).
-      Usado em: apagar arquivo, fechar aba com alterações, sair com alterações. Diálogo nativo (`rfd`) só para escolher
-      arquivo ou pasta ("Salvar como", "Abrir pasta").
+- [x] **Diálogo de confirmação** desenhado pela IDE (camada sobre a janela, como a palette; segue o tema).
+      Usado em: apagar arquivo, fechar aba com alterações, sair com alterações.
+      Extensões usam `ctx.show_dialog(Dialog::new(..).button(rótulo, ButtonKind::Danger, Message::X).cancel(..))`;
+      o botão escolhido manda a mensagem de volta para a extensão que abriu.
+      Teclado: Enter aciona o botão em destaque (o primeiro `Primary`/`Danger`), ←/→/Tab trocam, Esc ou clique fora cancelam.
+      Com o diálogo aberto nenhum outro atalho funciona e nada embaixo fica com o foco.
+- [x] Teste manual do diálogo na tela: aprovado.
+- [ ] Diálogo nativo (`rfd`) para escolher arquivo ou pasta ("Salvar como", "Abrir pasta").
 - [ ] **Árvore de arquivos:** ícones pequenos com tooltip no lugar de "+Arq"/"+Pasta" (fonte de ícones embutida)
       e menu do botão direito (novo arquivo, nova pasta, renomear, apagar...). O menu de contexto é um componente reutilizável.
 - [ ] **Help:** atalhos (gerados do mapa de teclas, sempre atualizados) e um guia curto (config, painéis, terminal).

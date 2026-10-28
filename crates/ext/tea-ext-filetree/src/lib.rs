@@ -6,9 +6,9 @@
 use std::collections::{HashMap, HashSet};
 use std::path::{Component, Path, PathBuf};
 
-use iced::widget::{Id, button, column, container, operation, row, scrollable, space, text, text_input};
+use iced::widget::{Id, button, column, operation, row, scrollable, space, text, text_input};
 use iced::{Element, Fill, Length, Task};
-use tea_core::{Context, CoreEvent, Extension, PanelId, Slot};
+use tea_core::{ButtonKind, Context, CoreEvent, Dialog, Extension, PanelId, Slot};
 
 const PANEL: PanelId = PanelId("tree");
 const ROW_HEIGHT: f32 = 24.0;
@@ -49,8 +49,7 @@ pub enum Message {
     NewFolder,
     Rename,
     Delete,
-    ConfirmDelete,
-    CancelDelete,
+    ConfirmDelete(PathBuf),
     EditChanged(String),
     EditSubmit,
     EditCancel,
@@ -68,7 +67,6 @@ pub struct FileTreeExtension {
     /// Último arquivo aberto por clique aqui: não precisa rolar até ele.
     clicked: Option<PathBuf>,
     edit: Option<Edit>,
-    confirm_delete: Option<PathBuf>,
     error: Option<String>,
 }
 
@@ -165,7 +163,6 @@ impl FileTreeExtension {
             self.expanded.insert(dir.clone());
             self.ensure_loaded(&dir.clone());
         }
-        self.confirm_delete = None;
         self.error = None;
         self.edit = Some(Edit { kind, value });
         Task::batch([operation::focus(input_id()), operation::move_cursor_to_end(input_id())])
@@ -224,8 +221,7 @@ impl FileTreeExtension {
         }
     }
 
-    fn delete_confirmed(&mut self, ctx: &mut Context) {
-        let Some(path) = self.confirm_delete.take() else { return };
+    fn delete_confirmed(&mut self, path: PathBuf, ctx: &mut Context) {
         match trash::delete(&path) {
             Ok(()) => {
                 ctx.path_deleted(&path);
@@ -359,7 +355,6 @@ impl Extension for FileTreeExtension {
         match message {
             Message::Clicked(path, is_dir) => {
                 self.selected = Some(path.clone());
-                self.confirm_delete = None;
                 self.error = None;
                 if is_dir {
                     if !self.expanded.remove(&path) {
@@ -382,12 +377,18 @@ impl Extension for FileTreeExtension {
             Message::Delete => match self.selected.clone() {
                 Some(path) => {
                     self.edit = None;
-                    self.confirm_delete = Some(path);
+                    let is_dir = path.is_dir();
+                    let what = if is_dir { "A pasta e todo o conteúdo dela vão" } else { "O arquivo vai" };
+                    let title = format!("Apagar \"{}\"?", display_name(&path));
+                    ctx.show_dialog(
+                        Dialog::new(title, format!("{what} para a lixeira (dá para recuperar por lá)."))
+                            .button("Mover para a lixeira", ButtonKind::Danger, Message::ConfirmDelete(path))
+                            .cancel("Cancelar"),
+                    );
                 }
                 None => ctx.notify("Selecione um item na árvore para apagar"),
             },
-            Message::ConfirmDelete => self.delete_confirmed(ctx),
-            Message::CancelDelete => self.confirm_delete = None,
+            Message::ConfirmDelete(path) => self.delete_confirmed(path, ctx),
             Message::EditChanged(value) => {
                 if let Some(edit) = &mut self.edit {
                     edit.value = value;
@@ -441,9 +442,6 @@ impl Extension for FileTreeExtension {
             } else {
                 list = list.push(self.entry_row(depth, entry));
             }
-            if self.confirm_delete.as_deref() == Some(entry.path.as_path()) {
-                list = list.push(confirm_row(depth, entry));
-            }
             if entry.is_dir && edit_parent.as_deref() == Some(entry.path.as_path()) {
                 list = list.push(self.edit_row(depth + 1));
             }
@@ -489,23 +487,6 @@ impl FileTreeExtension {
             .style(style)
             .into()
     }
-}
-
-fn confirm_row(depth: usize, entry: &Entry) -> Element<'_, Message> {
-    let what = if entry.is_dir { "pasta e todo o conteúdo" } else { "arquivo" };
-    container(
-        row![
-            space::horizontal().width(depth as f32 * INDENT + 14.0),
-            text(format!("Mover {what} para a lixeira?")).size(12),
-            space::horizontal(),
-            button(text("Sim").size(12)).on_press(Message::ConfirmDelete).style(button::danger).padding([2, 8]),
-            button(text("Não").size(12)).on_press(Message::CancelDelete).style(button::text).padding([2, 8]),
-        ]
-        .spacing(4)
-        .align_y(iced::Center),
-    )
-    .padding([2, 0])
-    .into()
 }
 
 fn display_name(path: &Path) -> String {

@@ -98,6 +98,65 @@ pub enum Request {
     PathRenamed { from: PathBuf, to: PathBuf },
     /// A extensão apagou um arquivo ou pasta no disco: o app fecha as abas sem alterações.
     PathDeleted(PathBuf),
+    /// Mostra um diálogo modal. O botão escolhido manda a mensagem dele de volta para a extensão.
+    Dialog(Dialog),
+}
+
+/// Estilo de um botão de diálogo.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ButtonKind {
+    /// Ação recomendada.
+    Primary,
+    /// Ação destrutiva (apagar, descartar).
+    Danger,
+    Secondary,
+}
+
+#[derive(Debug, Clone)]
+pub struct DialogButton {
+    pub label: String,
+    pub kind: ButtonKind,
+    /// `None` = só fecha o diálogo (cancelar).
+    pub action: Option<ExtMessage>,
+}
+
+/// Diálogo modal desenhado pela IDE. Enter aciona o botão em destaque (o primeiro
+/// `Primary` ou `Danger`), Esc ou clique fora fecham sem ação, ←/→/Tab trocam o destaque.
+///
+/// ```ignore
+/// ctx.show_dialog(
+///     Dialog::new("Apagar arquivo?", "main.rs vai para a lixeira.")
+///         .button("Mover para a lixeira", ButtonKind::Danger, Message::DeleteConfirmed(path))
+///         .cancel("Cancelar"),
+/// );
+/// ```
+#[derive(Debug, Clone)]
+pub struct Dialog {
+    pub title: String,
+    pub message: String,
+    pub buttons: Vec<DialogButton>,
+}
+
+impl Dialog {
+    pub fn new(title: impl Into<String>, message: impl Into<String>) -> Self {
+        Self { title: title.into(), message: message.into(), buttons: Vec::new() }
+    }
+
+    /// `on_press` precisa ser do tipo `Message` da própria extensão (senão é ignorada).
+    pub fn button<M: Any + Send + Sync>(mut self, label: impl Into<String>, kind: ButtonKind, on_press: M) -> Self {
+        self.buttons.push(DialogButton { label: label.into(), kind, action: Some(ExtMessage::new(on_press)) });
+        self
+    }
+
+    pub fn cancel(mut self, label: impl Into<String>) -> Self {
+        self.buttons.push(DialogButton { label: label.into(), kind: ButtonKind::Secondary, action: None });
+        self
+    }
+
+    /// Botão que o Enter aciona.
+    pub fn default_button(&self) -> Option<usize> {
+        self.buttons.iter().position(|b| b.kind != ButtonKind::Secondary)
+    }
 }
 
 /// O que uma extensão pode ler e pedir durante uma chamada.
@@ -159,6 +218,10 @@ impl<'a> Context<'a> {
         self.requests.push(Request::PanelVisibility { id, visible: Some(true) });
     }
 
+    pub fn show_dialog(&mut self, dialog: Dialog) {
+        self.requests.push(Request::Dialog(dialog));
+    }
+
     pub fn hide_panel(&mut self, id: PanelId) {
         self.requests.push(Request::PanelVisibility { id, visible: Some(false) });
     }
@@ -214,8 +277,12 @@ pub trait Extension: 'static {
 pub struct ExtMessage(Arc<dyn Any + Send + Sync>);
 
 impl ExtMessage {
-    fn new<T: Any + Send + Sync>(value: T) -> Self {
+    pub fn new<T: Any + Send + Sync>(value: T) -> Self {
         Self(Arc::new(value))
+    }
+
+    pub fn downcast_ref<T: Any>(&self) -> Option<&T> {
+        self.0.downcast_ref()
     }
 }
 

@@ -3,6 +3,7 @@
 //! Uso: `idetea [--no-splash] [caminho...]` (ver `cli.rs`).
 
 mod cli;
+mod dialog;
 mod lsp;
 mod palette;
 mod pass_keys;
@@ -16,7 +17,10 @@ use iced::widget::{button, column, container, mouse_area, opaque, operation, row
 use iced::{Element, Fill, Subscription, Task, Theme, keyboard, mouse, window};
 use tea_core::config::{self, Config};
 use tea_core::keymap::{Chord, Keymap};
-use tea_core::{AnyExtension, Context, CoreEvent, Diagnostic, EditorStatus, ExtMessage, PanelId, Request, Severity, Slot};
+use tea_core::{
+    AnyExtension, ButtonKind, Context, CoreEvent, Diagnostic, Dialog, EditorStatus, ExtMessage, PanelId, Request, Severity,
+    Slot,
+};
 use tea_editor::{Editor, EditorAction, EditorMessage};
 
 use palette::{CommandInfo, Palette};
@@ -106,6 +110,15 @@ const DARK_THEME: Theme = Theme::TokyoNight;
 const LIGHT_THEME: Theme = Theme::Light;
 const SIDE_WIDTH: f32 = 260.0;
 
+/// Respostas dos diálogos do próprio app.
+#[derive(Debug, Clone, Copy)]
+enum CoreDialog {
+    SaveAndClose(u64),
+    DiscardAndClose(u64),
+    SaveAllAndQuit,
+    QuitWithoutSaving,
+}
+
 struct Tab {
     id: u64,
     editor: Editor,
@@ -141,9 +154,7 @@ struct App {
     splash: Option<Splash>,
     /// Ponteiro sobre um painel lateral: um clique ali tira o foco do editor.
     pointer_over_panel: bool,
-    /// Aba com alterações à espera de um segundo "fechar" para descartar.
-    pending_close: Option<u64>,
-    pending_quit: bool,
+    dialog: Option<dialog::Open>,
     last_status: EditorStatus,
 }
 
@@ -159,6 +170,7 @@ enum Message {
     SelectBottom(usize),
     Key { key: keyboard::Key, modifiers: keyboard::Modifiers, captured: bool },
     Palette(palette::Msg),
+    Dialog(dialog::Msg),
     Frame(Instant),
     PointerOverPanel(bool),
     MousePressed,
@@ -206,8 +218,7 @@ impl App {
             palette: None,
             splash: show_splash.then(|| Splash::new(started)),
             pointer_over_panel: false,
-            pending_close: None,
-            pending_quit: false,
+            dialog: None,
             last_status: EditorStatus::default(),
             config,
         };
@@ -307,6 +318,7 @@ impl App {
                 }
                 Request::PathRenamed { from, to } => tasks.push(self.path_renamed(&from, &to)),
                 Request::PathDeleted(path) => tasks.push(self.path_deleted(&path)),
+                Request::Dialog(dialog) => tasks.push(self.open_dialog(dialog, dialog::Owner::Ext(ext))),
             }
         }
         Task::batch(tasks)
@@ -506,7 +518,6 @@ impl App {
 
     fn set_active(&mut self, i: usize) -> Task<Message> {
         self.active = i.min(self.tabs.len() - 1);
-        self.pending_close = None;
         if self.palette.is_none() && self.splash.is_none() {
             self.editor_mut().focus();
         }
@@ -518,10 +529,13 @@ impl App {
     fn close_tab(&mut self, id: u64, force: bool) -> Task<Message> {
         let Some(i) = self.tab_index(id) else { return Task::none() };
         let editor = &self.tabs[i].editor;
-        if editor.is_modified() && !force && self.pending_close != Some(id) {
-            self.pending_close = Some(id);
+        if editor.is_modified() && !force {
             let name = editor.file_name();
-            return self.notify(format!("\"{name}\" tem alterações. Feche de novo para descartar, ou salve."));
+            let dialog = Dialog::new("Salvar alterações?", format!("\"{name}\" tem alterações que não foram salvas."))
+                .button("Salvar", ButtonKind::Primary, CoreDialog::SaveAndClose(id))
+                .button("Descartar", ButtonKind::Danger, CoreDialog::DiscardAndClose(id))
+                .cancel("Cancelar");
+            return self.open_dialog(dialog, dialog::Owner::Core);
         }
         self.tabs.remove(i);
         if self.tabs.is_empty() {
@@ -570,7 +584,6 @@ impl App {
         match result {
             Ok(()) => {
                 let path = self.active_path().map(Path::to_path_buf).unwrap_or_default();
-                self.pending_close = None;
                 let is_config = Some(path.as_path()) == self.global_config.as_deref()
                     || path == config::project_config_path(&self.root);
                 let saved = self.broadcast(CoreEvent::FileSaved(path.clone()));
@@ -677,9 +690,6 @@ impl App {
     // ---- Comandos ------------------------------------------------------------
 
     fn run_command(&mut self, id: &str) -> Task<Message> {
-        if id != "app.quit" {
-            self.pending_quit = false;
-        }
         let action = match id {
             "editor.find" => Some(EditorAction::Find),
             "editor.replace" => Some(EditorAction::Replace),
@@ -795,13 +805,100 @@ impl App {
     }
 
     fn request_quit(&mut self) -> Task<Message> {
-        let unsaved = self.tabs.iter().filter(|t| t.editor.is_modified()).count();
-        if unsaved > 0 && !self.pending_quit {
-            self.pending_quit = true;
-            return self.notify(format!("{unsaved} aba(s) com alterações. Saia de novo para descartar."));
+        let unsaved: Vec<String> =
+            self.tabs.iter().filter(|t| t.editor.is_modified()).map(|t| t.editor.file_name()).collect();
+        if unsaved.is_empty() {
+            return self.quit();
         }
+        let mut names = unsaved.iter().take(5).map(|n| format!("• {n}")).collect::<Vec<_>>().join("\n");
+        if unsaved.len() > 5 {
+            names.push_str(&format!("\n… e mais {}", unsaved.len() - 5));
+        }
+        let dialog = Dialog::new("Sair com alterações não salvas?", names)
+            .button("Salvar tudo e sair", ButtonKind::Primary, CoreDialog::SaveAllAndQuit)
+            .button("Sair sem salvar", ButtonKind::Danger, CoreDialog::QuitWithoutSaving)
+            .cancel("Cancelar");
+        self.open_dialog(dialog, dialog::Owner::Core)
+    }
+
+    fn quit(&mut self) -> Task<Message> {
         self.lsp.shutdown_all();
         iced::exit()
+    }
+
+    /// Salva todas as abas alteradas. `false` se alguma não pôde ser salva (erro ou sem nome).
+    fn save_all(&mut self) -> (bool, Task<Message>) {
+        let mut tasks = Vec::new();
+        let mut ok = true;
+        for i in 0..self.tabs.len() {
+            if !self.tabs[i].editor.is_modified() {
+                continue;
+            }
+            let Some(path) = self.tabs[i].editor.path().map(Path::to_path_buf) else {
+                ok = false;
+                let name = self.tabs[i].editor.file_name();
+                tasks.push(self.notify(format!("\"{name}\" não tem nome: use \"Salvar como\" antes de sair")));
+                continue;
+            };
+            match self.tabs[i].editor.save() {
+                Ok(()) => tasks.push(self.broadcast(CoreEvent::FileSaved(path))),
+                Err(e) => {
+                    ok = false;
+                    tasks.push(self.notify(format!("Erro ao salvar {}: {e}", display_rel(&path, &self.root))));
+                }
+            }
+        }
+        (ok, Task::batch(tasks))
+    }
+
+    // ---- Diálogos --------------------------------------------------------------
+
+    fn open_dialog(&mut self, dialog: Dialog, owner: dialog::Owner) -> Task<Message> {
+        self.palette = None;
+        self.editor_mut().lose_focus();
+        self.dialog = Some(dialog::Open::new(dialog, owner));
+        // Ninguém embaixo do diálogo fica com o teclado (campos de texto, terminal).
+        operation::focus(iced::widget::Id::unique())
+    }
+
+    fn choose_dialog(&mut self, choice: Option<usize>) -> Task<Message> {
+        let Some(open) = self.dialog.take() else { return Task::none() };
+        let action = open.action(choice);
+        let task = match (open.owner, action) {
+            (dialog::Owner::Ext(i), Some(msg)) => self.call_ext(i, |e, ctx| e.update(msg, ctx)),
+            (dialog::Owner::Core, Some(msg)) => match msg.downcast_ref::<CoreDialog>() {
+                Some(&action) => self.core_dialog(action),
+                None => Task::none(),
+            },
+            (_, None) => Task::none(),
+        };
+        // Diálogos do app vêm do editor: o teclado volta para ele.
+        if open.owner == dialog::Owner::Core && self.dialog.is_none() && self.palette.is_none() {
+            self.editor_mut().focus();
+        }
+        task
+    }
+
+    fn core_dialog(&mut self, action: CoreDialog) -> Task<Message> {
+        match action {
+            CoreDialog::DiscardAndClose(id) => self.close_tab(id, true),
+            CoreDialog::SaveAndClose(id) => {
+                let Some(i) = self.tab_index(id) else { return Task::none() };
+                let activate = self.set_active(i);
+                if self.editor().path().is_none() {
+                    let note = self.notify("Escolha onde salvar; depois feche a aba de novo");
+                    return Task::batch([activate, self.open_save_as(), note]);
+                }
+                let saved = self.save_active();
+                let close = if self.editor().is_modified() { Task::none() } else { self.close_tab(id, true) };
+                Task::batch([activate, saved, close])
+            }
+            CoreDialog::SaveAllAndQuit => {
+                let (ok, task) = self.save_all();
+                if ok { Task::batch([task, self.quit()]) } else { task }
+            }
+            CoreDialog::QuitWithoutSaving => self.quit(),
+        }
     }
 
     fn open_palette(&mut self, palette: Palette) -> Task<Message> {
@@ -850,6 +947,21 @@ impl App {
         let chord = Chord::from_event(&key, modifiers);
         let command = chord.as_ref().and_then(|c| self.keymap.command_for(c)).map(str::to_string);
 
+        // Diálogo aberto: só ele responde ao teclado.
+        if let Some(d) = &mut self.dialog {
+            match key {
+                keyboard::Key::Named(Named::Escape) => return self.choose_dialog(None),
+                keyboard::Key::Named(Named::Enter) => {
+                    let selected = d.selected;
+                    return self.choose_dialog(selected);
+                }
+                keyboard::Key::Named(Named::ArrowRight) => d.move_selection(1),
+                keyboard::Key::Named(Named::ArrowLeft) => d.move_selection(-1),
+                keyboard::Key::Named(Named::Tab) => d.move_selection(if modifiers.shift() { -1 } else { 1 }),
+                _ => {}
+            }
+            return Task::none();
+        }
         if let Some(p) = &mut self.palette {
             match key {
                 keyboard::Key::Named(Named::Escape) => self.close_palette(),
@@ -901,6 +1013,7 @@ impl App {
             }
             Message::Key { key, modifiers, captured } => self.on_key(key, modifiers, captured),
             Message::Palette(msg) => self.palette_update(msg),
+            Message::Dialog(dialog::Msg::Choose(choice)) => self.choose_dialog(choice),
             Message::Frame(now) => {
                 self.editor_mut().tick(now);
                 if let Some(s) = &mut self.splash {
@@ -968,6 +1081,9 @@ impl App {
                 .align_x(iced::Center);
             // Clique fora fecha.
             layers = layers.push(opaque(mouse_area(overlay).on_press(Message::Palette(palette::Msg::Close))));
+        }
+        if let Some(d) = &self.dialog {
+            layers = layers.push(d.view().map(Message::Dialog));
         }
         if let Some(s) = &self.splash {
             layers = layers.push(opaque(s.view()));
