@@ -3,6 +3,7 @@
 //! Uso: `idetea [--no-splash] [caminho...]` (ver `cli.rs`).
 
 mod cli;
+mod context_menu;
 mod dialog;
 mod lsp;
 mod palette;
@@ -156,6 +157,7 @@ struct App {
     /// Ponteiro sobre um painel lateral: um clique ali tira o foco do editor.
     pointer_over_panel: bool,
     dialog: Option<dialog::Open>,
+    menu: Option<context_menu::Open>,
     last_status: EditorStatus,
 }
 
@@ -172,6 +174,7 @@ enum Message {
     Key { key: keyboard::Key, modifiers: keyboard::Modifiers, captured: bool },
     Palette(palette::Msg),
     Dialog(dialog::Msg),
+    Menu(context_menu::Msg),
     Frame(Instant),
     PointerOverPanel(bool),
     MousePressed,
@@ -220,6 +223,7 @@ impl App {
             splash: show_splash.then(|| Splash::new(started)),
             pointer_over_panel: false,
             dialog: None,
+            menu: None,
             last_status: EditorStatus::default(),
             config,
         };
@@ -320,6 +324,7 @@ impl App {
                 Request::PathRenamed { from, to } => tasks.push(self.path_renamed(&from, &to)),
                 Request::PathDeleted(path) => tasks.push(self.path_deleted(&path)),
                 Request::Dialog(dialog) => tasks.push(self.open_dialog(dialog, dialog::Owner::Ext(ext))),
+                Request::Menu(menu) => tasks.push(self.open_menu(menu, ext)),
             }
         }
         Task::batch(tasks)
@@ -854,8 +859,28 @@ impl App {
 
     // ---- Diálogos --------------------------------------------------------------
 
+    fn open_menu(&mut self, menu: tea_core::menu::Menu, owner: usize) -> Task<Message> {
+        if self.dialog.is_some() {
+            return Task::none();
+        }
+        self.palette = None;
+        self.editor_mut().lose_focus();
+        self.menu = Some(context_menu::Open::new(menu, owner));
+        operation::focus(iced::widget::Id::unique())
+    }
+
+    fn choose_menu(&mut self, i: Option<usize>) -> Task<Message> {
+        let Some(open) = self.menu.take() else { return Task::none() };
+        match i.and_then(|i| open.action(i)) {
+            Some(tea_core::menu::MenuAction::Message(msg)) => self.call_ext(open.owner, |e, ctx| e.update(msg, ctx)),
+            Some(tea_core::menu::MenuAction::Command(id)) => self.run_command(&id),
+            None => Task::none(),
+        }
+    }
+
     fn open_dialog(&mut self, dialog: Dialog, owner: dialog::Owner) -> Task<Message> {
         self.palette = None;
+        self.menu = None;
         self.editor_mut().lose_focus();
         self.dialog = Some(dialog::Open::new(dialog, owner));
         // Ninguém embaixo do diálogo fica com o teclado (campos de texto, terminal).
@@ -903,6 +928,7 @@ impl App {
     }
 
     fn open_palette(&mut self, palette: Palette) -> Task<Message> {
+        self.menu = None;
         self.editor_mut().lose_focus();
         self.palette = Some(palette);
         Task::batch([operation::focus(palette::input_id()), operation::move_cursor_to_end(palette::input_id())])
@@ -948,6 +974,20 @@ impl App {
         let chord = Chord::from_event(&key, modifiers);
         let command = chord.as_ref().and_then(|c| self.keymap.command_for(c)).map(str::to_string);
 
+        // Menu de contexto aberto: só ele responde ao teclado.
+        if let Some(m) = &mut self.menu {
+            match key {
+                keyboard::Key::Named(Named::Escape) => return self.choose_menu(None),
+                keyboard::Key::Named(Named::Enter) => {
+                    let selected = m.selected;
+                    return self.choose_menu(selected);
+                }
+                keyboard::Key::Named(Named::ArrowDown) => m.move_selection(1),
+                keyboard::Key::Named(Named::ArrowUp) => m.move_selection(-1),
+                _ => {}
+            }
+            return Task::none();
+        }
         // Diálogo aberto: só ele responde ao teclado.
         if let Some(d) = &mut self.dialog {
             match key {
@@ -1015,6 +1055,8 @@ impl App {
             Message::Key { key, modifiers, captured } => self.on_key(key, modifiers, captured),
             Message::Palette(msg) => self.palette_update(msg),
             Message::Dialog(dialog::Msg::Choose(choice)) => self.choose_dialog(choice),
+            Message::Menu(context_menu::Msg::Choose(i)) => self.choose_menu(Some(i)),
+            Message::Menu(context_menu::Msg::Close) => self.choose_menu(None),
             Message::Frame(now) => {
                 self.editor_mut().tick(now);
                 if let Some(s) = &mut self.splash {
@@ -1082,6 +1124,9 @@ impl App {
                 .align_x(iced::Center);
             // Clique fora fecha.
             layers = layers.push(opaque(mouse_area(overlay).on_press(Message::Palette(palette::Msg::Close))));
+        }
+        if let Some(m) = &self.menu {
+            layers = layers.push(m.view(&self.keymap).map(Message::Menu));
         }
         if let Some(d) = &self.dialog {
             layers = layers.push(d.view().map(Message::Dialog));

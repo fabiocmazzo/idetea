@@ -300,7 +300,15 @@ Polimento, nesta ordem (o diálogo vem primeiro porque menu de contexto e config
       Git e barra de status também usam os ícones.
       Escolhida no lugar da Lucide (944 KB inteira): é pequena e já traz ícones de git, terminal e debug.
 - [x] Teste manual dos ícones na tela: aprovado.
-- [ ] **Menu do botão direito** na árvore (novo arquivo, nova pasta, renomear, apagar...). Componente reutilizável (abas, git).
+- [x] **Menu do botão direito** (`tea_core::menu`): a extensão envolve o conteúdo em `context_area(..)`, que transforma
+      o clique direito em mensagem com a posição, e responde com `ctx.show_menu(Menu::new(pos).item(..).command(..).danger(..))`.
+      Itens mandam uma mensagem de volta para a extensão ou rodam um comando (mostrando o atalho dele). O app desenha o menu
+      no ponto do clique, virando para a esquerda/para cima perto da borda; ↑/↓/Enter/Esc e clique fora fecham.
+      Áreas aninhadas: vale a mais interna (linha da árvore > espaço vazio da árvore).
+      Árvore: novo arquivo, nova pasta, renomear, apagar, copiar caminho (absoluto e relativo), abrir no gerenciador de arquivos;
+      no espaço vazio: itens da raiz + atualizar e recolher tudo.
+- [x] Teste manual do menu na tela: aprovado.
+- [ ] Menu de contexto nas abas e no painel do git (o componente já existe).
 - [ ] **Help:** atalhos (gerados do mapa de teclas, sempre atualizados) e um guia curto (config, painéis, terminal).
 - [ ] **Painel de configurações:** tema, fonte, extensões e tabela de atalhos editável. Grava no `config.toml`
       preservando comentários (`toml_edit`).

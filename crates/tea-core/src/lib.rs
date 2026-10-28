@@ -12,6 +12,7 @@ use iced::{Element, Subscription, Task, Theme};
 
 pub mod config;
 pub mod icons;
+pub mod menu;
 pub mod keymap;
 
 /// Onde um painel aparece na janela.
@@ -101,6 +102,8 @@ pub enum Request {
     PathDeleted(PathBuf),
     /// Mostra um diálogo modal. O botão escolhido manda a mensagem dele de volta para a extensão.
     Dialog(Dialog),
+    /// Mostra um menu de contexto (ver [`menu`]).
+    Menu(menu::Menu),
 }
 
 /// Estilo de um botão de diálogo.
@@ -221,6 +224,10 @@ impl<'a> Context<'a> {
 
     pub fn show_dialog(&mut self, dialog: Dialog) {
         self.requests.push(Request::Dialog(dialog));
+    }
+
+    pub fn show_menu(&mut self, menu: menu::Menu) {
+        self.requests.push(Request::Menu(menu));
     }
 
     pub fn hide_panel(&mut self, id: PanelId) {

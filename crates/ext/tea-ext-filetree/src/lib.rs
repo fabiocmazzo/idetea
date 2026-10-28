@@ -7,8 +7,9 @@ use std::collections::{HashMap, HashSet};
 use std::path::{Component, Path, PathBuf};
 
 use iced::widget::{Id, button, column, container, operation, row, scrollable, space, text, text_input};
-use iced::{Element, Fill, Length, Task};
+use iced::{Element, Fill, Length, Point, Task};
 use tea_core::icons::{Icon, icon, icon_button};
+use tea_core::menu::{Menu, context_area};
 use tea_core::{ButtonKind, Context, CoreEvent, Dialog, Extension, PanelId, Slot};
 
 const PANEL: PanelId = PanelId("tree");
@@ -56,6 +57,10 @@ pub enum Message {
     EditCancel,
     Refresh,
     CollapseAll,
+    /// Botão direito numa linha (`Some`) ou no espaço vazio (`None`, a raiz).
+    ContextMenu(Option<PathBuf>, Point),
+    CopyPath(String),
+    OpenInFileManager(PathBuf),
 }
 
 #[derive(Default)]
@@ -109,6 +114,36 @@ impl FileTreeExtension {
             Some(p) => p.parent().map(Path::to_path_buf).unwrap_or_else(|| self.root.clone()),
             None => self.root.clone(),
         }
+    }
+
+    /// Menu do botão direito para um item (`None` = raiz).
+    fn context_menu(&self, path: Option<&Path>, at: Point) -> Menu {
+        let target = path.unwrap_or(&self.root);
+        let dir = if target.is_dir() { target.to_path_buf() } else { target.parent().unwrap_or(&self.root).to_path_buf() };
+        let rel = target.strip_prefix(&self.root).unwrap_or(target).to_string_lossy().into_owned();
+        let mut menu = Menu::new(at)
+            .item(Some(Icon::NewFile), "Novo arquivo", Message::NewFile)
+            .item(Some(Icon::NewFolder), "Nova pasta", Message::NewFolder)
+            .separator();
+        if path.is_some() {
+            menu = menu
+                .item(Some(Icon::Edit), "Renomear", Message::Rename)
+                .danger(Some(Icon::Trash), "Apagar…", Message::Delete)
+                .separator();
+        }
+        menu = menu.item(Some(Icon::Copy), "Copiar caminho", Message::CopyPath(target.to_string_lossy().into_owned()));
+        if path.is_some() {
+            menu = menu.item(None, "Copiar caminho relativo", Message::CopyPath(rel));
+        }
+        menu = menu
+            .item(Some(Icon::LinkExternal), "Abrir no gerenciador de arquivos", Message::OpenInFileManager(dir))
+            .separator();
+        if path.is_none() {
+            menu = menu
+                .item(Some(Icon::Refresh), "Atualizar", Message::Refresh)
+                .item(Some(Icon::CollapseAll), "Recolher tudo", Message::CollapseAll);
+        }
+        menu
     }
 
     /// Linhas visíveis, na ordem da tela: (profundidade, entrada).
@@ -403,6 +438,21 @@ impl Extension for FileTreeExtension {
             }
             Message::Refresh => self.refresh_all(),
             Message::CollapseAll => self.expanded.clear(),
+            Message::ContextMenu(path, at) => {
+                self.edit = None;
+                self.error = None;
+                self.selected = path.clone();
+                ctx.show_menu(self.context_menu(path.as_deref(), at));
+            }
+            Message::CopyPath(text) => {
+                ctx.notify(format!("Copiado: {text}"));
+                return iced::clipboard::write(text);
+            }
+            Message::OpenInFileManager(dir) => {
+                if let Err(e) = open_in_file_manager(&dir) {
+                    ctx.notify(format!("Não foi possível abrir o gerenciador de arquivos: {e}"));
+                }
+            }
         }
         Task::none()
     }
@@ -450,7 +500,9 @@ impl Extension for FileTreeExtension {
         if let Some(err) = &self.error {
             panel = panel.push(text(err).size(12).style(text::danger));
         }
-        panel.push(scrollable(list).id(scroll_id()).height(Fill)).into()
+        // Botão direito no espaço vazio: menu da raiz.
+        let list = context_area(scrollable(list).id(scroll_id()).height(Fill), |at| Message::ContextMenu(None, at));
+        panel.push(list).into()
     }
 }
 
@@ -485,13 +537,13 @@ impl FileTreeExtension {
             }),
         ]
         .align_y(iced::Center);
-        button(label)
+        let row = button(label)
             .width(Fill)
             .height(Length::Fixed(ROW_HEIGHT))
             .padding([2, 4])
             .on_press(Message::Clicked(entry.path.clone(), entry.is_dir))
-            .style(style)
-            .into()
+            .style(style);
+        context_area(row, move |at| Message::ContextMenu(Some(entry.path.clone()), at))
     }
 }
 
@@ -538,6 +590,26 @@ fn create_file(path: &Path) -> std::io::Result<()> {
         std::fs::create_dir_all(dir)?;
     }
     std::fs::OpenOptions::new().write(true).create_new(true).open(path).map(|_| ())
+}
+
+/// Abre a pasta no gerenciador de arquivos do sistema (sem esperar ele fechar).
+fn open_in_file_manager(dir: &Path) -> std::io::Result<()> {
+    let program = if cfg!(target_os = "macos") {
+        "open"
+    } else if cfg!(target_os = "windows") {
+        "explorer"
+    } else {
+        "xdg-open"
+    };
+    let mut child = std::process::Command::new(program)
+        .arg(dir)
+        .stdin(std::process::Stdio::null())
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .spawn()?;
+    // Espera numa thread para o processo não virar zumbi.
+    std::thread::spawn(move || child.wait());
+    Ok(())
 }
 
 #[cfg(test)]

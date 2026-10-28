@@ -18,7 +18,7 @@ ext-terminal = ["dep:tea-ext-terminal"]
 ext-git = ["dep:tea-ext-git"]
 
 [dependencies]
-iced.workspace = true
+iced = { workspace = true, features = ["advanced"] }
 tea-core.workspace = true
 tea-editor.workspace = true
 tea-ext-filetree = { workspace = true, optional = true }
