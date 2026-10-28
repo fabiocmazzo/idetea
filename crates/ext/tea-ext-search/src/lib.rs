@@ -13,6 +13,7 @@ use std::time::Duration;
 use iced::futures::channel::oneshot;
 use iced::widget::{Id, button, column, operation, row, scrollable, space, text, text_input};
 use iced::{Element, Fill, Task};
+use tea_core::icons::Icon;
 use tea_core::{Context, CoreEvent, Extension, PanelId, Slot};
 
 use engine::{Options, Results};
@@ -109,12 +110,16 @@ impl Extension for SearchExtension {
     fn activate(&mut self, ctx: &mut Context) -> Task<Message> {
         self.root = ctx.root().to_path_buf();
         ctx.register_panel_hidden(PANEL, "Busca", Slot::Bottom);
+        ctx.panel_icon(PANEL, Icon::Search);
         ctx.register_command("search.focus", "Busca: buscar no projeto");
         ctx.register_command("search.clear", "Busca: limpar");
         Task::none()
     }
 
     fn on_event(&mut self, event: &CoreEvent, _ctx: &mut Context) -> Task<Message> {
+        if let CoreEvent::PanelShown(_) = event {
+            return Task::batch([operation::focus(input_id()), operation::select_all(input_id())]);
+        }
         // Resultados velhos depois de salvar: busca de novo.
         if let CoreEvent::FileSaved(_) = event
             && self.results.is_some()

@@ -141,6 +141,7 @@ impl Extension for GitExtension {
     fn activate(&mut self, ctx: &mut Context) -> Task<Message> {
         self.root = ctx.root().to_path_buf();
         ctx.register_panel_hidden(PANEL, "Git", Slot::Bottom);
+        ctx.panel_icon(PANEL, Icon::SourceControl);
         ctx.register_panel(BAR, "Git", Slot::Status);
         ctx.register_command("git.focus", "Git: mostrar mudanças");
         ctx.register_command("git.refresh", "Git: atualizar");
@@ -153,6 +154,7 @@ impl Extension for GitExtension {
 
     fn on_event(&mut self, event: &CoreEvent, _ctx: &mut Context) -> Task<Message> {
         match event {
+            CoreEvent::PanelShown(_) => self.refresh(),
             CoreEvent::FileSaved(path) if self.repo.as_ref().is_some_and(|r| path.starts_with(&r.root)) => {
                 self.refresh()
             }

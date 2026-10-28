@@ -21,6 +21,8 @@ splash = true
 # "dark", "light" ou o nome de um tema do iced (ex.: "Tokyo Night", "Nord", "Dracula").
 theme = "dark"
 font_size = 14
+# Faixa de ícones na borda esquerda para mostrar/ocultar painéis.
+activity_bar = true
 
 # Servidores de linguagem (LSP). Embutidos: rust-analyzer, clangd, pyright,
 # typescript, gopls, lua. Só iniciam se o comando existir no PATH.
@@ -72,11 +74,12 @@ pub struct UiConfig {
     pub splash: bool,
     pub theme: String,
     pub font_size: f32,
+    pub activity_bar: bool,
 }
 
 impl Default for UiConfig {
     fn default() -> Self {
-        Self { splash: true, theme: "dark".into(), font_size: 14.0 }
+        Self { splash: true, theme: "dark".into(), font_size: 14.0, activity_bar: true }
     }
 }
 

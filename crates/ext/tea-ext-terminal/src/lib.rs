@@ -11,6 +11,7 @@ use iced::{Color, Element, Fill, Font, Subscription, Task, Theme};
 use iced_term::actions::Action;
 use iced_term::settings::{BackendSettings, FontSettings, Settings, ThemeSettings};
 use iced_term::{ColorPalette, Terminal, TerminalView};
+use tea_core::icons::Icon;
 use tea_core::{Context, CoreEvent, Extension, PanelId, Slot};
 
 const PANEL: PanelId = PanelId("terminal");
@@ -93,12 +94,20 @@ impl Extension for TerminalExtension {
     fn activate(&mut self, ctx: &mut Context) -> Task<Message> {
         self.root = ctx.root().to_path_buf();
         ctx.register_panel_hidden(PANEL, "Terminal", Slot::Bottom);
+        ctx.panel_icon(PANEL, Icon::Terminal);
         ctx.register_command("terminal.focus", "Terminal: abrir e focar");
         ctx.register_command("terminal.new", "Terminal: reiniciar o shell");
         Task::none()
     }
 
-    fn on_event(&mut self, event: &CoreEvent, _ctx: &mut Context) -> Task<Message> {
+    fn on_event(&mut self, event: &CoreEvent, ctx: &mut Context) -> Task<Message> {
+        // Aberto pela barra de ícones: já sobe o shell e pega o teclado.
+        if let CoreEvent::PanelShown(_) = event {
+            if self.term.is_none() && !self.start(ctx) {
+                return Task::none();
+            }
+            return self.focus_task();
+        }
         if let CoreEvent::Appearance { theme, font_size } = event {
             self.theme = theme.clone();
             self.font_size = *font_size;

@@ -38,6 +38,7 @@ pub enum Msg {
     Theme(ThemeChoice),
     FontSize(f32),
     Splash(bool),
+    ActivityBar(bool),
     ExtEnabled(String, bool),
     ExtSlot(String, SlotChoice),
     LspEnabled(bool),
@@ -298,6 +299,11 @@ fn appearance(config: &Config) -> Element<'_, Msg> {
             pick_list(theme_choices(), current, Msg::Theme).text_size(13).width(220).into()
         ),
         setting("Tamanho da fonte", "Editor e terminal.", font.into()),
+        setting(
+            "Barra de ícones",
+            "Faixa na borda esquerda para mostrar/ocultar painéis com um clique.",
+            toggler(config.ui.activity_bar).on_toggle(Msg::ActivityBar).into()
+        ),
         setting(
             "Splash ao abrir",
             "Tela de abertura (mínimo de 2 s). --no-splash desliga numa execução.",

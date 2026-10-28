@@ -6,6 +6,7 @@ use std::path::{Path, PathBuf};
 
 use iced::widget::{button, column, row, scrollable, space, text};
 use iced::{Element, Fill, Task, Theme};
+use tea_core::icons::Icon;
 use tea_core::{Context, CoreEvent, Diagnostic, Extension, PanelId, Severity, Slot};
 
 const PANEL: PanelId = PanelId("problems");
@@ -65,6 +66,7 @@ impl Extension for ProblemsExtension {
     fn activate(&mut self, ctx: &mut Context) -> Task<Message> {
         self.root = ctx.root().to_path_buf();
         ctx.register_panel_hidden(PANEL, "Problemas", Slot::Bottom);
+        ctx.panel_icon(PANEL, Icon::Warning);
         ctx.register_command("problems.focus", "Problemas: mostrar painel");
         ctx.register_command("problems.next", "Problemas: ir para o próximo");
         Task::none()

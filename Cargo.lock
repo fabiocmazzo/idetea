@@ -3585,6 +3585,7 @@ name = "tea-app"
 version = "0.0.1"
 dependencies = [
  "iced",
+ "serde",
  "tea-core",
  "tea-editor",
  "tea-ext-filetree",
@@ -3594,6 +3595,7 @@ dependencies = [
  "tea-ext-statusbar",
  "tea-ext-terminal",
  "tea-lsp",
+ "toml 1.1.8+spec-1.1.0",
 ]
 
 [[package]]

@@ -47,6 +47,7 @@ pub enum Icon {
     ArrowDown,
     Copy,
     LinkExternal,
+    Files,
 }
 
 impl Icon {
@@ -79,6 +80,7 @@ impl Icon {
             Icon::ArrowDown => 0xEA9A,
             Icon::Copy => 0xEBCC,
             Icon::LinkExternal => 0xEB14,
+            Icon::Files => 0xEAF0,
         };
         char::from_u32(code).unwrap_or('?')
     }

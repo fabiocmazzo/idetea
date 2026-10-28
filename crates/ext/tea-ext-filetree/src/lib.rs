@@ -302,6 +302,7 @@ impl Extension for FileTreeExtension {
         self.root = ctx.root().to_path_buf();
         self.load(&self.root.clone());
         ctx.register_panel(PANEL, "Arquivos", Slot::Left);
+        ctx.panel_icon(PANEL, Icon::Files);
         for (id, title) in [
             ("filetree.toggle", "Árvore: mostrar/ocultar"),
             ("filetree.reveal", "Árvore: revelar arquivo ativo"),

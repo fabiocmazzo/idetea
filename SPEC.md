@@ -293,6 +293,14 @@ Polimento, nesta ordem (o diálogo vem primeiro porque menu de contexto e config
       Teclado: Enter aciona o botão em destaque (o primeiro `Primary`/`Danger`), ←/→/Tab trocam, Esc ou clique fora cancelam.
       Com o diálogo aberto nenhum outro atalho funciona e nada embaixo fica com o foco.
 - [x] Teste manual do diálogo na tela: aprovado.
+- [x] **Barra de ícones** (borda esquerda, `[ui] activity_bar`, liga/desliga nas configurações): um ícone por painel
+      (a extensão escolhe com `ctx.panel_icon`), laterais em cima e inferiores embaixo; clique mostra/oculta, o aberto fica
+      destacado, dica com o atalho. Ao abrir pela barra o dono recebe `CoreEvent::PanelShown` (terminal sobe o shell e foca,
+      busca foca o campo, git atualiza).
+- [x] **Redimensionar painéis com o mouse:** divisor arrastável entre lateral/inferior e o editor (cursor de redimensionar,
+      destaque ao passar o mouse, duplo clique volta ao padrão). Sempre sobram 240 px para o editor. Tamanhos salvos em
+      `$XDG_STATE_HOME/idetea/state.toml` (estado da IDE, não config).
+- [x] Teste manual da barra de ícones e do redimensionar: aprovado.
 - [ ] Diálogo nativo (`rfd`) para escolher arquivo ou pasta ("Salvar como", "Abrir pasta").
 - [x] **Ícones:** fonte Codicons embutida (80 KB, CC BY 4.0, ver `crates/tea-core/assets/NOTICE.md`) e módulo
       `tea_core::icons` (`icon(Icon::X)`, `icon_button(Icon::X, "dica", msg)` com tooltip após 450 ms).

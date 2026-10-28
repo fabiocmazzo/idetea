@@ -5,6 +5,7 @@
 mod cli;
 mod context_menu;
 mod dialog;
+mod divider;
 mod help;
 mod overlay;
 mod lsp;
@@ -12,6 +13,7 @@ mod palette;
 mod settings;
 mod pass_keys;
 mod splash;
+mod ui_state;
 
 use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
@@ -115,7 +117,6 @@ const CORE_COMMANDS: &[(&str, &str)] = &[
 
 const DARK_THEME: Theme = Theme::TokyoNight;
 const LIGHT_THEME: Theme = Theme::Light;
-const SIDE_WIDTH: f32 = 260.0;
 
 /// Respostas dos diálogos do próprio app.
 #[derive(Debug, Clone, Copy)]
@@ -139,6 +140,16 @@ struct Panel {
     /// Slot pedido pela extensão (o config pode mudar `slot`).
     default_slot: Slot,
     visible: bool,
+    /// Ícone na barra de ícones (sem ícone, o painel não aparece nela).
+    icon: Option<tea_core::icons::Icon>,
+}
+
+/// Borda arrastável de um painel.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Edge {
+    Left,
+    Right,
+    Bottom,
 }
 
 struct App {
@@ -169,6 +180,10 @@ struct App {
     settings: Option<settings::Settings>,
     /// Ids de todas as extensões compiladas (ligadas ou não), para a tela de configurações.
     all_extensions: Vec<&'static str>,
+    /// Tamanho dos painéis (salvo entre execuções).
+    ui_state: ui_state::UiState,
+    state_path: Option<PathBuf>,
+    window_size: Option<iced::Size>,
     last_status: EditorStatus,
 }
 
@@ -188,6 +203,12 @@ enum Message {
     Menu(context_menu::Msg),
     Help(help::Msg),
     Settings(settings::Msg),
+    /// Clique num ícone da barra de ícones (índice em `panels`).
+    Activity(usize),
+    Resize(Edge, f32),
+    ResizeDone,
+    ResizeReset(Edge),
+    WindowResized(iced::Size),
     Frame(Instant),
     PointerOverPanel(bool),
     MousePressed,
@@ -206,6 +227,7 @@ impl App {
         let (theme, theme_error) = resolve_theme(&config.ui.theme);
 
         let show_splash = config.ui.splash && !launch.no_splash;
+        let state_path = ui_state::state_path();
         let builtin = builtin_extensions();
         let all_extensions: Vec<&'static str> = builtin.iter().map(|e| e.id()).collect();
         let extensions = builtin.into_iter().filter(|e| config.extension(e.id()).enabled).collect();
@@ -241,6 +263,9 @@ impl App {
             help: None,
             settings: None,
             all_extensions,
+            ui_state: ui_state::UiState::load(state_path.as_deref()),
+            state_path,
+            window_size: None,
             last_status: EditorStatus::default(),
             config,
         };
@@ -323,7 +348,7 @@ impl App {
                 Request::RegisterPanel { id, title, slot, visible } => {
                     let default_slot = slot;
                     let slot = self.slot_for(ext, default_slot);
-                    self.panels.push(Panel { ext, id, title, slot, default_slot, visible });
+                    self.panels.push(Panel { ext, id, title, slot, default_slot, visible, icon: None });
                     if slot == Slot::Bottom && visible && self.active_bottom.is_none() {
                         self.active_bottom = Some(self.panels.len() - 1);
                     }
@@ -340,6 +365,11 @@ impl App {
                 Request::PathDeleted(path) => tasks.push(self.path_deleted(&path)),
                 Request::Dialog(dialog) => tasks.push(self.open_dialog(dialog, dialog::Owner::Ext(ext))),
                 Request::Menu(menu) => tasks.push(self.open_menu(menu, ext)),
+                Request::PanelIcon { id, icon } => {
+                    if let Some(p) = self.panels.iter_mut().find(|p| p.ext == ext && p.id == id) {
+                        p.icon = Some(icon);
+                    }
+                }
             }
         }
         Task::batch(tasks)
@@ -919,6 +949,77 @@ impl App {
 
     // ---- Diálogos --------------------------------------------------------------
 
+    // ---- Barra de ícones e tamanho dos painéis ----------------------------------
+
+    /// Mostra/oculta o painel. Ao abrir, avisa o dono (o terminal sobe o shell, a busca pega o teclado...).
+    fn activity_click(&mut self, i: usize) -> Task<Message> {
+        let was = self.panel_shown(i);
+        self.set_panel_visible(i, Some(!was));
+        let p = &self.panels[i];
+        if was {
+            // Escondeu: o teclado volta para o editor.
+            if self.palette.is_none() {
+                self.editor_mut().focus();
+            }
+            return Task::none();
+        }
+        let (ext, id, bottom) = (p.ext, p.id, p.slot == Slot::Bottom);
+        if bottom {
+            // Painéis de baixo costumam querer o teclado (terminal, busca).
+            self.editor_mut().lose_focus();
+        }
+        self.call_ext(ext, |e, ctx| e.on_event(&CoreEvent::PanelShown(id), ctx))
+    }
+
+    /// O painel está na tela? (No slot de baixo, só o painel em destaque aparece.)
+    fn panel_shown(&self, i: usize) -> bool {
+        let p = &self.panels[i];
+        p.visible && (p.slot != Slot::Bottom || self.active_bottom == Some(i))
+    }
+
+    fn resize_panel(&mut self, edge: Edge, delta: f32) {
+        use ui_state::{MIN_BOTTOM, MIN_SIDE, resize};
+        let s = &mut self.ui_state;
+        let w = self.window_size.map(|z| z.width);
+        let h = self.window_size.map(|z| z.height);
+        match edge {
+            Edge::Left => s.left_width = resize(s.left_width, delta, MIN_SIDE, w.map(|w| w - s.right_width)),
+            Edge::Right => s.right_width = resize(s.right_width, -delta, MIN_SIDE, w.map(|w| w - s.left_width)),
+            // Abas e barra de status também precisam caber.
+            Edge::Bottom => s.bottom_height = resize(s.bottom_height, -delta, MIN_BOTTOM, h.map(|h| h - 60.0)),
+        }
+    }
+
+    fn activity_bar(&self) -> Element<'_, Message> {
+        let item = |i: usize| -> Option<Element<'_, Message>> {
+            let p = &self.panels[i];
+            let ic = p.icon?;
+            let shown = self.panel_shown(i);
+            let ext_id = self.extensions[p.ext].id();
+            let key = [format!("{ext_id}.toggle"), format!("{ext_id}.focus")]
+                .iter()
+                .find_map(|c| self.keymap.chord_for(c))
+                .map(|k| format!(" ({k})"))
+                .unwrap_or_default();
+            let b = button(container(tea_core::icons::icon(ic).size(18)).center_x(Fill))
+                .on_press(Message::Activity(i))
+                .width(Fill)
+                .padding([7, 0])
+                .style(move |t: &Theme, status| activity_style(t, status, shown));
+            let tip = container(text(format!("{}{key}", p.title)).size(12)).padding([3, 8]).style(container::bordered_box);
+            Some(iced::widget::tooltip(b, tip, iced::widget::tooltip::Position::Right).gap(4).into())
+        };
+        let side = (0..self.panels.len())
+            .filter(|&i| matches!(self.panels[i].slot, Slot::Left | Slot::Right))
+            .filter_map(item);
+        let bottom = (0..self.panels.len()).filter(|&i| self.panels[i].slot == Slot::Bottom).filter_map(item);
+        container(column![column(side).spacing(2), iced::widget::space::vertical(), column(bottom).spacing(2)].height(Fill))
+            .width(38)
+            .height(Fill)
+            .padding([2, 3])
+            .into()
+    }
+
     // ---- Configurações ---------------------------------------------------------
 
     fn open_settings(&mut self) -> Task<Message> {
@@ -1095,6 +1196,7 @@ impl App {
                 self.edit_config(|f| f.set_font_size(v))
             }
             M::Splash(on) => self.edit_config(|f| f.set_splash(on)),
+            M::ActivityBar(on) => self.edit_config(|f| f.set_activity_bar(on)),
             M::ExtEnabled(id, on) => self.edit_config(|f| f.set_extension_enabled(&id, on)),
             M::ExtSlot(id, slot) => self.edit_config(|f| f.set_extension_slot(&id, slot.0)),
             M::LspEnabled(on) => self.edit_config(|f| f.set_lsp_enabled(on)),
@@ -1344,6 +1446,29 @@ impl App {
             Message::Menu(context_menu::Msg::Choose(i)) => self.choose_menu(Some(i)),
             Message::Menu(context_menu::Msg::Close) => self.choose_menu(None),
             Message::Settings(msg) => self.settings_update(msg),
+            Message::Activity(i) => self.activity_click(i),
+            Message::Resize(edge, delta) => {
+                self.resize_panel(edge, delta);
+                Task::none()
+            }
+            Message::ResizeDone => {
+                self.ui_state.save(self.state_path.as_deref());
+                Task::none()
+            }
+            Message::ResizeReset(edge) => {
+                let d = ui_state::UiState::default();
+                match edge {
+                    Edge::Left => self.ui_state.left_width = d.left_width,
+                    Edge::Right => self.ui_state.right_width = d.right_width,
+                    Edge::Bottom => self.ui_state.bottom_height = d.bottom_height,
+                }
+                self.ui_state.save(self.state_path.as_deref());
+                Task::none()
+            }
+            Message::WindowResized(size) => {
+                self.window_size = Some(size);
+                Task::none()
+            }
             Message::Help(help::Msg::Close) => {
                 self.close_help();
                 Task::none()
@@ -1397,6 +1522,7 @@ impl App {
             _ => None,
         });
         let close = window::close_requests().map(|_| Message::CloseRequested);
+        let resized = window::resize_events().map(|(_, size)| Message::WindowResized(size));
         // Quadros só quando há animação (splash) ou hover esperando o mouse parar.
         let frames = if self.splash.is_some() || self.editor().needs_tick() {
             window::frames().map(Message::Frame)
@@ -1410,7 +1536,7 @@ impl App {
                 .enumerate()
                 .map(|(i, e)| e.subscription().with(i).map(|(i, m)| Message::ExtSub(i, m))),
         );
-        Subscription::batch([input, close, frames, extensions])
+        Subscription::batch([input, close, frames, extensions, resized])
     }
 
     fn view(&self) -> Element<'_, Message> {
@@ -1471,16 +1597,37 @@ impl App {
 
         let mut center = column![tabs, editor].spacing(4).width(Fill).height(Fill);
         if let Some(bottom) = self.bottom_view() {
-            center = center.push(rule::horizontal(1)).push(container(bottom).height(260));
+            let handle = divider::divider(
+                divider::Axis::Horizontal,
+                |d| Message::Resize(Edge::Bottom, d),
+                Message::ResizeDone,
+                Message::ResizeReset(Edge::Bottom),
+            );
+            center = center.push(handle).push(container(bottom).height(self.ui_state.bottom_height));
         }
 
         let mut body = row![].height(Fill);
+        if self.config.ui.activity_bar {
+            body = body.push(self.activity_bar()).push(rule::vertical(1));
+        }
         if let Some(left) = self.slot_view(Slot::Left) {
-            body = body.push(container(left).width(SIDE_WIDTH).height(Fill)).push(rule::vertical(1));
+            let handle = divider::divider(
+                divider::Axis::Vertical,
+                |d| Message::Resize(Edge::Left, d),
+                Message::ResizeDone,
+                Message::ResizeReset(Edge::Left),
+            );
+            body = body.push(container(left).width(self.ui_state.left_width).height(Fill)).push(handle);
         }
         body = body.push(center);
         if let Some(right) = self.slot_view(Slot::Right) {
-            body = body.push(rule::vertical(1)).push(container(right).width(SIDE_WIDTH).height(Fill));
+            let handle = divider::divider(
+                divider::Axis::Vertical,
+                |d| Message::Resize(Edge::Right, d),
+                Message::ResizeDone,
+                Message::ResizeReset(Edge::Right),
+            );
+            body = body.push(handle).push(container(right).width(self.ui_state.right_width).height(Fill));
         }
 
         let mut page = column![body].spacing(4).padding(6);
@@ -1564,6 +1711,27 @@ fn resolve_theme(name: &str) -> (Theme, Option<String>) {
             Some(t) => (t.clone(), None),
             None => (DARK_THEME, Some(format!("tema desconhecido {name:?}, usando \"dark\""))),
         },
+    }
+}
+
+/// Ícone da barra de ícones: destacado quando o painel está aberto.
+fn activity_style(theme: &Theme, status: button::Status, shown: bool) -> button::Style {
+    let p = theme.extended_palette();
+    let text_color = if shown { p.background.base.text } else { p.background.base.text.scale_alpha(0.55) };
+    let background = match status {
+        button::Status::Hovered | button::Status::Pressed => Some(p.background.strong.color.into()),
+        _ if shown => Some(p.background.weak.color.into()),
+        _ => None,
+    };
+    button::Style {
+        background,
+        text_color,
+        border: iced::Border {
+            radius: 5.0.into(),
+            width: if shown { 1.0 } else { 0.0 },
+            color: p.primary.base.color.scale_alpha(0.6),
+        },
+        ..button::Style::default()
     }
 }
 

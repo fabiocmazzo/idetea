@@ -49,6 +49,8 @@ pub enum CoreEvent {
     Activity { source: String, text: Option<String> },
     /// Tema ou tamanho da fonte mudou. Também é enviado logo depois da ativação.
     Appearance { theme: Theme, font_size: f32 },
+    /// Um painel desta extensão foi aberto pelo usuário (barra de ícones). Só o dono recebe.
+    PanelShown(PanelId),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -105,6 +107,8 @@ pub enum Request {
     Dialog(Dialog),
     /// Mostra um menu de contexto (ver [`menu`]).
     Menu(menu::Menu),
+    /// Ícone do painel na barra de ícones.
+    PanelIcon { id: PanelId, icon: icons::Icon },
 }
 
 /// Estilo de um botão de diálogo.
@@ -225,6 +229,11 @@ impl<'a> Context<'a> {
 
     pub fn show_dialog(&mut self, dialog: Dialog) {
         self.requests.push(Request::Dialog(dialog));
+    }
+
+    /// Ícone do painel na barra de ícones da borda (sem ícone, o painel não aparece nela).
+    pub fn panel_icon(&mut self, id: PanelId, icon: icons::Icon) {
+        self.requests.push(Request::PanelIcon { id, icon });
     }
 
     pub fn show_menu(&mut self, menu: menu::Menu) {

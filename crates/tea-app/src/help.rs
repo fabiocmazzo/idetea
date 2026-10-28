@@ -67,6 +67,8 @@ const GUIDE: &[(&str, &[&str])] = &[
              (os arquivos abrem em abas; a raiz continua sendo a pasta atual).",
             "Todos os comandos estão na paleta: {palette.open}. Digite parte do nome; o atalho aparece ao lado.",
             "Esta ajuda abre com {help.open}.",
+            "A barra de ícones na borda esquerda mostra e oculta os painéis com um clique (o aberto fica destacado). \
+             Arraste a borda entre um painel e o editor para mudar o tamanho; duplo clique volta ao padrão.",
         ],
     ),
     (
