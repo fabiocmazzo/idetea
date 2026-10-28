@@ -23,6 +23,7 @@ tea-ext-filetree = { path = "crates/ext/tea-ext-filetree" }
 tea-ext-statusbar = { path = "crates/ext/tea-ext-statusbar" }
 tea-ext-search = { path = "crates/ext/tea-ext-search" }
 tea-ext-problems = { path = "crates/ext/tea-ext-problems" }
+tea-ext-terminal = { path = "crates/ext/tea-ext-terminal" }
 
 [profile.release]
 lto = "thin"

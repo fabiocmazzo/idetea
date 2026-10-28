@@ -8,7 +8,7 @@ use std::fmt;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
-use iced::{Element, Task};
+use iced::{Element, Subscription, Task, Theme};
 
 pub mod config;
 pub mod keymap;
@@ -44,6 +44,8 @@ pub enum CoreEvent {
     Diagnostics { source: String, path: PathBuf, items: Vec<Diagnostic> },
     /// Trabalho em segundo plano (ex.: "rust-analyzer: indexando 40%"). `text: None` = terminou.
     Activity { source: String, text: Option<String> },
+    /// Tema ou tamanho da fonte mudou. Também é enviado logo depois da ativação.
+    Appearance { theme: Theme, font_size: f32 },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -157,6 +159,10 @@ impl<'a> Context<'a> {
         self.requests.push(Request::PanelVisibility { id, visible: Some(true) });
     }
 
+    pub fn hide_panel(&mut self, id: PanelId) {
+        self.requests.push(Request::PanelVisibility { id, visible: Some(false) });
+    }
+
     pub fn path_renamed(&mut self, from: impl Into<PathBuf>, to: impl Into<PathBuf>) {
         self.requests.push(Request::PathRenamed { from: from.into(), to: to.into() });
     }
@@ -195,6 +201,12 @@ pub trait Extension: 'static {
     fn update(&mut self, message: Self::Message, ctx: &mut Context) -> Task<Self::Message>;
 
     fn view(&self, panel: PanelId) -> Element<'_, Self::Message>;
+
+    /// Fontes de eventos contínuas (ex.: saída de um processo). Mensagens daqui
+    /// não tiram o foco do editor, ao contrário das que vêm da interface.
+    fn subscription(&self) -> Subscription<Self::Message> {
+        Subscription::none()
+    }
 }
 
 /// Mensagem de extensão com o tipo apagado. Só a extensão dona sabe abrir.
@@ -221,6 +233,7 @@ pub trait AnyExtension {
     fn on_command(&mut self, command: &str, ctx: &mut Context) -> Task<ExtMessage>;
     fn update(&mut self, message: ExtMessage, ctx: &mut Context) -> Task<ExtMessage>;
     fn view(&self, panel: PanelId) -> Element<'_, ExtMessage>;
+    fn subscription(&self) -> Subscription<ExtMessage>;
 }
 
 impl<E: Extension> AnyExtension for E {
@@ -250,5 +263,9 @@ impl<E: Extension> AnyExtension for E {
 
     fn view(&self, panel: PanelId) -> Element<'_, ExtMessage> {
         Extension::view(self, panel).map(ExtMessage::new)
+    }
+
+    fn subscription(&self) -> Subscription<ExtMessage> {
+        Extension::subscription(self).map(ExtMessage::new)
     }
 }

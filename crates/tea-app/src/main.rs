@@ -5,6 +5,7 @@
 mod cli;
 mod lsp;
 mod palette;
+mod pass_keys;
 mod splash;
 
 use std::path::{Path, PathBuf};
@@ -62,6 +63,8 @@ fn builtin_extensions() -> Vec<Box<dyn AnyExtension>> {
     list.push(Box::new(tea_ext_search::SearchExtension::new()));
     #[cfg(feature = "ext-problems")]
     list.push(Box::new(tea_ext_problems::ProblemsExtension::new()));
+    #[cfg(feature = "ext-terminal")]
+    list.push(Box::new(tea_ext_terminal::TerminalExtension::new()));
     list
 }
 
@@ -145,7 +148,10 @@ struct App {
 #[derive(Debug, Clone)]
 enum Message {
     Editor(u64, EditorMessage),
+    /// Vinda da interface de uma extensão.
     Ext(usize, ExtMessage),
+    /// Vinda da subscription de uma extensão.
+    ExtSub(usize, ExtMessage),
     SelectTab(u64),
     CloseTab(u64),
     SelectBottom(usize),
@@ -210,6 +216,7 @@ impl App {
         for i in 0..app.extensions.len() {
             tasks.push(app.call_ext(i, |e, ctx| e.activate(ctx)));
         }
+        tasks.push(app.broadcast_appearance());
         for file in launch.files.clone() {
             tasks.push(app.open_file(file));
         }
@@ -305,6 +312,10 @@ impl App {
         let tasks: Vec<_> =
             (0..self.extensions.len()).map(|i| self.call_ext(i, |e, ctx| e.on_event(&event, ctx))).collect();
         Task::batch(tasks)
+    }
+
+    fn broadcast_appearance(&mut self) -> Task<Message> {
+        self.broadcast(CoreEvent::Appearance { theme: self.theme.clone(), font_size: self.config.ui.font_size })
     }
 
     fn notify(&mut self, msg: impl Into<String>) -> Task<Message> {
@@ -628,7 +639,7 @@ impl App {
         } else {
             format!("Config recarregado com problemas: {}", problems.join(" · "))
         };
-        Task::batch([self.broadcast(CoreEvent::ConfigReloaded), self.notify(msg)])
+        Task::batch([self.broadcast(CoreEvent::ConfigReloaded), self.broadcast_appearance(), self.notify(msg)])
     }
 
     fn set_theme(&mut self, theme: Theme) {
@@ -697,7 +708,7 @@ impl App {
             "theme.toggle" => {
                 let next = if self.theme.extended_palette().is_dark { LIGHT_THEME } else { DARK_THEME };
                 self.set_theme(next);
-                Task::none()
+                self.broadcast_appearance()
             }
             "lsp.definition" => {
                 if self.editor_mut().request_definition() {
@@ -771,6 +782,10 @@ impl App {
         let any_visible = self.panels.iter().any(|p| p.slot == slot && p.visible);
         for p in self.panels.iter_mut().filter(|p| p.slot == slot) {
             p.visible = !any_visible;
+        }
+        if any_visible && self.palette.is_none() {
+            // O painel que tinha o foco sumiu: o teclado volta para o editor.
+            self.editor_mut().focus();
         }
         Task::none()
     }
@@ -868,10 +883,9 @@ impl App {
                 let task = self.tabs[i].editor.update(msg).map(move |m| Message::Editor(id, m));
                 if i == self.active { Task::batch([task, self.emit_status(false)]) } else { task }
             }
-            Message::Ext(i, msg) => {
-                self.editor_mut().lose_focus();
-                self.call_ext(i, |e, ctx| e.update(msg, ctx))
-            }
+            // O foco do editor sai por clique no painel (`MousePressed`) ou por comando,
+            // não aqui: painéis também mandam mensagens sozinhos (ex.: terminal ao mudar de tamanho).
+            Message::Ext(i, msg) | Message::ExtSub(i, msg) => self.call_ext(i, |e, ctx| e.update(msg, ctx)),
             Message::SelectTab(id) => match self.tab_index(id) {
                 Some(i) => self.set_active(i),
                 None => Task::none(),
@@ -929,7 +943,14 @@ impl App {
         } else {
             Subscription::none()
         };
-        Subscription::batch([input, close, frames])
+        // `with(i)` e não uma closure: `map` não aceita closures que capturam.
+        let extensions = Subscription::batch(
+            self.extensions
+                .iter()
+                .enumerate()
+                .map(|(i, e)| e.subscription().with(i).map(|(i, m)| Message::ExtSub(i, m))),
+        );
+        Subscription::batch([input, close, frames, extensions])
     }
 
     fn view(&self) -> Element<'_, Message> {
@@ -1008,13 +1029,21 @@ impl App {
         let p = &self.panels[active];
         let ext = p.ext;
         let body = self.extensions[ext].view(p.id).map(move |m| Message::Ext(ext, m));
-        let content = column![tabs, body].spacing(4).padding(4);
+        let content = column![tabs, self.pass_ide_keys(body)].spacing(4).padding(4);
         Some(
             mouse_area(content)
                 .on_enter(Message::PointerOverPanel(true))
                 .on_exit(Message::PointerOverPanel(false))
                 .into(),
         )
+    }
+
+    /// Atalhos Ctrl+Shift da IDE valem mesmo com o foco no painel (ver `Keymap::wins_over_panels`).
+    fn pass_ide_keys<'a>(&'a self, body: Element<'a, Message>) -> Element<'a, Message> {
+        pass_keys::PassKeys::new(body, |key, modifiers| {
+            Chord::from_event(key, modifiers).is_some_and(|c| self.keymap.wins_over_panels(&c))
+        })
+        .into()
     }
 
     /// Painéis visíveis de um slot, um embaixo do outro (ou lado a lado na barra de status).
@@ -1029,7 +1058,9 @@ impl App {
             if slot == Slot::Status {
                 body
             } else {
-                column![text(p.title.to_uppercase()).size(11).style(text::secondary), body].spacing(4).into()
+                column![text(p.title.to_uppercase()).size(11).style(text::secondary), self.pass_ide_keys(body)]
+                    .spacing(4)
+                    .into()
             }
         });
         let content: Element<'_, Message> = if slot == Slot::Status {
@@ -1090,7 +1121,7 @@ mod tests {
         ids.dedup();
         assert_eq!(ids.len(), CORE_COMMANDS.len(), "ids repetidos");
 
-        let ext_commands = ["filetree.toggle", "filetree.reveal", "search.focus", "problems.focus", "problems.next"];
+        let ext_commands = ["filetree.toggle", "filetree.reveal", "search.focus", "problems.focus", "problems.next", "terminal.focus"];
         let cfg = Config::from_layers(&[("padrão".into(), config::DEFAULT_CONFIG.into())]);
         for (chord, cmd) in &cfg.keys {
             assert!(ids.contains(&cmd.as_str()) || ext_commands.contains(&cmd.as_str()), "{chord} -> {cmd}");

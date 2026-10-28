@@ -11,4 +11,6 @@ cargo run --release -- [--no-splash] [pasta|arquivo...]
 cargo run --release -p tea-editor --example large_file -- 50000 [--write grande.rs]
 ```
 
-Atalhos: `Ctrl+Shift+P` (ou `F1`) abre a paleta com todos os comandos e atalhos. Config: comando "Config: abrir config global".
+Atalhos: `Ctrl+Shift+P` (ou `F1`) abre a paleta com todos os comandos e atalhos. `Ctrl+Shift+T` abre o terminal
+(nele, `Ctrl+letra` vai para o shell; os atalhos `Ctrl+Shift` da IDE continuam valendo).
+Config: comando "Config: abrir config global".

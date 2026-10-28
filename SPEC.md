@@ -69,7 +69,7 @@ idetea/
 │       ├── tea-ext-statusbar/  # barra de status
 │       ├── tea-ext-search/     # busca no projeto
 │       ├── tea-ext-problems/   # erros e avisos
-│       └── tea-ext-terminal/   # fase 2 (pendente)
+│       └── tea-ext-terminal/   # terminal (alacritty via iced_term)
 └── Cargo.toml           # workspace + features (filetree, terminal, lsp...)
 ```
 
@@ -150,6 +150,7 @@ font_size = 14
 [extensions]
 filetree = { enabled = true, slot = "left" }
 statusbar = { enabled = true }
+terminal = { enabled = true, slot = "bottom" }
 
 [keys]
 "ctrl+shift+p" = "palette.open"
@@ -164,6 +165,11 @@ statusbar = { enabled = true }
    O editor já trata `Ctrl+F/H/G` (buscar, substituir, ir para linha), `Ctrl+Z/Y`, `Ctrl+D`, `Ctrl+K/J` (dobrar)
    e `Ctrl+S` (emite `WriteRequested`, que a IDE trata como `file.save`, assim como o `:w` do modo vim).
 3. **Mapa de atalhos da IDE** (`[keys]`) para o resto.
+
+**Painéis que usam o teclado todo (terminal):** com o foco num painel, `Ctrl+letra`, F-teclas, setas etc. são do painel
+(ex.: `Ctrl+C`, `Ctrl+B`, `Ctrl+W`, `F8` vão para o shell). Os atalhos da IDE com `Ctrl+Shift`
+(menos `Ctrl+Shift+C/V`, que copiam e colam) e `Ctrl+PageUp/PageDown` continuam valendo — por isso a palette (`Ctrl+Shift+P`)
+sempre funciona. O app aplica a regra em todos os painéis laterais e inferiores (`Keymap::wins_over_panels`).
 
 `Ctrl+Tab` é usado pelo editor (insere tab), então a troca de abas usa `Ctrl+PageUp`/`Ctrl+PageDown`.
 
@@ -233,7 +239,19 @@ arrastar painéis, encodings além de UTF-8.
 - [x] LSP com cliente próprio (`tea-lsp`): diagnósticos, hover, autocomplete, ir para definição, formatar.
 - [x] Extensão `problems` (painel inferior) + contagem de erros/avisos na barra de status.
 - [x] Teste manual do LSP na tela (hover, menu de autocomplete, Ctrl+Clique): aprovado.
-- [ ] Extensão `terminal` (`alacritty_terminal` + renderização iced).
+- [x] Extensão `terminal` (painel inferior, crate `iced_term` = `alacritty_terminal` + widget iced):
+      `Ctrl+Shift+T` abre e foca, "Terminal: reiniciar o shell". Usa `$SHELL` na pasta do projeto,
+      cores e fonte seguem o tema. O shell só sobe na primeira vez que o painel abre (não pesa no boot).
+      Digitar `exit` fecha o painel.
+- [x] Teste manual do terminal na tela: aprovado.
+
+#### Decisões do terminal
+
+- **Extensões ganharam `subscription()`** (fontes contínuas de eventos, como a saída do shell) e o evento
+  `CoreEvent::Appearance { theme, font_size }` (enviado na ativação e quando tema/fonte mudam).
+- **Foco:** mensagens de painel não tiram mais o foco do editor sozinhas (o terminal manda "mudei de tamanho" quando o layout muda);
+  o foco sai por clique no painel ou por comando. Esconder o painel inferior (`Ctrl+Shift+J`) devolve o foco ao editor.
+- `theme.toggle` perdeu o atalho padrão (`Ctrl+Shift+T` agora é do terminal); continua na palette.
 
 #### Decisões do LSP
 

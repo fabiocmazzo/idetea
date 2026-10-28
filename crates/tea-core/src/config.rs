@@ -37,6 +37,7 @@ filetree = { enabled = true, slot = "left" }
 statusbar = { enabled = true }
 search = { enabled = true, slot = "bottom" }
 problems = { enabled = true, slot = "bottom" }
+terminal = { enabled = true, slot = "bottom" }
 
 # Atalhos: "combinação" = "comando". Comando vazio ("") desliga o atalho.
 # Atalhos que o editor já usa (Ctrl+F, Ctrl+H, Ctrl+G, Ctrl+Z, Ctrl+D...) têm prioridade quando ele tem foco.
@@ -58,7 +59,7 @@ problems = { enabled = true, slot = "bottom" }
 "f12" = "lsp.definition"
 "ctrl+shift+k" = "lsp.hover"
 "ctrl+shift+i" = "lsp.format"
-"ctrl+shift+t" = "theme.toggle"
+"ctrl+shift+t" = "terminal.focus"
 "ctrl+q" = "app.quit"
 "#;
 

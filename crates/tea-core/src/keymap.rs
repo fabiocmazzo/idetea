@@ -148,11 +148,41 @@ impl Keymap {
         found.sort_by_key(|c| c.to_string().len());
         found.first().copied()
     }
+
+    /// Atalhos da IDE que valem mesmo com o foco num painel que usa o teclado todo
+    /// (ex.: terminal): os com Ctrl+Shift (menos copiar/colar) e Ctrl+PageUp/PageDown.
+    /// O resto (Ctrl+letra, F-teclas...) fica com o painel.
+    pub fn wins_over_panels(&self, chord: &Chord) -> bool {
+        if self.command_for(chord).is_none() || chord.alt || chord.logo {
+            return false;
+        }
+        let ctrl_shift = chord.ctrl && chord.shift && !matches!(chord.key.as_str(), "c" | "v");
+        let tab_switch = chord.ctrl && !chord.shift && matches!(chord.key.as_str(), "pageup" | "pagedown");
+        ctrl_shift || tab_switch
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn panel_passthrough_rule() {
+        let (km, _) = Keymap::from_pairs([
+            ("ctrl+shift+p", "palette.open"),
+            ("ctrl+shift+c", "x.copy"),
+            ("ctrl+b", "filetree.toggle"),
+            ("ctrl+pagedown", "tab.next"),
+            ("f8", "problems.next"),
+        ]);
+        let wins = |t: &str| km.wins_over_panels(&Chord::parse(t).unwrap());
+        assert!(wins("ctrl+shift+p"));
+        assert!(wins("ctrl+pagedown"));
+        assert!(!wins("ctrl+shift+c"), "copiar fica com o painel");
+        assert!(!wins("ctrl+b"), "Ctrl+letra é do shell");
+        assert!(!wins("f8"));
+        assert!(!wins("ctrl+shift+z"), "sem comando, não intercepta");
+    }
 
     #[test]
     fn parse_basic() {
