@@ -7,9 +7,9 @@ use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
 use iced::widget::{
-    Id, button, column, container, mouse_area, opaque, rich_text, row, rule, scrollable, space, span, text, text_input,
+    Id, button, column, container, rich_text, row, rule, scrollable, space, span, text, text_input,
 };
-use iced::{Color, Element, Fill, Font, Theme};
+use iced::{Element, Fill, Font, Theme};
 use tea_core::icons::{Icon, icon_button};
 use tea_core::keymap::Keymap;
 
@@ -123,8 +123,10 @@ const GUIDE: &[(&str, &[&str])] = &[
     (
         "Configuração",
         &[
-            "Há um config global e um por projeto (`.idetea/config.toml`); o do projeto vence. Abra pela paleta: \
-             \"Config: abrir config global\" ou \"...do projeto\". Ao salvar, tema, fonte e atalhos recarregam na hora.",
+            "A tela de configurações ({settings.open}) muda tema, fonte, extensões, atalhos e LSP, gravando no config \
+             global ou no do projeto. As mudanças valem na hora.",
+            "Há um config global e um por projeto (`.idetea/config.toml`); o do projeto vence. Para editar o arquivo \
+             direto: \"Config: abrir config global\" ou \"...do projeto\". Ao salvar, tudo recarrega.",
             "Atalhos ficam em [keys]: \"ctrl+alt+t\" = \"terminal.focus\". Texto vazio desliga um atalho padrão. \
              Os ids dos comandos aparecem na aba Atalhos.",
         ],
@@ -171,30 +173,7 @@ impl Help {
             Tab::About => scrollable(about_view(about)).height(Fill).into(),
         };
 
-        let card = container(column![header, rule::horizontal(1), body].spacing(10))
-            .max_width(860)
-            .height(Fill)
-            .padding(16)
-            .style(|theme: &Theme| {
-                let p = theme.extended_palette();
-                container::Style {
-                    background: Some(p.background.weak.color.into()),
-                    border: iced::Border { color: p.background.strong.color, width: 1.0, radius: 10.0.into() },
-                    shadow: iced::Shadow {
-                        color: Color::from_rgba(0.0, 0.0, 0.0, 0.45),
-                        offset: iced::Vector::new(0.0, 10.0),
-                        blur_radius: 30.0,
-                    },
-                    ..container::Style::default()
-                }
-            });
-        let scrim = container(opaque(card)).center_x(Fill).height(Fill).padding(40).style(|_: &Theme| {
-            container::Style {
-                background: Some(Color::from_rgba(0.0, 0.0, 0.0, 0.35).into()),
-                ..container::Style::default()
-            }
-        });
-        opaque(mouse_area(scrim).on_press(Msg::Close))
+        crate::overlay::modal(column![header, rule::horizontal(1), body].spacing(10), 860.0, Msg::Close)
     }
 
     fn shortcuts<'a>(&'a self, commands: &'a [CommandInfo], keymap: &'a Keymap) -> Element<'a, Msg> {

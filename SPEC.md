@@ -316,8 +316,15 @@ Polimento, nesta ordem (o diálogo vem primeiro porque menu de contexto e config
       **Sobre** — versão, caminhos dos configs e créditos (inclui a atribuição dos Codicons).
       `F1` passou a abrir a ajuda; a paleta continua em `Ctrl+Shift+P`.
 - [x] Teste manual da ajuda na tela: aprovado.
-- [ ] **Painel de configurações:** tema, fonte, extensões e tabela de atalhos editável. Grava no `config.toml`
-      preservando comentários (`toml_edit`).
+- [x] **Configurações** (`Ctrl+,` / `settings.open`, janela sobre a IDE): abas Aparência (tema, fonte, splash),
+      Extensões (liga/desliga e lado do painel), Atalhos (filtro, `+` grava a próxima tecla, clicar numa tecla remove)
+      e LSP (liga/desliga geral e por servidor, mostra se o comando está no PATH, reiniciar servidores).
+      Grava no config **global ou do projeto** (escolha no topo) com `toml_edit`, preservando comentários e formatação;
+      cada mudança vale na hora, inclusive mudar um painel de lado. Ligar/desligar extensão vale ao reiniciar.
+      Remover atalho: tira a linha do arquivo; se o padrão ou o global ainda ligarem a tecla ao comando, grava `""`.
+      Gravar uma tecla já usada troca o dono e avisa ("Ctrl+X era de …").
+- [x] Teste manual das configurações na tela: aprovado.
+      Com a ajuda ou as configurações abertas, qualquer atalho da IDE fecha a janela e roda o comando (só a gravação de tecla pega tudo).
 
 #### Decisões da Fase 3
 

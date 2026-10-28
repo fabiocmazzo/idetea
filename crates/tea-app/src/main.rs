@@ -6,8 +6,10 @@ mod cli;
 mod context_menu;
 mod dialog;
 mod help;
+mod overlay;
 mod lsp;
 mod palette;
+mod settings;
 mod pass_keys;
 mod splash;
 
@@ -81,6 +83,7 @@ fn builtin_extensions() -> Vec<Box<dyn AnyExtension>> {
 const CORE_COMMANDS: &[(&str, &str)] = &[
     ("palette.open", "Paleta de comandos"),
     ("help.open", "Ajuda: atalhos e guia"),
+    ("settings.open", "Configurações"),
     ("file.new", "Arquivo: novo"),
     ("file.save", "Arquivo: salvar"),
     ("file.save_as", "Arquivo: salvar como…"),
@@ -133,6 +136,8 @@ struct Panel {
     id: PanelId,
     title: String,
     slot: Slot,
+    /// Slot pedido pela extensão (o config pode mudar `slot`).
+    default_slot: Slot,
     visible: bool,
 }
 
@@ -161,6 +166,9 @@ struct App {
     dialog: Option<dialog::Open>,
     menu: Option<context_menu::Open>,
     help: Option<help::Help>,
+    settings: Option<settings::Settings>,
+    /// Ids de todas as extensões compiladas (ligadas ou não), para a tela de configurações.
+    all_extensions: Vec<&'static str>,
     last_status: EditorStatus,
 }
 
@@ -179,6 +187,7 @@ enum Message {
     Dialog(dialog::Msg),
     Menu(context_menu::Msg),
     Help(help::Msg),
+    Settings(settings::Msg),
     Frame(Instant),
     PointerOverPanel(bool),
     MousePressed,
@@ -197,8 +206,9 @@ impl App {
         let (theme, theme_error) = resolve_theme(&config.ui.theme);
 
         let show_splash = config.ui.splash && !launch.no_splash;
-        let extensions =
-            builtin_extensions().into_iter().filter(|e| config.extension(e.id()).enabled).collect();
+        let builtin = builtin_extensions();
+        let all_extensions: Vec<&'static str> = builtin.iter().map(|e| e.id()).collect();
+        let extensions = builtin.into_iter().filter(|e| config.extension(e.id()).enabled).collect();
 
         // Eventos dos servidores LSP chegam por este canal (de outras threads).
         let (lsp_tx, lsp_rx) = iced::futures::channel::mpsc::unbounded();
@@ -229,6 +239,8 @@ impl App {
             dialog: None,
             menu: None,
             help: None,
+            settings: None,
+            all_extensions,
             last_status: EditorStatus::default(),
             config,
         };
@@ -309,11 +321,9 @@ impl App {
                 Request::OpenFile(path) => tasks.push(self.open_file(path)),
                 Request::OpenFileAt { path, line, column } => tasks.push(self.open_file_at(path, line, column)),
                 Request::RegisterPanel { id, title, slot, visible } => {
-                    let ext_id = self.extensions[ext].id();
-                    // Itens da barra de status ficam nela; o `slot` do config move os outros painéis.
-                    let slot =
-                        if slot == Slot::Status { slot } else { self.config.extension(ext_id).slot.unwrap_or(slot) };
-                    self.panels.push(Panel { ext, id, title, slot, visible });
+                    let default_slot = slot;
+                    let slot = self.slot_for(ext, default_slot);
+                    self.panels.push(Panel { ext, id, title, slot, default_slot, visible });
                     if slot == Slot::Bottom && visible && self.active_bottom.is_none() {
                         self.active_bottom = Some(self.panels.len() - 1);
                     }
@@ -648,6 +658,11 @@ impl App {
     // ---- Config e tema -------------------------------------------------------
 
     fn reload_config(&mut self) -> Task<Message> {
+        self.reload_config_with(true)
+    }
+
+    /// `announce: false` = só avisa se houver problema (mudanças feitas pela tela de configurações).
+    fn reload_config_with(&mut self, announce: bool) -> Task<Message> {
         let config = Config::load(self.global_config.as_deref(), Some(&config::project_config_path(&self.root)));
         let (keymap, key_errors) = Keymap::from_pairs(config.keys.iter().map(|(k, v)| (k.as_str(), v.as_str())));
         let (theme, theme_error) = resolve_theme(&config.ui.theme);
@@ -662,12 +677,36 @@ impl App {
         for tab in &mut self.tabs {
             tab.editor.set_font_size(font_size);
         }
-        let msg = if problems.is_empty() {
-            "Config recarregado (ligar/desligar extensões só vale ao reiniciar)".to_string()
+        self.apply_panel_slots();
+        let msg = if !problems.is_empty() {
+            Some(format!("Config recarregado com problemas: {}", problems.join(" · ")))
+        } else if announce {
+            Some("Config recarregado (ligar/desligar extensões só vale ao reiniciar)".to_string())
         } else {
-            format!("Config recarregado com problemas: {}", problems.join(" · "))
+            None
         };
-        Task::batch([self.broadcast(CoreEvent::ConfigReloaded), self.broadcast_appearance(), self.notify(msg)])
+        let note = msg.map_or_else(Task::none, |m| self.notify(m));
+        Task::batch([self.broadcast(CoreEvent::ConfigReloaded), self.broadcast_appearance(), note])
+    }
+
+    /// Slot de um painel: o do config, se houver; itens da barra de status ficam nela.
+    fn slot_for(&self, ext: usize, default_slot: Slot) -> Slot {
+        if default_slot == Slot::Status {
+            return default_slot;
+        }
+        self.config.extension(self.extensions[ext].id()).slot.unwrap_or(default_slot)
+    }
+
+    /// Depois de recarregar o config: painéis mudam de lado na hora.
+    fn apply_panel_slots(&mut self) {
+        for i in 0..self.panels.len() {
+            let slot = self.slot_for(self.panels[i].ext, self.panels[i].default_slot);
+            self.panels[i].slot = slot;
+        }
+        let valid = self.active_bottom.is_some_and(|i| self.panels[i].slot == Slot::Bottom && self.panels[i].visible);
+        if !valid {
+            self.active_bottom = self.panels.iter().position(|p| p.slot == Slot::Bottom && p.visible);
+        }
     }
 
     fn set_theme(&mut self, theme: Theme) {
@@ -721,6 +760,14 @@ impl App {
 
         match id {
             "palette.open" => self.open_palette(Palette::commands()),
+            "settings.open" => {
+                if self.settings.is_some() {
+                    self.close_settings();
+                    Task::none()
+                } else {
+                    self.open_settings()
+                }
+            }
             "help.open" => {
                 if self.help.is_some() {
                     self.close_help();
@@ -872,7 +919,202 @@ impl App {
 
     // ---- Diálogos --------------------------------------------------------------
 
+    // ---- Configurações ---------------------------------------------------------
+
+    fn open_settings(&mut self) -> Task<Message> {
+        self.palette = None;
+        self.menu = None;
+        self.help = None;
+        self.editor_mut().lose_focus();
+        let st = settings::Settings::new(self.server_rows(), self.ext_rows(), config::project_config_path(&self.root));
+        self.settings = Some(st);
+        operation::focus(iced::widget::Id::unique())
+    }
+
+    fn close_settings(&mut self) {
+        self.settings = None;
+        if self.dialog.is_none() && self.palette.is_none() {
+            self.editor_mut().focus();
+        }
+    }
+
+    fn ext_rows(&self) -> Vec<settings::ExtRow> {
+        self.all_extensions
+            .iter()
+            .map(|&id| {
+                let loaded = self.extensions.iter().position(|e| e.id() == id);
+                let movable = match loaded {
+                    Some(i) => self.panels.iter().any(|p| p.ext == i && p.default_slot != Slot::Status),
+                    None => self.config.extension(id).slot.is_some(),
+                };
+                settings::ExtRow { id, loaded: loaded.is_some(), movable }
+            })
+            .collect()
+    }
+
+    /// Servidores embutidos + os do config, com o comando efetivo e se ele existe no PATH.
+    fn server_rows(&self) -> Vec<settings::ServerRow> {
+        let mut rows: Vec<settings::ServerRow> = tea_lsp::default_servers()
+            .into_iter()
+            .map(|s| {
+                let command = self.config.lsp.servers.get(&s.name).and_then(|o| o.command.clone()).unwrap_or(s.command);
+                settings::ServerRow { name: s.name, found: tea_lsp::find_in_path(&command).is_some(), command }
+            })
+            .collect();
+        for (name, o) in &self.config.lsp.servers {
+            if let Some(command) = &o.command
+                && !rows.iter().any(|r| &r.name == name)
+            {
+                let found = tea_lsp::find_in_path(command).is_some();
+                rows.push(settings::ServerRow { name: name.clone(), command: command.clone(), found });
+            }
+        }
+        rows
+    }
+
+    fn settings_target_file(&self) -> Result<tea_core::config_edit::ConfigFile, String> {
+        use tea_core::config_edit::ConfigFile;
+        match self.settings.as_ref().map(|s| s.target) {
+            Some(settings::Target::Project) => ConfigFile::open_project(&config::project_config_path(&self.root)),
+            _ => match &self.global_config {
+                Some(p) => ConfigFile::open_global(p),
+                None => Err("não foi possível descobrir a pasta de config (HOME não definido)".into()),
+            },
+        }
+    }
+
+    /// Muda o arquivo escolhido na tela, grava e recarrega (sem anunciar).
+    fn edit_config(&mut self, f: impl FnOnce(&mut tea_core::config_edit::ConfigFile)) -> Task<Message> {
+        let mut file = match self.settings_target_file() {
+            Ok(file) => file,
+            Err(e) => return self.notify(format!("Config: {e}")),
+        };
+        f(&mut file);
+        if let Err(e) = file.save() {
+            return self.notify(format!("Erro ao gravar {}: {e}", file.path().display()));
+        }
+        self.reload_config_with(false)
+    }
+
+    /// Remove um atalho. Se outra camada (padrão ou global) ainda ligar a tecla ao comando, grava `""` para desligar.
+    fn unbind(&mut self, chord: String, command: String) -> Task<Message> {
+        let read = |p: Option<&Path>| p.and_then(|p| std::fs::read_to_string(p).ok()).unwrap_or_default();
+        let global = read(self.global_config.as_deref());
+        let project = read(Some(&config::project_config_path(&self.root)));
+        let to_project = self.settings.as_ref().is_some_and(|s| s.target == settings::Target::Project);
+        self.edit_config(move |f| {
+            f.remove_key(&chord);
+            let (g, p) = if to_project { (global, f.text()) } else { (f.text(), project) };
+            if still_bound(&g, &p, &chord, &command) {
+                f.bind(&chord, "");
+            }
+        })
+    }
+
+    fn command_title(&self, id: &str) -> String {
+        self.commands.iter().find(|c| c.id == id).map_or_else(|| id.to_string(), |c| c.title.clone())
+    }
+
+    fn settings_key(
+        &mut self,
+        key: &keyboard::Key,
+        modifiers: keyboard::Modifiers,
+        command: Option<&str>,
+        captured: bool,
+    ) -> Task<Message> {
+        let escape = *key == keyboard::Key::Named(keyboard::key::Named::Escape);
+        let Some(st) = &mut self.settings else { return Task::none() };
+        let Some(cmd) = st.recording.clone() else {
+            if escape || command == Some("settings.open") {
+                self.close_settings();
+            } else if let Some(id) = command.filter(|_| !captured) {
+                self.close_settings();
+                return self.run_command(id);
+            }
+            return Task::none();
+        };
+        if escape {
+            st.recording = None;
+            st.record_hint = None;
+            return Task::none();
+        }
+        // Só modificador (Ctrl sozinho...): espera o resto.
+        let Some(chord) = Chord::from_event(key, modifiers) else { return Task::none() };
+        if !chord.is_bindable() {
+            st.record_hint = Some("Use Ctrl, Alt ou uma tecla especial (F1–F12, PageUp…). Esc cancela.".into());
+            return Task::none();
+        }
+        st.recording = None;
+        st.record_hint = None;
+        let previous = self.keymap.command_for(&chord).map(str::to_string);
+        let (shown, title) = (chord.to_string(), self.command_title(&cmd));
+        let note = match previous {
+            Some(p) if p == cmd => format!("{shown} já era de \"{title}\""),
+            Some(p) => format!("{shown} era de \"{}\"; agora é de \"{title}\"", self.command_title(&p)),
+            None => format!("{shown} → \"{title}\""),
+        };
+        let config_chord = chord.to_config();
+        let saved = self.edit_config(|f| f.bind(&config_chord, &cmd));
+        Task::batch([saved, self.notify(note)])
+    }
+
+    fn settings_update(&mut self, msg: settings::Msg) -> Task<Message> {
+        use settings::Msg as M;
+        let Some(st) = &mut self.settings else { return Task::none() };
+        match msg {
+            M::Tab(tab) => {
+                st.tab = tab;
+                st.recording = None;
+                if tab == settings::Tab::Shortcuts {
+                    return operation::focus(settings::filter_id());
+                }
+                Task::none()
+            }
+            M::Target(t) => {
+                st.target = t;
+                Task::none()
+            }
+            M::Filter(q) => {
+                st.filter = q;
+                Task::none()
+            }
+            M::Record(cmd) => {
+                st.recording = Some(cmd);
+                st.record_hint = None;
+                // A tecla não pode cair no campo de filtro.
+                operation::focus(iced::widget::Id::unique())
+            }
+            M::CancelRecord => {
+                st.recording = None;
+                st.record_hint = None;
+                Task::none()
+            }
+            M::Theme(t) => self.edit_config(|f| f.set_theme(&t.0)),
+            M::FontSize(v) => {
+                let v = v.clamp(settings::FONT_MIN, settings::FONT_MAX);
+                self.edit_config(|f| f.set_font_size(v))
+            }
+            M::Splash(on) => self.edit_config(|f| f.set_splash(on)),
+            M::ExtEnabled(id, on) => self.edit_config(|f| f.set_extension_enabled(&id, on)),
+            M::ExtSlot(id, slot) => self.edit_config(|f| f.set_extension_slot(&id, slot.0)),
+            M::LspEnabled(on) => self.edit_config(|f| f.set_lsp_enabled(on)),
+            M::LspServer(name, on) => self.edit_config(|f| f.set_lsp_server_enabled(&name, on)),
+            M::RestartLsp => self.run_command("lsp.restart"),
+            M::Unbind { chord, command } => self.unbind(chord, command),
+            M::OpenFile => {
+                let global = st.target == settings::Target::Global;
+                self.close_settings();
+                self.open_config(global)
+            }
+            M::Close => {
+                self.close_settings();
+                Task::none()
+            }
+        }
+    }
+
     fn open_help(&mut self) -> Task<Message> {
+        self.settings = None;
         self.palette = None;
         self.menu = None;
         self.editor_mut().lose_focus();
@@ -1016,12 +1258,21 @@ impl App {
             }
             return Task::none();
         }
-        // Ajuda aberta: Esc ou o próprio atalho fecham; o resto fica com a busca dela.
+        // Ajuda aberta: Esc ou o próprio atalho fecham. Outro atalho da IDE (que a busca não usou)
+        // fecha a ajuda e roda o comando: dá para ir direto para a paleta ou as configurações.
         if self.dialog.is_none() && self.help.is_some() {
-            if key == keyboard::Key::Named(Named::Escape) || command.as_deref() == Some("help.open") {
+            let escape = key == keyboard::Key::Named(Named::Escape);
+            if escape || command.as_deref() == Some("help.open") {
                 self.close_help();
+            } else if let Some(id) = command.filter(|_| !captured) {
+                self.close_help();
+                return self.run_command(&id);
             }
             return Task::none();
+        }
+        // Configurações abertas: gravando tecla, ou mesma regra da ajuda.
+        if self.dialog.is_none() && self.settings.is_some() {
+            return self.settings_key(&key, modifiers, command.as_deref(), captured);
         }
         // Diálogo aberto: só ele responde ao teclado.
         if let Some(d) = &mut self.dialog {
@@ -1092,6 +1343,7 @@ impl App {
             Message::Dialog(dialog::Msg::Choose(choice)) => self.choose_dialog(choice),
             Message::Menu(context_menu::Msg::Choose(i)) => self.choose_menu(Some(i)),
             Message::Menu(context_menu::Msg::Close) => self.choose_menu(None),
+            Message::Settings(msg) => self.settings_update(msg),
             Message::Help(help::Msg::Close) => {
                 self.close_help();
                 Task::none()
@@ -1172,6 +1424,10 @@ impl App {
                 .align_x(iced::Center);
             // Clique fora fecha.
             layers = layers.push(opaque(mouse_area(overlay).on_press(Message::Palette(palette::Msg::Close))));
+        }
+        if let Some(st) = &self.settings {
+            let view = st.view(&self.config, &self.keymap, &self.commands, self.global_config.as_deref());
+            layers = layers.push(view.map(Message::Settings));
         }
         if let Some(h) = &self.help {
             let about = help::AboutInfo {
@@ -1311,6 +1567,18 @@ fn resolve_theme(name: &str) -> (Theme, Option<String>) {
     }
 }
 
+/// Com estes textos de config global e de projeto, `chord` ainda roda `command`?
+fn still_bound(global: &str, project: &str, chord: &str, command: &str) -> bool {
+    let layers = [
+        ("padrão".to_string(), config::DEFAULT_CONFIG.to_string()),
+        ("global".to_string(), global.to_string()),
+        ("projeto".to_string(), project.to_string()),
+    ];
+    let merged = Config::from_layers(&layers);
+    let (keymap, _) = Keymap::from_pairs(merged.keys.iter().map(|(k, v)| (k.as_str(), v.as_str())));
+    Chord::parse(chord).ok().and_then(|c| keymap.command_for(&c).map(str::to_string)).as_deref() == Some(command)
+}
+
 fn expand_home(input: &str) -> PathBuf {
     match input.strip_prefix("~/") {
         Some(rest) => std::env::var_os("HOME").map(|h| PathBuf::from(h).join(rest)).unwrap_or_else(|| input.into()),
@@ -1325,6 +1593,18 @@ fn display_rel(path: &Path, root: &Path) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn unbind_rule() {
+        // Atalho padrão: tirar a linha não basta, ele continua valendo.
+        assert!(still_bound("", "", "ctrl+b", "filetree.toggle"));
+        // Atalho criado pelo usuário em cima de um padrão: tirar a linha devolve o padrão.
+        assert!(!still_bound("", "", "ctrl+b", "meu.comando"));
+        // Já desligado no global.
+        assert!(!still_bound("[keys]\n\"ctrl+b\" = \"\"", "", "ctrl+b", "filetree.toggle"));
+        // Ligado no global, mexendo no projeto: continua valendo.
+        assert!(still_bound("[keys]\n\"ctrl+alt+x\" = \"a.b\"", "", "ctrl+alt+x", "a.b"));
+    }
 
     #[test]
     fn theme_names() {

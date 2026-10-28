@@ -80,6 +80,34 @@ fn normalize_key_name(name: &str) -> String {
     }
 }
 
+impl Chord {
+    /// Formato do config: `"ctrl+shift+p"` (o inverso de [`Chord::parse`]).
+    pub fn to_config(&self) -> String {
+        let mut parts: Vec<&str> = Vec::new();
+        if self.ctrl {
+            parts.push("ctrl");
+        }
+        if self.alt {
+            parts.push("alt");
+        }
+        if self.shift {
+            parts.push("shift");
+        }
+        if self.logo {
+            parts.push("super");
+        }
+        parts.push(&self.key);
+        parts.join("+")
+    }
+
+    /// Só modificadores e nenhuma tecla "de verdade" não formam atalho útil sozinhos;
+    /// letras sem Ctrl/Alt/Super atrapalhariam a digitação.
+    pub fn is_bindable(&self) -> bool {
+        let named = self.key.chars().count() > 1; // f5, pageup, escape...
+        named || self.ctrl || self.alt || self.logo
+    }
+}
+
 impl fmt::Display for Chord {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut parts = Vec::new();
@@ -186,6 +214,17 @@ mod tests {
         assert!(!wins("ctrl+b"), "Ctrl+letra é do shell");
         assert!(!wins("f8"));
         assert!(!wins("ctrl+shift+z"), "sem comando, não intercepta");
+    }
+
+    #[test]
+    fn config_roundtrip() {
+        for t in ["ctrl+shift+p", "f5", "ctrl+alt+pagedown", "super+k", "ctrl++"] {
+            assert_eq!(Chord::parse(t).unwrap().to_config(), t);
+        }
+        assert!(!Chord::parse("a").unwrap().is_bindable());
+        assert!(!Chord::parse("shift+a").unwrap().is_bindable());
+        assert!(Chord::parse("f2").unwrap().is_bindable());
+        assert!(Chord::parse("ctrl+a").unwrap().is_bindable());
     }
 
     #[test]

@@ -62,6 +62,7 @@ git = { enabled = true, slot = "bottom" }
 "ctrl+shift+i" = "lsp.format"
 "ctrl+shift+t" = "terminal.focus"
 "ctrl+shift+g" = "git.focus"
+"ctrl+," = "settings.open"
 "ctrl+q" = "app.quit"
 "#;
 

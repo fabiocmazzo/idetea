@@ -11,6 +11,7 @@ use std::sync::Arc;
 use iced::{Element, Subscription, Task, Theme};
 
 pub mod config;
+pub mod config_edit;
 pub mod icons;
 pub mod menu;
 pub mod keymap;
