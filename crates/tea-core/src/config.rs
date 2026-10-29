@@ -33,6 +33,14 @@ enabled = true
 # servers.clangd = { enabled = false }
 # servers.zls = { command = "zls", languages = { zig = "zig" } }
 
+# Debug (F5). Sem nada aqui: em projeto Rust compila com `cargo build` e acha o executável sozinho;
+# nos outros, pergunta o executável. Costuma ficar no config do projeto (.idetea/config.toml).
+[debug]
+# program = "build/meu-app"        # relativo à raiz do projeto
+# args = ["--verbose"]
+# cwd = "."                        # pasta onde o programa roda (padrão: a raiz)
+# build = "make"                   # roda antes de depurar; "" = não compilar
+
 # Extensões: enabled = liga/desliga (precisa reiniciar); slot = "left", "right" ou "bottom".
 [extensions]
 filetree = { enabled = true, slot = "left" }
@@ -130,10 +138,24 @@ pub struct LspServerConfig {
     pub languages: Option<BTreeMap<String, String>>,
 }
 
+/// Como depurar o projeto (`[debug]`). Tudo opcional.
+#[derive(Debug, Clone, Default, Deserialize)]
+#[serde(default)]
+pub struct DebugConfig {
+    /// Executável, relativo à raiz (ou absoluto).
+    pub program: Option<String>,
+    pub args: Vec<String>,
+    /// Pasta onde o programa roda, relativa à raiz.
+    pub cwd: Option<String>,
+    /// Comando que compila antes de depurar. `Some("")` = não compilar; `None` = automático (cargo).
+    pub build: Option<String>,
+}
+
 #[derive(Debug, Clone, Default)]
 pub struct Config {
     pub ui: UiConfig,
     pub lsp: LspConfig,
+    pub debug: DebugConfig,
     pub extensions: BTreeMap<String, ExtensionConfig>,
     /// Atalhos na ordem das camadas (os últimos vencem).
     pub keys: Vec<(String, String)>,
@@ -191,10 +213,11 @@ impl Config {
         let ui = take_section(&mut merged, "ui", &mut errors);
         let extensions = take_section(&mut merged, "extensions", &mut errors);
         let lsp = take_section(&mut merged, "lsp", &mut errors);
+        let debug = take_section(&mut merged, "debug", &mut errors);
         for unknown in merged.keys() {
             errors.push(format!("seção desconhecida: [{unknown}]"));
         }
-        Self { ui, lsp, extensions, keys, errors }
+        Self { ui, lsp, debug, extensions, keys, errors }
     }
 
     /// Config de uma extensão (padrão: ligada, slot escolhido pela extensão).

@@ -5,6 +5,7 @@
 mod cli;
 mod context_menu;
 mod debug;
+mod debug_build;
 mod dialog;
 mod divider;
 mod help;
@@ -153,6 +154,8 @@ enum CoreDialog {
     QuitWithoutSaving,
     /// Fechar várias abas (salvando ou descartando as alteradas).
     CloseMany { ids: Vec<u64>, save: bool },
+    /// Depurar este executável (havia mais de um).
+    DebugProgram(PathBuf),
 }
 
 /// Itens dos menus de contexto do próprio app (abas).
@@ -255,6 +258,8 @@ enum Message {
     Dap(u64, tea_dap::Event),
     /// A lista de arquivos do projeto terminou de ser lida (para `Ctrl+P`).
     FilesListed(std::sync::Arc<Vec<String>>),
+    /// A compilação antes do debug terminou.
+    DebugBuilt(std::sync::Arc<debug_build::Outcome>),
     Dialog(dialog::Msg),
     Menu(context_menu::Msg),
     /// Resposta da janela nativa de arquivo/pasta.
@@ -574,14 +579,11 @@ impl App {
         session.set_breakpoints(path, self.tabs[tab].editor.breakpoints().map(|l| l + 1).collect());
     }
 
-    /// F5: inicia (escolhendo o programa na primeira vez) ou continua.
+    /// F5: inicia (compilando antes, se for o caso) ou continua.
     fn debug_continue(&mut self) -> Task<Message> {
         match self.debug.session() {
-            None if self.debug.program.is_none() => {
-                let dir = self.root.clone();
-                self.pick(picker::debug_program(dir))
-            }
-            None => self.debug_start(),
+            None if self.debug.building => self.notify("Debug: ainda compilando…"),
+            None => self.debug_build(),
             Some(_) if self.debug.stopped.is_none() => self.notify("Debug: o programa já está rodando"),
             Some(session) => {
                 session.continue_();
@@ -590,16 +592,85 @@ impl App {
         }
     }
 
+    /// Compila numa thread (cargo, ou o `build` do config); sem nada para compilar, já inicia.
+    fn debug_build(&mut self) -> Task<Message> {
+        self.debug.output.clear();
+        let Some(build) = debug_build::plan(&self.config.debug, &self.root) else {
+            return self.debug_choose(&[]);
+        };
+        self.debug.building = true;
+        let note = self.notify(format!("Debug: compilando ({})…", build.label()));
+        let root = self.root.clone();
+        let (tx, rx) = iced::futures::channel::oneshot::channel();
+        std::thread::spawn(move || {
+            let _ = tx.send(debug_build::run(&build, &root));
+        });
+        let done = Task::future(async move { rx.await.ok() })
+            .and_then(|outcome| Task::done(Message::DebugBuilt(std::sync::Arc::new(outcome))));
+        Task::batch([note, done])
+    }
+
+    fn debug_built(&mut self, outcome: &debug_build::Outcome) -> Task<Message> {
+        // Parou (Shift+F5) durante a compilação: o resultado não vale mais.
+        if !self.debug.building {
+            return Task::none();
+        }
+        self.debug.building = false;
+        self.debug.push_output(&outcome.log);
+        if !outcome.ok {
+            let error = outcome.error.as_deref().unwrap_or("erro desconhecido");
+            return self.notify(format!("Debug: a compilação falhou: {error}"));
+        }
+        self.debug_choose(&outcome.executables)
+    }
+
+    /// Qual programa rodar: o do config, o único que o cargo gerou, o que já foi escolhido
+    /// antes, uma pergunta (vários executáveis) ou a janela de arquivos.
+    fn debug_choose(&mut self, executables: &[PathBuf]) -> Task<Message> {
+        if let Some(program) = self.config.debug.program.as_deref().filter(|p| !p.trim().is_empty()) {
+            self.debug.program = Some(self.root.join(program));
+            return self.debug_start();
+        }
+        match executables {
+            [only] => {
+                self.debug.program = Some(only.clone());
+                self.debug_start()
+            }
+            [] if self.debug.program.is_some() => self.debug_start(),
+            [] => {
+                let dir = self.root.clone();
+                self.pick(picker::debug_program(dir))
+            }
+            many if self.debug.program.as_ref().is_some_and(|p| many.contains(p)) => self.debug_start(),
+            many => {
+                let mut dialog =
+                    Dialog::new("Qual programa depurar?", "O projeto gerou mais de um executável.");
+                for (i, exe) in many.iter().enumerate() {
+                    let name = exe.file_name().map_or_else(|| exe.display().to_string(), |n| n.to_string_lossy().into_owned());
+                    let kind = if i == 0 { ButtonKind::Primary } else { ButtonKind::Secondary };
+                    dialog = dialog.button(name, kind, CoreDialog::DebugProgram(exe.clone()));
+                }
+                self.open_dialog(dialog.cancel("Cancelar"), dialog::Owner::Core)
+            }
+        }
+    }
+
     fn debug_start(&mut self) -> Task<Message> {
         let Some(program) = self.debug.program.clone() else { return Task::none() };
         let breakpoints = self.all_breakpoints();
-        match self.debug.start(program.clone(), self.root.clone(), breakpoints) {
+        let cfg = &self.config.debug;
+        let cwd = cfg.cwd.as_deref().map_or_else(|| self.root.clone(), |c| self.root.join(c));
+        match self.debug.start(program.clone(), cfg.args.clone(), cwd, breakpoints) {
             Ok(()) => self.notify(format!("Debug: rodando {}", display_rel(&program, &self.root))),
             Err(e) => self.notify(format!("Debug: {e}")),
         }
     }
 
     fn debug_stop(&mut self) -> Task<Message> {
+        if self.debug.building {
+            self.debug.stop();
+            return self.notify("Debug: cancelado (a compilação termina sozinha)");
+        }
         if !self.debug.is_running() {
             return Task::none();
         }
@@ -1749,6 +1820,10 @@ impl App {
                 if ok { Task::batch([task, self.quit()]) } else { task }
             }
             CoreDialog::QuitWithoutSaving => self.quit(),
+            CoreDialog::DebugProgram(program) => {
+                self.debug.program = Some(program);
+                self.debug_start()
+            }
             CoreDialog::CloseMany { ids, save } => {
                 let mut tasks = Vec::new();
                 let mut ids = ids;
@@ -1962,6 +2037,7 @@ impl App {
             Message::Palette(msg) => self.palette_update(msg),
             Message::Disk(watcher::Change::Paths(paths)) => self.disk_changed(&paths),
             Message::Dap(generation, event) => self.on_dap(generation, event),
+            Message::DebugBuilt(outcome) => self.debug_built(&outcome),
             Message::Disk(watcher::Change::Problem(msg)) => self.notify(msg),
             Message::FilesListed(files) => {
                 self.file_list = files.clone();

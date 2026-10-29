@@ -442,7 +442,17 @@ Ordem combinada: abrir pelo nome → perceber mudanças no disco → spike do de
       `Shift+F11` sair, `F9` breakpoint, "Debug: escolher o programa…". `IDETEA_DAP_LOG=1` mostra os eventos no terminal.
       A saída do programa fica guardada para o painel (parte 3).
 - [x] Teste manual da parte 1: aprovado.
-- [ ] Parte 2 — como rodar o programa: `cargo build` e descobrir o binário em projetos Rust; `[debug]` no config.
+- [x] **Parte 2 — como rodar o programa** (`debug_build.rs`):
+  - Projeto com `Cargo.toml`: o `F5` roda `cargo build --message-format=json-render-diagnostics` numa thread e lê
+    os executáveis (`compiler-artifact` com `kind` `bin`) da saída do cargo. Um só: roda. Vários: pergunta qual
+    (e lembra até fechar o app).
+  - `[debug]` no config: `program` (relativo à raiz; tem prioridade), `args`, `cwd`, `build` (comando via `sh -c`;
+    `build = ""` não compila nem no cargo).
+  - Sem nada disso: a janela de arquivos, como antes.
+  - Compilação falhou: avisa com a primeira linha de erro e não inicia. A saída da compilação vai para a saída do
+    debug (o painel da Parte 3 mostra). `Shift+F5` durante a compilação cancela o início.
+  - [x] Teste manual (aprovado): `F5` num projeto Rust compila e para no breakpoint sem pedir o executável; com erro de
+    compilação, aparece o erro; com `[debug] program` e `args` no config, roda esse programa com os argumentos.
 - [ ] Parte 3 — painel Debug: botões, pilha de chamadas, variáveis e saída do programa.
       Adaptadores: `codelldb` (Rust/C/C++), `debugpy`, `delve`...
 

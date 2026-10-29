@@ -21,11 +21,13 @@ pub struct Debugger {
     /// Onde o programa está parado, se estiver.
     pub stopped: Option<Vec<Frame>>,
     pub output: Vec<String>,
+    /// Compilando antes de iniciar (o resultado chega em `Message::DebugBuilt`).
+    pub building: bool,
 }
 
 impl Debugger {
     pub fn new(tx: UnboundedSender<(u64, Event)>) -> Self {
-        Self { tx, session: None, generation: 0, program: None, stopped: None, output: Vec::new() }
+        Self { tx, session: None, generation: 0, program: None, stopped: None, output: Vec::new(), building: false }
     }
 
     pub fn session(&self) -> Option<&Session> {
@@ -42,9 +44,11 @@ impl Debugger {
     }
 
     /// Inicia o `gdb` com o programa. `breakpoints`: arquivo → linhas (1-based).
+    /// Não limpa a saída: a da compilação fica antes da do programa.
     pub fn start(
         &mut self,
         program: PathBuf,
+        args: Vec<String>,
         cwd: PathBuf,
         breakpoints: HashMap<PathBuf, Vec<usize>>,
     ) -> Result<(), String> {
@@ -64,17 +68,17 @@ impl Debugger {
             }
             let _ = tx.unbounded_send((generation, e));
         });
-        let launch = Launch { program: program.clone(), args: Vec::new(), cwd };
+        let launch = Launch { program: program.clone(), args, cwd };
         let session = Session::start(&adapter, launch, breakpoints, sink)
             .map_err(|e| format!("não foi possível iniciar o gdb: {e}"))?;
         self.session = Some(session);
         self.program = Some(program);
         self.stopped = None;
-        self.output.clear();
         Ok(())
     }
 
     pub fn stop(&mut self) {
+        self.building = false;
         if let Some(s) = self.session.take() {
             s.stop();
         }

@@ -3691,6 +3691,7 @@ dependencies = [
  "notify",
  "rfd",
  "serde",
+ "serde_json",
  "tea-core",
  "tea-dap",
  "tea-editor",
