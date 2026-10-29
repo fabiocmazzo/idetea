@@ -4,6 +4,7 @@
 
 mod cli;
 mod context_menu;
+mod debug;
 mod dialog;
 mod divider;
 mod help;
@@ -103,8 +104,14 @@ const CORE_COMMANDS: &[(&str, &str)] = &[
     ("file.save", "Arquivo: salvar"),
     ("file.open", "Arquivo: abrir…"),
     ("file.quick_open", "Arquivo: abrir pelo nome…"),
+    ("debug.continue", "Debug: iniciar / continuar"),
+    ("debug.stop", "Debug: parar"),
+    ("debug.pause", "Debug: pausar"),
+    ("debug.next", "Debug: próxima linha"),
+    ("debug.step_in", "Debug: entrar na função"),
+    ("debug.step_out", "Debug: sair da função"),
     ("debug.toggle_breakpoint", "Debug: liga/desliga breakpoint na linha"),
-    ("debug.demo_stop", "Debug (protótipo): simular parada na linha do cursor"),
+    ("debug.choose_program", "Debug: escolher o programa…"),
     ("file.open_folder", "Arquivo: abrir pasta em nova janela…"),
     ("file.save_as", "Arquivo: salvar como…"),
     ("file.save_as_path", "Arquivo: salvar como (digitar caminho)…"),
@@ -205,6 +212,7 @@ struct App {
     active_bottom: Option<usize>,
 
     palette: Option<Palette>,
+    debug: debug::Debugger,
     /// Quando a própria IDE salvou cada arquivo: o aviso de "mudou no disco" desse save não conta.
     own_saves: std::collections::HashMap<PathBuf, Instant>,
     /// Última lista de arquivos do projeto (para `Ctrl+P` abrir na hora; é relida a cada abertura).
@@ -243,6 +251,8 @@ enum Message {
     Palette(palette::Msg),
     /// Arquivos mudaram no disco (observador do projeto).
     Disk(watcher::Change),
+    /// Evento do debugger (número da sessão, evento).
+    Dap(u64, tea_dap::Event),
     /// A lista de arquivos do projeto terminou de ser lida (para `Ctrl+P`).
     FilesListed(std::sync::Arc<Vec<String>>),
     Dialog(dialog::Msg),
@@ -286,9 +296,11 @@ impl App {
             let _ = lsp_tx.unbounded_send(e);
         });
         let lsp = lsp::LspManager::new(&root, &config.lsp, sink);
+        let (dap_tx, dap_rx) = iced::futures::channel::mpsc::unbounded();
 
         let mut app = Self {
             lsp,
+            debug: debug::Debugger::new(dap_tx),
             root,
             global_config,
             keymap,
@@ -322,7 +334,7 @@ impl App {
         };
         app.push_tab(Editor::scratch(""));
 
-        let mut tasks = vec![Task::run(lsp_rx, Message::Lsp)];
+        let mut tasks = vec![Task::run(lsp_rx, Message::Lsp), Task::run(dap_rx, |(g, e)| Message::Dap(g, e))];
         // Extensões primeiro: assim elas recebem os eventos dos arquivos abertos abaixo.
         for i in 0..app.extensions.len() {
             tasks.push(app.call_ext(i, |e, ctx| e.activate(ctx)));
@@ -539,6 +551,118 @@ impl App {
                 Task::batch([lsp, refresh])
             }
             Err(e) => self.notify(format!("Erro ao recarregar {}: {e}", display_rel(path, &self.root))),
+        }
+    }
+
+    // ---- Debug -------------------------------------------------------------
+
+    /// Breakpoints de todas as abas: arquivo → linhas (1-based).
+    fn all_breakpoints(&self) -> std::collections::HashMap<PathBuf, Vec<usize>> {
+        self.tabs
+            .iter()
+            .filter_map(|t| {
+                let lines: Vec<usize> = t.editor.breakpoints().map(|l| l + 1).collect();
+                t.editor.path().map(|p| (p.to_path_buf(), lines))
+            })
+            .filter(|(_, lines)| !lines.is_empty())
+            .collect()
+    }
+
+    /// Breakpoints da aba mudaram: com o debug rodando, valem na hora.
+    fn sync_breakpoints(&self, tab: usize) {
+        let (Some(session), Some(path)) = (self.debug.session(), self.tabs[tab].editor.path()) else { return };
+        session.set_breakpoints(path, self.tabs[tab].editor.breakpoints().map(|l| l + 1).collect());
+    }
+
+    /// F5: inicia (escolhendo o programa na primeira vez) ou continua.
+    fn debug_continue(&mut self) -> Task<Message> {
+        match self.debug.session() {
+            None if self.debug.program.is_none() => {
+                let dir = self.root.clone();
+                self.pick(picker::debug_program(dir))
+            }
+            None => self.debug_start(),
+            Some(_) if self.debug.stopped.is_none() => self.notify("Debug: o programa já está rodando"),
+            Some(session) => {
+                session.continue_();
+                Task::none()
+            }
+        }
+    }
+
+    fn debug_start(&mut self) -> Task<Message> {
+        let Some(program) = self.debug.program.clone() else { return Task::none() };
+        let breakpoints = self.all_breakpoints();
+        match self.debug.start(program.clone(), self.root.clone(), breakpoints) {
+            Ok(()) => self.notify(format!("Debug: rodando {}", display_rel(&program, &self.root))),
+            Err(e) => self.notify(format!("Debug: {e}")),
+        }
+    }
+
+    fn debug_stop(&mut self) -> Task<Message> {
+        if !self.debug.is_running() {
+            return Task::none();
+        }
+        self.debug.stop();
+        self.clear_exec_lines();
+        self.notify("Debug: parado")
+    }
+
+    fn clear_exec_lines(&mut self) {
+        for t in &mut self.tabs {
+            t.editor.set_exec_line(None);
+        }
+    }
+
+    fn on_dap(&mut self, generation: u64, event: tea_dap::Event) -> Task<Message> {
+        use tea_dap::Event as E;
+        if !self.debug.is_current(generation) {
+            return Task::none();
+        }
+        match event {
+            E::Stopped { reason, frames, .. } => {
+                self.clear_exec_lines();
+                let reason = debug::reason_label(&reason).to_string();
+                let top = frames.first().map(|f| f.name.clone()).unwrap_or_else(|| "?".into());
+                // O primeiro quadro com código-fonte que existe (passos dentro da std não têm).
+                let shown = frames.iter().find(|f| f.path.as_deref().is_some_and(Path::is_file) && f.line > 0).cloned();
+                self.debug.stopped = Some(frames);
+                let Some(frame) = shown else {
+                    return self.notify(format!("Debug: parado em {top} ({reason}), sem código-fonte"));
+                };
+                let path = frame.path.clone().unwrap_or_default();
+                let open = self.open_file_at(path.clone(), frame.line, 1);
+                if let Some(t) = self.tabs.iter_mut().find(|t| t.editor.path() == Some(path.as_path())) {
+                    t.editor.set_exec_line(Some(frame.line - 1));
+                }
+                let note =
+                    self.notify(format!("Debug: parado em {}:{} ({reason})", display_rel(&path, &self.root), frame.line));
+                Task::batch([open, note])
+            }
+            E::Continued => {
+                self.debug.stopped = None;
+                self.clear_exec_lines();
+                Task::none()
+            }
+            E::Output { text, .. } => {
+                self.debug.push_output(&text);
+                Task::none()
+            }
+            E::Exited { code } => {
+                let code = code.map(|c| format!(" (código {c})")).unwrap_or_default();
+                self.notify(format!("Debug: o programa terminou{code}"))
+            }
+            E::Terminated => {
+                self.debug.ended();
+                self.clear_exec_lines();
+                Task::none()
+            }
+            E::Error { command, message } => self.notify(format!("Debug: {command} falhou: {message}")),
+            E::AdapterExited { reason } => {
+                self.debug.ended();
+                self.clear_exec_lines();
+                self.notify(format!("Debug: o gdb encerrou ({reason})"))
+            }
         }
     }
 
@@ -778,6 +902,10 @@ impl App {
                 Task::batch([activate, self.save_as_path(path)])
             }
             picker::Picked::Files(Some(files)) => Task::batch(files.into_iter().map(|f| self.open_file(f)).collect::<Vec<_>>()),
+            picker::Picked::DebugProgram(Some(program)) => {
+                self.debug.program = Some(program);
+                self.debug_start()
+            }
             picker::Picked::Folder(Some(dir)) => match picker::open_window(&dir) {
                 Ok(()) => self.notify(format!("Abrindo {} numa nova janela", dir.display())),
                 Err(e) => self.notify(format!("Não foi possível abrir a pasta: {e}")),
@@ -970,13 +1098,28 @@ impl App {
             "debug.toggle_breakpoint" => {
                 let line = self.editor().cursor().0 - 1;
                 self.editor_mut().toggle_breakpoint(line);
+                self.sync_breakpoints(self.active);
                 Task::none()
             }
-            "debug.demo_stop" => {
-                // Protótipo do spike: mostra a seta e a faixa sem um debugger de verdade.
-                let line = self.editor().cursor().0 - 1;
-                let next = (self.editor().exec_line() != Some(line)).then_some(line);
-                self.editor_mut().set_exec_line(next);
+            "debug.continue" => self.debug_continue(),
+            "debug.stop" => self.debug_stop(),
+            "debug.choose_program" => {
+                let dir = self.root.clone();
+                self.pick(picker::debug_program(dir))
+            }
+            "debug.pause" | "debug.next" | "debug.step_in" | "debug.step_out" => {
+                let Some(session) = self.debug.session() else {
+                    return self.notify("Debug: nenhuma sessão rodando (F5 inicia)");
+                };
+                let stopped = self.debug.stopped.is_some();
+                match id {
+                    "debug.pause" if !stopped => session.pause(),
+                    "debug.next" if stopped => session.next(),
+                    "debug.step_in" if stopped => session.step_in(),
+                    "debug.step_out" if stopped => session.step_out(),
+                    "debug.pause" => return self.notify("Debug: o programa já está parado"),
+                    _ => return self.notify("Debug: o programa está rodando (pause antes)"),
+                }
                 Task::none()
             }
             "settings.open" => {
@@ -1117,6 +1260,7 @@ impl App {
 
     fn quit(&mut self) -> Task<Message> {
         self.lsp.shutdown_all();
+        self.debug.stop();
         iced::exit()
     }
 
@@ -1791,7 +1935,11 @@ impl App {
                 if msg.is_save_request() {
                     return if i == self.active { self.save_active() } else { Task::none() };
                 }
+                let toggled = msg.is_breakpoint_toggle();
                 let task = self.tabs[i].editor.update(msg).map(move |m| Message::Editor(id, m));
+                if toggled {
+                    self.sync_breakpoints(i);
+                }
                 if i == self.active { Task::batch([task, self.emit_status(false)]) } else { task }
             }
             // O foco do editor sai por clique no painel (`MousePressed`) ou por comando,
@@ -1813,6 +1961,7 @@ impl App {
             Message::Key { key, modifiers, captured } => self.on_key(key, modifiers, captured),
             Message::Palette(msg) => self.palette_update(msg),
             Message::Disk(watcher::Change::Paths(paths)) => self.disk_changed(&paths),
+            Message::Dap(generation, event) => self.on_dap(generation, event),
             Message::Disk(watcher::Change::Problem(msg)) => self.notify(msg),
             Message::FilesListed(files) => {
                 self.file_list = files.clone();

@@ -28,6 +28,7 @@ tea-ext-problems = { workspace = true, optional = true }
 tea-ext-terminal = { workspace = true, optional = true }
 tea-ext-git = { workspace = true, optional = true }
 tea-lsp.workspace = true
+tea-dap.workspace = true
 serde.workspace = true
 toml.workspace = true
 rfd.workspace = true

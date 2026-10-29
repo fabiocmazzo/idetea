@@ -40,6 +40,11 @@ impl EditorMessage {
     pub fn is_save_request(&self) -> bool {
         matches!(self.0, Msg::Widget(Inner::WriteRequested))
     }
+
+    /// Clique nos números de linha: os breakpoints deste editor vão mudar.
+    pub fn is_breakpoint_toggle(&self) -> bool {
+        matches!(self.0, Msg::ToggleBreakpoint(_))
+    }
 }
 
 /// LSP ligado neste editor.

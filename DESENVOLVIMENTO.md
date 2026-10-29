@@ -59,6 +59,7 @@ cargo run --release -p tea-editor --example large_file -- 50000 [--write grande.
 |---|---|
 | `IDETEA_NO_SPLASH=1` | não mostra a splash (o mesmo que `--no-splash` ou `[ui] splash = false`) |
 | `IDETEA_LSP_LOG=1` | mostra no terminal o log dos servidores LSP |
+| `IDETEA_DAP_LOG=1` | mostra no terminal os eventos do debugger (DAP) |
 
 ## Onde ficam os arquivos
 
@@ -78,6 +79,7 @@ crates/
 ├── tea-core/      API das extensões (trait Extension, Context, eventos), config, atalhos, ícones, menu
 ├── tea-editor/    fachada sobre o iced-code-editor (nenhuma outra crate usa o widget direto)
 ├── tea-lsp/       cliente LSP (processo + JSON-RPC), sem UI
+├── tea-dap/       cliente DAP (debug), sem UI
 ├── tea-app/       o binário: janela, layout, paleta, diálogos, ajuda, configurações, LSP
 └── ext/
     ├── tea-ext-filetree/   árvore de arquivos

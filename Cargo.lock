@@ -3692,6 +3692,7 @@ dependencies = [
  "rfd",
  "serde",
  "tea-core",
+ "tea-dap",
  "tea-editor",
  "tea-ext-filetree",
  "tea-ext-git",
@@ -3711,6 +3712,14 @@ dependencies = [
  "serde",
  "toml 1.1.8+spec-1.1.0",
  "toml_edit 0.25.17+spec-1.1.0",
+]
+
+[[package]]
+name = "tea-dap"
+version = "0.0.1"
+dependencies = [
+ "serde_json",
+ "tea-lsp",
 ]
 
 [[package]]

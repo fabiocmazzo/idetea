@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["crates/tea-core", "crates/tea-editor", "crates/tea-lsp", "crates/tea-app", "crates/ext/*"]
+members = ["crates/tea-core", "crates/tea-editor", "crates/tea-lsp", "crates/tea-dap", "crates/tea-app", "crates/ext/*"]
 
 [workspace.package]
 version = "0.0.1"
@@ -23,6 +23,7 @@ serde_json = "1"
 tea-core = { path = "crates/tea-core" }
 tea-editor = { path = "crates/tea-editor" }
 tea-lsp = { path = "crates/tea-lsp" }
+tea-dap = { path = "crates/tea-dap" }
 tea-ext-filetree = { path = "crates/ext/tea-ext-filetree" }
 tea-ext-statusbar = { path = "crates/ext/tea-ext-statusbar" }
 tea-ext-search = { path = "crates/ext/tea-ext-search" }

@@ -13,6 +13,8 @@ pub enum Picked {
     SaveAs { tab: u64, path: Option<PathBuf> },
     Files(Option<Vec<PathBuf>>),
     Folder(Option<PathBuf>),
+    /// Executável para depurar.
+    DebugProgram(Option<PathBuf>),
 }
 
 pub async fn save_as(tab: u64, dir: PathBuf, name: String) -> Picked {
@@ -32,6 +34,11 @@ pub async fn open_files(dir: PathBuf) -> Picked {
 pub async fn open_folder(dir: PathBuf) -> Picked {
     let folder = AsyncFileDialog::new().set_title("Abrir pasta").set_directory(&dir).pick_folder().await;
     Picked::Folder(folder.map(|f| f.path().to_path_buf()))
+}
+
+pub async fn debug_program(dir: PathBuf) -> Picked {
+    let file = AsyncFileDialog::new().set_title("Programa para depurar").set_directory(&dir).pick_file().await;
+    Picked::DebugProgram(file.map(|f| f.path().to_path_buf()))
 }
 
 /// Abre outra janela da IDE com `dir` como raiz (a raiz desta janela não muda).

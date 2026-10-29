@@ -64,6 +64,7 @@ idetea/
 │   ├── tea-core/        # buffers, comandos, keybindings, config, eventos, trait Extension
 │   ├── tea-editor/      # fachada sobre o iced-code-editor
 │   ├── tea-lsp/         # cliente LSP (processo, JSON-RPC, posições), sem UI
+│   ├── tea-dap/         # cliente DAP (debug), sem UI
 │   ├── tea-app/         # binário: janela iced, layout de slots, carrega extensões, gerencia LSP
 │   └── ext/
 │       ├── tea-ext-filetree/   # árvore de arquivos
@@ -427,7 +428,22 @@ Ordem combinada: abrir pelo nome → perceber mudanças no disco → spike do de
       - Adaptador: o `gdb` 14+ já fala DAP sozinho (`gdb -i dap`), funciona com Rust/C/C++ e já está instalado aqui;
         bom candidato para começar, com `codelldb`/`lldb-dap` como alternativa.
 - [x] Teste manual do protótipo das marcas na tela: aprovado.
-- [ ] Cliente DAP próprio (como o do LSP): breakpoints, continuar/próximo/entrar/sair, pilha e variáveis.
+- [x] **Parte 1 — cliente DAP** (`tea-dap`, sem UI, como o `tea-lsp`; reaproveita o enquadramento `Content-Length`):
+      `Session::start(adaptador, programa, breakpoints, sink)`. Sequência conferida com o gdb 18: `initialize` →
+      evento `initialized` → `launch` + `setBreakpoints` (caminho absoluto, um por arquivo) → `configurationDone`
+      (só aí o programa roda). Ao `stopped`, o cliente já pede a pilha e entrega `Event::Stopped { frames }`.
+      `continue`/`next`/`stepIn`/`stepOut`/`pause` agem na última thread parada; `stop` manda `disconnect` e mata o
+      gdb se ele não sair em 2 s. Pedidos do adaptador (ex.: `runInTerminal`) são recusados. Teste com o gdb de verdade
+      (breakpoint, sair da função, saída do programa, código de saída) pula sozinho sem gdb/rustc.
+      No app (`debug.rs`): uma sessão por vez, com número para ignorar eventos de sessões velhas. Ao parar, abre o
+      primeiro quadro da pilha que tem código-fonte no disco (passos dentro da std não têm) e mostra a seta;
+      breakpoints mudados durante a sessão valem na hora. Comandos e atalhos: `F5` iniciar/continuar (na primeira vez
+      escolhe o executável na janela do sistema), `Shift+F5` parar, `F6` pausar, `F10` próxima linha, `F11` entrar,
+      `Shift+F11` sair, `F9` breakpoint, "Debug: escolher o programa…". `IDETEA_DAP_LOG=1` mostra os eventos no terminal.
+      A saída do programa fica guardada para o painel (parte 3).
+- [x] Teste manual da parte 1: aprovado.
+- [ ] Parte 2 — como rodar o programa: `cargo build` e descobrir o binário em projetos Rust; `[debug]` no config.
+- [ ] Parte 3 — painel Debug: botões, pilha de chamadas, variáveis e saída do programa.
       Adaptadores: `codelldb` (Rust/C/C++), `debugpy`, `delve`...
 
 ## Riscos

@@ -115,6 +115,16 @@ const GUIDE: &[(&str, &[&str])] = &[
         ],
     ),
     (
+        "Debug",
+        &[
+            "Breakpoint: clique no número da linha ou {debug.toggle_breakpoint}. Iniciar/continuar: {debug.continue} \
+             (na primeira vez pede o executável; compile com símbolos de debug, ex.: cargo build). \
+             Trocar o programa: {debug.choose_program}.",
+            "Parado: {debug.next} próxima linha, {debug.step_in} entra na função, {debug.step_out} sai, \
+             {debug.pause} pausa, {debug.stop} para. A seta amarela mostra onde o programa está. Usa o gdb 14+.",
+        ],
+    ),
+    (
         "Git",
         &[
             "A branch aparece na barra de status. O painel Git ({git.focus}) mostra o que mudou: + e − colocam e \

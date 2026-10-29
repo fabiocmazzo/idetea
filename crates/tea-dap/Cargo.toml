@@ -1,0 +1,10 @@
+[package]
+name = "tea-dap"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Cliente DAP (debug) da IDE TEA (independente de UI)"
+
+[dependencies]
+serde_json.workspace = true
+tea-lsp.workspace = true
