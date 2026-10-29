@@ -67,7 +67,8 @@ O nome é um trocadilho com *Iced Tea*: a IDE é feita com o iced.
 ### Sem perder trabalho
 - Fechar uma aba ou sair com alterações sempre pergunta antes.
 - Apagar arquivo vai para a lixeira do sistema.
-- Arquivos alterados por fora (descartar no git, pull) recarregam nas abas sem alterações; abas com alterações são mantidas.
+- Percebe sozinha arquivos mudados por fora (terminal, `cargo fmt`, outro editor, `git checkout`): a árvore e o git
+  atualizam, abas sem alterações recarregam e abas com alterações são mantidas, com um aviso.
 
 ## Começando
 
@@ -112,7 +113,6 @@ Todos podem ser trocados nas configurações ou em `~/.config/idetea/config.toml
 - [x] **Fase 3 — Git e polimento:** git completo (incluindo push/pull), menus de contexto, ajuda, configurações,
       ícones, painéis redimensionáveis, janelas nativas de arquivo.
 - [ ] **Próximo — mais polimento:**
-  - perceber sozinha quando um arquivo muda no disco;
   - outras melhorias de uso do dia a dia.
 - [ ] **Fase 4 — Plugins:** plugins de terceiros em WASM, sem recompilar a IDE.
 - [ ] **Fase 5 — Debug:** breakpoints, passo a passo, pilha e variáveis (DAP: codelldb, debugpy, delve...).

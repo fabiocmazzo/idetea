@@ -32,3 +32,4 @@ serde.workspace = true
 toml.workspace = true
 rfd.workspace = true
 ignore.workspace = true
+notify.workspace = true

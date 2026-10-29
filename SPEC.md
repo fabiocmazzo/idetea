@@ -391,6 +391,16 @@ Ordem combinada: abrir pelo nome → perceber mudanças no disco → spike do de
       Sem busca, as abas abertas vêm primeiro. `nome:42` abre na linha 42; `>` no começo troca para os comandos;
       `Ctrl+P` ⇄ `Ctrl+Shift+P` trocam de modo com a paleta aberta (o atalho do próprio modo fecha).
 - [x] Teste manual do abrir pelo nome: aprovado.
+- [x] **Perceber mudanças no disco** (`notify` 8, inotify no Linux), no app (`watcher.rs`), não numa extensão:
+      um observador **por pasta**, só nas pastas que o `.gitignore` não ignora (nunca `.git`, `target/`, `node_modules/`),
+      no máximo 20 mil pastas; pastas novas passam a ser observadas ao aparecer. Rajadas viram um aviso só
+      (150 ms de silêncio, no máximo 1 s). Leitura de arquivo e mudança só de permissão/data não contam.
+      Ao mudar: abas sem alterações cujo conteúdo no disco ficou diferente recarregam (ou fecham, se o arquivo sumiu);
+      abas com alterações ficam e avisam ("salvar sobrescreve"), menos nos 2 s depois de a própria IDE salvar;
+      as extensões recebem `CoreEvent::FilesChanged` (árvore relê as pastas abertas, git atualiza o status e as cores).
+      Se o sistema recusar observadores (limite `fs.inotify.max_user_watches`) ou a pasta for grande demais, avisa uma vez.
+      Mudanças dentro de pastas ignoradas (ex.: `target/` aberto na árvore) só aparecem com "Atualizar".
+- [x] Teste manual das mudanças no disco: aprovado.
 
 ### Fase 4 — Plugins externos
 - [ ] Host WASM (`wasmtime`) + WIT versionado.

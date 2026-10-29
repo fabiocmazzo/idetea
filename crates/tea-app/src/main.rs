@@ -15,10 +15,11 @@ mod settings;
 mod pass_keys;
 mod splash;
 mod ui_state;
+mod watcher;
 
 use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use iced::widget::{button, column, container, mouse_area, opaque, operation, row, rule, scrollable, stack, text};
 use iced::{Element, Fill, Subscription, Task, Theme, keyboard, mouse, window};
@@ -202,6 +203,8 @@ struct App {
     active_bottom: Option<usize>,
 
     palette: Option<Palette>,
+    /// Quando a própria IDE salvou cada arquivo: o aviso de "mudou no disco" desse save não conta.
+    own_saves: std::collections::HashMap<PathBuf, Instant>,
     /// Última lista de arquivos do projeto (para `Ctrl+P` abrir na hora; é relida a cada abertura).
     file_list: std::sync::Arc<Vec<String>>,
     splash: Option<Splash>,
@@ -236,6 +239,8 @@ enum Message {
     SelectBottom(usize),
     Key { key: keyboard::Key, modifiers: keyboard::Modifiers, captured: bool },
     Palette(palette::Msg),
+    /// Arquivos mudaram no disco (observador do projeto).
+    Disk(watcher::Change),
     /// A lista de arquivos do projeto terminou de ser lida (para `Ctrl+P`).
     FilesListed(std::sync::Arc<Vec<String>>),
     Dialog(dialog::Msg),
@@ -298,6 +303,7 @@ impl App {
                 .collect(),
             palette: None,
             file_list: Default::default(),
+            own_saves: Default::default(),
             splash: show_splash.then(|| Splash::new(started)),
             pointer_over_panel: false,
             dialog: None,
@@ -532,6 +538,27 @@ impl App {
             }
             Err(e) => self.notify(format!("Erro ao recarregar {}: {e}", display_rel(path, &self.root))),
         }
+    }
+
+    /// O observador viu mudanças no disco: abas sem alterações recarregam, abas com alterações
+    /// avisam (uma vez por mudança), e as extensões ficam sabendo (árvore e git atualizam).
+    fn disk_changed(&mut self, paths: &[PathBuf]) -> Task<Message> {
+        let now = Instant::now();
+        self.own_saves.retain(|_, t| now.duration_since(*t) < Duration::from_secs(2));
+        let mut tasks = vec![self.reload_changed_tabs()];
+        let conflicts: Vec<String> = self
+            .tabs
+            .iter()
+            .filter(|t| t.editor.is_modified())
+            .filter_map(|t| t.editor.path())
+            .filter(|p| paths.iter().any(|c| c == p) && !self.own_saves.contains_key(*p))
+            .map(|p| display_rel(p, &self.root))
+            .collect();
+        for name in conflicts {
+            tasks.push(self.notify(format!("\"{name}\" mudou no disco, mas a aba tem alterações: salvar sobrescreve")));
+        }
+        tasks.push(self.broadcast(CoreEvent::FilesChanged));
+        Task::batch(tasks)
     }
 
     /// Arquivos mudaram no disco sem dizer quais (ex.: git pull): recarrega as abas sem alterações
@@ -781,6 +808,7 @@ impl App {
         match result {
             Ok(()) => {
                 let path = self.active_path().map(Path::to_path_buf).unwrap_or_default();
+                self.own_saves.insert(path.clone(), Instant::now());
                 let is_config = Some(path.as_path()) == self.global_config.as_deref()
                     || path == config::project_config_path(&self.root);
                 let saved = self.broadcast(CoreEvent::FileSaved(path.clone()));
@@ -1098,7 +1126,10 @@ impl App {
                 continue;
             };
             match self.tabs[i].editor.save() {
-                Ok(()) => tasks.push(self.broadcast(CoreEvent::FileSaved(path))),
+                Ok(()) => {
+                    self.own_saves.insert(path.clone(), Instant::now());
+                    tasks.push(self.broadcast(CoreEvent::FileSaved(path)));
+                }
                 Err(e) => {
                     failed.push(id);
                     tasks.push(self.notify(format!("Erro ao salvar {}: {e}", display_rel(&path, &self.root))));
@@ -1767,6 +1798,8 @@ impl App {
             }
             Message::Key { key, modifiers, captured } => self.on_key(key, modifiers, captured),
             Message::Palette(msg) => self.palette_update(msg),
+            Message::Disk(watcher::Change::Paths(paths)) => self.disk_changed(&paths),
+            Message::Disk(watcher::Change::Problem(msg)) => self.notify(msg),
             Message::FilesListed(files) => {
                 self.file_list = files.clone();
                 if let Some(p) = &mut self.palette
@@ -1871,7 +1904,8 @@ impl App {
                 .enumerate()
                 .map(|(i, e)| e.subscription().with(i).map(|(i, m)| Message::ExtSub(i, m))),
         );
-        Subscription::batch([input, close, frames, extensions, resized])
+        let disk = Subscription::run_with(self.root.clone(), watcher::watch).map(Message::Disk);
+        Subscription::batch([input, close, frames, extensions, resized, disk])
     }
 
     fn view(&self) -> Element<'_, Message> {

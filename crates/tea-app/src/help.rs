@@ -82,6 +82,8 @@ const GUIDE: &[(&str, &[&str])] = &[
              {file.save_as_path}. Abrir outra pasta ({file.open_folder}) abre uma nova janela da IDE.",
             "Trocar de aba: {tab.next} e {tab.prev} (Ctrl+Tab insere tabulação no editor).",
             "Fechar uma aba ou sair com alterações pergunta antes: Salvar, Descartar ou Cancelar.",
+            "Arquivo mudado por fora (terminal, outro editor): a aba recarrega sozinha se não tiver alterações; \
+             se tiver, fica como está e aparece um aviso.",
             "Botão direito numa aba: fechar outras, à direita, salvas ou todas, copiar caminho, revelar na \
              árvore e abrir no gerenciador de arquivos. Clique do meio fecha a aba.",
         ],
