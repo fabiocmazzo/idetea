@@ -409,7 +409,24 @@ Ordem combinada: abrir pelo nome → perceber mudanças no disco → spike do de
   Não há sandbox de permissões (decisão do usuário). Instale só plugins em que você confia.
 
 ### Fase 5 — Debug
-- [ ] Spike: o `iced-code-editor` consegue mostrar breakpoints na margem e destacar a linha atual sem fork?
+- [x] Spike: o `iced-code-editor` consegue mostrar breakpoints na margem e destacar a linha atual sem fork?
+      **Sim, com uma camada por cima do widget** (`tea-editor/src/marks.rs`), sem fork:
+      - O widget não tem API de marcas, mas `lsp_position_at_point(ponto)` é pública e converte um ponto da tela em
+        linha do arquivo já considerando dobras e quebra de linha; `viewport_scroll`, `line_height` e `viewport_height`
+        também são públicos. Perguntando a linha de cada faixa visível (~50 chamadas por desenho, o cálculo de linhas
+        visuais é cacheado), sai o mapa "faixa da tela → linha". O próprio widget posiciona o hover do LSP assim.
+      - A largura da margem (45 px de números + 14 px de dobras) é privada no widget: está copiada e um teste quebra se mudar.
+      - A camada só pega o mouse em cima dos números de linha (clique liga/desliga breakpoint, bolinha fraca ao passar);
+        no resto devolve `Interaction::None`, senão o `stack` do iced esconde o cursor do editor embaixo.
+      - Breakpoints andam com o texto: a cada edição que muda o número de linhas, os de baixo da edição se deslocam
+        (a última linha também vem de `lsp_position_at_point`, sem montar o texto).
+      - Limites: a faixa da linha parada é desenhada **por cima** do texto (translúcida), não por trás; o cabeçalho do
+        sticky scroll pode cobrir uma marca nas primeiras linhas. Se incomodar, o caminho é um PR no widget com uma API
+        de decorações de linha (o mantenedor é ativo), não um fork.
+      - Protótipo para ver na tela: `F9` (`debug.toggle_breakpoint`) e "Debug (protótipo): simular parada na linha do cursor".
+      - Adaptador: o `gdb` 14+ já fala DAP sozinho (`gdb -i dap`), funciona com Rust/C/C++ e já está instalado aqui;
+        bom candidato para começar, com `codelldb`/`lldb-dap` como alternativa.
+- [x] Teste manual do protótipo das marcas na tela: aprovado.
 - [ ] Cliente DAP próprio (como o do LSP): breakpoints, continuar/próximo/entrar/sair, pilha e variáveis.
       Adaptadores: `codelldb` (Rust/C/C++), `debugpy`, `delve`...
 

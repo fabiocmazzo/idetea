@@ -5,8 +5,9 @@
 
 mod key_gate;
 mod lsp;
+mod marks;
 
-use std::collections::HashMap;
+use std::collections::{BTreeSet, HashMap};
 use std::io;
 use std::path::{Path, PathBuf};
 use std::time::Instant;
@@ -30,6 +31,8 @@ pub struct EditorMessage(Msg);
 enum Msg {
     Widget(Inner),
     Overlay(LspOverlayMessage),
+    /// Clique nos números de linha (linha começando em 0).
+    ToggleBreakpoint(usize),
 }
 
 impl EditorMessage {
@@ -86,6 +89,10 @@ pub struct Editor {
     lsp: Option<LspLink>,
     overlay: LspOverlayState,
     hover: Option<PendingHover>,
+    /// Linhas com breakpoint (começando em 0). Andam junto com o texto ao editar.
+    breakpoints: BTreeSet<usize>,
+    /// Linha onde o programa parou no debug (começando em 0).
+    exec_line: Option<usize>,
 }
 
 impl Editor {
@@ -132,6 +139,8 @@ impl Editor {
             lsp: None,
             overlay: LspOverlayState::new(),
             hover: None,
+            breakpoints: BTreeSet::new(),
+            exec_line: None,
         }
     }
 
@@ -308,11 +317,23 @@ impl Editor {
                         }
                     }
                 }
+                // Breakpoints andam junto com o texto quando a edição muda o número de linhas.
+                let before = (!self.breakpoints.is_empty())
+                    .then(|| (self.inner.cursor_position().0, marks::last_line(&self.inner)));
                 let task = self.widget(msg);
+                if let Some((cursor_before, lines_before)) = before {
+                    let delta = marks::last_line(&self.inner) as isize - lines_before as isize;
+                    let at = cursor_before.min(self.inner.cursor_position().0);
+                    marks::shift_breakpoints(&mut self.breakpoints, at, delta);
+                }
                 if self.overlay.completion_visible {
                     self.refresh_completion_filter();
                 }
                 task
+            }
+            Msg::ToggleBreakpoint(line) => {
+                self.toggle_breakpoint(line);
+                Task::none()
             }
             Msg::Overlay(msg) => {
                 match msg {
@@ -332,8 +353,35 @@ impl Editor {
         }
     }
 
+    // ---- Debug ---------------------------------------------------------------
+
+    /// Liga/desliga o breakpoint da linha (começando em 0).
+    pub fn toggle_breakpoint(&mut self, line: usize) {
+        if !self.breakpoints.remove(&line) {
+            self.breakpoints.insert(line);
+        }
+    }
+
+    /// Linhas com breakpoint, começando em 0.
+    pub fn breakpoints(&self) -> impl Iterator<Item = usize> + '_ {
+        self.breakpoints.iter().copied()
+    }
+
+    /// Marca (ou limpa) a linha onde o programa parou, começando em 0.
+    pub fn set_exec_line(&mut self, line: Option<usize>) {
+        self.exec_line = line;
+    }
+
+    pub fn exec_line(&self) -> Option<usize> {
+        self.exec_line
+    }
+
     pub fn view(&self) -> Element<'_, EditorMessage> {
-        let editor = self.inner.view().map(|m| EditorMessage(Msg::Widget(m)));
+        let widget = self.inner.view().map(|m| EditorMessage(Msg::Widget(m)));
+        let marks = marks::Marks::new(&self.inner, &self.breakpoints, self.exec_line, |line| {
+            EditorMessage(Msg::ToggleBreakpoint(line))
+        });
+        let editor: Element<'_, EditorMessage> = stack![widget, marks].into();
         let content: Element<'_, EditorMessage> = if self.lsp.is_some() {
             let overlay = view_lsp_overlay(
                 &self.overlay,

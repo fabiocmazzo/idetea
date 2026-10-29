@@ -62,6 +62,7 @@ git = { enabled = true, slot = "bottom" }
 "ctrl+shift+m" = "problems.focus"
 "f8" = "problems.next"
 "f12" = "lsp.definition"
+"f9" = "debug.toggle_breakpoint"
 "ctrl+shift+k" = "lsp.hover"
 "ctrl+shift+i" = "lsp.format"
 "ctrl+shift+t" = "terminal.focus"

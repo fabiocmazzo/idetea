@@ -103,6 +103,8 @@ const CORE_COMMANDS: &[(&str, &str)] = &[
     ("file.save", "Arquivo: salvar"),
     ("file.open", "Arquivo: abrir…"),
     ("file.quick_open", "Arquivo: abrir pelo nome…"),
+    ("debug.toggle_breakpoint", "Debug: liga/desliga breakpoint na linha"),
+    ("debug.demo_stop", "Debug (protótipo): simular parada na linha do cursor"),
     ("file.open_folder", "Arquivo: abrir pasta em nova janela…"),
     ("file.save_as", "Arquivo: salvar como…"),
     ("file.save_as_path", "Arquivo: salvar como (digitar caminho)…"),
@@ -965,6 +967,18 @@ impl App {
         match id {
             "palette.open" => self.open_palette(Palette::commands()),
             "file.quick_open" => self.open_quick_open(),
+            "debug.toggle_breakpoint" => {
+                let line = self.editor().cursor().0 - 1;
+                self.editor_mut().toggle_breakpoint(line);
+                Task::none()
+            }
+            "debug.demo_stop" => {
+                // Protótipo do spike: mostra a seta e a faixa sem um debugger de verdade.
+                let line = self.editor().cursor().0 - 1;
+                let next = (self.editor().exec_line() != Some(line)).then_some(line);
+                self.editor_mut().set_exec_line(next);
+                Task::none()
+            }
             "settings.open" => {
                 if self.settings.is_some() {
                     self.close_settings();
