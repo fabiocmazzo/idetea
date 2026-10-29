@@ -450,7 +450,7 @@ impl Extension for FileTreeExtension {
                 return iced::clipboard::write(text);
             }
             Message::OpenInFileManager(dir) => {
-                if let Err(e) = open_in_file_manager(&dir) {
+                if let Err(e) = tea_core::os::open_in_file_manager(&dir) {
                     ctx.notify(format!("Não foi possível abrir o gerenciador de arquivos: {e}"));
                 }
             }
@@ -591,26 +591,6 @@ fn create_file(path: &Path) -> std::io::Result<()> {
         std::fs::create_dir_all(dir)?;
     }
     std::fs::OpenOptions::new().write(true).create_new(true).open(path).map(|_| ())
-}
-
-/// Abre a pasta no gerenciador de arquivos do sistema (sem esperar ele fechar).
-fn open_in_file_manager(dir: &Path) -> std::io::Result<()> {
-    let program = if cfg!(target_os = "macos") {
-        "open"
-    } else if cfg!(target_os = "windows") {
-        "explorer"
-    } else {
-        "xdg-open"
-    };
-    let mut child = std::process::Command::new(program)
-        .arg(dir)
-        .stdin(std::process::Stdio::null())
-        .stdout(std::process::Stdio::null())
-        .stderr(std::process::Stdio::null())
-        .spawn()?;
-    // Espera numa thread para o processo não virar zumbi.
-    std::thread::spawn(move || child.wait());
-    Ok(())
 }
 
 #[cfg(test)]

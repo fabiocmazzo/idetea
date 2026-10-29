@@ -316,7 +316,14 @@ Polimento, nesta ordem (o diálogo vem primeiro porque menu de contexto e config
       Árvore: novo arquivo, nova pasta, renomear, apagar, copiar caminho (absoluto e relativo), abrir no gerenciador de arquivos;
       no espaço vazio: itens da raiz + atualizar e recolher tudo.
 - [x] Teste manual do menu na tela: aprovado.
-- [ ] Menu de contexto nas abas e no painel do git (o componente já existe).
+- [x] Menu de contexto nas abas: fechar, fechar outras, fechar à direita, fechar salvas, fechar todas
+  (um diálogo só para as abas com alterações: salvar e fechar / descartar / cancelar), copiar caminho,
+  copiar caminho relativo, revelar na árvore, abrir no gerenciador de arquivos. Clique do meio fecha a aba.
+- [x] Menu de contexto nos arquivos do git: abrir, ver diff, adicionar/tirar do stage, descartar
+  alterações (com confirmação; arquivo novo vai para a lixeira), copiar caminho.
+- [x] Arquivo mudado no disco por uma extensão (ex.: descartar no git): aba sem alterações recarrega,
+  aba com alterações fica e avisa. Evita salvar por cima e desfazer o descarte.
+- [x] Teste manual dos menus das abas e do git na tela: aprovado.
 - [x] **Help** (`F1` / `help.open`, janela sobre a IDE, Esc fecha):
       **Atalhos** — todos os comandos agrupados (núcleo e extensões, com id e teclas atuais) + atalhos fixos do editor, com filtro;
       **Guia** — primeiros passos, arquivos, árvore, painel inferior, terminal, git, LSP e config. O texto cita comandos como

@@ -7,3 +7,4 @@ license.workspace = true
 [dependencies]
 iced.workspace = true
 tea-core.workspace = true
+trash.workspace = true

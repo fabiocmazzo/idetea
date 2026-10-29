@@ -3632,6 +3632,7 @@ version = "0.0.1"
 dependencies = [
  "iced",
  "tea-core",
+ "trash",
 ]
 
 [[package]]

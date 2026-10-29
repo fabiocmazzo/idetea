@@ -119,12 +119,27 @@ const DARK_THEME: Theme = Theme::TokyoNight;
 const LIGHT_THEME: Theme = Theme::Light;
 
 /// Respostas dos diálogos do próprio app.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 enum CoreDialog {
     SaveAndClose(u64),
     DiscardAndClose(u64),
     SaveAllAndQuit,
     QuitWithoutSaving,
+    /// Fechar várias abas (salvando ou descartando as alteradas).
+    CloseMany { ids: Vec<u64>, save: bool },
+}
+
+/// Itens dos menus de contexto do próprio app (abas).
+#[derive(Debug, Clone)]
+enum CoreMenu {
+    Close(u64),
+    CloseOthers(u64),
+    CloseRight(u64),
+    CloseSaved,
+    CloseAll,
+    CopyPath(String),
+    Reveal(u64),
+    OpenInFileManager(PathBuf),
 }
 
 struct Tab {
@@ -195,6 +210,8 @@ enum Message {
     /// Vinda da subscription de uma extensão.
     ExtSub(usize, ExtMessage),
     SelectTab(u64),
+    /// Botão direito numa aba.
+    TabMenu(u64, iced::Point),
     CloseTab(u64),
     SelectBottom(usize),
     Key { key: keyboard::Key, modifiers: keyboard::Modifiers, captured: bool },
@@ -364,7 +381,8 @@ impl App {
                 Request::PathRenamed { from, to } => tasks.push(self.path_renamed(&from, &to)),
                 Request::PathDeleted(path) => tasks.push(self.path_deleted(&path)),
                 Request::Dialog(dialog) => tasks.push(self.open_dialog(dialog, dialog::Owner::Ext(ext))),
-                Request::Menu(menu) => tasks.push(self.open_menu(menu, ext)),
+                Request::FileChanged(path) => tasks.push(self.reload_from_disk(&path)),
+                Request::Menu(menu) => tasks.push(self.open_menu(menu, dialog::Owner::Ext(ext))),
                 Request::PanelIcon { id, icon } => {
                     if let Some(p) = self.panels.iter_mut().find(|p| p.ext == ext && p.id == id) {
                         p.icon = Some(icon);
@@ -448,6 +466,31 @@ impl App {
                 Task::batch([opened, note, lsp, self.set_active(i)])
             }
             Err(err) => self.notify(format!("Erro ao abrir {}: {err}", path.display())),
+        }
+    }
+
+    /// O arquivo mudou no disco por fora do editor. Aba sem alterações recarrega (ou fecha, se ele sumiu);
+    /// aba com alterações fica como está, com um aviso.
+    fn reload_from_disk(&mut self, path: &Path) -> Task<Message> {
+        let Some(i) = self.tabs.iter().position(|t| t.editor.path() == Some(path)) else { return Task::none() };
+        if !path.exists() {
+            return self.path_deleted(path);
+        }
+        if self.tabs[i].editor.is_modified() {
+            let name = self.tabs[i].editor.file_name();
+            return self.notify(format!("\"{name}\" mudou no disco, mas a aba tem alterações: ela foi mantida"));
+        }
+        match Editor::open(path) {
+            Ok(mut editor) => {
+                editor.set_theme(&self.theme);
+                editor.set_font_size(self.config.ui.font_size);
+                // A aba antiga sai (e avisa o LSP); a nova entra no lugar, com o mesmo id.
+                self.tabs[i].editor = editor;
+                let lsp = self.ensure_lsp(i);
+                let refresh = if i == self.active { self.set_active(i) } else { Task::none() };
+                Task::batch([lsp, refresh])
+            }
+            Err(e) => self.notify(format!("Erro ao recarregar {}: {e}", display_rel(path, &self.root))),
         }
     }
 
@@ -924,27 +967,129 @@ impl App {
 
     /// Salva todas as abas alteradas. `false` se alguma não pôde ser salva (erro ou sem nome).
     fn save_all(&mut self) -> (bool, Task<Message>) {
+        let ids: Vec<u64> = self.tabs.iter().filter(|t| t.editor.is_modified()).map(|t| t.id).collect();
+        let (failed, task) = self.save_tabs(&ids);
+        (failed.is_empty(), task)
+    }
+
+    /// Salva as abas indicadas. Devolve as que não deu para salvar (erro ou aba sem nome).
+    fn save_tabs(&mut self, ids: &[u64]) -> (Vec<u64>, Task<Message>) {
         let mut tasks = Vec::new();
-        let mut ok = true;
-        for i in 0..self.tabs.len() {
-            if !self.tabs[i].editor.is_modified() {
-                continue;
-            }
+        let mut failed = Vec::new();
+        for &id in ids {
+            let Some(i) = self.tab_index(id) else { continue };
             let Some(path) = self.tabs[i].editor.path().map(Path::to_path_buf) else {
-                ok = false;
+                failed.push(id);
                 let name = self.tabs[i].editor.file_name();
-                tasks.push(self.notify(format!("\"{name}\" não tem nome: use \"Salvar como\" antes de sair")));
+                tasks.push(self.notify(format!("\"{name}\" não tem nome: use \"Salvar como\"")));
                 continue;
             };
             match self.tabs[i].editor.save() {
                 Ok(()) => tasks.push(self.broadcast(CoreEvent::FileSaved(path))),
                 Err(e) => {
-                    ok = false;
+                    failed.push(id);
                     tasks.push(self.notify(format!("Erro ao salvar {}: {e}", display_rel(&path, &self.root))));
                 }
             }
         }
-        (ok, Task::batch(tasks))
+        (failed, Task::batch(tasks))
+    }
+
+    fn is_tab_modified(&self, id: u64) -> bool {
+        self.tab_index(id).is_some_and(|i| self.tabs[i].editor.is_modified())
+    }
+
+    /// Fecha as abas sem perguntar (quem chama já resolveu as alterações).
+    fn close_ids(&mut self, ids: &[u64]) -> Task<Message> {
+        let tasks: Vec<_> = ids.iter().map(|&id| self.close_tab(id, true)).collect();
+        Task::batch(tasks)
+    }
+
+    /// Fecha várias abas; se alguma tiver alterações, pergunta uma vez só para todas.
+    fn close_many(&mut self, ids: Vec<u64>) -> Task<Message> {
+        let modified: Vec<String> = ids
+            .iter()
+            .filter_map(|&id| self.tab_index(id))
+            .filter(|&i| self.tabs[i].editor.is_modified())
+            .map(|i| self.tabs[i].editor.file_name())
+            .collect();
+        if modified.is_empty() {
+            return self.close_ids(&ids);
+        }
+        let mut names = modified.iter().take(5).map(|n| format!("• {n}")).collect::<Vec<_>>().join("\n");
+        if modified.len() > 5 {
+            names.push_str(&format!("\n… e mais {}", modified.len() - 5));
+        }
+        let title = format!("Fechar {} abas?", ids.len());
+        let dialog = Dialog::new(title, format!("Com alterações não salvas:\n{names}"))
+            .button("Salvar e fechar", ButtonKind::Primary, CoreDialog::CloseMany { ids: ids.clone(), save: true })
+            .button("Descartar alterações", ButtonKind::Danger, CoreDialog::CloseMany { ids, save: false })
+            .cancel("Cancelar");
+        self.open_dialog(dialog, dialog::Owner::Core)
+    }
+
+    fn tab_menu(&self, id: u64, at: iced::Point) -> tea_core::menu::Menu {
+        use tea_core::icons::Icon;
+        let i = self.tab_index(id).unwrap_or(0);
+        let n = self.tabs.len();
+        let mut menu = tea_core::menu::Menu::new(at).item(Some(Icon::Close), "Fechar", CoreMenu::Close(id));
+        menu = if n > 1 { menu.item(None, "Fechar outras", CoreMenu::CloseOthers(id)) } else { menu.disabled(None, "Fechar outras") };
+        menu = if i + 1 < n {
+            menu.item(None, "Fechar à direita", CoreMenu::CloseRight(id))
+        } else {
+            menu.disabled(None, "Fechar à direita")
+        };
+        menu = menu.item(None, "Fechar as salvas", CoreMenu::CloseSaved).item(None, "Fechar todas", CoreMenu::CloseAll);
+        if let Some(path) = self.tabs.get(i).and_then(|t| t.editor.path()) {
+            let rel = display_rel(path, &self.root);
+            let dir = path.parent().unwrap_or(&self.root).to_path_buf();
+            menu = menu
+                .separator()
+                .item(Some(Icon::Copy), "Copiar caminho", CoreMenu::CopyPath(path.display().to_string()))
+                .item(None, "Copiar caminho relativo", CoreMenu::CopyPath(rel));
+            if self.extensions.iter().any(|e| e.id() == "filetree") {
+                menu = menu.item(Some(Icon::Files), "Revelar na árvore", CoreMenu::Reveal(id));
+            }
+            menu = menu.item(Some(Icon::LinkExternal), "Abrir no gerenciador de arquivos", CoreMenu::OpenInFileManager(dir));
+        }
+        menu
+    }
+
+    fn core_menu(&mut self, action: CoreMenu) -> Task<Message> {
+        let ids = |app: &Self| app.tabs.iter().map(|t| t.id).collect::<Vec<u64>>();
+        match action {
+            CoreMenu::Close(id) => self.close_tab(id, false),
+            CoreMenu::CloseOthers(id) => {
+                let others = ids(self).into_iter().filter(|&t| t != id).collect();
+                self.close_many(others)
+            }
+            CoreMenu::CloseRight(id) => {
+                let all = ids(self);
+                let right = all.iter().position(|&t| t == id).map_or_else(Vec::new, |i| all[i + 1..].to_vec());
+                self.close_many(right)
+            }
+            CoreMenu::CloseSaved => {
+                let saved: Vec<u64> = self.tabs.iter().filter(|t| !t.editor.is_modified()).map(|t| t.id).collect();
+                self.close_ids(&saved)
+            }
+            CoreMenu::CloseAll => {
+                let all = ids(self);
+                self.close_many(all)
+            }
+            CoreMenu::CopyPath(text) => {
+                let note = self.notify(format!("Copiado: {text}"));
+                Task::batch([iced::clipboard::write(text), note])
+            }
+            CoreMenu::Reveal(id) => {
+                let Some(i) = self.tab_index(id) else { return Task::none() };
+                let activate = self.set_active(i);
+                Task::batch([activate, self.run_command("filetree.reveal")])
+            }
+            CoreMenu::OpenInFileManager(dir) => match tea_core::os::open_in_file_manager(&dir) {
+                Ok(()) => Task::none(),
+                Err(e) => self.notify(format!("Não foi possível abrir o gerenciador de arquivos: {e}")),
+            },
+        }
     }
 
     // ---- Diálogos --------------------------------------------------------------
@@ -1231,7 +1376,7 @@ impl App {
         }
     }
 
-    fn open_menu(&mut self, menu: tea_core::menu::Menu, owner: usize) -> Task<Message> {
+    fn open_menu(&mut self, menu: tea_core::menu::Menu, owner: dialog::Owner) -> Task<Message> {
         if self.dialog.is_some() {
             return Task::none();
         }
@@ -1244,7 +1389,13 @@ impl App {
     fn choose_menu(&mut self, i: Option<usize>) -> Task<Message> {
         let Some(open) = self.menu.take() else { return Task::none() };
         match i.and_then(|i| open.action(i)) {
-            Some(tea_core::menu::MenuAction::Message(msg)) => self.call_ext(open.owner, |e, ctx| e.update(msg, ctx)),
+            Some(tea_core::menu::MenuAction::Message(msg)) => match open.owner {
+                dialog::Owner::Ext(i) => self.call_ext(i, |e, ctx| e.update(msg, ctx)),
+                dialog::Owner::Core => match msg.downcast_ref::<CoreMenu>() {
+                    Some(action) => self.core_menu(action.clone()),
+                    None => Task::none(),
+                },
+            },
             Some(tea_core::menu::MenuAction::Command(id)) => self.run_command(&id),
             None => Task::none(),
         }
@@ -1265,7 +1416,7 @@ impl App {
         let task = match (open.owner, action) {
             (dialog::Owner::Ext(i), Some(msg)) => self.call_ext(i, |e, ctx| e.update(msg, ctx)),
             (dialog::Owner::Core, Some(msg)) => match msg.downcast_ref::<CoreDialog>() {
-                Some(&action) => self.core_dialog(action),
+                Some(action) => self.core_dialog(action.clone()),
                 None => Task::none(),
             },
             (_, None) => Task::none(),
@@ -1296,6 +1447,19 @@ impl App {
                 if ok { Task::batch([task, self.quit()]) } else { task }
             }
             CoreDialog::QuitWithoutSaving => self.quit(),
+            CoreDialog::CloseMany { ids, save } => {
+                let mut tasks = Vec::new();
+                let mut ids = ids;
+                if save {
+                    let modified: Vec<u64> = ids.iter().copied().filter(|&id| self.is_tab_modified(id)).collect();
+                    let (failed, task) = self.save_tabs(&modified);
+                    tasks.push(task);
+                    // As que não deu para salvar ficam abertas.
+                    ids.retain(|id| !failed.contains(id));
+                }
+                tasks.push(self.close_ids(&ids));
+                Task::batch(tasks)
+            }
         }
     }
 
@@ -1436,6 +1600,10 @@ impl App {
                 None => Task::none(),
             },
             Message::CloseTab(id) => self.close_tab(id, false),
+            Message::TabMenu(id, at) => {
+                let menu = self.tab_menu(id, at);
+                self.open_menu(menu, dialog::Owner::Core)
+            }
             Message::SelectBottom(i) => {
                 self.active_bottom = Some(i);
                 Task::none()
@@ -1581,11 +1749,14 @@ impl App {
                 let style = if i == self.active { button::primary } else { button::text };
                 let close =
                     button(text("×").size(13)).on_press(Message::CloseTab(t.id)).style(button::text).padding([0, 4]);
-                button(row![text(t.editor.title()).size(13), close].spacing(6).align_y(iced::Center))
-                    .on_press(Message::SelectTab(t.id))
+                let id = t.id;
+                let tab = button(row![text(t.editor.title()).size(13), close].spacing(6).align_y(iced::Center))
+                    .on_press(Message::SelectTab(id))
                     .style(style)
-                    .padding([3, 8])
-                    .into()
+                    .padding([3, 8]);
+                // Botão do meio fecha; botão direito abre o menu.
+                let tab = mouse_area(tab).on_middle_press(Message::CloseTab(id));
+                tea_core::menu::context_area(tab, move |at| Message::TabMenu(id, at))
             }))
             .spacing(2),
         )

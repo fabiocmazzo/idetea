@@ -77,6 +77,8 @@ const GUIDE: &[(&str, &[&str])] = &[
             "Novo: {file.new} · Salvar: {file.save} · Salvar como: {file.save_as} · Fechar aba: {file.close}.",
             "Trocar de aba: {tab.next} e {tab.prev} (Ctrl+Tab insere tabulação no editor).",
             "Fechar uma aba ou sair com alterações pergunta antes: Salvar, Descartar ou Cancelar.",
+            "Botão direito numa aba: fechar outras, à direita, salvas ou todas, copiar caminho, revelar na \
+             árvore e abrir no gerenciador de arquivos. Clique do meio fecha a aba.",
         ],
     ),
     (
@@ -108,6 +110,8 @@ const GUIDE: &[(&str, &[&str])] = &[
         &[
             "A branch aparece na barra de status. O painel Git ({git.focus}) mostra o que mudou: + e − colocam e \
              tiram do stage, clicar num arquivo mostra o diff, Enter na mensagem faz o commit.",
+            "Botão direito num arquivo do Git: abrir, ver diff, stage, descartar alterações (pede confirmação) \
+             e copiar caminho.",
             "O painel se atualiza ao salvar e quando o repositório muda (commit ou checkout feitos no terminal). \
              Push e pull: use o terminal.",
         ],

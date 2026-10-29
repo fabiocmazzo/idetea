@@ -48,6 +48,7 @@ pub enum Icon {
     Copy,
     LinkExternal,
     Files,
+    Discard,
 }
 
 impl Icon {
@@ -81,6 +82,7 @@ impl Icon {
             Icon::Copy => 0xEBCC,
             Icon::LinkExternal => 0xEB14,
             Icon::Files => 0xEAF0,
+            Icon::Discard => 0xEAE2,
         };
         char::from_u32(code).unwrap_or('?')
     }

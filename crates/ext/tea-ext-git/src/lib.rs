@@ -9,9 +9,10 @@ use std::time::{Duration, SystemTime};
 
 use iced::futures::channel::{mpsc, oneshot};
 use iced::widget::{Id, button, column, container, operation, row, rule, scrollable, space, text, text_input};
-use iced::{Element, Fill, Font, Subscription, Task, Theme};
+use iced::{Element, Fill, Font, Point, Subscription, Task, Theme};
 use tea_core::icons::{Icon, icon, icon_button};
-use tea_core::{Context, CoreEvent, Extension, PanelId, Slot};
+use tea_core::menu::{Menu, context_area};
+use tea_core::{ButtonKind, Context, CoreEvent, Dialog, Extension, PanelId, Slot};
 
 pub use git::{Entry, Repo, Status};
 use git::{DiffLine, LineKind};
@@ -41,6 +42,12 @@ pub enum Message {
     /// Uma ação terminou: `Ok(Some(msg))` vira notificação.
     Done(Arc<Result<Option<String>, String>>),
     GitDirChanged,
+    /// Botão direito num arquivo da lista.
+    EntryMenu { path: String, staged: bool, at: Point },
+    /// Pede confirmação para descartar.
+    Discard(String),
+    DiscardConfirmed(String),
+    CopyPath(String),
 }
 
 /// Arquivo cujo diff está na tela.
@@ -62,6 +69,8 @@ pub struct GitExtension {
     selected: Option<Selected>,
     message: String,
     busy: bool,
+    /// Arquivo que a ação em andamento muda no disco (as abas abertas dele precisam recarregar).
+    touched: Option<PathBuf>,
 }
 
 /// Roda `f` numa thread e entrega o resultado como mensagem.
@@ -246,14 +255,49 @@ impl Extension for GitExtension {
                     return self.action(move |r| git::commit(r, &msg).map(|c| Some(format!("Commit {c}"))));
                 }
             }
+            Message::EntryMenu { path, staged, at } => {
+                let Some(entry) = self.entry(&path).cloned() else { return Task::none() };
+                ctx.show_menu(self.entry_menu(&entry, staged, at));
+            }
+            Message::Discard(path) => {
+                let Some(entry) = self.entry(&path) else { return Task::none() };
+                let what = if entry.untracked {
+                    "O arquivo é novo (não rastreado) e vai para a lixeira."
+                } else {
+                    "As mudanças fora do stage serão perdidas; o arquivo volta ao que está no stage/último commit."
+                };
+                ctx.show_dialog(
+                    Dialog::new(format!("Descartar alterações em \"{path}\"?"), what)
+                        .button("Descartar", ButtonKind::Danger, Message::DiscardConfirmed(path.clone()))
+                        .cancel("Cancelar"),
+                );
+            }
+            Message::DiscardConfirmed(path) => {
+                let Some(entry) = self.entry(&path).cloned() else { return Task::none() };
+                self.touched = Some(self.abs(&path));
+                return self.action(move |r| git::discard(r, &entry).map(|_| Some(format!("alterações descartadas em {path}"))));
+            }
+            Message::CopyPath(text) => {
+                ctx.notify(format!("Copiado: {text}"));
+                return iced::clipboard::write(text);
+            }
             Message::Done(result) => {
                 self.busy = false;
+                if let Some(path) = self.touched.take()
+                    && result.is_ok()
+                {
+                    ctx.file_changed(path);
+                }
                 match &*result {
                     Ok(Some(msg)) => {
                         if msg.starts_with("Commit ") {
                             self.message.clear();
                         }
                         ctx.notify(format!("Git: {}", msg.trim_start_matches("Commit ")));
+                        // O arquivo descartado pode estar aberto: o diff na tela já não vale.
+                        if msg.starts_with("alterações descartadas") {
+                            self.selected = None;
+                        }
                     }
                     Ok(None) => {}
                     Err(e) => ctx.notify(format!("Git: {e}")),
@@ -386,7 +430,7 @@ impl GitExtension {
         } else {
             icon_button(Icon::Add, "Adicionar ao stage", Some(Message::Stage(e.path.clone())))
         };
-        row![
+        let line = row![
             button(label)
                 .on_press(Message::Select { path: e.path.clone(), staged })
                 .style(if selected { button::secondary } else { button::text })
@@ -395,8 +439,27 @@ impl GitExtension {
             icon_button(Icon::GoToFile, "Abrir arquivo", Some(Message::Open(e.path.clone()))),
             toggle,
         ]
-        .align_y(iced::Center)
-        .into()
+        .align_y(iced::Center);
+        let path = e.path.clone();
+        context_area(line, move |at| Message::EntryMenu { path: path.clone(), staged, at })
+    }
+
+    fn entry_menu(&self, e: &Entry, staged: bool, at: Point) -> Menu {
+        let path = e.path.clone();
+        let abs = self.abs(&path).display().to_string();
+        let mut menu = Menu::new(at)
+            .item(Some(Icon::GoToFile), "Abrir arquivo", Message::Open(path.clone()))
+            .item(None, "Ver diff", Message::Select { path: path.clone(), staged })
+            .separator();
+        menu = if staged {
+            menu.item(Some(Icon::Remove), "Tirar do stage", Message::Unstage(path.clone()))
+        } else {
+            menu.item(Some(Icon::Add), "Adicionar ao stage", Message::Stage(path.clone()))
+                .danger(Some(Icon::Discard), "Descartar alterações…", Message::Discard(path.clone()))
+        };
+        menu.separator()
+            .item(Some(Icon::Copy), "Copiar caminho", Message::CopyPath(abs))
+            .item(None, "Copiar caminho relativo", Message::CopyPath(path))
     }
 
     fn diff_view(&self) -> Element<'_, Message> {

@@ -281,6 +281,16 @@ pub fn unstage_all(repo: &Repo) -> Result<String, String> {
     }
 }
 
+/// Descarta as mudanças fora do stage: arquivo rastreado volta ao que está no stage;
+/// arquivo novo (não rastreado) vai para a lixeira.
+pub fn discard(repo: &Repo, entry: &Entry) -> Result<String, String> {
+    if entry.untracked {
+        trash::delete(repo.root.join(&entry.path)).map_err(|e| format!("não foi possível mover para a lixeira: {e}"))?;
+        return Ok(String::new());
+    }
+    run(&repo.root, &["restore", "--", &entry.path], &[])
+}
+
 pub fn commit(repo: &Repo, message: &str) -> Result<String, String> {
     let out = run(&repo.root, &["commit", "-q", "-m", message], &[])?;
     // Primeira linha do log: "abc1234 mensagem".
@@ -372,6 +382,10 @@ u UU N... 100644 100644 100644 100644 a b c conflito.rs\0\
         let st = status(&repo).unwrap();
         assert_eq!(st.entries[0].unstaged, Some('M'));
         assert!(diff(&repo, &st.entries[0], false).unwrap().contains("+dois"));
+
+        discard(&repo, &st.entries[0]).unwrap();
+        assert_eq!(std::fs::read_to_string(dir.join("a.txt")).unwrap(), "um\n", "volta ao commit");
+        assert!(status(&repo).unwrap().entries.is_empty());
         let _ = std::fs::remove_dir_all(&dir);
     }
 }

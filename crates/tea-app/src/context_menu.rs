@@ -6,6 +6,8 @@ use tea_core::icons::icon;
 use tea_core::keymap::Keymap;
 use tea_core::menu::{Menu, MenuAction, MenuItem};
 
+use crate::dialog::Owner;
+
 const WIDTH: f32 = 250.0;
 const ITEM_HEIGHT: f32 = 26.0;
 const SEPARATOR_HEIGHT: f32 = 9.0;
@@ -15,8 +17,8 @@ const MARGIN: f32 = 4.0;
 
 pub struct Open {
     pub menu: Menu,
-    /// Extensão que abriu (recebe as mensagens dos itens).
-    pub owner: usize,
+    /// Quem abriu (recebe as mensagens dos itens).
+    pub owner: Owner,
     /// Item em destaque pelo teclado.
     pub selected: Option<usize>,
 }
@@ -28,7 +30,7 @@ pub enum Msg {
 }
 
 impl Open {
-    pub fn new(mut menu: Menu, owner: usize) -> Self {
+    pub fn new(mut menu: Menu, owner: Owner) -> Self {
         if matches!(menu.items.last(), Some(MenuItem::Separator)) {
             menu.items.pop();
         }
@@ -188,7 +190,7 @@ mod tests {
             .disabled(None, "b")
             .command(None, "c", "x.y")
             .separator();
-        let mut open = Open::new(menu, 0);
+        let mut open = Open::new(menu, Owner::Ext(0));
         assert_eq!(open.menu.items.len(), 4, "separador no fim sai");
         open.move_selection(1);
         assert_eq!(open.selected, Some(0));

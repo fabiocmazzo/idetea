@@ -14,6 +14,7 @@ pub mod config;
 pub mod config_edit;
 pub mod icons;
 pub mod menu;
+pub mod os;
 pub mod keymap;
 
 /// Onde um painel aparece na janela.
@@ -109,6 +110,8 @@ pub enum Request {
     Menu(menu::Menu),
     /// Ícone do painel na barra de ícones.
     PanelIcon { id: PanelId, icon: icons::Icon },
+    /// A extensão mudou um arquivo no disco (ex.: git descartou alterações): abas abertas recarregam.
+    FileChanged(PathBuf),
 }
 
 /// Estilo de um botão de diálogo.
@@ -234,6 +237,11 @@ impl<'a> Context<'a> {
     /// Ícone do painel na barra de ícones da borda (sem ícone, o painel não aparece nela).
     pub fn panel_icon(&mut self, id: PanelId, icon: icons::Icon) {
         self.requests.push(Request::PanelIcon { id, icon });
+    }
+
+    /// Avisa que a extensão mudou (ou apagou) este arquivo no disco.
+    pub fn file_changed(&mut self, path: impl Into<PathBuf>) {
+        self.requests.push(Request::FileChanged(path.into()));
     }
 
     pub fn show_menu(&mut self, menu: menu::Menu) {
