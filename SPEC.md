@@ -453,7 +453,19 @@ Ordem combinada: abrir pelo nome → perceber mudanças no disco → spike do de
     debug (o painel da Parte 3 mostra). `Shift+F5` durante a compilação cancela o início.
   - [x] Teste manual (aprovado): `F5` num projeto Rust compila e para no breakpoint sem pedir o executável; com erro de
     compilação, aparece o erro; com `[debug] program` e `args` no config, roda esse programa com os argumentos.
-- [ ] Parte 3 — painel Debug: botões, pilha de chamadas, variáveis e saída do programa.
+- [x] **Parte 3 — painel Debug** (extensão `tea-ext-debug`, no painel de baixo):
+  - O núcleo continua dono da sessão e conta tudo por `CoreEvent::Debug` (`tea_core::debug`): status
+    (sem sessão / compilando / rodando / parado), pilha, grupos de variáveis, variáveis e saída. O painel pede com
+    `Context::debug_select_frame` e `Context::debug_variables`; os botões rodam os comandos `debug.*`.
+  - `tea-dap` ganhou `scopes(frame)` e `variables(referência)`; falha vira lista vazia, sem aviso.
+  - Ao parar, o núcleo já pede os grupos do quadro mostrado. "Arguments" e "Locals" abrem sozinhos; "Registers" e
+    "Globals" não (o gdb não os marca como caros, mas são longos).
+  - Variáveis abertas são lembradas pelo caminho (`Locals/p/nome`): continuam abertas depois de um passo, mesmo com
+    as referências novas. Respostas de uma parada anterior são ignoradas.
+  - O painel aparece sozinho quando uma sessão começa (`debug.focus` também abre). Saída: últimas 5000 linhas
+    guardadas, 1000 desenhadas, rolagem presa no fim; stderr em vermelho, gdb e compilação apagados.
+  - [x] Teste manual (aprovado): `F5` abre o painel; ao parar, pilha e variáveis aparecem; abrir uma variável e dar `F10`
+    mantém aberta; clicar num quadro de baixo vai ao arquivo e troca as variáveis; botões e saída funcionam.
       Adaptadores: `codelldb` (Rust/C/C++), `debugpy`, `delve`...
 
 ## Riscos

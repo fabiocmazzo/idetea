@@ -30,6 +30,7 @@ tea-ext-search = { path = "crates/ext/tea-ext-search" }
 tea-ext-problems = { path = "crates/ext/tea-ext-problems" }
 tea-ext-terminal = { path = "crates/ext/tea-ext-terminal" }
 tea-ext-git = { path = "crates/ext/tea-ext-git" }
+tea-ext-debug = { path = "crates/ext/tea-ext-debug" }
 
 [profile.release]
 lto = "thin"

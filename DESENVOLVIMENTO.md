@@ -87,7 +87,8 @@ crates/
     ├── tea-ext-search/     busca no projeto
     ├── tea-ext-problems/   erros e avisos
     ├── tea-ext-terminal/   terminal (alacritty via iced_term)
-    └── tea-ext-git/        git (chama o binário git)
+    ├── tea-ext-git/        git (chama o binário git)
+    └── tea-ext-debug/      painel Debug (o núcleo fala com o gdb; o painel recebe CoreEvent::Debug)
 ```
 
 Regra de ouro: **as extensões internas usam só a API pública de `tea-core`**, a mesma que um plugin usaria.

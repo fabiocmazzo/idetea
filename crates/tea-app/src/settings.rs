@@ -352,6 +352,7 @@ fn describe(id: &str) -> &'static str {
         "problems" => "Erros e avisos",
         "terminal" => "Terminal integrado",
         "git" => "Mudanças, stage, commit e diff",
+        "debug" => "Botões, pilha, variáveis e saída do debug",
         _ => "",
     }
 }

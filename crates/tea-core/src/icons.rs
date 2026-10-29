@@ -52,6 +52,15 @@ pub enum Icon {
     RepoPull,
     RepoPush,
     RepoFetch,
+    Debug,
+    DebugContinue,
+    DebugPause,
+    DebugStop,
+    DebugStepOver,
+    DebugStepInto,
+    DebugStepOut,
+    DebugStackFrame,
+    DebugStackFrameActive,
 }
 
 impl Icon {
@@ -89,6 +98,15 @@ impl Icon {
             Icon::RepoPull => 0xEB40,
             Icon::RepoPush => 0xEB41,
             Icon::RepoFetch => 0xEC1D,
+            Icon::Debug => 0xEAD8,
+            Icon::DebugContinue => 0xEACF,
+            Icon::DebugPause => 0xEAD1,
+            Icon::DebugStop => 0xEAD7,
+            Icon::DebugStepOver => 0xEAD6,
+            Icon::DebugStepInto => 0xEAD4,
+            Icon::DebugStepOut => 0xEAD5,
+            Icon::DebugStackFrame => 0xEB8B,
+            Icon::DebugStackFrameActive => 0xEB89,
         };
         char::from_u32(code).unwrap_or('?')
     }

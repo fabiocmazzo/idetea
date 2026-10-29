@@ -18,7 +18,7 @@ O nome é um trocadilho com *Iced Tea*: a IDE é feita com o iced.
 ## A ideia
 
 - **Rápida.** Abre em dezenas de milissegundos (a meta é ficar abaixo de 200 ms) e edita arquivos de 200 mil linhas sem travar.
-- **Sem firulas.** Editor, árvore de arquivos, busca, terminal, git e LSP. Sem conta, sem telemetria, sem marketplace.
+- **Sem firulas.** Editor, árvore de arquivos, busca, terminal, git, LSP e debug. Sem conta, sem telemetria, sem marketplace.
   A IDE só usa a rede quando você pede (push, pull e fetch).
 - **Pequena por dentro.** O núcleo só sabe editar arquivos; o resto (árvore, terminal, git...) são extensões, e cada uma
   pode ser desligada.
@@ -57,6 +57,14 @@ O nome é um trocadilho com *Iced Tea*: a IDE é feita com o iced.
 - Painel com stage/unstage por arquivo ou tudo, diff colorido, commit, descartar alterações (com confirmação).
 - Push, pull e fetch. A IDE nunca fica esperando uma senha: usa o agente ssh ou o credential helper do seu git.
 - Usa o `git` instalado, então respeita sua config, seus hooks e suas credenciais.
+
+### Debug
+- Breakpoints com um clique no número da linha (`F9`), e eles andam junto com o texto quando você edita.
+- `F5` compila e roda: em projetos Rust usa o `cargo build` e acha o executável sozinho; nos outros, um `[debug]`
+  no config diz o programa, os argumentos e o comando de build.
+- Passo a passo (`F10`, `F11`, `Shift+F11`), pausar e parar, com a linha atual marcada no editor.
+- Painel com a pilha de chamadas (clique para ir ao quadro), variáveis que abrem como árvore e a saída do programa.
+- Usa o `gdb` 14 ou mais novo (Rust, C e C++).
 
 ### Interface
 - Paleta de comandos com todos os comandos e seus atalhos (`Ctrl+Shift+P`).
@@ -115,7 +123,8 @@ Todos podem ser trocados nas configurações ou em `~/.config/idetea/config.toml
 - [ ] **Próximo — mais polimento:**
   - outras melhorias de uso do dia a dia.
 - [ ] **Fase 4 — Plugins:** plugins de terceiros em WASM, sem recompilar a IDE.
-- [ ] **Fase 5 — Debug:** breakpoints, passo a passo, pilha e variáveis (DAP: codelldb, debugpy, delve...).
+- [x] **Fase 5 — Debug:** breakpoints, passo a passo, pilha e variáveis com o gdb.
+- [ ] **Depois do debug:** outros adaptadores (codelldb, debugpy, delve...).
 
 **Mais para frente:**
 - sublinhado de erros e marcas do git dentro do editor (dependem do widget de edição);

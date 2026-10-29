@@ -55,6 +55,24 @@ pub struct Frame {
     pub line: usize,
 }
 
+/// Um grupo de variáveis de um quadro (`Locals`, `Registers`...).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Scope {
+    pub name: String,
+    pub reference: i64,
+    /// Caro de buscar: não abrir sozinho.
+    pub expensive: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Variable {
+    pub name: String,
+    pub value: String,
+    pub type_name: Option<String>,
+    /// > 0: tem filhos, pedidos com [`Session::variables`].
+    pub reference: i64,
+}
+
 /// Algo que veio do adaptador.
 #[derive(Debug, Clone)]
 pub enum Event {
@@ -62,6 +80,10 @@ pub enum Event {
     Stopped { thread_id: i64, reason: String, frames: Vec<Frame> },
     /// O programa voltou a rodar.
     Continued,
+    /// Resposta de [`Session::scopes`] (vazia se falhou).
+    Scopes { frame_id: i64, scopes: Vec<Scope> },
+    /// Resposta de [`Session::variables`] (vazia se falhou).
+    Variables { reference: i64, variables: Vec<Variable> },
     /// Saída do programa ou do adaptador. `category`: `stdout`, `stderr`, `console`...
     Output { category: String, text: String },
     /// O programa terminou (`code` quando o adaptador informa).
@@ -109,6 +131,8 @@ enum Pending {
     Other(&'static str),
     /// Pilha pedida depois de um `stopped`.
     StackTrace { thread_id: i64, reason: String },
+    Scopes(i64),
+    Variables(i64),
 }
 
 impl Session {
@@ -233,6 +257,17 @@ impl Session {
         st.request("pause", json!({ "threadId": thread_id }), Pending::Other("pause"));
     }
 
+    /// Grupos de variáveis de um quadro (resposta em [`Event::Scopes`]). Só vale com o programa parado.
+    pub fn scopes(&self, frame_id: i64) {
+        self.inner.lock().request("scopes", json!({ "frameId": frame_id }), Pending::Scopes(frame_id));
+    }
+
+    /// Variáveis de um grupo, ou filhos de uma variável (resposta em [`Event::Variables`]).
+    pub fn variables(&self, reference: i64) {
+        let args = json!({ "variablesReference": reference });
+        self.inner.lock().request("variables", args, Pending::Variables(reference));
+    }
+
     fn step(&self, command: &'static str) {
         let mut st = self.inner.lock();
         let Some(thread_id) = st.thread_id else { return };
@@ -291,13 +326,24 @@ impl Inner {
                 Pending::StackTrace { thread_id, reason } => {
                     (self.sink)(Event::Stopped { thread_id, reason, frames: Vec::new() })
                 }
+                // Variáveis que não vieram: mostra vazio, sem alarde.
+                Pending::Scopes(frame_id) => (self.sink)(Event::Scopes { frame_id, scopes: Vec::new() }),
+                Pending::Variables(reference) => (self.sink)(Event::Variables { reference, variables: Vec::new() }),
                 Pending::Other(command) => (self.sink)(Event::Error { command: command.into(), message }),
             }
             return;
         }
-        if let Pending::StackTrace { thread_id, reason } = pending {
-            let frames = parse_frames(&msg["body"]["stackFrames"]);
-            (self.sink)(Event::Stopped { thread_id, reason, frames });
+        let body = &msg["body"];
+        match pending {
+            Pending::StackTrace { thread_id, reason } => {
+                let frames = parse_frames(&body["stackFrames"]);
+                (self.sink)(Event::Stopped { thread_id, reason, frames });
+            }
+            Pending::Scopes(frame_id) => (self.sink)(Event::Scopes { frame_id, scopes: parse_scopes(&body["scopes"]) }),
+            Pending::Variables(reference) => {
+                (self.sink)(Event::Variables { reference, variables: parse_variables(&body["variables"]) })
+            }
+            Pending::Other(_) => {}
         }
     }
 
@@ -401,6 +447,32 @@ fn parse_frames(frames: &Value) -> Vec<Frame> {
         .collect()
 }
 
+fn parse_scopes(scopes: &Value) -> Vec<Scope> {
+    scopes
+        .as_array()
+        .into_iter()
+        .flatten()
+        .map(|s| Scope {
+            name: s["name"].as_str().unwrap_or("?").to_string(),
+            reference: s["variablesReference"].as_i64().unwrap_or(0),
+            expensive: s["expensive"].as_bool().unwrap_or(false),
+        })
+        .collect()
+}
+
+fn parse_variables(vars: &Value) -> Vec<Variable> {
+    vars.as_array()
+        .into_iter()
+        .flatten()
+        .map(|v| Variable {
+            name: v["name"].as_str().unwrap_or("?").to_string(),
+            value: v["value"].as_str().unwrap_or_default().to_string(),
+            type_name: v["type"].as_str().filter(|t| !t.is_empty()).map(str::to_string),
+            reference: v["variablesReference"].as_i64().unwrap_or(0),
+        })
+        .collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -458,6 +530,18 @@ mod tests {
         assert_eq!((frames[0].name.contains("soma"), frames[0].line), (true, 2));
         assert_eq!(frames[0].path.as_deref(), Some(src.as_path()));
         assert!(frames.len() >= 2, "a pilha tem quem chamou");
+
+        session.scopes(frames[0].id);
+        let Event::Scopes { scopes, .. } = wait(&|e| matches!(e, Event::Scopes { .. })) else { unreachable!() };
+        let mut names = Vec::new();
+        for scope in scopes.iter().filter(|s| !s.expensive && s.reference > 0) {
+            session.variables(scope.reference);
+            let Event::Variables { variables, .. } = wait(&|e| matches!(e, Event::Variables { .. })) else {
+                unreachable!()
+            };
+            names.extend(variables.into_iter().map(|v| format!("{}={}", v.name, v.value)));
+        }
+        assert!(names.contains(&"a=10".to_string()) && names.contains(&"b=5".to_string()), "{scopes:?} {names:?}");
 
         session.step_out();
         let Event::Stopped { frames, .. } = wait(&|e| matches!(e, Event::Stopped { .. })) else { unreachable!() };

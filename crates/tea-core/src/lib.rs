@@ -13,6 +13,7 @@ use iced::{Element, Subscription, Task, Theme};
 
 pub mod config;
 pub mod config_edit;
+pub mod debug;
 pub mod icons;
 pub mod menu;
 pub mod os;
@@ -58,6 +59,8 @@ pub enum CoreEvent {
     FileStatuses(Arc<HashMap<PathBuf, FileStatus>>),
     /// Arquivos foram criados, apagados ou mudados no disco por uma extensão (não pelo editor).
     FilesChanged,
+    /// Sessão de debug (ver [`debug`]).
+    Debug(debug::Event),
 }
 
 /// Status de um arquivo no controle de versão. A ordem vai do mais fraco ao mais forte
@@ -134,6 +137,10 @@ pub enum Request {
     FileStatuses(Arc<HashMap<PathBuf, FileStatus>>),
     /// Repassa [`CoreEvent::FilesChanged`] às outras extensões.
     FilesChanged,
+    /// Debug: seleciona um quadro da pilha (índice): abre o arquivo e manda as variáveis dele.
+    DebugSelectFrame(usize),
+    /// Debug: pede os filhos de uma variável ou grupo (resposta em [`debug::Event::Variables`]).
+    DebugVariables(i64),
 }
 
 /// Estilo de um botão de diálogo.
@@ -290,6 +297,14 @@ impl<'a> Context<'a> {
 
     pub fn path_deleted(&mut self, path: impl Into<PathBuf>) {
         self.requests.push(Request::PathDeleted(path.into()));
+    }
+
+    pub fn debug_select_frame(&mut self, index: usize) {
+        self.requests.push(Request::DebugSelectFrame(index));
+    }
+
+    pub fn debug_variables(&mut self, reference: i64) {
+        self.requests.push(Request::DebugVariables(reference));
     }
 
     pub fn into_requests(self) -> Vec<Request> {

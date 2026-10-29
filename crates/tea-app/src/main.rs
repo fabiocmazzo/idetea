@@ -26,6 +26,7 @@ use std::time::{Duration, Instant};
 use iced::widget::{button, column, container, mouse_area, opaque, operation, row, rule, scrollable, stack, text};
 use iced::{Element, Fill, Subscription, Task, Theme, keyboard, mouse, window};
 use tea_core::config::{self, Config};
+use tea_core::debug::{Event as DebugEvent, Status as DebugStatus};
 use tea_core::keymap::{Chord, Keymap};
 use tea_core::{
     AnyExtension, ButtonKind, Context, CoreEvent, Diagnostic, Dialog, EditorStatus, ExtMessage, PanelId, Request, Severity,
@@ -93,6 +94,8 @@ fn builtin_extensions() -> Vec<Box<dyn AnyExtension>> {
     list.push(Box::new(tea_ext_terminal::TerminalExtension::new()));
     #[cfg(feature = "ext-git")]
     list.push(Box::new(tea_ext_git::GitExtension::new()));
+    #[cfg(feature = "ext-debug")]
+    list.push(Box::new(tea_ext_debug::DebugExtension::new()));
     list
 }
 
@@ -448,6 +451,12 @@ impl App {
                     tasks.push(self.broadcast(CoreEvent::FilesChanged));
                 }
                 Request::Menu(menu) => tasks.push(self.open_menu(menu, dialog::Owner::Ext(ext))),
+                Request::DebugSelectFrame(i) => tasks.push(self.debug_select_frame(i)),
+                Request::DebugVariables(reference) => {
+                    if let Some(session) = self.debug.session() {
+                        session.variables(reference);
+                    }
+                }
                 Request::PanelIcon { id, icon } => {
                     if let Some(p) = self.panels.iter_mut().find(|p| p.ext == ext && p.id == id) {
                         p.icon = Some(icon);
@@ -594,11 +603,12 @@ impl App {
 
     /// Compila numa thread (cargo, ou o `build` do config); sem nada para compilar, já inicia.
     fn debug_build(&mut self) -> Task<Message> {
-        self.debug.output.clear();
+        let cleared = self.debug_event(DebugEvent::OutputCleared);
         let Some(build) = debug_build::plan(&self.config.debug, &self.root) else {
-            return self.debug_choose(&[]);
+            return Task::batch([cleared, self.debug_choose(&[])]);
         };
         self.debug.building = true;
+        let status = self.debug_event(DebugEvent::Status(DebugStatus::Building));
         let note = self.notify(format!("Debug: compilando ({})…", build.label()));
         let root = self.root.clone();
         let (tx, rx) = iced::futures::channel::oneshot::channel();
@@ -607,7 +617,7 @@ impl App {
         });
         let done = Task::future(async move { rx.await.ok() })
             .and_then(|outcome| Task::done(Message::DebugBuilt(std::sync::Arc::new(outcome))));
-        Task::batch([note, done])
+        Task::batch([cleared, status, note, done])
     }
 
     fn debug_built(&mut self, outcome: &debug_build::Outcome) -> Task<Message> {
@@ -616,12 +626,20 @@ impl App {
             return Task::none();
         }
         self.debug.building = false;
-        self.debug.push_output(&outcome.log);
+        let log = self.debug_event(DebugEvent::Output { category: "build".into(), text: outcome.log.clone() });
         if !outcome.ok {
             let error = outcome.error.as_deref().unwrap_or("erro desconhecido");
-            return self.notify(format!("Debug: a compilação falhou: {error}"));
+            let idle = self.debug_event(DebugEvent::Status(DebugStatus::Idle));
+            return Task::batch([log, idle, self.notify(format!("Debug: a compilação falhou: {error}"))]);
         }
-        self.debug_choose(&outcome.executables)
+        let next = self.debug_choose(&outcome.executables);
+        // Escolheu nada (diálogo ou janela de arquivos abertos): o painel volta a "sem sessão".
+        let idle = if self.debug.is_running() {
+            Task::none()
+        } else {
+            self.debug_event(DebugEvent::Status(DebugStatus::Idle))
+        };
+        Task::batch([log, next, idle])
     }
 
     /// Qual programa rodar: o do config, o único que o cargo gerou, o que já foi escolhido
@@ -660,23 +678,45 @@ impl App {
         let breakpoints = self.all_breakpoints();
         let cfg = &self.config.debug;
         let cwd = cfg.cwd.as_deref().map_or_else(|| self.root.clone(), |c| self.root.join(c));
-        match self.debug.start(program.clone(), cfg.args.clone(), cwd, breakpoints) {
-            Ok(()) => self.notify(format!("Debug: rodando {}", display_rel(&program, &self.root))),
-            Err(e) => self.notify(format!("Debug: {e}")),
-        }
+        let (status, note) = match self.debug.start(program.clone(), cfg.args.clone(), cwd, breakpoints) {
+            Ok(()) => (DebugStatus::Running, format!("Debug: rodando {}", display_rel(&program, &self.root))),
+            Err(e) => (DebugStatus::Idle, format!("Debug: {e}")),
+        };
+        Task::batch([self.debug_event(DebugEvent::Status(status)), self.notify(note)])
     }
 
     fn debug_stop(&mut self) -> Task<Message> {
         if self.debug.building {
             self.debug.stop();
-            return self.notify("Debug: cancelado (a compilação termina sozinha)");
+            let idle = self.debug_event(DebugEvent::Status(DebugStatus::Idle));
+            return Task::batch([idle, self.notify("Debug: cancelado (a compilação termina sozinha)")]);
         }
         if !self.debug.is_running() {
             return Task::none();
         }
         self.debug.stop();
         self.clear_exec_lines();
-        self.notify("Debug: parado")
+        let idle = self.debug_event(DebugEvent::Status(DebugStatus::Idle));
+        Task::batch([idle, self.notify("Debug: parado")])
+    }
+
+    fn debug_event(&mut self, event: DebugEvent) -> Task<Message> {
+        self.broadcast(CoreEvent::Debug(event))
+    }
+
+    /// O painel escolheu um quadro da pilha: mostra onde ele está e as variáveis dele.
+    fn debug_select_frame(&mut self, index: usize) -> Task<Message> {
+        let Some(frame) = self.debug.stopped.as_ref().and_then(|f| f.get(index)).cloned() else { return Task::none() };
+        if let Some(session) = self.debug.session() {
+            session.scopes(frame.id);
+        }
+        let frames = self.debug.stopped.as_ref().map(|f| f.iter().map(debug::Debugger::to_panel).collect());
+        let stack = self.debug_event(DebugEvent::Stack { frames: frames.unwrap_or_default(), selected: index });
+        let open = match frame.path.filter(|p| p.is_file() && frame.line > 0) {
+            Some(path) => self.open_file_at(path, frame.line, 1),
+            None => self.notify(format!("Debug: {} não tem código-fonte", frame.name)),
+        };
+        Task::batch([stack, open])
     }
 
     fn clear_exec_lines(&mut self) {
@@ -696,10 +736,20 @@ impl App {
                 let reason = debug::reason_label(&reason).to_string();
                 let top = frames.first().map(|f| f.name.clone()).unwrap_or_else(|| "?".into());
                 // O primeiro quadro com código-fonte que existe (passos dentro da std não têm).
-                let shown = frames.iter().find(|f| f.path.as_deref().is_some_and(Path::is_file) && f.line > 0).cloned();
+                let shown = frames.iter().position(|f| f.path.as_deref().is_some_and(Path::is_file) && f.line > 0);
+                let status = self.debug_event(DebugEvent::Status(DebugStatus::Stopped { reason: reason.clone() }));
+                let stack = self.debug_event(DebugEvent::Stack {
+                    frames: frames.iter().map(debug::Debugger::to_panel).collect(),
+                    selected: shown.unwrap_or(0),
+                });
+                if let (Some(session), Some(f)) = (self.debug.session(), frames.get(shown.unwrap_or(0))) {
+                    session.scopes(f.id);
+                }
+                let shown = shown.map(|i| frames[i].clone());
                 self.debug.stopped = Some(frames);
                 let Some(frame) = shown else {
-                    return self.notify(format!("Debug: parado em {top} ({reason}), sem código-fonte"));
+                    let note = self.notify(format!("Debug: parado em {top} ({reason}), sem código-fonte"));
+                    return Task::batch([status, stack, note]);
                 };
                 let path = frame.path.clone().unwrap_or_default();
                 let open = self.open_file_at(path.clone(), frame.line, 1);
@@ -708,16 +758,32 @@ impl App {
                 }
                 let note =
                     self.notify(format!("Debug: parado em {}:{} ({reason})", display_rel(&path, &self.root), frame.line));
-                Task::batch([open, note])
+                Task::batch([status, stack, open, note])
             }
             E::Continued => {
                 self.debug.stopped = None;
                 self.clear_exec_lines();
-                Task::none()
+                self.debug_event(DebugEvent::Status(DebugStatus::Running))
             }
-            E::Output { text, .. } => {
-                self.debug.push_output(&text);
-                Task::none()
+            E::Output { category, text } => self.debug_event(DebugEvent::Output { category, text }),
+            E::Scopes { frame_id, scopes } => {
+                let scopes = scopes
+                    .into_iter()
+                    .map(|s| tea_core::debug::Scope { name: s.name, reference: s.reference, expensive: s.expensive })
+                    .collect();
+                self.debug_event(DebugEvent::Scopes { frame_id, scopes })
+            }
+            E::Variables { reference, variables } => {
+                let variables = variables
+                    .into_iter()
+                    .map(|v| tea_core::debug::Variable {
+                        name: v.name,
+                        value: v.value,
+                        type_name: v.type_name,
+                        reference: v.reference,
+                    })
+                    .collect();
+                self.debug_event(DebugEvent::Variables { reference, variables })
             }
             E::Exited { code } => {
                 let code = code.map(|c| format!(" (código {c})")).unwrap_or_default();
@@ -726,13 +792,14 @@ impl App {
             E::Terminated => {
                 self.debug.ended();
                 self.clear_exec_lines();
-                Task::none()
+                self.debug_event(DebugEvent::Status(DebugStatus::Idle))
             }
             E::Error { command, message } => self.notify(format!("Debug: {command} falhou: {message}")),
             E::AdapterExited { reason } => {
                 self.debug.ended();
                 self.clear_exec_lines();
-                self.notify(format!("Debug: o gdb encerrou ({reason})"))
+                let idle = self.debug_event(DebugEvent::Status(DebugStatus::Idle));
+                Task::batch([idle, self.notify(format!("Debug: o gdb encerrou ({reason})"))])
             }
         }
     }

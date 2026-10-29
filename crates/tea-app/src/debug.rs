@@ -8,9 +8,6 @@ use std::sync::Arc;
 use iced::futures::channel::mpsc::UnboundedSender;
 use tea_dap::{AdapterConfig, Event, Frame, Launch, Session};
 
-/// Linhas de saída guardadas (o painel de debug mostra; o resto é descartado).
-const MAX_OUTPUT_LINES: usize = 5000;
-
 pub struct Debugger {
     tx: UnboundedSender<(u64, Event)>,
     session: Option<Session>,
@@ -20,14 +17,13 @@ pub struct Debugger {
     pub program: Option<PathBuf>,
     /// Onde o programa está parado, se estiver.
     pub stopped: Option<Vec<Frame>>,
-    pub output: Vec<String>,
     /// Compilando antes de iniciar (o resultado chega em `Message::DebugBuilt`).
     pub building: bool,
 }
 
 impl Debugger {
     pub fn new(tx: UnboundedSender<(u64, Event)>) -> Self {
-        Self { tx, session: None, generation: 0, program: None, stopped: None, output: Vec::new(), building: false }
+        Self { tx, session: None, generation: 0, program: None, stopped: None, building: false }
     }
 
     pub fn session(&self) -> Option<&Session> {
@@ -44,7 +40,6 @@ impl Debugger {
     }
 
     /// Inicia o `gdb` com o programa. `breakpoints`: arquivo → linhas (1-based).
-    /// Não limpa a saída: a da compilação fica antes da do programa.
     pub fn start(
         &mut self,
         program: PathBuf,
@@ -91,12 +86,9 @@ impl Debugger {
         self.stopped = None;
     }
 
-    pub fn push_output(&mut self, text: &str) {
-        self.output.extend(text.lines().map(str::to_string));
-        if self.output.len() > MAX_OUTPUT_LINES {
-            let extra = self.output.len() - MAX_OUTPUT_LINES;
-            self.output.drain(..extra);
-        }
+    /// Quadro no formato que o painel recebe.
+    pub fn to_panel(frame: &Frame) -> tea_core::debug::Frame {
+        tea_core::debug::Frame { id: frame.id, name: frame.name.clone(), path: frame.path.clone(), line: frame.line }
     }
 }
 

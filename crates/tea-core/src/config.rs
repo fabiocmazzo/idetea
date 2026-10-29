@@ -49,6 +49,7 @@ search = { enabled = true, slot = "bottom" }
 problems = { enabled = true, slot = "bottom" }
 terminal = { enabled = true, slot = "bottom" }
 git = { enabled = true, slot = "bottom" }
+debug = { enabled = true, slot = "bottom" }
 
 # Atalhos: "combinação" = "comando". Comando vazio ("") desliga o atalho.
 # Atalhos que o editor já usa (Ctrl+F, Ctrl+H, Ctrl+G, Ctrl+Z, Ctrl+D...) têm prioridade quando ele tem foco.

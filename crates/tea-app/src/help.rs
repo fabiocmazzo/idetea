@@ -122,6 +122,8 @@ const GUIDE: &[(&str, &[&str])] = &[
              config (program, args, cwd, build) ou escolha o executável. Trocar o programa: {debug.choose_program}.",
             "Parado: {debug.next} próxima linha, {debug.step_in} entra na função, {debug.step_out} sai, \
              {debug.pause} pausa, {debug.stop} para. A seta amarela mostra onde o programa está. Usa o gdb 14+.",
+            "Painel Debug ({debug.focus}): botões, pilha de chamadas (clique vai para o quadro e mostra as variáveis \
+             dele), variáveis (clique abre structs e vetores) e a saída do programa e da compilação.",
         ],
     ),
     (
@@ -407,6 +409,7 @@ mod tests {
             "git.fetch",
             "git.pull",
             "git.push",
+            "debug.focus",
         ];
         for (_, paragraphs) in GUIDE {
             for p in *paragraphs {
