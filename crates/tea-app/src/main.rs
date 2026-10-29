@@ -101,6 +101,7 @@ const CORE_COMMANDS: &[(&str, &str)] = &[
     ("file.new", "Arquivo: novo"),
     ("file.save", "Arquivo: salvar"),
     ("file.open", "Arquivo: abrir…"),
+    ("file.quick_open", "Arquivo: abrir pelo nome…"),
     ("file.open_folder", "Arquivo: abrir pasta em nova janela…"),
     ("file.save_as", "Arquivo: salvar como…"),
     ("file.save_as_path", "Arquivo: salvar como (digitar caminho)…"),
@@ -201,6 +202,8 @@ struct App {
     active_bottom: Option<usize>,
 
     palette: Option<Palette>,
+    /// Última lista de arquivos do projeto (para `Ctrl+P` abrir na hora; é relida a cada abertura).
+    file_list: std::sync::Arc<Vec<String>>,
     splash: Option<Splash>,
     /// Ponteiro sobre um painel lateral: um clique ali tira o foco do editor.
     pointer_over_panel: bool,
@@ -233,6 +236,8 @@ enum Message {
     SelectBottom(usize),
     Key { key: keyboard::Key, modifiers: keyboard::Modifiers, captured: bool },
     Palette(palette::Msg),
+    /// A lista de arquivos do projeto terminou de ser lida (para `Ctrl+P`).
+    FilesListed(std::sync::Arc<Vec<String>>),
     Dialog(dialog::Msg),
     Menu(context_menu::Msg),
     /// Resposta da janela nativa de arquivo/pasta.
@@ -292,6 +297,7 @@ impl App {
                 .map(|(id, title)| CommandInfo { id: id.to_string(), title: title.to_string() })
                 .collect(),
             palette: None,
+            file_list: Default::default(),
             splash: show_splash.then(|| Splash::new(started)),
             pointer_over_panel: false,
             dialog: None,
@@ -930,6 +936,7 @@ impl App {
 
         match id {
             "palette.open" => self.open_palette(Palette::commands()),
+            "file.quick_open" => self.open_quick_open(),
             "settings.open" => {
                 if self.settings.is_some() {
                     self.close_settings();
@@ -1576,6 +1583,28 @@ impl App {
         Task::batch([operation::focus(palette::input_id()), operation::move_cursor_to_end(palette::input_id())])
     }
 
+    /// `Ctrl+P`: abre já com a última lista conhecida e relê os arquivos numa thread.
+    fn open_quick_open(&mut self) -> Task<Message> {
+        let active = self.active_path().map(Path::to_path_buf);
+        let recent: Vec<String> = self
+            .tabs
+            .iter()
+            .filter_map(|t| t.editor.path())
+            .filter(|p| Some(*p) != active.as_deref())
+            .filter_map(|p| p.strip_prefix(&self.root).ok())
+            .map(|p| p.components().map(|c| c.as_os_str().to_string_lossy()).collect::<Vec<_>>().join("/"))
+            .collect();
+        let open = self.open_palette(Palette::files(self.file_list.clone(), recent, true));
+        let root = self.root.clone();
+        let (tx, rx) = iced::futures::channel::oneshot::channel();
+        std::thread::spawn(move || {
+            let _ = tx.send(palette::list_files(&root));
+        });
+        let list = Task::future(async move { rx.await.ok() })
+            .and_then(|files| Task::done(Message::FilesListed(std::sync::Arc::new(files))));
+        Task::batch([open, list])
+    }
+
     fn close_palette(&mut self) {
         self.palette = None;
         self.editor_mut().focus();
@@ -1597,6 +1626,7 @@ impl App {
                 self.close_palette();
                 self.run_command(&id)
             }
+            palette::Msg::PickFile(i) => self.open_chosen_file(Some(i)),
             palette::Msg::Submit => match p.mode {
                 palette::Mode::Commands => match p.matches(&self.commands).get(p.selected).copied() {
                     Some(i) => self.palette_update(palette::Msg::Pick(i)),
@@ -1607,7 +1637,19 @@ impl App {
                     self.close_palette();
                     self.save_as(&input)
                 }
+                palette::Mode::Files => self.open_chosen_file(None),
             },
+        }
+    }
+
+    /// Modo arquivos da paleta: abre o escolhido (`index`) ou o selecionado, na linha se a busca for `nome:42`.
+    fn open_chosen_file(&mut self, index: Option<usize>) -> Task<Message> {
+        let Some((rel, line)) = self.palette.as_ref().and_then(|p| p.chosen_file(index)) else { return Task::none() };
+        self.close_palette();
+        let path = self.root.join(rel);
+        match line {
+            Some(line) => self.open_file_at(path, line, 1),
+            None => self.open_file(path),
         }
     }
 
@@ -1665,13 +1707,22 @@ impl App {
             match key {
                 keyboard::Key::Named(Named::Escape) => self.close_palette(),
                 keyboard::Key::Named(Named::ArrowDown | Named::ArrowUp) => {
-                    let total = p.matches(&self.commands).len();
+                    let total = p.total(&self.commands);
                     let delta = if key == keyboard::Key::Named(Named::ArrowDown) { 1 } else { -1 };
                     p.move_selection(delta, total);
                     return p.scroll_to_selected();
                 }
-                // O mesmo atalho fecha a palette.
-                _ if command.as_deref() == Some("palette.open") => self.close_palette(),
+                // O atalho do próprio modo fecha; o do outro modo troca (Ctrl+P ⇄ Ctrl+Shift+P).
+                _ if matches!(command.as_deref(), Some("palette.open" | "file.quick_open")) => {
+                    let files = command.as_deref() == Some("file.quick_open");
+                    if files == (p.mode == palette::Mode::Files) {
+                        self.close_palette();
+                    } else if files {
+                        return self.open_quick_open();
+                    } else {
+                        return self.open_palette(Palette::commands());
+                    }
+                }
                 _ => {}
             }
             return Task::none();
@@ -1716,6 +1767,15 @@ impl App {
             }
             Message::Key { key, modifiers, captured } => self.on_key(key, modifiers, captured),
             Message::Palette(msg) => self.palette_update(msg),
+            Message::FilesListed(files) => {
+                self.file_list = files.clone();
+                if let Some(p) = &mut self.palette
+                    && p.mode == palette::Mode::Files
+                {
+                    p.set_files(files);
+                }
+                Task::none()
+            }
             Message::Dialog(dialog::Msg::Choose(choice)) => self.choose_dialog(choice),
             Message::Menu(context_menu::Msg::Choose(i)) => self.choose_menu(Some(i)),
             Message::Menu(context_menu::Msg::Close) => self.choose_menu(None),

@@ -31,6 +31,7 @@ O nome é um trocadilho com *Iced Tea*: a IDE é feita com o iced.
 ## Funcionalidades
 
 ### Editor
+- Abrir arquivo pelo nome (`Ctrl+P`) com busca aproximada; `main.rs:42` abre direto na linha.
 - Várias abas, indicador de alteração, abrir (`Ctrl+O`), salvar e salvar como, com a janela de arquivos do sistema.
 - Syntax highlight para dezenas de linguagens, temas claro e escuro (e os temas do iced: Nord, Dracula...).
 - Buscar e substituir, ir para linha, desfazer/refazer, multi-cursor, dobrar código e modo vim opcional.
@@ -89,6 +90,7 @@ Opcionais: `git` (para a integração com git) e os servidores LSP das linguagen
 
 | Atalho | O quê |
 |---|---|
+| `Ctrl+P` | Abrir arquivo pelo nome |
 | `Ctrl+Shift+P` | Paleta de comandos |
 | `F1` | Ajuda: todos os atalhos e o guia |
 | `Ctrl+,` | Configurações |
@@ -110,7 +112,6 @@ Todos podem ser trocados nas configurações ou em `~/.config/idetea/config.toml
 - [x] **Fase 3 — Git e polimento:** git completo (incluindo push/pull), menus de contexto, ajuda, configurações,
       ícones, painéis redimensionáveis, janelas nativas de arquivo.
 - [ ] **Próximo — mais polimento:**
-  - abrir arquivo pelo nome (`Ctrl+P`);
   - perceber sozinha quando um arquivo muda no disco;
   - outras melhorias de uso do dia a dia.
 - [ ] **Fase 4 — Plugins:** plugins de terceiros em WASM, sem recompilar a IDE.

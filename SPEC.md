@@ -379,6 +379,19 @@ Polimento, nesta ordem (o diálogo vem primeiro porque menu de contexto e config
   O `status` usa `--no-optional-locks` para não disputar o index com o git do terminal (nem disparar o próprio observador).
 - Itens da barra de status não mudam de slot pelo config: o `slot` de `[extensions]` move só os outros painéis da extensão.
 
+### Polimento 2
+
+Ordem combinada: abrir pelo nome → perceber mudanças no disco → spike do debug → debug → plugins WASM
+(os plugins vão por último porque o debug ainda vai mexer na API das extensões).
+
+- [x] **Abrir arquivo pelo nome** (`Ctrl+P`, `file.quick_open`): modo "arquivos" da paleta. A lista é lida numa thread
+      a cada abertura (respeita `.gitignore`, mostra ocultos, nunca entra no `.git`, no máximo 300 mil arquivos) e a
+      paleta já abre com a lista anterior. Busca aproximada em que o nome do arquivo vale mais que o caminho; empate vai
+      para o caminho mais curto; até 200 resultados (100 mil caminhos filtram em ~11 ms em release).
+      Sem busca, as abas abertas vêm primeiro. `nome:42` abre na linha 42; `>` no começo troca para os comandos;
+      `Ctrl+P` ⇄ `Ctrl+Shift+P` trocam de modo com a paleta aberta (o atalho do próprio modo fecha).
+- [x] Teste manual do abrir pelo nome: aprovado.
+
 ### Fase 4 — Plugins externos
 - [ ] Host WASM (`wasmtime`) + WIT versionado.
 - [ ] Protocolo de UI declarativa para painéis de plugins.

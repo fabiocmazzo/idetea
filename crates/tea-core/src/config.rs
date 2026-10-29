@@ -50,6 +50,7 @@ git = { enabled = true, slot = "bottom" }
 "ctrl+s" = "file.save"
 "ctrl+shift+s" = "file.save_as"
 "ctrl+o" = "file.open"
+"ctrl+p" = "file.quick_open"
 "ctrl+n" = "file.new"
 "ctrl+w" = "file.close"
 "ctrl+pagedown" = "tab.next"

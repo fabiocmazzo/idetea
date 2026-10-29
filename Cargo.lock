@@ -3620,6 +3620,7 @@ name = "tea-app"
 version = "0.0.1"
 dependencies = [
  "iced",
+ "ignore",
  "rfd",
  "serde",
  "tea-core",

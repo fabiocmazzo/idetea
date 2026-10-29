@@ -74,6 +74,8 @@ const GUIDE: &[(&str, &[&str])] = &[
     (
         "Arquivos e abas",
         &[
+            "Abrir pelo nome: {file.quick_open} (digite partes do nome; `main.rs:42` vai para a linha; \
+             `>` troca para os comandos).",
             "Novo: {file.new} · Abrir: {file.open} · Salvar: {file.save} · Salvar como: {file.save_as} · \
              Fechar aba: {file.close}.",
             "Abrir e Salvar como usam a janela de arquivos do sistema. Para digitar o caminho: \
