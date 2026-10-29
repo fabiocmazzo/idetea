@@ -49,6 +49,9 @@ pub enum Icon {
     LinkExternal,
     Files,
     Discard,
+    RepoPull,
+    RepoPush,
+    RepoFetch,
 }
 
 impl Icon {
@@ -83,6 +86,9 @@ impl Icon {
             Icon::LinkExternal => 0xEB14,
             Icon::Files => 0xEAF0,
             Icon::Discard => 0xEAE2,
+            Icon::RepoPull => 0xEB40,
+            Icon::RepoPush => 0xEB41,
+            Icon::RepoFetch => 0xEC1D,
         };
         char::from_u32(code).unwrap_or('?')
     }

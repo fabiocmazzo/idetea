@@ -281,8 +281,8 @@ Os plugins WASM ficaram para depois do polimento: a API das extensões ainda vai
       diff colorido do arquivo selecionado (clique numa linha abre o arquivo nela). Atualiza ao salvar e quando o `.git` muda
       (commit/checkout no terminal), olhando a data de `index`, `HEAD`, `logs/HEAD` e `FETCH_HEAD` a cada segundo.
 - [x] Teste manual do git na tela: aprovado.
-      Fora por enquanto: push/pull (use o terminal), marcas de diff no editor (o widget não suporta).
-      Descartar mudanças e cores na árvore vieram depois, no polimento.
+      Fora por enquanto: marcas de diff no editor (o widget não suporta).
+      Descartar mudanças, cores na árvore e push/pull vieram depois, no polimento.
 
 Polimento, nesta ordem (o diálogo vem primeiro porque menu de contexto e configurações usam ele):
 
@@ -313,6 +313,17 @@ Polimento, nesta ordem (o diálogo vem primeiro porque menu de contexto e config
       `~/.local/share` (o `.desktop` fica fora do menu de aplicativos, `NoDisplay`: aberto pelo menu, a raiz seria a home).
       `just run [args]` instala e roda. Instalar pelo `build.rs` foi descartado: build não deve mexer fora de `target/`.
 - [x] Teste manual do ícone no painel do COSMIC: aprovado.
+- [x] **Push, pull e fetch** no painel Git (botões no topo, com ↑/↓ na dica) e comandos `git.push`, `git.pull`, `git.fetch`.
+      Rodam numa thread, um por vez, sem bloquear stage e commit; a barra de status mostra "Enviando…" etc.
+      O git roda numa sessão nova, sem terminal (`setsid`): o ssh nunca fica esperando senha no terminal de onde a
+      IDE foi aberta; usa o agente ssh, um `SSH_ASKPASS` gráfico ou um credential helper, ou falha com explicação.
+      Tempo limite de 3 min (mata o git e os filhos). Erros comuns viram frases curtas ("o remoto tem commits que
+      você não tem: faça pull antes", falha de autenticação, conflito, branches divergentes).
+      Branch sem upstream: diálogo "Publicar a branch?" e `push -u` no `origin` (ou no único remoto).
+      `pull` respeita a config do usuário (merge/rebase). Depois do pull, abas sem alterações cujo arquivo mudou
+      no disco recarregam (ou fecham, se o arquivo sumiu); a árvore e o git atualizam.
+      Sem fetch automático: a IDE não fala com a rede sem o usuário pedir.
+- [x] Teste manual do push, pull e fetch: aprovado.
 - [x] **Ícones:** fonte Codicons embutida (80 KB, CC BY 4.0, ver `crates/tea-core/assets/NOTICE.md`) e módulo
       `tea_core::icons` (`icon(Icon::X)`, `icon_button(Icon::X, "dica", msg)` com tooltip após 450 ms).
       Árvore: barra com ícones (novo arquivo/pasta, renomear, apagar, atualizar, recolher), setas e ícones de pasta/arquivo nas linhas.

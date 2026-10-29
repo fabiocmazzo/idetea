@@ -407,7 +407,10 @@ impl App {
                     tasks.push(self.broadcast(CoreEvent::FilesChanged));
                 }
                 Request::FileStatuses(statuses) => tasks.push(self.broadcast(CoreEvent::FileStatuses(statuses))),
-                Request::FilesChanged => tasks.push(self.broadcast(CoreEvent::FilesChanged)),
+                Request::FilesChanged => {
+                    tasks.push(self.reload_changed_tabs());
+                    tasks.push(self.broadcast(CoreEvent::FilesChanged));
+                }
                 Request::Dialog(dialog) => tasks.push(self.open_dialog(dialog, dialog::Owner::Ext(ext))),
                 Request::FileChanged(path) => {
                     tasks.push(self.reload_from_disk(&path));
@@ -523,6 +526,26 @@ impl App {
             }
             Err(e) => self.notify(format!("Erro ao recarregar {}: {e}", display_rel(path, &self.root))),
         }
+    }
+
+    /// Arquivos mudaram no disco sem dizer quais (ex.: git pull): recarrega as abas sem alterações
+    /// cujo conteúdo no disco ficou diferente (ou fecha, se o arquivo sumiu).
+    fn reload_changed_tabs(&mut self) -> Task<Message> {
+        let stale: Vec<PathBuf> = self
+            .tabs
+            .iter()
+            .filter(|t| !t.editor.is_modified() && !t.editor.is_new_file())
+            .filter_map(|t| {
+                let path = t.editor.path()?;
+                let changed = match std::fs::read_to_string(path) {
+                    Ok(disk) => disk.replace("\r\n", "\n") != t.editor.text(),
+                    Err(e) => e.kind() == std::io::ErrorKind::NotFound,
+                };
+                changed.then(|| path.to_path_buf())
+            })
+            .collect();
+        let tasks: Vec<_> = stale.iter().map(|p| self.reload_from_disk(p)).collect();
+        Task::batch(tasks)
     }
 
     fn open_file_at(&mut self, path: PathBuf, line: usize, column: usize) -> Task<Message> {

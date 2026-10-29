@@ -117,6 +117,9 @@ const GUIDE: &[(&str, &[&str])] = &[
              tiram do stage, clicar num arquivo mostra o diff, Enter na mensagem faz o commit.",
             "Botão direito num arquivo do Git: abrir, ver diff, stage, descartar alterações (pede confirmação) \
              e copiar caminho.",
+            "Fetch ({git.fetch}), pull ({git.pull}) e push ({git.push}) ficam nos botões do topo do painel. \
+             A senha não é pedida aqui: use o agente ssh (ssh-add) ou um credential helper. \
+             Uma branch nova pergunta antes de ser publicada no remoto.",
             "O painel se atualiza ao salvar e quando o repositório muda (commit ou checkout feitos no terminal). \
              Push e pull: use o terminal.",
         ],
@@ -386,6 +389,9 @@ mod tests {
             "problems.next",
             "terminal.focus",
             "git.focus",
+            "git.fetch",
+            "git.pull",
+            "git.push",
         ];
         for (_, paragraphs) in GUIDE {
             for p in *paragraphs {

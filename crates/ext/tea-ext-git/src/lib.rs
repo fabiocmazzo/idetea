@@ -49,6 +49,13 @@ pub enum Message {
     Discard(String),
     DiscardConfirmed(String),
     CopyPath(String),
+    Fetch,
+    Pull,
+    Push,
+    /// Push de uma branch sem upstream, depois da confirmação.
+    PushConfirmed { remote: String, branch: String },
+    /// Fetch/pull/push terminou. `bool`: era um pull (arquivos podem ter mudado no disco).
+    RemoteDone(bool, Arc<Result<Option<String>, String>>),
 }
 
 /// Arquivo cujo diff está na tela.
@@ -72,12 +79,17 @@ pub struct GitExtension {
     busy: bool,
     /// Arquivo que a ação em andamento muda no disco (as abas abertas dele precisam recarregar).
     touched: Option<PathBuf>,
+    /// Fetch/pull/push em andamento ("Enviando…"). Um por vez; não bloqueia stage e commit.
+    remote: Option<&'static str>,
     /// Último status enviado à árvore (só reenvia se mudar).
     published: Option<Arc<HashMap<PathBuf, tea_core::FileStatus>>>,
 }
 
 /// Roda `f` numa thread e entrega o resultado como mensagem.
-fn spawn<T: Send + 'static>(f: impl FnOnce() -> T + Send + 'static, done: fn(T) -> Message) -> Task<Message> {
+fn spawn<T: Send + 'static>(
+    f: impl FnOnce() -> T + Send + 'static,
+    done: impl Fn(T) -> Message + Send + 'static,
+) -> Task<Message> {
     let (tx, rx) = oneshot::channel();
     std::thread::spawn(move || {
         let _ = tx.send(f());
@@ -138,6 +150,23 @@ impl GitExtension {
         paths
     }
 
+    /// Roda fetch/pull/push numa thread (a rede pode demorar).
+    fn remote_op(
+        &mut self,
+        label: &'static str,
+        is_pull: bool,
+        ctx: &mut Context,
+        f: impl FnOnce(&Repo) -> Result<String, String> + Send + 'static,
+    ) -> Task<Message> {
+        let Some(repo) = self.repo.clone() else { return Task::none() };
+        if let Some(running) = self.remote {
+            ctx.notify(format!("Git: aguarde, ainda {}", running.to_lowercase()));
+            return Task::none();
+        }
+        self.remote = Some(label);
+        spawn(move || f(&repo).map(Some), move |r| Message::RemoteDone(is_pull, Arc::new(r)))
+    }
+
     fn abs(&self, path: &str) -> PathBuf {
         self.repo.as_ref().map_or_else(|| self.root.join(path), |r| r.root.join(path))
     }
@@ -160,6 +189,9 @@ impl Extension for GitExtension {
         ctx.register_command("git.stage_all", "Git: adicionar tudo ao stage");
         ctx.register_command("git.unstage_all", "Git: tirar tudo do stage");
         ctx.register_command("git.commit", "Git: commit (foca a mensagem)");
+        ctx.register_command("git.pull", "Git: pull (baixar e juntar)");
+        ctx.register_command("git.push", "Git: push (enviar commits)");
+        ctx.register_command("git.fetch", "Git: fetch (ver se o remoto tem novidades)");
         let root = self.root.clone();
         spawn(move || git::discover(&root), Message::Discovered)
     }
@@ -187,6 +219,9 @@ impl Extension for GitExtension {
             "git.refresh" => self.refresh(),
             "git.stage_all" => self.update(Message::StageAll, ctx),
             "git.unstage_all" => self.update(Message::UnstageAll, ctx),
+            "git.pull" => self.update(Message::Pull, ctx),
+            "git.push" => self.update(Message::Push, ctx),
+            "git.fetch" => self.update(Message::Fetch, ctx),
             "git.commit" => {
                 ctx.show_panel(PANEL);
                 operation::focus(commit_input_id())
@@ -288,6 +323,60 @@ impl Extension for GitExtension {
                 self.touched = Some(self.abs(&path));
                 return self.action(move |r| git::discard(r, &entry).map(|_| Some(format!("alterações descartadas em {path}"))));
             }
+            Message::Fetch => return self.remote_op("Buscando…", false, ctx, git::fetch),
+            Message::Pull => {
+                let Some(st) = &self.status else { return Task::none() };
+                if st.branch.is_none() {
+                    ctx.notify("Git: HEAD solto (detached): faça checkout de uma branch para o pull");
+                } else if st.upstream.is_none() {
+                    ctx.notify("Git: esta branch não acompanha nenhuma remota (faça push para publicar)");
+                } else {
+                    return self.remote_op("Baixando…", true, ctx, git::pull);
+                }
+            }
+            Message::Push => {
+                let (Some(st), Some(repo)) = (&self.status, &self.repo) else { return Task::none() };
+                let Some(branch) = st.branch.clone() else {
+                    ctx.notify("Git: HEAD solto (detached): faça checkout de uma branch para o push");
+                    return Task::none();
+                };
+                if st.upstream.is_some() {
+                    return self.remote_op("Enviando…", false, ctx, |r| git::push(r, None));
+                }
+                // Branch nova: pergunta antes de criar ela no remoto.
+                let remotes = git::remotes(repo);
+                let Some(remote) = remotes.iter().find(|r| *r == "origin").or(remotes.first()).cloned() else {
+                    ctx.notify("Git: o repositório não tem remoto (git remote add origin <url>)");
+                    return Task::none();
+                };
+                ctx.show_dialog(
+                    Dialog::new(
+                        format!("Publicar a branch \"{branch}\"?"),
+                        format!(
+                            "Ela ainda não existe em {remote}. O push cria a branch lá e passa a acompanhá-la \
+                             (git push -u {remote} {branch})."
+                        ),
+                    )
+                    .button("Publicar", ButtonKind::Primary, Message::PushConfirmed { remote, branch })
+                    .cancel("Cancelar"),
+                );
+            }
+            Message::PushConfirmed { remote, branch } => {
+                return self.remote_op("Publicando…", false, ctx, move |r| git::push(r, Some((&remote, &branch))));
+            }
+            Message::RemoteDone(is_pull, result) => {
+                self.remote = None;
+                match &*result {
+                    Ok(Some(msg)) => ctx.notify(format!("Git: {msg}")),
+                    Ok(None) => {}
+                    Err(e) => ctx.notify(format!("Git: {e}")),
+                }
+                // Mesmo com erro (ex.: conflito) o pull pode ter mexido nos arquivos.
+                if is_pull {
+                    ctx.files_changed();
+                }
+                return self.refresh();
+            }
             Message::CopyPath(text) => {
                 ctx.notify(format!("Copiado: {text}"));
                 return iced::clipboard::write(text);
@@ -362,6 +451,9 @@ impl GitExtension {
         if st.behind > 0 {
             label = label.push(row![icon(Icon::ArrowDown).size(12), text(st.behind).size(12)]);
         }
+        if let Some(running) = self.remote {
+            label = label.push(text(running).size(12).style(text::secondary));
+        }
         if !st.entries.is_empty() {
             label = label.push(text(format!("●{}", st.entries.len())).size(12));
         }
@@ -370,12 +462,20 @@ impl GitExtension {
 
     fn changes_view(&self) -> Element<'_, Message> {
         let head = self.status.as_ref().map(Status::head_label).unwrap_or_default();
+        let (ahead, behind) = self.status.as_ref().map_or((0, 0), |s| (s.ahead, s.behind));
+        let idle = self.remote.is_none();
+        let count = |n: u32, arrow: &str| if n > 0 { format!(" ({arrow}{n})") } else { String::new() };
         let header = row![
             icon(Icon::SourceControl).size(14),
             text(head).size(13),
+            text(self.remote.unwrap_or_default()).size(12).style(text::secondary),
             space::horizontal(),
+            icon_button(Icon::RepoFetch, "Fetch: ver se o remoto tem novidades", idle.then_some(Message::Fetch)),
+            icon_button(Icon::RepoPull, format!("Pull: baixar e juntar{}", count(behind, "↓")), idle.then_some(Message::Pull)),
+            icon_button(Icon::RepoPush, format!("Push: enviar commits{}", count(ahead, "↑")), idle.then_some(Message::Push)),
             icon_button(Icon::Refresh, "Atualizar", Some(Message::Refresh)),
         ]
+        .spacing(4)
         .align_y(iced::Center);
 
         let mut commit = text_input("Mensagem do commit (Enter)", &self.message)

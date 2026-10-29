@@ -2,7 +2,12 @@
 
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
-use std::process::Command;
+use std::io::Read;
+use std::process::{Command, Stdio};
+use std::time::{Duration, Instant};
+
+/// Push/pull/fetch que passam disso são interrompidos (rede parada, servidor que não responde).
+const NET_TIMEOUT: Duration = Duration::from_secs(180);
 
 /// Onde fica o repositório.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -324,6 +329,132 @@ pub fn commit(repo: &Repo, message: &str) -> Result<String, String> {
     Ok(if head.trim().is_empty() { out } else { head.trim().to_string() })
 }
 
+// ---- Remoto ------------------------------------------------------------------
+
+/// Roda um comando que fala com o remoto. Diferenças para [`run`]:
+/// - o processo vai para uma sessão nova, sem terminal: o ssh não consegue pedir senha ou confirmar
+///   a chave do servidor no terminal de onde a IDE foi aberta (ficaria esperando para sempre).
+///   Sem terminal, ele usa o agente ssh ou o `SSH_ASKPASS` gráfico, ou falha com uma mensagem;
+/// - tem tempo limite ([`NET_TIMEOUT`]);
+/// - o erro devolve toda a saída de erro, para [`explain`] reconhecer o motivo.
+fn run_net(dir: &Path, args: &[&str], timeout: Duration) -> Result<String, String> {
+    let mut cmd = Command::new("git");
+    cmd.arg("-C")
+        .arg(dir)
+        .args(["-c", "color.ui=false", "-c", "core.quotepath=false"])
+        .args(args)
+        .env("GIT_TERMINAL_PROMPT", "0")
+        .env("GIT_EDITOR", "true")
+        .env("LC_ALL", "C")
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped());
+    #[cfg(unix)]
+    {
+        use std::os::unix::process::CommandExt;
+        // SAFETY: `setsid` é seguro entre fork e exec (async-signal-safe) e não mexe na memória do processo.
+        unsafe {
+            cmd.pre_exec(|| {
+                if libc::setsid() == -1 {
+                    return Err(std::io::Error::last_os_error());
+                }
+                Ok(())
+            });
+        }
+    }
+    let mut child = cmd.spawn().map_err(|e| format!("não foi possível rodar git: {e}"))?;
+    let read = |pipe: Option<Box<dyn Read + Send>>| {
+        std::thread::spawn(move || {
+            let mut text = String::new();
+            if let Some(mut p) = pipe {
+                let mut bytes = Vec::new();
+                let _ = p.read_to_end(&mut bytes);
+                text = String::from_utf8_lossy(&bytes).into_owned();
+            }
+            text
+        })
+    };
+    let out = read(child.stdout.take().map(|p| Box::new(p) as Box<dyn Read + Send>));
+    let err = read(child.stderr.take().map(|p| Box::new(p) as Box<dyn Read + Send>));
+    let deadline = Instant::now() + timeout;
+    let status = loop {
+        match child.try_wait() {
+            Ok(Some(status)) => break status,
+            Ok(None) if Instant::now() < deadline => std::thread::sleep(Duration::from_millis(50)),
+            Ok(None) => {
+                kill_group(&mut child);
+                let _ = (out.join(), err.join());
+                return Err(format!("tempo esgotado ({} s) falando com o remoto", timeout.as_secs()));
+            }
+            Err(e) => return Err(e.to_string()),
+        }
+    };
+    let (out, err) = (out.join().unwrap_or_default(), err.join().unwrap_or_default());
+    if status.success() { Ok(format!("{out}{err}")) } else { Err(err) }
+}
+
+/// Mata o git e os filhos dele (ssh, credential helper): todos estão no grupo criado pelo `setsid`.
+fn kill_group(child: &mut std::process::Child) {
+    #[cfg(unix)]
+    // SAFETY: só manda um sinal para o grupo do processo filho.
+    unsafe {
+        libc::kill(-(child.id() as i32), libc::SIGKILL);
+    }
+    let _ = child.kill();
+    let _ = child.wait();
+}
+
+/// Troca as mensagens mais comuns do git por uma explicação curta do que fazer.
+pub fn explain(stderr: &str) -> String {
+    let has = |s: &str| stderr.contains(s);
+    if has("[rejected]") || has("fetch first") || has("non-fast-forward") {
+        "o remoto tem commits que você não tem: faça pull antes".into()
+    } else if has("reconcile divergent branches") {
+        "a branch local e a remota divergiram: configure pull.rebase (ou resolva no terminal)".into()
+    } else if has("CONFLICT") || has("Automatic merge failed") {
+        "pull com conflitos: resolva os arquivos marcados e faça commit".into()
+    } else if has("would be overwritten") {
+        "alterações locais seriam sobrescritas: faça commit ou descarte antes do pull".into()
+    } else if has("Authentication failed") || has("could not read Username") || has("could not read Password") {
+        "falha de autenticação: configure um credential helper (ex.: gh auth setup-git)".into()
+    } else if has("Permission denied (publickey") || has("Host key verification failed") {
+        "o ssh recusou a conexão: carregue a chave no agente (ssh-add) ou confirme o servidor no terminal".into()
+    } else if has("Could not resolve host") || has("Could not read from remote repository") {
+        "não foi possível falar com o remoto (rede ou endereço)".into()
+    } else {
+        let line = stderr.lines().rfind(|l| !l.trim().is_empty()).unwrap_or("erro desconhecido");
+        line.trim().to_string()
+    }
+}
+
+pub fn remotes(repo: &Repo) -> Vec<String> {
+    run(&repo.root, &["remote"], &[]).map(|o| o.lines().map(str::to_string).collect()).unwrap_or_default()
+}
+
+pub fn fetch(repo: &Repo) -> Result<String, String> {
+    run_net(&repo.root, &["fetch", "--prune"], NET_TIMEOUT).map_err(|e| explain(&e))?;
+    Ok("fetch feito".into())
+}
+
+pub fn pull(repo: &Repo) -> Result<String, String> {
+    let out = run_net(&repo.root, &["pull"], NET_TIMEOUT).map_err(|e| explain(&e))?;
+    Ok(if out.contains("Already up to date") { "já estava atualizado".into() } else { "pull feito".into() })
+}
+
+/// `publish`: (remoto, branch) para criar o upstream (`push -u`) numa branch que ainda não tem.
+pub fn push(repo: &Repo, publish: Option<(&str, &str)>) -> Result<String, String> {
+    let mut args = vec!["push"];
+    if let Some((remote, branch)) = publish {
+        args.extend(["-u", remote, branch]);
+    }
+    let out = run_net(&repo.root, &args, NET_TIMEOUT).map_err(|e| explain(&e))?;
+    Ok(match publish {
+        Some((remote, branch)) => format!("branch {branch} publicada em {remote}"),
+        None if out.contains("Everything up-to-date") => "nada para enviar".into(),
+        None => "push feito".into(),
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -402,6 +533,82 @@ u UU N... 100644 100644 100644 100644 a b c conflito.rs\0\
     }
 
     /// Fluxo real com o git instalado: init, status, stage, commit, diff.
+    /// Dois clones de um remoto local (bare): publicar, push, pull, fetch e push recusado.
+    #[test]
+    fn remote_flow() {
+        let base = std::env::temp_dir().join(format!("idetea-git-remote-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&base);
+        std::fs::create_dir_all(&base).unwrap();
+        if run(&base, &["init", "-q", "--bare", "-b", "main", "remote.git"], &[]).is_err() {
+            return; // sem git na máquina
+        }
+        let clone = |name: &str| {
+            run(&base, &["clone", "-q", "remote.git", name], &[]).unwrap();
+            let dir = base.join(name);
+            for (k, v) in [("user.email", "t@t"), ("user.name", "t"), ("commit.gpgsign", "false"), ("pull.rebase", "false")] {
+                run(&dir, &["config", k, v], &[]).unwrap();
+            }
+            discover(&dir).unwrap()
+        };
+        let a = clone("a");
+        let commit_file = |repo: &Repo, file: &str, text: &str| {
+            std::fs::write(repo.root.join(file), text).unwrap();
+            stage_all(repo).unwrap();
+            commit(repo, file).unwrap();
+        };
+
+        commit_file(&a, "x.txt", "1\n");
+        assert_eq!(remotes(&a), ["origin"]);
+        assert_eq!(push(&a, None).unwrap(), "push feito");
+        assert_eq!(push(&a, None).unwrap(), "nada para enviar");
+
+        // Branch nova: sem upstream até publicar.
+        run(&a.root, &["switch", "-q", "-c", "nova"], &[]).unwrap();
+        commit_file(&a, "n.txt", "n\n");
+        assert_eq!(status(&a).unwrap().upstream, None);
+        assert_eq!(push(&a, Some(("origin", "nova"))).unwrap(), "branch nova publicada em origin");
+        assert_eq!(status(&a).unwrap().upstream.as_deref(), Some("origin/nova"));
+        run(&a.root, &["switch", "-q", "main"], &[]).unwrap();
+
+        let b = clone("b");
+        commit_file(&b, "y.txt", "2\n");
+        assert_eq!(push(&b, None).unwrap(), "push feito");
+
+        // `a` está atrás: fetch mostra, push é recusado, pull traz.
+        fetch(&a).unwrap();
+        assert_eq!(status(&a).unwrap().behind, 1);
+        commit_file(&a, "z.txt", "3\n");
+        assert_eq!(push(&a, None).unwrap_err(), "o remoto tem commits que você não tem: faça pull antes");
+        assert_eq!(pull(&a).unwrap(), "pull feito");
+        assert!(a.root.join("y.txt").is_file());
+        assert_eq!(pull(&a).unwrap(), "já estava atualizado");
+        assert_eq!(push(&a, None).unwrap(), "push feito");
+        let _ = std::fs::remove_dir_all(&base);
+    }
+
+    /// Um remoto que nunca responde: o tempo limite mata o git e os filhos dele (que seguram a saída aberta).
+    #[test]
+    fn remote_timeout_kills_children() {
+        let dir = std::env::temp_dir();
+        if run(&dir, &["--version"], &[]).is_err() {
+            return;
+        }
+        let started = Instant::now();
+        let args = ["-c", "protocol.ext.allow=always", "ls-remote", "ext::sleep 30"];
+        let err = run_net(&dir, &args, Duration::from_millis(500)).unwrap_err();
+        assert!(err.starts_with("tempo esgotado"), "{err}");
+        assert!(started.elapsed() < Duration::from_secs(5), "não esperou o sleep acabar");
+    }
+
+    #[test]
+    fn explains_common_errors() {
+        assert_eq!(
+            explain("Permission denied (publickey).\nfatal: Could not read from remote repository."),
+            "o ssh recusou a conexão: carregue a chave no agente (ssh-add) ou confirme o servidor no terminal"
+        );
+        assert_eq!(explain("hint: x\nfatal: algo novo\n"), "fatal: algo novo", "desconhecido: última linha");
+    }
+
     #[test]
     fn real_repo_flow() {
         let dir = std::env::temp_dir().join(format!("idetea-git-test-{}", std::process::id()));
