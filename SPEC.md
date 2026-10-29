@@ -308,6 +308,11 @@ Polimento, nesta ordem (o diálogo vem primeiro porque menu de contexto e config
       abre outra janela da IDE com a pasta como raiz (a raiz de uma janela não muda).
       Digitar o caminho continua na paleta: `file.save_as_path`. Só uma janela de arquivos por vez.
 - [x] Teste manual das janelas de arquivo e pasta: aprovado.
+- [x] **Ícone da janela**: `assets/idetea.svg` (copo de chá gelado). A janela usa o app id `idetea`; no Wayland o
+      painel acha o ícone pelo `idetea.desktop` de mesmo nome. `just desktop` instala `.desktop` e ícone em
+      `~/.local/share` (o `.desktop` fica fora do menu de aplicativos, `NoDisplay`: aberto pelo menu, a raiz seria a home).
+      `just run [args]` instala e roda. Instalar pelo `build.rs` foi descartado: build não deve mexer fora de `target/`.
+- [x] Teste manual do ícone no painel do COSMIC: aprovado.
 - [x] **Ícones:** fonte Codicons embutida (80 KB, CC BY 4.0, ver `crates/tea-core/assets/NOTICE.md`) e módulo
       `tea_core::icons` (`icon(Icon::X)`, `icon_button(Icon::X, "dica", msg)` com tooltip após 450 ms).
       Árvore: barra com ícones (novo arquivo/pasta, renomear, apagar, atualizar, recolher), setas e ícones de pasta/arquivo nas linhas.

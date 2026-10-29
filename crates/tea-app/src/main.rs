@@ -37,6 +37,10 @@ use splash::Splash;
 static LAUNCH: OnceLock<cli::Launch> = OnceLock::new();
 static STARTED: OnceLock<Instant> = OnceLock::new();
 
+/// Id da janela no Wayland/X11. O painel do desktop acha o ícone pelo arquivo
+/// `idetea.desktop` com este mesmo nome (`just desktop` instala).
+const APP_ID: &str = "idetea";
+
 fn main() -> iced::Result {
     STARTED.get_or_init(Instant::now);
     let cwd = std::env::current_dir().unwrap_or_default();
@@ -57,6 +61,13 @@ fn main() -> iced::Result {
                 .subscription(App::subscription)
                 .theme(App::theme)
                 .font(tea_core::icons::FONT_BYTES)
+                .window(window::Settings {
+                    platform_specific: window::settings::PlatformSpecific {
+                        application_id: APP_ID.into(),
+                        ..Default::default()
+                    },
+                    ..Default::default()
+                })
                 .exit_on_close_request(false)
                 .run()
         }
