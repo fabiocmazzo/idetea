@@ -4,6 +4,8 @@
 > (Trocadilho com *Iced Tea*: a IDE é feita com o [iced](https://github.com/iced-rs/iced).)
 
 IDE rápida, customizável, em Rust puro (o máximo possível) e sem exageros.
+Livre e gratuita, sempre: licença [Apache 2.0](LICENSE). Visão geral e funcionalidades no [README](README.md);
+como compilar, testar e escrever extensões em [DESENVOLVIMENTO.md](DESENVOLVIMENTO.md).
 O núcleo só sabe editar arquivos. Todo o resto (árvore de arquivos, terminal, LSP...) é extensão.
 
 ## Objetivos

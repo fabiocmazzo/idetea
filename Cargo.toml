@@ -5,7 +5,7 @@ members = ["crates/tea-core", "crates/tea-editor", "crates/tea-lsp", "crates/tea
 [workspace.package]
 version = "0.0.1"
 edition = "2024"
-license = "MIT"
+license = "Apache-2.0"
 
 [workspace.dependencies]
 iced = "0.14"

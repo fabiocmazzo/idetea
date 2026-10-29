@@ -342,6 +342,7 @@ fn about_view<'a>(about: AboutInfo<'_>) -> Element<'a, Msg> {
         text("Just code. Add ice.").size(14).style(text::secondary),
         space::vertical().height(12),
         line("Versão", env!("CARGO_PKG_VERSION").to_string()),
+        line("Licença", format!("{} (livre e gratuita, sempre)", env!("CARGO_PKG_LICENSE"))),
         line("Projeto", about.root.display().to_string()),
         line("Config global", global),
         line("Config do projeto", about.project_config.display().to_string()),
