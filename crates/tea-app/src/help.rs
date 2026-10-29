@@ -74,7 +74,10 @@ const GUIDE: &[(&str, &[&str])] = &[
     (
         "Arquivos e abas",
         &[
-            "Novo: {file.new} · Salvar: {file.save} · Salvar como: {file.save_as} · Fechar aba: {file.close}.",
+            "Novo: {file.new} · Abrir: {file.open} · Salvar: {file.save} · Salvar como: {file.save_as} · \
+             Fechar aba: {file.close}.",
+            "Abrir e Salvar como usam a janela de arquivos do sistema. Para digitar o caminho: \
+             {file.save_as_path}. Abrir outra pasta ({file.open_folder}) abre uma nova janela da IDE.",
             "Trocar de aba: {tab.next} e {tab.prev} (Ctrl+Tab insere tabulação no editor).",
             "Fechar uma aba ou sair com alterações pergunta antes: Salvar, Descartar ou Cancelar.",
             "Botão direito numa aba: fechar outras, à direita, salvas ou todas, copiar caminho, revelar na \

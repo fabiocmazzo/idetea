@@ -10,6 +10,7 @@ mod help;
 mod overlay;
 mod lsp;
 mod palette;
+mod picker;
 mod settings;
 mod pass_keys;
 mod splash;
@@ -88,7 +89,10 @@ const CORE_COMMANDS: &[(&str, &str)] = &[
     ("settings.open", "Configurações"),
     ("file.new", "Arquivo: novo"),
     ("file.save", "Arquivo: salvar"),
+    ("file.open", "Arquivo: abrir…"),
+    ("file.open_folder", "Arquivo: abrir pasta em nova janela…"),
     ("file.save_as", "Arquivo: salvar como…"),
+    ("file.save_as_path", "Arquivo: salvar como (digitar caminho)…"),
     ("file.close", "Arquivo: fechar aba"),
     ("tab.next", "Abas: próxima"),
     ("tab.prev", "Abas: anterior"),
@@ -191,6 +195,8 @@ struct App {
     pointer_over_panel: bool,
     dialog: Option<dialog::Open>,
     menu: Option<context_menu::Open>,
+    /// Uma janela nativa de arquivo/pasta está aberta (não abre outra por cima).
+    picking: bool,
     help: Option<help::Help>,
     settings: Option<settings::Settings>,
     /// Ids de todas as extensões compiladas (ligadas ou não), para a tela de configurações.
@@ -218,6 +224,8 @@ enum Message {
     Palette(palette::Msg),
     Dialog(dialog::Msg),
     Menu(context_menu::Msg),
+    /// Resposta da janela nativa de arquivo/pasta.
+    Picked(picker::Picked),
     Help(help::Msg),
     Settings(settings::Msg),
     /// Clique num ícone da barra de ícones (índice em `panels`).
@@ -277,6 +285,7 @@ impl App {
             pointer_over_panel: false,
             dialog: None,
             menu: None,
+            picking: false,
             help: None,
             settings: None,
             all_extensions,
@@ -662,12 +671,51 @@ impl App {
         self.after_save(result)
     }
 
+    /// "Salvar como" com a janela nativa do sistema.
     fn open_save_as(&mut self) -> Task<Message> {
+        let name = self.active_path().and_then(Path::file_name).map(|n| n.to_string_lossy().into_owned());
+        let (tab, dir) = (self.tabs[self.active].id, self.start_dir());
+        self.pick(picker::save_as(tab, dir, name.unwrap_or_default()))
+    }
+
+    /// "Salvar como" digitando o caminho na paleta (sem janela do sistema).
+    fn open_save_as_typed(&mut self) -> Task<Message> {
         let initial = match self.active_path() {
             Some(p) => display_rel(p, &self.root),
             None => String::new(),
         };
         self.open_palette(Palette::save_as(initial))
+    }
+
+    /// Pasta onde as janelas de arquivo começam: a do arquivo ativo, ou a raiz.
+    fn start_dir(&self) -> PathBuf {
+        self.active_path().and_then(Path::parent).map_or_else(|| self.root.clone(), Path::to_path_buf)
+    }
+
+    fn pick(&mut self, dialog: impl Future<Output = picker::Picked> + Send + 'static) -> Task<Message> {
+        if self.picking {
+            return self.notify("Já há uma janela de arquivos aberta");
+        }
+        self.picking = true;
+        Task::perform(dialog, Message::Picked)
+    }
+
+    fn picked(&mut self, picked: picker::Picked) -> Task<Message> {
+        self.picking = false;
+        match picked {
+            picker::Picked::SaveAs { tab, path: Some(path) } => {
+                let Some(i) = self.tab_index(tab) else { return self.notify("A aba foi fechada antes de salvar") };
+                let activate = self.set_active(i);
+                Task::batch([activate, self.save_as_path(path)])
+            }
+            picker::Picked::Files(Some(files)) => Task::batch(files.into_iter().map(|f| self.open_file(f)).collect::<Vec<_>>()),
+            picker::Picked::Folder(Some(dir)) => match picker::open_window(&dir) {
+                Ok(()) => self.notify(format!("Abrindo {} numa nova janela", dir.display())),
+                Err(e) => self.notify(format!("Não foi possível abrir a pasta: {e}")),
+            },
+            // Cancelou.
+            _ => Task::none(),
+        }
     }
 
     fn save_as(&mut self, input: &str) -> Task<Message> {
@@ -677,6 +725,10 @@ impl App {
         }
         let path = expand_home(input);
         let path = if path.is_absolute() { path } else { self.root.join(path) };
+        self.save_as_path(path)
+    }
+
+    fn save_as_path(&mut self, path: PathBuf) -> Task<Message> {
         let result = self.editor_mut().save_as(&path);
         let ok = result.is_ok();
         let lsp = if ok { self.ensure_lsp(self.active) } else { Task::none() };
@@ -866,6 +918,15 @@ impl App {
             }
             "file.save" => self.save_active(),
             "file.save_as" => self.open_save_as(),
+            "file.save_as_path" => self.open_save_as_typed(),
+            "file.open" => {
+                let dir = self.start_dir();
+                self.pick(picker::open_files(dir))
+            }
+            "file.open_folder" => {
+                let dir = self.root.parent().map_or_else(|| self.root.clone(), Path::to_path_buf);
+                self.pick(picker::open_folder(dir))
+            }
             "file.close" => self.close_tab(self.tabs[self.active].id, false),
             "tab.next" => self.set_active((self.active + 1) % self.tabs.len()),
             "tab.prev" => self.set_active((self.active + self.tabs.len() - 1) % self.tabs.len()),
@@ -1624,6 +1685,7 @@ impl App {
             Message::Dialog(dialog::Msg::Choose(choice)) => self.choose_dialog(choice),
             Message::Menu(context_menu::Msg::Choose(i)) => self.choose_menu(Some(i)),
             Message::Menu(context_menu::Msg::Close) => self.choose_menu(None),
+            Message::Picked(picked) => self.picked(picked),
             Message::Settings(msg) => self.settings_update(msg),
             Message::Activity(i) => self.activity_click(i),
             Message::Resize(edge, delta) => {

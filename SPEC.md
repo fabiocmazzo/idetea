@@ -301,7 +301,13 @@ Polimento, nesta ordem (o diálogo vem primeiro porque menu de contexto e config
       destaque ao passar o mouse, duplo clique volta ao padrão). Sempre sobram 240 px para o editor. Tamanhos salvos em
       `$XDG_STATE_HOME/idetea/state.toml` (estado da IDE, não config).
 - [x] Teste manual da barra de ícones e do redimensionar: aprovado.
-- [ ] Diálogo nativo (`rfd`) para escolher arquivo ou pasta ("Salvar como", "Abrir pasta").
+- [x] Diálogo nativo (`rfd` 0.17) para escolher arquivo ou pasta. No Linux usa o portal do desktop
+      (xdg-desktop-portal por D-Bus, carregado em tempo de execução, sem GTK) e cai para o `zenity` sem portal.
+      "Salvar como" (`Ctrl+Shift+S`) abre a janela do sistema na pasta do arquivo, com o nome atual;
+      "Abrir…" (`Ctrl+O`, `file.open`) abre um ou mais arquivos; "Abrir pasta em nova janela…" (`file.open_folder`)
+      abre outra janela da IDE com a pasta como raiz (a raiz de uma janela não muda).
+      Digitar o caminho continua na paleta: `file.save_as_path`. Só uma janela de arquivos por vez.
+- [x] Teste manual das janelas de arquivo e pasta: aprovado.
 - [x] **Ícones:** fonte Codicons embutida (80 KB, CC BY 4.0, ver `crates/tea-core/assets/NOTICE.md`) e módulo
       `tea_core::icons` (`icon(Icon::X)`, `icon_button(Icon::X, "dica", msg)` com tooltip após 450 ms).
       Árvore: barra com ícones (novo arquivo/pasta, renomear, apagar, atualizar, recolher), setas e ícones de pasta/arquivo nas linhas.
