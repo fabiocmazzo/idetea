@@ -3,6 +3,7 @@
 
 mod git;
 
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::{Duration, SystemTime};
@@ -71,6 +72,8 @@ pub struct GitExtension {
     busy: bool,
     /// Arquivo que a ação em andamento muda no disco (as abas abertas dele precisam recarregar).
     touched: Option<PathBuf>,
+    /// Último status enviado à árvore (só reenvia se mudar).
+    published: Option<Arc<HashMap<PathBuf, tea_core::FileStatus>>>,
 }
 
 /// Roda `f` numa thread e entrega o resultado como mensagem.
@@ -163,7 +166,7 @@ impl Extension for GitExtension {
 
     fn on_event(&mut self, event: &CoreEvent, _ctx: &mut Context) -> Task<Message> {
         match event {
-            CoreEvent::PanelShown(_) => self.refresh(),
+            CoreEvent::PanelShown(_) | CoreEvent::FilesChanged => self.refresh(),
             CoreEvent::FileSaved(path) if self.repo.as_ref().is_some_and(|r| path.starts_with(&r.root)) => {
                 self.refresh()
             }
@@ -207,6 +210,14 @@ impl Extension for GitExtension {
                     Ok(st) => {
                         self.status = Some(st.clone());
                         self.error = None;
+                        if let Some(repo) = &self.repo {
+                            let map = git::file_statuses(repo, st);
+                            if self.published.as_deref() != Some(&map) {
+                                let map = Arc::new(map);
+                                self.published = Some(map.clone());
+                                ctx.file_statuses(map);
+                            }
+                        }
                     }
                     Err(e) => self.error = Some(e.clone()),
                 }

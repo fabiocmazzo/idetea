@@ -87,6 +87,8 @@ const GUIDE: &[(&str, &[&str])] = &[
             "Mostrar/ocultar: {filetree.toggle} · Revelar o arquivo atual: {filetree.reveal}.",
             "Botão direito num item: novo arquivo, nova pasta, renomear, apagar, copiar caminho e abrir no \
              gerenciador de arquivos. Apagar manda para a lixeira do sistema.",
+            "Cores do git: amarelo = modificado, verde = novo, vermelho = conflito, apagado = ignorado. \
+             Uma pasta com mudanças dentro mostra um ponto.",
         ],
     ),
     (

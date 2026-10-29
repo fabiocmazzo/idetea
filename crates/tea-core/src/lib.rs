@@ -4,6 +4,7 @@
 //! app só por [`Context`] (pedidos), [`CoreEvent`] (notificações) e comandos.
 
 use std::any::Any;
+use std::collections::HashMap;
 use std::fmt;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -52,6 +53,23 @@ pub enum CoreEvent {
     Appearance { theme: Theme, font_size: f32 },
     /// Um painel desta extensão foi aberto pelo usuário (barra de ícones). Só o dono recebe.
     PanelShown(PanelId),
+    /// Status de controle de versão dos arquivos (vindo da extensão git). Substitui o anterior.
+    /// Caminhos absolutos; uma pasta nova ou ignorada inteira aparece como a própria pasta.
+    FileStatuses(Arc<HashMap<PathBuf, FileStatus>>),
+    /// Arquivos foram criados, apagados ou mudados no disco por uma extensão (não pelo editor).
+    FilesChanged,
+}
+
+/// Status de um arquivo no controle de versão. A ordem vai do mais fraco ao mais forte
+/// (uma pasta mostra o mais forte entre os arquivos de dentro).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum FileStatus {
+    Ignored,
+    Untracked,
+    Added,
+    Modified,
+    Deleted,
+    Conflict,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -112,6 +130,10 @@ pub enum Request {
     PanelIcon { id: PanelId, icon: icons::Icon },
     /// A extensão mudou um arquivo no disco (ex.: git descartou alterações): abas abertas recarregam.
     FileChanged(PathBuf),
+    /// Repassa [`CoreEvent::FileStatuses`] às outras extensões.
+    FileStatuses(Arc<HashMap<PathBuf, FileStatus>>),
+    /// Repassa [`CoreEvent::FilesChanged`] às outras extensões.
+    FilesChanged,
 }
 
 /// Estilo de um botão de diálogo.
@@ -242,6 +264,16 @@ impl<'a> Context<'a> {
     /// Avisa que a extensão mudou (ou apagou) este arquivo no disco.
     pub fn file_changed(&mut self, path: impl Into<PathBuf>) {
         self.requests.push(Request::FileChanged(path.into()));
+    }
+
+    /// Publica o status de controle de versão dos arquivos (ver [`CoreEvent::FileStatuses`]).
+    pub fn file_statuses(&mut self, statuses: Arc<HashMap<PathBuf, FileStatus>>) {
+        self.requests.push(Request::FileStatuses(statuses));
+    }
+
+    /// Avisa que arquivos foram criados/apagados/renomeados no disco (ver [`CoreEvent::FilesChanged`]).
+    pub fn files_changed(&mut self) {
+        self.requests.push(Request::FilesChanged);
     }
 
     pub fn show_menu(&mut self, menu: menu::Menu) {

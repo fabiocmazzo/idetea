@@ -1,5 +1,6 @@
 //! Chamadas ao binário `git` e leitura da saída. Sem UI.
 
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
@@ -54,6 +55,8 @@ pub struct Status {
     pub ahead: u32,
     pub behind: u32,
     pub entries: Vec<Entry>,
+    /// Caminhos ignorados (`.gitignore`); pastas inteiras terminam em `/`.
+    pub ignored: Vec<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -87,7 +90,7 @@ impl Status {
 
 pub fn status(repo: &Repo) -> Result<Status, String> {
     // `--no-optional-locks`: não disputar o index com o git que o usuário roda no terminal.
-    let out = run(&repo.root, &["--no-optional-locks", "status", "--porcelain=v2", "--branch", "-z"], &[])?;
+    let out = run(&repo.root, &["--no-optional-locks", "status", "--porcelain=v2", "--branch", "--ignored", "-z"], &[])?;
     Ok(parse_status(&out))
 }
 
@@ -157,11 +160,34 @@ pub fn parse_status(out: &str) -> Status {
                 untracked: true,
                 conflict: false,
             }),
+            Some('!') => st.ignored.push(rec[2..].to_string()),
             _ => {}
         }
     }
     st.entries.sort_by(|a, b| a.path.cmp(&b.path));
     st
+}
+
+/// Status de cada caminho (absoluto), para quem desenha arquivos (a árvore).
+pub fn file_statuses(repo: &Repo, st: &Status) -> HashMap<PathBuf, tea_core::FileStatus> {
+    use tea_core::FileStatus as F;
+    let abs = |p: &str| repo.root.join(p.trim_end_matches('/'));
+    let mut map: HashMap<PathBuf, F> = st.ignored.iter().map(|p| (abs(p), F::Ignored)).collect();
+    for e in &st.entries {
+        let status = if e.conflict {
+            F::Conflict
+        } else if e.untracked {
+            F::Untracked
+        } else if e.unstaged == Some('D') || (e.staged == Some('D') && e.unstaged.is_none()) {
+            F::Deleted
+        } else if matches!(e.staged, Some('A' | 'R' | 'C')) {
+            F::Added
+        } else {
+            F::Modified
+        };
+        map.insert(abs(&e.path), status);
+    }
+    map
 }
 
 fn changed(xy: &str, path: &str, orig: Option<String>, conflict: bool) -> Entry {
@@ -322,6 +348,30 @@ u UU N... 100644 100644 100644 100644 a b c conflito.rs\0\
         assert!(by("conflito.rs").conflict);
         assert!(by("lixo.txt").untracked);
         assert_eq!(st.entries.len(), 5, "o nome antigo do rename não vira entrada");
+    }
+
+    #[test]
+    fn statuses_per_file() {
+        use tea_core::FileStatus as F;
+        let out = "1 .M N... 100644 100644 100644 aaa bbb src/main.rs\0\
+1 A. N... 000000 100644 100644 000 ccc novo.rs\0\
+1 AM N... 000000 100644 100644 000 ccc novo2.rs\0\
+1 .D N... 100644 100644 000000 aaa aaa apagado.rs\0\
+u UU N... 100644 100644 100644 100644 a b c conflito.rs\0\
+? pasta nova/\0! target/\0";
+        let st = parse_status(out);
+        assert_eq!(st.ignored, ["target/"]);
+        assert_eq!(st.entries.len(), 6, "ignorado não entra no painel");
+        let repo = Repo { root: PathBuf::from("/r"), git_dir: PathBuf::from("/r/.git") };
+        let map = file_statuses(&repo, &st);
+        let at = |p: &str| map.get(Path::new(p)).copied();
+        assert_eq!(at("/r/src/main.rs"), Some(F::Modified));
+        assert_eq!(at("/r/novo.rs"), Some(F::Added));
+        assert_eq!(at("/r/novo2.rs"), Some(F::Added), "novo e mexido depois continua novo");
+        assert_eq!(at("/r/apagado.rs"), Some(F::Deleted));
+        assert_eq!(at("/r/conflito.rs"), Some(F::Conflict));
+        assert_eq!(at("/r/pasta nova"), Some(F::Untracked), "sem a barra do fim");
+        assert_eq!(at("/r/target"), Some(F::Ignored));
     }
 
     #[test]

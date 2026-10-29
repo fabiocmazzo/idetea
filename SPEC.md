@@ -281,8 +281,8 @@ Os plugins WASM ficaram para depois do polimento: a API das extensões ainda vai
       diff colorido do arquivo selecionado (clique numa linha abre o arquivo nela). Atualiza ao salvar e quando o `.git` muda
       (commit/checkout no terminal), olhando a data de `index`, `HEAD`, `logs/HEAD` e `FETCH_HEAD` a cada segundo.
 - [x] Teste manual do git na tela: aprovado.
-      Fora por enquanto: push/pull (use o terminal), descartar mudanças, marcas de diff no editor (o widget não suporta),
-      cores de status na árvore de arquivos.
+      Fora por enquanto: push/pull (use o terminal), marcas de diff no editor (o widget não suporta).
+      Descartar mudanças e cores na árvore vieram depois, no polimento.
 
 Polimento, nesta ordem (o diálogo vem primeiro porque menu de contexto e configurações usam ele):
 
@@ -324,6 +324,13 @@ Polimento, nesta ordem (o diálogo vem primeiro porque menu de contexto e config
 - [x] Arquivo mudado no disco por uma extensão (ex.: descartar no git): aba sem alterações recarrega,
   aba com alterações fica e avisa. Evita salvar por cima e desfazer o descarte.
 - [x] Teste manual dos menus das abas e do git na tela: aprovado.
+- [x] **Cores do git na árvore**: modificado/apagado em amarelo, novo/não rastreado em verde, conflito em vermelho,
+      ignorado (`.gitignore`) apagado; letra à direita (M, A, U, D, !) como no painel do git.
+      Pasta com mudanças dentro pega a cor mais forte de dentro e mostra um ponto; ignorados não sobem.
+      O git publica o status (`CoreEvent::FileStatuses`, caminhos absolutos) a cada atualização, só quando muda;
+      a árvore não conhece o git. Criar/renomear/apagar pela árvore ou descartar no git avisa
+      (`CoreEvent::FilesChanged`) e o git atualiza; "Atualizar" na árvore também.
+- [x] Teste manual das cores do git na árvore: aprovado.
 - [x] **Help** (`F1` / `help.open`, janela sobre a IDE, Esc fecha):
       **Atalhos** — todos os comandos agrupados (núcleo e extensões, com id e teclas atuais) + atalhos fixos do editor, com filtro;
       **Guia** — primeiros passos, arquivos, árvore, painel inferior, terminal, git, LSP e config. O texto cita comandos como

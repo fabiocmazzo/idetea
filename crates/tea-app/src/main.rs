@@ -378,10 +378,21 @@ impl App {
                         self.set_panel_visible(i, visible);
                     }
                 }
-                Request::PathRenamed { from, to } => tasks.push(self.path_renamed(&from, &to)),
-                Request::PathDeleted(path) => tasks.push(self.path_deleted(&path)),
+                Request::PathRenamed { from, to } => {
+                    tasks.push(self.path_renamed(&from, &to));
+                    tasks.push(self.broadcast(CoreEvent::FilesChanged));
+                }
+                Request::PathDeleted(path) => {
+                    tasks.push(self.path_deleted(&path));
+                    tasks.push(self.broadcast(CoreEvent::FilesChanged));
+                }
+                Request::FileStatuses(statuses) => tasks.push(self.broadcast(CoreEvent::FileStatuses(statuses))),
+                Request::FilesChanged => tasks.push(self.broadcast(CoreEvent::FilesChanged)),
                 Request::Dialog(dialog) => tasks.push(self.open_dialog(dialog, dialog::Owner::Ext(ext))),
-                Request::FileChanged(path) => tasks.push(self.reload_from_disk(&path)),
+                Request::FileChanged(path) => {
+                    tasks.push(self.reload_from_disk(&path));
+                    tasks.push(self.broadcast(CoreEvent::FilesChanged));
+                }
                 Request::Menu(menu) => tasks.push(self.open_menu(menu, dialog::Owner::Ext(ext))),
                 Request::PanelIcon { id, icon } => {
                     if let Some(p) = self.panels.iter_mut().find(|p| p.ext == ext && p.id == id) {

@@ -5,12 +5,13 @@
 
 use std::collections::{HashMap, HashSet};
 use std::path::{Component, Path, PathBuf};
+use std::sync::Arc;
 
 use iced::widget::{Id, button, column, container, operation, row, scrollable, space, text, text_input};
 use iced::{Element, Fill, Length, Point, Task};
 use tea_core::icons::{Icon, icon, icon_button};
 use tea_core::menu::{Menu, context_area};
-use tea_core::{ButtonKind, Context, CoreEvent, Dialog, Extension, PanelId, Slot};
+use tea_core::{ButtonKind, Context, CoreEvent, Dialog, Extension, FileStatus, PanelId, Slot};
 
 const PANEL: PanelId = PanelId("tree");
 const ROW_HEIGHT: f32 = 24.0;
@@ -74,6 +75,10 @@ pub struct FileTreeExtension {
     clicked: Option<PathBuf>,
     edit: Option<Edit>,
     error: Option<String>,
+    /// Status do git por caminho (vem da extensão git).
+    statuses: Arc<HashMap<PathBuf, FileStatus>>,
+    /// Pastas com algo mudado dentro: o status mais forte entre os de dentro.
+    folders: HashMap<PathBuf, FileStatus>,
 }
 
 impl FileTreeExtension {
@@ -105,6 +110,28 @@ impl FileTreeExtension {
         if self.selected.as_deref().is_some_and(|p| !p.exists()) {
             self.selected = None;
         }
+    }
+
+    fn set_statuses(&mut self, statuses: Arc<HashMap<PathBuf, FileStatus>>) {
+        self.folders = folder_statuses(&self.root, &statuses);
+        self.statuses = statuses;
+    }
+
+    /// Status de uma linha. O segundo valor diz se veio de dentro da pasta (não dela mesma).
+    fn status_of(&self, path: &Path) -> Option<(FileStatus, bool)> {
+        if let Some(s) = self.statuses.get(path) {
+            return Some((*s, false));
+        }
+        // Dentro de uma pasta nova ou ignorada inteira: herda dela.
+        for dir in path.ancestors().skip(1) {
+            if dir == self.root || !dir.starts_with(&self.root) {
+                break;
+            }
+            if let Some(s @ (FileStatus::Untracked | FileStatus::Ignored)) = self.statuses.get(dir) {
+                return Some((*s, false));
+            }
+        }
+        self.folders.get(path).map(|s| (*s, true))
     }
 
     /// Pasta alvo para "novo arquivo/pasta": a selecionada, a pasta do arquivo selecionado, ou a raiz.
@@ -220,6 +247,7 @@ impl FileTreeExtension {
                 let path = dir.join(name);
                 create_file(&path).map(|()| {
                     ctx.open_file(&path);
+                    ctx.files_changed();
                     path
                 })
             }
@@ -349,6 +377,15 @@ impl Extension for FileTreeExtension {
                 }
                 Task::none()
             }
+            CoreEvent::FileStatuses(statuses) => {
+                self.set_statuses(statuses.clone());
+                Task::none()
+            }
+            // Ex.: o git descartou um arquivo novo (foi para a lixeira).
+            CoreEvent::FilesChanged => {
+                self.refresh_all();
+                Task::none()
+            }
             _ => Task::none(),
         }
     }
@@ -437,7 +474,10 @@ impl Extension for FileTreeExtension {
                 self.edit = None;
                 self.error = None;
             }
-            Message::Refresh => self.refresh_all(),
+            Message::Refresh => {
+                self.refresh_all();
+                ctx.files_changed();
+            }
             Message::CollapseAll => self.expanded.clear(),
             Message::ContextMenu(path, at) => {
                 self.edit = None;
@@ -528,14 +568,28 @@ impl FileTreeExtension {
         } else {
             button::text
         };
+        let status = self.status_of(&entry.path);
+        // Letra à direita (como no painel do git); pasta com mudanças dentro ganha um ponto.
+        let badge = match status {
+            Some((_, true)) => "•",
+            Some((FileStatus::Modified, _)) => "M",
+            Some((FileStatus::Added, _)) => "A",
+            Some((FileStatus::Untracked, _)) => "U",
+            Some((FileStatus::Deleted, _)) => "D",
+            Some((FileStatus::Conflict, _)) => "!",
+            Some((FileStatus::Ignored, _)) | None => "",
+        };
+        let status = status.map(|(s, _)| s);
         let label = row![
             space::horizontal().width(depth as f32 * INDENT),
             container(chevron).width(16),
             container(icon(kind).size(14).style(text::secondary)).width(20),
-            text(name).size(13).style(move |theme: &iced::Theme| {
-                let palette = theme.extended_palette();
-                text::Style { color: is_active.then_some(palette.primary.strong.color) }
+            text(name).size(13).width(Fill).style(move |theme: &iced::Theme| text::Style {
+                color: status_color(theme, status)
+                    .or_else(|| is_active.then_some(theme.extended_palette().primary.strong.color)),
             }),
+            text(badge).size(11).style(move |theme: &iced::Theme| text::Style { color: status_color(theme, status) }),
+            space::horizontal().width(4),
         ]
         .align_y(iced::Center);
         let row = button(label)
@@ -546,6 +600,40 @@ impl FileTreeExtension {
             .style(style);
         context_area(row, move |at| Message::ContextMenu(Some(entry.path.clone()), at))
     }
+}
+
+/// Cor do nome na árvore conforme o git (as mesmas cores do painel do git).
+fn status_color(theme: &iced::Theme, status: Option<FileStatus>) -> Option<iced::Color> {
+    let p = theme.extended_palette();
+    Some(match status? {
+        FileStatus::Conflict => p.danger.base.color,
+        FileStatus::Modified | FileStatus::Deleted => p.warning.base.color,
+        FileStatus::Added | FileStatus::Untracked => p.success.base.color,
+        FileStatus::Ignored => p.background.strong.text.scale_alpha(0.45),
+    })
+}
+
+/// Para cada pasta acima de um arquivo mudado, o status mais forte de dentro.
+/// Ignorados não sobem (senão `target/` pintaria a raiz). Apagado sobe como modificado.
+fn folder_statuses(root: &Path, statuses: &HashMap<PathBuf, FileStatus>) -> HashMap<PathBuf, FileStatus> {
+    let mut folders: HashMap<PathBuf, FileStatus> = HashMap::new();
+    for (path, status) in statuses {
+        let status = match status {
+            FileStatus::Ignored => continue,
+            FileStatus::Deleted => FileStatus::Modified,
+            s => *s,
+        };
+        for dir in path.ancestors().skip(1) {
+            if dir == root || !dir.starts_with(root) {
+                break;
+            }
+            let slot = folders.entry(dir.to_path_buf()).or_insert(status);
+            if *slot < status {
+                *slot = status;
+            }
+        }
+    }
+    folders
 }
 
 fn display_name(path: &Path) -> String {
@@ -656,7 +744,31 @@ mod tests {
 
         let requests = ctx.into_requests();
         assert!(matches!(&requests[0], Request::OpenFile(p) if p.ends_with("novo/a.rs")));
-        assert!(matches!(&requests[1], Request::PathRenamed { to, .. } if to.ends_with("novo/b.rs")));
+        assert!(matches!(&requests[1], Request::FilesChanged), "o git precisa ver o arquivo novo");
+        assert!(matches!(&requests[2], Request::PathRenamed { to, .. } if to.ends_with("novo/b.rs")));
+    }
+
+    #[test]
+    fn git_status_colors_files_and_folders() {
+        let root = temp_root("status");
+        let mut ft = activated(&root);
+        let statuses = HashMap::from([
+            (root.join("src/deep/x.rs"), FileStatus::Modified),
+            (root.join("src/deep/gone.rs"), FileStatus::Deleted),
+            (root.join("src/new.rs"), FileStatus::Untracked),
+            (root.join("src/conflito.rs"), FileStatus::Conflict),
+            (root.join("target"), FileStatus::Ignored),
+            (root.join("nova"), FileStatus::Untracked),
+        ]);
+        let _ = ft.on_event(&CoreEvent::FileStatuses(Arc::new(statuses)), &mut Context::new(&root, None));
+        assert_eq!(ft.status_of(&root.join("src/deep/x.rs")), Some((FileStatus::Modified, false)));
+        assert_eq!(ft.status_of(&root.join("src/deep")), Some((FileStatus::Modified, true)), "apagado sobe como modificado");
+        assert_eq!(ft.status_of(&root.join("src")), Some((FileStatus::Conflict, true)), "o mais forte de dentro");
+        assert_eq!(ft.status_of(&root.join("target/debug/x")), Some((FileStatus::Ignored, false)), "herda da pasta ignorada");
+        assert_eq!(ft.status_of(&root.join("nova/a/b.rs")), Some((FileStatus::Untracked, false)), "herda da pasta nova");
+        assert_eq!(ft.status_of(&root.join("b.txt")), None);
+        assert!(!ft.folders.contains_key(&root), "a raiz não ganha cor");
+        assert!(!ft.folders.contains_key(&root.join("target")), "ignorado não sobe");
     }
 
     #[test]
