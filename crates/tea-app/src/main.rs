@@ -148,6 +148,8 @@ fn builtin_extensions() -> Vec<Box<dyn AnyExtension>> {
     list.push(Box::new(tea_ext_outline::OutlineExtension::new()));
     #[cfg(feature = "ext-calls")]
     list.push(Box::new(tea_ext_calls::CallsExtension::new()));
+    #[cfg(feature = "ext-preview")]
+    list.push(Box::new(tea_ext_preview::PreviewExtension::new()));
     list
 }
 
@@ -292,6 +294,13 @@ struct App {
     symbol_wait: u64,
     /// Árvore de chamadas (quem chama / quem é chamado).
     calls: calls::CallTree,
+    /// Extensões de arquivo (minúsculas) cujo texto alguma extensão quer ver (`CoreEvent::ActiveText`).
+    text_watch: std::collections::HashSet<String>,
+    /// Último texto enviado (não manda de novo se nada mudou) e a espera em curso depois de digitar.
+    text_sent: Option<(PathBuf, std::sync::Arc<str>)>,
+    text_wait: u64,
+    /// Botões da barra de abas por tipo de arquivo (extensão dona, ação).
+    file_actions: Vec<(usize, tea_core::FileAction)>,
     /// Quando a própria IDE salvou cada arquivo: o aviso de "mudou no disco" desse save não conta.
     own_saves: std::collections::HashMap<PathBuf, Instant>,
     /// Última lista de arquivos do projeto (para `Ctrl+P` abrir na hora; é relida a cada abertura).
@@ -322,6 +331,8 @@ enum Message {
     /// Vinda da subscription de uma extensão.
     ExtSub(usize, ExtMessage),
     SelectTab(u64),
+    /// Botão de uma extensão na barra de abas: roda o comando.
+    RunCommand(String),
     /// Botão direito numa aba.
     TabMenu(u64, iced::Point),
     CloseTab(u64),
@@ -353,6 +364,8 @@ enum Message {
     MousePressed,
     /// Passou a espera depois de digitar: pede a estrutura de novo (se for a última espera).
     OutlineDue(u64),
+    /// Hora de mandar o texto do arquivo ativo (só a última espera vale).
+    TextDue(u64),
     /// Passou a espera depois de digitar na busca de símbolos do projeto.
     SymbolQueryDue(u64),
     /// Botões voltar/avançar do mouse (`true` = avançar).
@@ -423,6 +436,10 @@ impl App {
             last_outline: (None, Default::default(), None),
             symbol_wait: 0,
             calls: Default::default(),
+            text_watch: Default::default(),
+            text_sent: None,
+            text_wait: 0,
+            file_actions: Vec::new(),
             config,
         };
         app.push_tab(Editor::scratch(""));
@@ -544,6 +561,15 @@ impl App {
                     if let Some(session) = self.debug.session() {
                         session.variables(reference);
                     }
+                }
+                Request::FileAction(mut action) => {
+                    action.extensions.iter_mut().for_each(|e| *e = e.to_lowercase());
+                    self.file_actions.push((ext, action));
+                }
+                Request::WatchText(extensions) => {
+                    self.text_watch.extend(extensions.into_iter().map(|e| e.to_lowercase()));
+                    self.text_sent = None;
+                    tasks.push(self.send_active_text());
                 }
                 Request::CallChildren { node, direction } => {
                     self.calls.request(node, direction);
@@ -1178,6 +1204,44 @@ impl App {
         self.open_file_at(s.path, s.line, s.column)
     }
 
+    // ---- Texto para as extensões (prévia) -----------------------------------
+
+    /// Alguma extensão quer o texto do arquivo ativo.
+    fn watching_active_text(&self) -> bool {
+        let ext = self.active_path().and_then(|p| p.extension()).map(|e| e.to_string_lossy().to_lowercase());
+        ext.is_some_and(|e| self.text_watch.contains(&e))
+    }
+
+    /// Manda o texto do arquivo ativo (se alguém quer e se mudou desde o último envio).
+    fn send_active_text(&mut self) -> Task<Message> {
+        if !self.watching_active_text() {
+            return Task::none();
+        }
+        let Some(path) = self.active_path().map(Path::to_path_buf) else { return Task::none() };
+        let text = self.tabs[self.active].editor.text();
+        if let Some((p, t)) = &self.text_sent
+            && *p == path
+            && **t == *text
+        {
+            return Task::none();
+        }
+        let text: std::sync::Arc<str> = text.into();
+        self.text_sent = Some((path.clone(), text.clone()));
+        self.broadcast(CoreEvent::ActiveText { path, text })
+    }
+
+    /// Manda o texto daqui a pouco (cada edição adia; só a última espera vale).
+    fn text_later(&mut self) -> Task<Message> {
+        self.text_wait += 1;
+        let wait = self.text_wait;
+        let (tx, rx) = iced::futures::channel::oneshot::channel();
+        std::thread::spawn(move || {
+            std::thread::sleep(Duration::from_millis(250));
+            let _ = tx.send(wait);
+        });
+        Task::future(async move { rx.await.ok() }).and_then(|wait| Task::done(Message::TextDue(wait)))
+    }
+
     /// Pede a estrutura daqui a pouco (cada edição adia; só a última espera vale).
     fn outline_later(&mut self) -> Task<Message> {
         self.outline_wait += 1;
@@ -1300,7 +1364,8 @@ impl App {
             E::Formatting { path, edits } => {
                 if let Some(i) = tab_for(self, &path) {
                     self.tabs[i].editor.apply_formatting(&edits);
-                    return Task::batch([self.notify("Arquivo formatado"), self.emit_status(false)]);
+                    let text = self.text_later();
+                    return Task::batch([self.notify("Arquivo formatado"), self.emit_status(false), text]);
                 }
                 Task::none()
             }
@@ -1360,7 +1425,9 @@ impl App {
         }
         let path = self.active_path().map(Path::to_path_buf);
         let changed = self.broadcast(CoreEvent::ActiveFileChanged(path));
-        Task::batch([changed, self.emit_status(false), self.request_outline()])
+        // As extensões esquecem o texto ao trocar de arquivo: manda de novo mesmo sem mudança.
+        self.text_sent = None;
+        Task::batch([changed, self.emit_status(false), self.request_outline(), self.send_active_text()])
     }
 
     fn close_tab(&mut self, id: u64, force: bool) -> Task<Message> {
@@ -1462,7 +1529,8 @@ impl App {
         let saved = Task::batch([self.after_save(result), lsp]);
         let changed = if ok { self.broadcast(CoreEvent::ActiveFileChanged(Some(path))) } else { Task::none() };
         let outline = if ok { self.request_outline() } else { Task::none() };
-        Task::batch([saved, changed, outline])
+        let text = if ok { self.send_active_text() } else { Task::none() };
+        Task::batch([saved, changed, outline, text])
     }
 
     fn after_save(&mut self, result: std::io::Result<()>) -> Task<Message> {
@@ -2502,6 +2570,7 @@ impl App {
                     let task = self.tabs[i].editor.update(msg).map(move |m| Message::Editor(id, m));
                     return Task::batch([task, self.no_lsp_note()]);
                 }
+                let hover = msg.is_mouse_hover();
                 let toggled = msg.is_breakpoint_toggle();
                 let task = self.tabs[i].editor.update(msg).map(move |m| Message::Editor(id, m));
                 if toggled {
@@ -2518,7 +2587,8 @@ impl App {
                 } else {
                     Task::none()
                 };
-                Task::batch([task, self.emit_status(false), outline])
+                let text = if !hover && self.watching_active_text() { self.text_later() } else { Task::none() };
+                Task::batch([task, self.emit_status(false), outline, text])
             }
             // O foco do editor sai por clique no painel (`MousePressed`) ou por comando,
             // não aqui: painéis também mandam mensagens sozinhos (ex.: terminal ao mudar de tamanho).
@@ -2528,6 +2598,11 @@ impl App {
                 None => Task::none(),
             },
             Message::CloseTab(id) => self.close_tab(id, false),
+            Message::RunCommand(id) => {
+                let task = self.run_command(&id);
+                self.editor_mut().focus();
+                task
+            }
             Message::TabMenu(id, at) => {
                 let menu = self.tab_menu(id, at);
                 self.open_menu(menu, dialog::Owner::Core)
@@ -2619,6 +2694,9 @@ impl App {
             Message::Nav(forward) => self.navigate(forward),
             Message::SymbolQueryDue(wait) => {
                 if wait == self.symbol_wait { self.search_project_symbols() } else { Task::none() }
+            }
+            Message::TextDue(wait) => {
+                if wait == self.text_wait { self.send_active_text() } else { Task::none() }
             }
             Message::OutlineDue(wait) => {
                 if wait == self.outline_wait { self.request_outline() } else { Task::none() }
@@ -2712,7 +2790,9 @@ impl App {
             }))
             .spacing(2),
         )
-        .direction(scrollable::Direction::Horizontal(scrollable::Scrollbar::new().width(2).scroller_width(2)));
+        .direction(scrollable::Direction::Horizontal(scrollable::Scrollbar::new().width(2).scroller_width(2)))
+        .width(Fill);
+        let tabs = row![tabs].extend(self.file_action_buttons()).spacing(4).align_y(iced::Center);
 
         let tab = &self.tabs[self.active];
         let tab_id = tab.id;
@@ -2795,6 +2875,24 @@ impl App {
     }
 
     /// Painéis visíveis de um slot, um embaixo do outro (ou lado a lado na barra de status).
+    /// Botões das extensões para o tipo do arquivo ativo (ex.: prévia de Markdown), no fim da barra de abas.
+    fn file_action_buttons(&self) -> Vec<Element<'_, Message>> {
+        let ext = self.active_path().and_then(|p| p.extension()).map(|e| e.to_string_lossy().to_lowercase());
+        let Some(ext) = ext else { return Vec::new() };
+        self.file_actions
+            .iter()
+            .filter(|(_, a)| a.extensions.contains(&ext))
+            .map(|(owner, a)| {
+                let on = a.panel.is_some_and(|id| self.panels.iter().any(|p| p.ext == *owner && p.id == id && p.visible));
+                let tip = match self.keymap.chord_for(&a.command) {
+                    Some(chord) => format!("{} ({chord})", a.tip),
+                    None => a.tip.clone(),
+                };
+                tea_core::icons::toggle_button(a.icon, tip, on, Message::RunCommand(a.command.clone()))
+            })
+            .collect()
+    }
+
     fn slot_view(&self, slot: Slot) -> Option<Element<'_, Message>> {
         let panels: Vec<&Panel> = self.panels.iter().filter(|p| p.slot == slot && p.visible).collect();
         if panels.is_empty() {
@@ -2944,7 +3042,7 @@ mod tests {
         ids.dedup();
         assert_eq!(ids.len(), CORE_COMMANDS.len(), "ids repetidos");
 
-        let ext_commands = ["filetree.toggle", "filetree.reveal", "search.focus", "problems.focus", "problems.next", "terminal.focus", "git.focus", "outline.toggle"];
+        let ext_commands = ["filetree.toggle", "filetree.reveal", "search.focus", "problems.focus", "problems.next", "terminal.focus", "git.focus", "outline.toggle", "preview.toggle"];
         let cfg = Config::from_layers(&[("padrão".into(), config::DEFAULT_CONFIG.into())]);
         for (chord, cmd) in &cfg.keys {
             assert!(ids.contains(&cmd.as_str()) || ext_commands.contains(&cmd.as_str()), "{chord} -> {cmd}");

@@ -46,6 +46,11 @@ impl EditorMessage {
         matches!(self.0, Msg::ToggleBreakpoint(_))
     }
 
+    /// Mouse passando por cima do texto (não muda nada no arquivo).
+    pub fn is_mouse_hover(&self) -> bool {
+        matches!(self.0, Msg::Widget(Inner::MouseHover(_)))
+    }
+
     /// Ctrl+clique (ir para definição).
     pub fn is_jump_click(&self) -> bool {
         matches!(self.0, Msg::Widget(Inner::JumpClick(_)))

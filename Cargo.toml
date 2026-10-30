@@ -34,6 +34,7 @@ tea-ext-debug = { path = "crates/ext/tea-ext-debug" }
 tea-ext-references = { path = "crates/ext/tea-ext-references" }
 tea-ext-outline = { path = "crates/ext/tea-ext-outline" }
 tea-ext-calls = { path = "crates/ext/tea-ext-calls" }
+tea-ext-preview = { path = "crates/ext/tea-ext-preview" }
 
 [profile.release]
 lto = "thin"

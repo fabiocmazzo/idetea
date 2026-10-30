@@ -69,6 +69,10 @@ pub enum CoreEvent {
     Locations { kind: LocationKind, symbol: String, items: Vec<Reference> },
     /// Árvore de chamadas (ver [`calls`]).
     Calls(calls::Event),
+    /// Texto do arquivo ativo, para quem pediu com [`Context::watch_text`] (só arquivos com as extensões
+    /// pedidas). Chega ao trocar de aba e um instante depois de parar de digitar. Arquivo ativo de
+    /// outro tipo: só [`CoreEvent::ActiveFileChanged`].
+    ActiveText { path: PathBuf, text: Arc<str> },
 }
 
 /// O que uma lista de lugares ([`CoreEvent::Locations`]) mostra.
@@ -186,8 +190,25 @@ pub enum Request {
     DebugSelectFrame(usize),
     /// Debug: pede os filhos de uma variável ou grupo (resposta em [`debug::Event::Variables`]).
     DebugVariables(i64),
+    /// Botão na barra de abas para arquivos com estas extensões (ver [`Context::file_action`]).
+    FileAction(FileAction),
+    /// Quer o texto do arquivo ativo quando ele tem uma destas extensões (ver [`CoreEvent::ActiveText`]).
+    WatchText(Vec<String>),
     /// Árvore de chamadas: pede os filhos de um nó (resposta em [`calls::Event::Children`]).
     CallChildren { node: u64, direction: calls::Direction },
+}
+
+/// Botão no canto da barra de abas, que aparece só quando o arquivo ativo é de certos tipos
+/// (ex.: a prévia, para Markdown e SVG). Clicar roda `command`.
+#[derive(Debug, Clone)]
+pub struct FileAction {
+    /// Extensões sem o ponto, minúsculas (`["md", "svg"]`).
+    pub extensions: Vec<String>,
+    pub icon: icons::Icon,
+    pub tip: String,
+    pub command: String,
+    /// O botão fica destacado enquanto este painel (da mesma extensão) está aberto.
+    pub panel: Option<PanelId>,
 }
 
 /// Estilo de um botão de diálogo.
@@ -352,6 +373,17 @@ impl<'a> Context<'a> {
 
     pub fn debug_variables(&mut self, reference: i64) {
         self.requests.push(Request::DebugVariables(reference));
+    }
+
+    /// Põe um botão na barra de abas, visível quando o arquivo ativo tem uma destas extensões.
+    pub fn file_action(&mut self, action: FileAction) {
+        self.requests.push(Request::FileAction(action));
+    }
+
+    /// Pede o texto do arquivo ativo sempre que ele for de um destes tipos (extensões sem o ponto,
+    /// ex.: `["md", "svg"]`). Ele chega em [`CoreEvent::ActiveText`].
+    pub fn watch_text<S: Into<String>>(&mut self, extensions: impl IntoIterator<Item = S>) {
+        self.requests.push(Request::WatchText(extensions.into_iter().map(Into::into).collect()));
     }
 
     /// Pede quem chama o nó (ou quem ele chama). A resposta chega em [`calls::Event::Children`].

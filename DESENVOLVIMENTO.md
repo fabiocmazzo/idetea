@@ -91,7 +91,8 @@ crates/
     ├── tea-ext-debug/      painel Debug (o núcleo fala com o gdb; o painel recebe CoreEvent::Debug)
     ├── tea-ext-references/ painel Referências (onde um nome é usado, vindo do LSP)
     ├── tea-ext-outline/    painel Estrutura (símbolos do arquivo; a visibilidade vem de tea-app/src/outline.rs)
-    └── tea-ext-calls/      painel Chamadas (quem chama / o que chama, vindo do LSP)
+    ├── tea-ext-calls/      painel Chamadas (quem chama / o que chama, vindo do LSP)
+    └── tea-ext-preview/    painel Prévia (Markdown e SVG do arquivo ativo; recebe CoreEvent::ActiveText)
 ```
 
 Regra de ouro: **as extensões internas usam só a API pública de `tea-core`**, a mesma que um plugin usaria.

@@ -65,6 +65,7 @@ pub enum Icon {
     ListTree,
     CallIncoming,
     CallOutgoing,
+    Preview,
     Lock,
     Unlock,
     Key,
@@ -131,6 +132,7 @@ impl Icon {
             Icon::ListTree => 0xEB86,
             Icon::CallIncoming => 0xEB92,
             Icon::CallOutgoing => 0xEB93,
+            Icon::Preview => 0xEB2F,
             Icon::Lock => 0xEA75,
             Icon::Unlock => 0xEB74,
             Icon::Key => 0xEB11,
@@ -161,6 +163,23 @@ pub fn icon<'a>(i: Icon) -> Text<'a> {
 /// `on_press: None` desenha o ícone apagado (ação indisponível).
 pub fn icon_button<'a, M: Clone + 'a>(i: Icon, tip: impl Into<String>, on_press: Option<M>) -> Element<'a, M> {
     let b = button(icon(i)).on_press_maybe(on_press).padding(3).style(icon_button_style);
+    tooltip(b, container(text(tip.into()).size(12)).padding([3, 8]).style(tooltip_style), tooltip::Position::Bottom)
+        .gap(4)
+        .delay(TOOLTIP_DELAY)
+        .into()
+}
+
+/// Como [`icon_button`], mas com fundo destacado quando `on` (ex.: o painel que ele abre está aberto).
+pub fn toggle_button<'a, M: Clone + 'a>(i: Icon, tip: impl Into<String>, on: bool, on_press: M) -> Element<'a, M> {
+    let b = button(icon(i)).on_press(on_press).padding(3).style(move |t: &Theme, s| {
+        let base = icon_button_style(t, s);
+        if on && matches!(s, button::Status::Active) {
+            let p = t.extended_palette();
+            button::Style { background: Some(Background::Color(p.primary.weak.color.scale_alpha(0.45))), ..base }
+        } else {
+            base
+        }
+    });
     tooltip(b, container(text(tip.into()).size(12)).padding([3, 8]).style(tooltip_style), tooltip::Position::Bottom)
         .gap(4)
         .delay(TOOLTIP_DELAY)

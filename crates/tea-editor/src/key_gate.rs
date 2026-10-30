@@ -3,6 +3,8 @@
 //! Usado para o menu de autocomplete: com ele aberto, ↑/↓/Enter/Tab/Esc navegam
 //! no menu em vez de mover o cursor do editor.
 //!
+//! Algumas teclas são da IDE e não chegam ao widget: Alt+←/→ (voltar/avançar) e Ctrl+Shift+V (prévia).
+//!
 //! Também mostra a mãozinha com Ctrl sobre o texto (Ctrl+clique vai para a definição): o widget
 //! de edição só sublinha a palavra, sem trocar o ponteiro.
 
@@ -98,6 +100,15 @@ where
             && modifiers.alt()
             && !modifiers.control()
             && !modifiers.shift()
+        {
+            return;
+        }
+        // Ctrl+Shift+V também é da IDE (prévia de Markdown/SVG); o widget colaria o texto.
+        if let Event::Keyboard(keyboard::Event::KeyPressed { key: keyboard::Key::Character(c), modifiers, .. }) = event
+            && modifiers.control()
+            && modifiers.shift()
+            && !modifiers.alt()
+            && c.eq_ignore_ascii_case("v")
         {
             return;
         }

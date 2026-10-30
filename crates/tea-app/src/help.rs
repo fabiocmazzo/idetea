@@ -82,6 +82,8 @@ const GUIDE: &[(&str, &[&str])] = &[
              Fechar aba: {file.close}.",
             "Abrir e Salvar como usam a janela de arquivos do sistema. Para digitar o caminho: \
              {file.save_as_path}. Abrir outra pasta ({file.open_folder}) abre uma nova janela da IDE.",
+            "Prévia de Markdown e SVG: {preview.toggle} (ou o botão no fim da barra de abas) abre um painel ao lado que acompanha o arquivo ativo e \
+             se atualiza enquanto você digita. Links da web abrem no navegador; links para arquivos abrem numa aba.",
             "Trocar de aba: {tab.next} e {tab.prev} (Ctrl+Tab insere tabulação no editor).",
             "Fechar uma aba ou sair com alterações pergunta antes: Salvar, Descartar ou Cancelar.",
             "Arquivo mudado por fora (terminal, outro editor): a aba recarrega sozinha se não tiver alterações; \
@@ -427,6 +429,7 @@ mod tests {
             "references.focus",
             "outline.toggle",
             "calls.focus",
+            "preview.toggle",
             "debug.focus",
         ];
         for (_, paragraphs) in GUIDE {

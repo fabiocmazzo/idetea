@@ -502,7 +502,32 @@ Ordem: (1) voltar/avançar + referências → (2) várias definições, implemen
   - [x] Teste manual (aprovado): numa função Rust chamada de outros lugares, `Alt+Shift+H` abre o painel com quem chama; abrir um
     nível a mais; clicar leva à chamada e `Alt+←` volta; "O que chama" mostra as chamadas feitas por ela.
 
-### Fase 4 — Plugins externos
+### Prévias de arquivos
+
+Ordem: (1) painel de prévia para Markdown e SVG → (2) aba de visualização com imagens (`image::viewer` do iced,
+zoom e arrastar; hoje toda aba é um editor de texto) → (3) PDF na mesma aba, com o `hayro` (puro Rust,
+Apache/MIT; pdfium precisa de biblioteca C, MuPDF é AGPL).
+
+- [x] **Item 1 — prévia de Markdown e SVG:**
+  - Núcleo: `Context::watch_text(["md", ...])` e `CoreEvent::ActiveText { path, text }`. O app manda o texto do
+    arquivo ativo (só desses tipos) ao trocar de aba, ao salvar como e 250 ms depois da última edição (passar o
+    mouse não conta); não manda de novo se nada mudou. Funciona sem servidor de linguagem.
+  - Painel "Prévia" (extensão `tea-ext-preview`, lateral direita, `Ctrl+Shift+V` como no VS Code; o `KeyGate`
+    não deixa essa tecla chegar ao editor, que colaria): Markdown pelo widget do iced (títulos, listas, tabelas,
+    citações, código com cores); imagens locais aparecem (caminho relativo ao arquivo; da web, o texto
+    alternativo); links da web abrem no navegador, links para arquivos abrem numa aba. SVG desenhado no tamanho
+    do painel, com as dimensões; SVG quebrado mostra o erro e mantém o último desenho válido.
+  - Botão no fim da barra de abas (como no Zed), só com um Markdown ou SVG ativo; fica destacado com a prévia
+    aberta e o tooltip mostra o atalho. API genérica: `Context::file_action(FileAction { extensions, icon, tip,
+    command, panel })`, para outras extensões porem botões por tipo de arquivo.
+  - Executável release: 40 → 47 MB (decodificadores de imagem, desenho de SVG, cores no código do Markdown).
+  - [x] Teste manual (aprovado): abrir o README.md e `Ctrl+Shift+V` (ou o botão de prévia no fim da barra de abas); editar um título e ver a prévia mudar; clicar num link da
+    web e num link para arquivo; abrir um .svg, mudar uma cor e ver o desenho mudar; quebrar o SVG e ver o erro.
+
+### Fase 4 — Plugins externos (melhoria futura)
+
+Adiado: prévias de arquivos (Markdown, SVG, imagem, PDF) vêm antes.
+
 - [ ] Host WASM (`wasmtime`) + WIT versionado.
 - [ ] Protocolo de UI declarativa para painéis de plugins.
 - **Plugins WASM têm confiança total:** um plugin instalado pode ler e escrever no disco e rodar processos, como extensões do VS Code.
