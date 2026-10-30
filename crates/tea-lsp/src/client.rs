@@ -13,7 +13,7 @@ use crate::protocol;
 use crate::text::{DocText, Encoding, Position, Range};
 use crate::transport::{read_message, write_message};
 use crate::uri::{path_to_uri, uri_to_path};
-use crate::{Diagnostic, DocumentSymbol, Event, Location, Lookup, MessageLevel, ServerConfig, TextEdit};
+use crate::{Diagnostic, DocumentSymbol, Event, Location, Lookup, MessageLevel, ServerConfig, TextEdit, WorkspaceSymbol};
 
 /// Recebe os eventos do servidor. Chamado de uma thread do cliente: deve ser rápido.
 pub type EventSink = Arc<dyn Fn(Event) + Send + Sync>;
@@ -55,6 +55,7 @@ enum Pending {
     Definition { path: PathBuf, position: Position },
     Locations { lookup: Lookup, path: PathBuf, position: Position },
     DocumentSymbols(PathBuf),
+    WorkspaceSymbols(String),
     Formatting(PathBuf),
     Shutdown,
 }
@@ -157,7 +158,7 @@ impl Client {
             "workspaceFolders": [{ "uri": root_uri, "name": folder_name }],
             "capabilities": {
                 "general": { "positionEncodings": ["utf-32", "utf-16"] },
-                "workspace": { "workspaceFolders": true, "configuration": true },
+                "workspace": { "workspaceFolders": true, "configuration": true, "symbol": {} },
                 "window": { "workDoneProgress": true },
                 "textDocument": {
                     "synchronization": { "didSave": true, "dynamicRegistration": false },
@@ -254,6 +255,12 @@ impl Client {
     pub fn definition(&self, path: &Path, position: Position) {
         let pending = Pending::Definition { path: path.to_path_buf(), position };
         self.position_request("textDocument/definition", path, position, pending);
+    }
+
+    /// Símbolos do projeto pelo nome (resposta em [`Event::WorkspaceSymbols`]).
+    pub fn workspace_symbols(&self, query: &str) {
+        let params = json!({ "query": query });
+        self.inner.lock().request("workspace/symbol", params, Pending::WorkspaceSymbols(query.to_string()));
     }
 
     /// Estrutura do arquivo (resposta em [`Event::DocumentSymbols`]).
@@ -515,6 +522,7 @@ impl Inner {
             // Servidor que não sabe a estrutura: o painel mostra vazio em vez de esperar para sempre.
             match pending {
                 Pending::DocumentSymbols(path) => return vec![Event::DocumentSymbols { path, symbols: Vec::new() }],
+                Pending::WorkspaceSymbols(query) => return vec![Event::WorkspaceSymbols { query, symbols: Vec::new() }],
                 // Ex.: servidor sem "ir para implementação": o usuário fica sabendo que não veio nada.
                 Pending::Locations { lookup, path, position } => {
                     return vec![
@@ -567,6 +575,18 @@ impl Inner {
                     [one] => vec![Event::Definition { path: one.path.clone(), position: one.range.start }],
                     _ => vec![Event::Locations { lookup: Lookup::Definition, path: from, position, locations }],
                 }
+            }
+            Pending::WorkspaceSymbols(query) => {
+                let mut disk = HashMap::new();
+                let symbols = protocol::workspace_symbols(result)
+                    .into_iter()
+                    .filter_map(|(name, kind, container, uri, at)| {
+                        let path = uri_to_path(&uri)?;
+                        let r = st.to_chars(&path, Range { start: at, end: at }, &mut disk);
+                        Some(WorkspaceSymbol { name, kind, container, path, position: r.start })
+                    })
+                    .collect();
+                vec![Event::WorkspaceSymbols { query, symbols }]
             }
             Pending::DocumentSymbols(path) => {
                 let mut disk = HashMap::new();

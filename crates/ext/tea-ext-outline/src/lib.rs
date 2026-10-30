@@ -9,10 +9,10 @@ use std::collections::HashSet;
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use iced::widget::{Column, button, column, container, row, scrollable, space, text};
-use iced::{Color, Element, Fill, Task, Theme};
+use iced::widget::{Column, button, column, row, scrollable, space, text};
+use iced::{Element, Fill, Task, Theme};
 use tea_core::icons::{self, Icon};
-use tea_core::outline::{Kind, Symbol, Visibility};
+use tea_core::outline::Symbol;
 use tea_core::{Context, CoreEvent, Extension, PanelId, Slot};
 
 const PANEL: PanelId = PanelId("outline");
@@ -47,39 +47,6 @@ fn innermost(symbols: &[Symbol], line: usize, parent: &str) -> Option<String> {
     let s = symbols.iter().find(|s| s.start_line <= line && line <= s.end_line)?;
     let k = key(parent, s);
     innermost(&s.children, line, &k).or(Some(k))
-}
-
-fn kind_icon(kind: Kind) -> (Icon, Option<Color>) {
-    // Cores dos ícones de símbolo do VS Code: funcionam no tema claro e no escuro.
-    let purple = Color::from_rgb8(0xB1, 0x80, 0xD7);
-    let orange = Color::from_rgb8(0xEE, 0x9D, 0x28);
-    let blue = Color::from_rgb8(0x75, 0xBE, 0xFF);
-    match kind {
-        Kind::Method | Kind::Function | Kind::Constructor => (Icon::SymbolMethod, Some(purple)),
-        Kind::Class => (Icon::SymbolClass, Some(orange)),
-        Kind::Struct => (Icon::SymbolStructure, Some(orange)),
-        Kind::Enum => (Icon::SymbolEnum, Some(orange)),
-        Kind::EnumMember => (Icon::SymbolEnumMember, Some(blue)),
-        Kind::Interface => (Icon::SymbolInterface, Some(blue)),
-        Kind::Field => (Icon::SymbolField, Some(blue)),
-        Kind::Property => (Icon::SymbolProperty, Some(blue)),
-        Kind::Variable => (Icon::SymbolVariable, Some(blue)),
-        Kind::Constant => (Icon::SymbolConstant, Some(blue)),
-        Kind::TypeParameter => (Icon::SymbolParameter, None),
-        Kind::Module => (Icon::SymbolNamespace, None),
-        Kind::Block | Kind::Other => (Icon::SymbolMisc, None),
-    }
-}
-
-fn visibility_icon<'a>(v: &Visibility) -> Element<'a, Message> {
-    let (icon, tip, color): (Icon, String, fn(&Theme) -> Color) = match v {
-        Visibility::Public => (Icon::Unlock, "público".into(), |t| t.extended_palette().success.base.color),
-        Visibility::Private => (Icon::Lock, "privado".into(), |t| t.extended_palette().danger.base.color),
-        Visibility::Restricted(label) => (Icon::Key, label.clone(), |t| t.extended_palette().warning.base.color),
-        Visibility::Unknown => return space::horizontal().width(14).into(),
-    };
-    let i = icons::icon(icon).size(13).style(move |t: &Theme| text::Style { color: Some(color(t)) });
-    icons::with_tip(container(i).width(14), tip)
 }
 
 fn one_line(s: &str) -> String {
@@ -117,13 +84,13 @@ impl OutlineExtension {
                 let chevron = icons::icon(if open { Icon::ChevronDown } else { Icon::ChevronRight }).size(12);
                 button(chevron).on_press(Message::Toggle(k.clone())).style(button::text).padding([0, 3]).into()
             };
-            let (icon, color) = kind_icon(s.kind);
+            let (icon, color) = s.kind.icon();
             let kind_icon = icons::with_tip(icons::icon(icon).size(14).color_maybe(color), s.kind.label());
             let mut line = row![
                 space::horizontal().width(f32::from(depth) * 14.0),
                 lead,
                 kind_icon,
-                visibility_icon(&s.visibility),
+                tea_core::outline::visibility_badge(&s.visibility),
                 text(&s.name).size(13),
             ]
             .spacing(4)
@@ -249,6 +216,7 @@ impl Extension for OutlineExtension {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use tea_core::outline::{Kind, Visibility};
     use tea_core::Request;
 
     fn sym(name: &str, start: usize, end: usize, children: Vec<Symbol>) -> Symbol {

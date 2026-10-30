@@ -80,6 +80,39 @@ fn main() -> iced::Result {
     }
 }
 
+/// Modo da paleta que um comando abre (para o atalho fechar ou trocar de modo com ela aberta).
+fn palette_mode_of(command: &str) -> Option<palette::Mode> {
+    Some(match command {
+        "palette.open" => palette::Mode::Commands,
+        "file.quick_open" => palette::Mode::Files,
+        "nav.file_symbol" => palette::Mode::FileSymbols,
+        "nav.project_symbol" => palette::Mode::ProjectSymbols,
+        _ => return None,
+    })
+}
+
+/// A estrutura do arquivo como lista plana para a paleta, com o caminho dos pais (`Conta › impl Conta`).
+fn symbol_items(path: &Path, symbols: &[tea_core::outline::Symbol]) -> Vec<palette::SymbolItem> {
+    fn walk(path: &Path, list: &[tea_core::outline::Symbol], parents: &str, out: &mut Vec<palette::SymbolItem>) {
+        for s in list {
+            out.push(palette::SymbolItem {
+                name: s.name.clone(),
+                container: parents.to_string(),
+                kind: s.kind,
+                visibility: s.visibility.clone(),
+                path: path.to_path_buf(),
+                line: s.line,
+                column: s.column,
+            });
+            let inner = if parents.is_empty() { s.name.clone() } else { format!("{parents} › {}", s.name) };
+            walk(path, &s.children, &inner, out);
+        }
+    }
+    let mut out = Vec::new();
+    walk(path, symbols, "", &mut out);
+    out
+}
+
 /// A palavra (letras, números e `_`) que contém a coluna `column` (em caracteres).
 fn word_at(line: &str, column: usize) -> String {
     let chars: Vec<char> = line.chars().collect();
@@ -151,6 +184,8 @@ const CORE_COMMANDS: &[(&str, &str)] = &[
     ("lsp.references", "LSP: listar onde é usado"),
     ("lsp.implementation", "LSP: ir para implementação"),
     ("lsp.type_definition", "LSP: ir para o tipo"),
+    ("nav.file_symbol", "Ir para símbolo no arquivo…"),
+    ("nav.project_symbol", "Ir para símbolo no projeto…"),
     ("nav.back", "Navegação: voltar"),
     ("nav.forward", "Navegação: avançar"),
     ("lsp.hover", "LSP: mostrar documentação no cursor"),
@@ -246,6 +281,10 @@ struct App {
     /// (só a última espera depois de digitar vale).
     outline_seen: (u64, u64),
     outline_wait: u64,
+    /// Última estrutura enviada (arquivo, símbolos, motivo da lista vazia): `Ctrl+Shift+O` usa.
+    last_outline: (Option<PathBuf>, std::sync::Arc<Vec<tea_core::outline::Symbol>>, Option<String>),
+    /// Busca de símbolos no projeto: só a última espera depois de digitar vale.
+    symbol_wait: u64,
     /// Quando a própria IDE salvou cada arquivo: o aviso de "mudou no disco" desse save não conta.
     own_saves: std::collections::HashMap<PathBuf, Instant>,
     /// Última lista de arquivos do projeto (para `Ctrl+P` abrir na hora; é relida a cada abertura).
@@ -307,6 +346,8 @@ enum Message {
     MousePressed,
     /// Passou a espera depois de digitar: pede a estrutura de novo (se for a última espera).
     OutlineDue(u64),
+    /// Passou a espera depois de digitar na busca de símbolos do projeto.
+    SymbolQueryDue(u64),
     /// Botões voltar/avançar do mouse (`true` = avançar).
     Nav(bool),
     CloseRequested,
@@ -372,6 +413,8 @@ impl App {
             nav: nav::History::default(),
             outline_seen: (u64::MAX, 0),
             outline_wait: 0,
+            last_outline: (None, Default::default(), None),
+            symbol_wait: 0,
             config,
         };
         app.push_tab(Editor::scratch(""));
@@ -999,7 +1042,129 @@ impl App {
             Some(path) => self.lsp.why_missing(&path),
         };
         let path = self.active_path().map(Path::to_path_buf);
-        self.broadcast(CoreEvent::Outline { path, symbols: Default::default(), note: Some(note) })
+        self.set_outline(path, Default::default(), Some(note))
+    }
+
+    /// Guarda a estrutura (para `Ctrl+Shift+O`), atualiza a paleta se ela estiver mostrando os
+    /// símbolos do arquivo e avisa as extensões (painel Estrutura).
+    fn set_outline(
+        &mut self,
+        path: Option<PathBuf>,
+        symbols: std::sync::Arc<Vec<tea_core::outline::Symbol>>,
+        note: Option<String>,
+    ) -> Task<Message> {
+        self.last_outline = (path.clone(), symbols.clone(), note.clone());
+        if let Some(p) = &mut self.palette
+            && p.mode == palette::Mode::FileSymbols
+        {
+            p.set_symbols(symbol_items(path.as_deref().unwrap_or(Path::new("")), &symbols), note.clone());
+        }
+        self.broadcast(CoreEvent::Outline { path, symbols, note })
+    }
+
+    // ---- Símbolos na paleta ----------------------------------------------------
+
+    /// `Ctrl+Shift+O`: símbolos do arquivo ativo (da última estrutura, ou pedida agora).
+    fn open_file_symbols(&mut self) -> Task<Message> {
+        let active = self.active_path().map(Path::to_path_buf);
+        let (path, symbols, note) = self.last_outline.clone();
+        if active.is_some() && path == active {
+            let items = symbol_items(path.as_deref().unwrap_or(Path::new("")), &symbols);
+            return self.open_palette(Palette::symbols(false, &self.root, items, note));
+        }
+        let open = self.open_palette(Palette::symbols(false, &self.root, Vec::new(), Some("Lendo a estrutura…".into())));
+        Task::batch([open, self.request_outline()])
+    }
+
+    /// `Ctrl+T`: símbolos do projeto; a busca vai ao servidor conforme se digita.
+    fn open_project_symbols(&mut self) -> Task<Message> {
+        let note = if self.project_symbols_client().is_some() {
+            "Digite o nome de uma função, tipo, método…".to_string()
+        } else {
+            self.why_no_lsp()
+        };
+        self.open_palette(Palette::symbols(true, &self.root, Vec::new(), Some(note)))
+    }
+
+    /// O servidor da aba ativa, ou qualquer um rodando.
+    fn project_symbols_client(&mut self) -> Option<tea_lsp::Client> {
+        let active = self.active_path().map(Path::to_path_buf);
+        let own = active.and_then(|p| self.lsp.client_for(&p).ok().flatten()).map(|(c, _)| c);
+        own.or_else(|| self.lsp.any_running())
+    }
+
+    /// Mudou o texto da busca de símbolos do projeto: busca daqui a pouco (cada tecla adia).
+    fn project_symbols_later(&mut self) -> Task<Message> {
+        self.symbol_wait += 1;
+        let wait = self.symbol_wait;
+        let (tx, rx) = iced::futures::channel::oneshot::channel();
+        std::thread::spawn(move || {
+            std::thread::sleep(Duration::from_millis(150));
+            let _ = tx.send(wait);
+        });
+        Task::future(async move { rx.await.ok() }).and_then(|wait| Task::done(Message::SymbolQueryDue(wait)))
+    }
+
+    fn search_project_symbols(&mut self) -> Task<Message> {
+        let Some(query) = self
+            .palette
+            .as_ref()
+            .filter(|p| p.mode == palette::Mode::ProjectSymbols)
+            .map(|p| p.query.trim().to_string())
+        else {
+            return Task::none();
+        };
+        let client = self.project_symbols_client();
+        let Some(p) = &mut self.palette else { return Task::none() };
+        match client {
+            _ if query.is_empty() => p.set_symbols(Vec::new(), Some("Digite o nome de uma função, tipo, método…".into())),
+            Some(client) => {
+                client.workspace_symbols(&query);
+                if p.symbols.is_empty() {
+                    p.set_symbols(Vec::new(), Some("Buscando…".into()));
+                }
+            }
+            None => {
+                let why = self.why_no_lsp();
+                if let Some(p) = &mut self.palette {
+                    p.set_symbols(Vec::new(), Some(why));
+                }
+            }
+        }
+        Task::none()
+    }
+
+    fn show_project_symbols(&mut self, query: &str, symbols: Vec<tea_lsp::WorkspaceSymbol>) -> Task<Message> {
+        let Some(p) = &mut self.palette else { return Task::none() };
+        // Resposta de uma busca velha (o texto já mudou).
+        if p.mode != palette::Mode::ProjectSymbols || p.query.trim() != query {
+            return Task::none();
+        }
+        let items = symbols
+            .into_iter()
+            .map(|s| palette::SymbolItem {
+                name: s.name,
+                container: s.container.unwrap_or_default(),
+                kind: tea_core::outline::Kind::from_lsp(s.kind),
+                visibility: tea_core::outline::Visibility::Unknown,
+                path: s.path,
+                line: s.position.line as usize + 1,
+                column: s.position.character as usize + 1,
+            })
+            .collect::<Vec<_>>();
+        let note = items
+            .is_empty()
+            .then(|| "Nenhum símbolo encontrado (se o projeto ainda está carregando, tente de novo)".to_string());
+        p.set_symbols(items, note);
+        Task::none()
+    }
+
+    /// Escolheu um símbolo na paleta (`index` em `symbols`, ou o selecionado).
+    fn open_chosen_symbol(&mut self, index: Option<usize>) -> Task<Message> {
+        let Some(s) = self.palette.as_ref().and_then(|p| p.chosen_symbol(index)).cloned() else { return Task::none() };
+        self.close_palette();
+        self.remember_spot(&s.path, Some(s.line));
+        self.open_file_at(s.path, s.line, s.column)
     }
 
     /// Pede a estrutura daqui a pouco (cada edição adia; só a última espera vale).
@@ -1022,17 +1187,20 @@ impl App {
         let ext = path.extension().and_then(|e| e.to_str()).unwrap_or_default();
         let symbols = outline::build(symbols, &self.editor().text(), ext);
         let note = symbols.is_empty().then(|| "Nenhum símbolo neste arquivo".to_string());
-        let path = Some(path.to_path_buf());
-        self.broadcast(CoreEvent::Outline { path, symbols: std::sync::Arc::new(symbols), note })
+        self.set_outline(Some(path.to_path_buf()), std::sync::Arc::new(symbols), note)
     }
 
     /// Pediu algo do LSP (definição, referências) num arquivo sem servidor: diz por quê.
     fn no_lsp_note(&mut self) -> Task<Message> {
-        let why = match self.active_path() {
+        let why = self.why_no_lsp();
+        self.notify(why)
+    }
+
+    fn why_no_lsp(&self) -> String {
+        match self.active_path() {
             Some(path) => self.lsp.why_missing(path),
             None => "salve o arquivo para usar o servidor de linguagem".into(),
-        };
-        self.notify(why)
+        }
     }
 
     /// Liga a aba ao servidor de linguagem do arquivo, se houver.
@@ -1141,6 +1309,7 @@ impl App {
                 Task::batch([activity, self.request_outline()])
             }
             E::DocumentSymbols { path, symbols } => self.show_outline(&path, &symbols),
+            E::WorkspaceSymbols { query, symbols } => self.show_project_symbols(&query, symbols),
             E::Exited { server, reason } => {
                 self.lsp.on_exit(&server, &reason);
                 for tab in &mut self.tabs {
@@ -1516,6 +1685,8 @@ impl App {
             "lsp.type_definition" => {
                 if self.editor_mut().request_type_definition() { Task::none() } else { self.no_lsp_note() }
             }
+            "nav.file_symbol" => self.open_file_symbols(),
+            "nav.project_symbol" => self.open_project_symbols(),
             "nav.back" => self.navigate(false),
             "nav.forward" => self.navigate(true),
             "lsp.hover" => {
@@ -2158,8 +2329,9 @@ impl App {
         match msg {
             palette::Msg::Query(q) => {
                 p.set_query(q);
-                Task::none()
+                if p.mode == palette::Mode::ProjectSymbols { self.project_symbols_later() } else { Task::none() }
             }
+            palette::Msg::PickSymbol(i) => self.open_chosen_symbol(Some(i)),
             palette::Msg::Close => {
                 self.close_palette();
                 Task::none()
@@ -2181,6 +2353,7 @@ impl App {
                     self.save_as(&input)
                 }
                 palette::Mode::Files => self.open_chosen_file(None),
+                palette::Mode::FileSymbols | palette::Mode::ProjectSymbols => self.open_chosen_symbol(None),
             },
         }
     }
@@ -2256,15 +2429,14 @@ impl App {
                     p.move_selection(delta, total);
                     return p.scroll_to_selected();
                 }
-                // O atalho do próprio modo fecha; o do outro modo troca (Ctrl+P ⇄ Ctrl+Shift+P).
-                _ if matches!(command.as_deref(), Some("palette.open" | "file.quick_open")) => {
-                    let files = command.as_deref() == Some("file.quick_open");
-                    if files == (p.mode == palette::Mode::Files) {
+                // O atalho do próprio modo fecha; o de outro modo troca (Ctrl+P ⇄ Ctrl+Shift+P ⇄ Ctrl+T...).
+                _ if let Some(mode) = command.as_deref().and_then(palette_mode_of) => {
+                    if mode == p.mode {
                         self.close_palette();
-                    } else if files {
-                        return self.open_quick_open();
                     } else {
-                        return self.open_palette(Palette::commands());
+                        let id = command.unwrap_or_default();
+                        self.close_palette();
+                        return self.run_command(&id);
                     }
                 }
                 _ => {}
@@ -2410,6 +2582,9 @@ impl App {
             }
             Message::CloseRequested => self.request_quit(),
             Message::Nav(forward) => self.navigate(forward),
+            Message::SymbolQueryDue(wait) => {
+                if wait == self.symbol_wait { self.search_project_symbols() } else { Task::none() }
+            }
             Message::OutlineDue(wait) => {
                 if wait == self.outline_wait { self.request_outline() } else { Task::none() }
             }
@@ -2685,6 +2860,28 @@ mod tests {
         assert!(!still_bound("[keys]\n\"ctrl+b\" = \"\"", "", "ctrl+b", "filetree.toggle"));
         // Ligado no global, mexendo no projeto: continua valendo.
         assert!(still_bound("[keys]\n\"ctrl+alt+x\" = \"a.b\"", "", "ctrl+alt+x", "a.b"));
+    }
+
+    #[test]
+    fn outline_becomes_a_flat_list_with_parents() {
+        use tea_core::outline::{Kind, Symbol, Visibility};
+        let s = |name: &str, line, children| Symbol {
+            name: name.into(),
+            kind: Kind::Method,
+            detail: None,
+            visibility: Visibility::Public,
+            line,
+            column: 1,
+            start_line: line,
+            end_line: line,
+            children,
+        };
+        let tree = [s("Conta", 1, vec![s("impl Conta", 2, vec![s("depositar", 3, vec![])])]), s("main", 9, vec![])];
+        let items = symbol_items(Path::new("/p/a.rs"), &tree);
+        let got: Vec<_> = items.iter().map(|i| (i.name.as_str(), i.container.as_str(), i.line)).collect();
+        assert_eq!(got, [("Conta", "", 1), ("impl Conta", "Conta", 2), ("depositar", "Conta › impl Conta", 3), ("main", "", 9)]);
+        assert_eq!(palette_mode_of("nav.project_symbol"), Some(palette::Mode::ProjectSymbols));
+        assert_eq!(palette_mode_of("file.save"), None);
     }
 
     #[test]

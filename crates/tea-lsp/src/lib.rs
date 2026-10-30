@@ -55,6 +55,19 @@ pub struct DocumentSymbol {
     pub children: Vec<DocumentSymbol>,
 }
 
+/// Um símbolo achado no projeto (busca por nome).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct WorkspaceSymbol {
+    pub name: String,
+    /// `SymbolKind` do LSP.
+    pub kind: u32,
+    /// Onde ele está declarado (`Conta`, `crate::banco`...), se o servidor disser.
+    pub container: Option<String>,
+    pub path: PathBuf,
+    /// Posição do nome (ou do começo da declaração), em caracteres.
+    pub position: Position,
+}
+
 /// O que foi procurado numa lista de lugares ([`Event::Locations`]).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Lookup {
@@ -101,6 +114,8 @@ pub enum Event {
     /// implementações, o tipo, ou várias definições. Ordenada por arquivo e posição; vazia se nada.
     Locations { lookup: Lookup, path: PathBuf, position: Position, locations: Vec<Location> },
     Formatting { path: PathBuf, edits: Vec<TextEdit> },
+    /// Símbolos do projeto que combinam com `query` (vazia se o servidor não souber responder).
+    WorkspaceSymbols { query: String, symbols: Vec<WorkspaceSymbol> },
     /// Estrutura do arquivo (vazia se o servidor não souber responder).
     DocumentSymbols { path: PathBuf, symbols: Vec<DocumentSymbol> },
     Progress { server: String, title: String, message: Option<String>, percentage: Option<u32>, done: bool },

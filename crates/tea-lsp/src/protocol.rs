@@ -201,6 +201,28 @@ fn nest(sorted: Vec<DocumentSymbol>) -> Vec<DocumentSymbol> {
     roots
 }
 
+/// Resposta de `workspace/symbol` (`SymbolInformation[]` ou `WorkspaceSymbol[]`):
+/// (nome, kind, container, uri, posição no formato do servidor). `WorkspaceSymbol` sem trecho
+/// (só a uri) aponta para o começo do arquivo.
+pub fn workspace_symbols(result: &Value) -> Vec<(String, u32, Option<String>, String, Position)> {
+    let Some(items) = result.as_array() else { return Vec::new() };
+    items
+        .iter()
+        .filter_map(|i| {
+            let loc = i.get("location")?;
+            let uri = loc.get("uri")?.as_str()?.to_string();
+            let at = loc.get("range").and_then(range).map_or(Position::default(), |r| r.start);
+            Some((
+                i.get("name")?.as_str()?.to_string(),
+                i.get("kind").and_then(Value::as_u64).unwrap_or(0) as u32,
+                i.get("containerName").and_then(Value::as_str).filter(|c| !c.is_empty()).map(str::to_string),
+                uri,
+                at,
+            ))
+        })
+        .collect()
+}
+
 pub fn text_edits(result: &Value) -> Vec<(Range, String)> {
     result
         .as_array()

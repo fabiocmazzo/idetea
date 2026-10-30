@@ -32,6 +32,7 @@ O nome é um trocadilho com *Iced Tea*: a IDE é feita com o iced.
 
 ### Editor
 - Abrir arquivo pelo nome (`Ctrl+P`) com busca aproximada; `main.rs:42` abre direto na linha.
+- Ir para um símbolo (função, tipo, método…) do arquivo (`Ctrl+Shift+O`) ou do projeto (`Ctrl+T`).
 - Várias abas, indicador de alteração, abrir (`Ctrl+O`), salvar e salvar como, com a janela de arquivos do sistema.
 - Syntax highlight para dezenas de linguagens, temas claro e escuro (e os temas do iced: Nord, Dracula...).
 - Buscar e substituir, ir para linha, desfazer/refazer, multi-cursor, dobrar código e modo vim opcional.

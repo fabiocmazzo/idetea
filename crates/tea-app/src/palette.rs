@@ -1,13 +1,15 @@
 //! Command palette: lista todos os comandos (núcleo + extensões) com busca aproximada.
-//! Também abre arquivo pelo nome (`Ctrl+P`) e serve de campo de texto para "Salvar como".
+//! Também abre arquivo pelo nome (`Ctrl+P`), vai para um símbolo do arquivo (`Ctrl+Shift+O`) ou do
+//! projeto (`Ctrl+T`) e serve de campo de texto para "Salvar como".
 
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 
 use iced::widget::{Id, button, column, container, row, scrollable, space, text, text_input};
 use iced::{Element, Fill, Length, Theme};
 use tea_core::icons::{Icon, icon};
 use tea_core::keymap::Keymap;
+use tea_core::outline::{Kind, Visibility, visibility_badge};
 
 pub const MAX_ROWS: usize = 12;
 
@@ -39,7 +41,28 @@ pub enum Mode {
     SaveAs,
     /// Abre um arquivo do projeto pelo nome.
     Files,
+    /// Vai para um símbolo do arquivo ativo (a lista vem inteira; a busca é aqui).
+    FileSymbols,
+    /// Vai para um símbolo do projeto (o servidor de linguagem busca a cada mudança no texto).
+    ProjectSymbols,
 }
+
+/// Um símbolo na lista da paleta.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SymbolItem {
+    pub name: String,
+    /// Onde ele está: `Conta › impl Conta` no arquivo, `Conta` ou o módulo no projeto.
+    pub container: String,
+    pub kind: Kind,
+    pub visibility: Visibility,
+    pub path: PathBuf,
+    /// Começam em 1.
+    pub line: usize,
+    pub column: usize,
+}
+
+/// Quantos símbolos a lista mostra.
+const MAX_SYMBOL_RESULTS: usize = 300;
 
 #[derive(Debug, Clone)]
 pub enum Msg {
@@ -48,6 +71,8 @@ pub enum Msg {
     Pick(usize),
     /// Clique num arquivo (índice na lista de arquivos).
     PickFile(usize),
+    /// Clique num símbolo (índice em `symbols`).
+    PickSymbol(usize),
     Close,
 }
 
@@ -61,13 +86,30 @@ pub struct Palette {
     recent: Vec<String>,
     /// Modo `Files`: a lista ainda está sendo lida do disco.
     pub loading: bool,
-    /// Modo `Files`: índices em `files` que combinam, do melhor para o pior.
+    /// Modos `Files` e de símbolos: índices em `files`/`symbols` que combinam, do melhor para o pior.
     pub found: Vec<usize>,
+    /// Modos de símbolos: a lista (do arquivo inteiro, ou a última resposta do servidor).
+    pub symbols: Vec<SymbolItem>,
+    /// Modos de símbolos: explica a lista vazia (sem servidor, buscando, nada achado...).
+    pub note: Option<String>,
+    /// Modo `ProjectSymbols`: para mostrar o caminho relativo.
+    root: PathBuf,
 }
 
 impl Palette {
     fn new(mode: Mode, query: String) -> Self {
-        Self { mode, query, selected: 0, files: Arc::default(), recent: Vec::new(), loading: false, found: Vec::new() }
+        Self {
+            mode,
+            query,
+            selected: 0,
+            files: Arc::default(),
+            recent: Vec::new(),
+            loading: false,
+            found: Vec::new(),
+            symbols: Vec::new(),
+            note: None,
+            root: PathBuf::new(),
+        }
     }
 
     pub fn commands() -> Self {
@@ -83,6 +125,27 @@ impl Palette {
         let mut p = Self { files, recent, loading, ..Self::new(Mode::Files, String::new()) };
         p.found = match_files(&p.query, &p.files, &p.recent);
         p
+    }
+
+    /// Símbolos do arquivo (`project = false`) ou do projeto, com a lista que já houver.
+    pub fn symbols(project: bool, root: &Path, symbols: Vec<SymbolItem>, note: Option<String>) -> Self {
+        let mode = if project { Mode::ProjectSymbols } else { Mode::FileSymbols };
+        let mut p = Self { root: root.to_path_buf(), ..Self::new(mode, String::new()) };
+        p.set_symbols(symbols, note);
+        p
+    }
+
+    pub fn set_symbols(&mut self, symbols: Vec<SymbolItem>, note: Option<String>) {
+        self.symbols = symbols;
+        self.note = note;
+        self.found = match_symbols(&self.query, &self.symbols);
+        self.selected = self.selected.min(self.found.len().saturating_sub(1));
+    }
+
+    /// O símbolo escolhido (`index` em `symbols`) ou o selecionado.
+    pub fn chosen_symbol(&self, index: Option<usize>) -> Option<&SymbolItem> {
+        let i = index.or_else(|| self.found.get(self.selected).copied())?;
+        self.symbols.get(i)
     }
 
     pub fn set_files(&mut self, files: Arc<Vec<String>>) {
@@ -102,8 +165,10 @@ impl Palette {
         }
         self.query = query;
         self.selected = 0;
-        if self.mode == Mode::Files {
-            self.found = match_files(&self.query, &self.files, &self.recent);
+        match self.mode {
+            Mode::Files => self.found = match_files(&self.query, &self.files, &self.recent),
+            Mode::FileSymbols | Mode::ProjectSymbols => self.found = match_symbols(&self.query, &self.symbols),
+            Mode::Commands | Mode::SaveAs => {}
         }
     }
 
@@ -111,7 +176,7 @@ impl Palette {
     pub fn total(&self, commands: &[CommandInfo]) -> usize {
         match self.mode {
             Mode::Commands => self.matches(commands).len(),
-            Mode::Files => self.found.len(),
+            Mode::Files | Mode::FileSymbols | Mode::ProjectSymbols => self.found.len(),
             Mode::SaveAs => 0,
         }
     }
@@ -159,6 +224,8 @@ impl Palette {
             Mode::Commands => "Digite um comando…",
             Mode::SaveAs => "Caminho do arquivo (relativo à raiz do projeto)",
             Mode::Files => "Nome do arquivo (arquivo:linha vai para a linha, > para comandos)",
+            Mode::FileSymbols => "Função, tipo, método… deste arquivo",
+            Mode::ProjectSymbols => "Função, tipo, método… do projeto",
         };
         let input = text_input(placeholder, &self.query)
             .id(input_id())
@@ -228,6 +295,50 @@ impl Palette {
                         .height(ROW_HEIGHT)
                         .padding([4, 8])
                         .on_press(Msg::PickFile(i))
+                        .style(style),
+                    );
+                }
+                let rows = self.found.len().min(MAX_ROWS) as f32;
+                body = body.push(scrollable(list).id(list_id()).height(Length::Fixed(rows * ROW_HEIGHT)));
+            }
+            Mode::FileSymbols | Mode::ProjectSymbols => {
+                if self.found.is_empty() {
+                    let msg = match &self.note {
+                        Some(n) => n.as_str(),
+                        None if self.symbols.is_empty() => "Nenhum símbolo",
+                        None => "Nenhum símbolo combina com a busca",
+                    };
+                    body = body.push(text(msg).size(13).style(text::secondary));
+                }
+                let project = self.mode == Mode::ProjectSymbols;
+                let mut list = column![];
+                for (pos, &i) in self.found.iter().enumerate() {
+                    let s = &self.symbols[i];
+                    let (kind_icon, color) = s.kind.icon();
+                    let place = if project {
+                        let rel = s.path.strip_prefix(&self.root).unwrap_or(&s.path);
+                        format!("{}:{}", rel.display(), s.line)
+                    } else {
+                        format!(":{}", s.line)
+                    };
+                    let style = if pos == self.selected { button::primary } else { button::text };
+                    list = list.push(
+                        button(
+                            row![
+                                icon(kind_icon).size(14).color_maybe(color),
+                                visibility_badge(&s.visibility),
+                                text(&s.name).size(14),
+                                text(&s.container).size(12).style(text::secondary),
+                                space::horizontal(),
+                                text(place).size(12).style(text::secondary),
+                            ]
+                            .spacing(6)
+                            .align_y(iced::Center),
+                        )
+                        .width(Fill)
+                        .height(ROW_HEIGHT)
+                        .padding([4, 8])
+                        .on_press(Msg::PickSymbol(i))
                         .style(style),
                     );
                 }
@@ -323,6 +434,27 @@ fn match_files(query: &str, files: &[String], recent: &[String]) -> Vec<usize> {
         .collect();
     scored.sort_by(|a, b| b.0.cmp(&a.0).then_with(|| files[a.1].len().cmp(&files[b.1].len())).then(a.1.cmp(&b.1)));
     scored.truncate(MAX_FILE_RESULTS);
+    scored.into_iter().map(|(_, i)| i).collect()
+}
+
+/// Símbolos que combinam com a busca: sem busca, todos na ordem que vieram (a do arquivo); com
+/// busca, pelo nome (o lugar vale um pouco), do melhor para o pior.
+fn match_symbols(query: &str, symbols: &[SymbolItem]) -> Vec<usize> {
+    let q = query_chars(query);
+    if q.is_empty() {
+        return (0..symbols.len().min(MAX_SYMBOL_RESULTS)).collect();
+    }
+    let mut scored: Vec<(i32, usize)> = symbols
+        .iter()
+        .enumerate()
+        .filter_map(|(i, s)| {
+            let by_name = fuzzy_score_chars(&q, &s.name).map(|v| v + 20);
+            let by_container = fuzzy_score_chars(&q, &format!("{} {}", s.container, s.name));
+            by_name.max(by_container).map(|v| (v, i))
+        })
+        .collect();
+    scored.sort_by(|a, b| b.0.cmp(&a.0).then(a.1.cmp(&b.1)));
+    scored.truncate(MAX_SYMBOL_RESULTS);
     scored.into_iter().map(|(_, i)| i).collect()
 }
 
@@ -468,6 +600,31 @@ mod tests {
         #[cfg(not(debug_assertions))]
         assert!(took < std::time::Duration::from_millis(150), "{took:?}");
         let _ = took;
+    }
+
+    fn item(name: &str, container: &str, line: usize) -> SymbolItem {
+        SymbolItem {
+            name: name.into(),
+            container: container.into(),
+            kind: Kind::Function,
+            visibility: Visibility::Unknown,
+            path: "/p/a.rs".into(),
+            line,
+            column: 1,
+        }
+    }
+
+    #[test]
+    fn symbols_keep_file_order_without_query_and_rank_by_name() {
+        let items = vec![item("main", "", 1), item("depositar", "Conta", 5), item("validar", "Conta", 9)];
+        let mut p = Palette::symbols(false, Path::new("/p"), items, None);
+        assert_eq!(p.found, [0, 1, 2], "sem busca: ordem do arquivo");
+        p.set_query("dep".into());
+        assert_eq!(p.chosen_symbol(None).map(|s| s.line), Some(5));
+        p.set_query("conta val".into());
+        assert_eq!(p.found.first(), Some(&2), "o lugar também conta");
+        p.set_query("xyz".into());
+        assert!(p.found.is_empty());
     }
 
     #[test]

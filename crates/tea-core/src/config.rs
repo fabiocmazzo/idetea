@@ -62,6 +62,8 @@ outline = { enabled = true, slot = "right" }
 "ctrl+shift+s" = "file.save_as"
 "ctrl+o" = "file.open"
 "ctrl+p" = "file.quick_open"
+"ctrl+shift+o" = "nav.file_symbol"
+"ctrl+t" = "nav.project_symbol"
 "ctrl+n" = "file.new"
 "ctrl+w" = "file.close"
 "ctrl+pagedown" = "tab.next"

@@ -75,6 +75,11 @@ impl LspManager {
         }
     }
 
+    /// Um servidor rodando, qualquer um (para buscas no projeto quando a aba ativa não tem servidor).
+    pub fn any_running(&self) -> Option<Client> {
+        self.clients.values().find(|c| c.is_alive()).cloned()
+    }
+
     /// Por que um arquivo está sem servidor de linguagem (para avisar quando o usuário pede algo dele).
     pub fn why_missing(&self, path: &Path) -> String {
         if !self.enabled {

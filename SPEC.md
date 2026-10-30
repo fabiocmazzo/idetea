@@ -448,6 +448,22 @@ Ordem: (1) voltar/avançar + referências → (2) várias definições, implemen
   - [x] Teste manual (aprovado): num trait com dois `impl`, `Ctrl+F12` lista os dois no painel; num tipo com um `impl` só,
     salta direto; "ir para o tipo" numa variável vai para a struct; `Alt+←` volta.
 
+- [x] **Item 3 — símbolos na paleta:**
+  - `Ctrl+Shift+O` (`nav.file_symbol`): a estrutura do arquivo ativo (a mesma do painel Estrutura, guardada no app;
+    se for de outro arquivo, pede e mostra "Lendo a estrutura…") como lista plana com o caminho dos pais
+    (`Conta › impl Conta`), ícone de tipo e de visibilidade. Sem busca, na ordem do arquivo; com busca, pelo nome
+    (o lugar vale um pouco).
+  - `Ctrl+T` (`nav.project_symbol`): `workspace/symbol` no servidor da aba ativa (ou em qualquer um rodando),
+    150 ms depois da última tecla; resposta de busca velha é ignorada. Mostra o caminho relativo e a linha.
+    Conferido com o rust-analyzer: traz funções e métodos, não só tipos (com o `container`, ex.: `Quadrado`);
+    enquanto o projeto carrega volta vazio, e a paleta diz para tentar de novo.
+  - Escolher salta com histórico (`Alt+←` volta). Com a paleta aberta, o atalho do próprio modo fecha e o de outro
+    modo troca (vale para `Ctrl+P`, `Ctrl+Shift+P`, `Ctrl+Shift+O` e `Ctrl+T`).
+  - Ícones de tipo e de visibilidade foram para o `tea-core` (`Kind::icon`, `visibility_badge`), usados pela paleta
+    e pelo painel Estrutura.
+  - [x] Teste manual (aprovado): `Ctrl+Shift+O` num arquivo Rust lista os símbolos e filtra; Enter vai até ele; `Ctrl+T` e
+    digitar o nome de uma função de outro arquivo acha e abre; `Alt+←` volta.
+
 - [x] **Painel Estrutura** (pedido à parte, inspirado no IntelliJ; adianta o item 3):
   - `tea-lsp`: `document_symbols(path)` (`textDocument/documentSymbol`), em árvore; o formato antigo (lista simples
     `SymbolInformation`) é aninhado pelo trecho de cada um. Erro do servidor vira lista vazia (o painel não fica
