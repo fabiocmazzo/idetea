@@ -432,6 +432,26 @@ Ordem: (1) voltar/avançar + referências → (2) várias definições, implemen
   - [x] Teste manual (aprovado): Ctrl+clique num uso vai para a declaração e `Alt+←` volta; Ctrl+clique na declaração (ou
     `Shift+F12`) abre o painel com os usos; clicar num uso vai até ele; `Alt+→` avança de novo.
 
+- [x] **Painel Estrutura** (pedido à parte, inspirado no IntelliJ; adianta o item 3):
+  - `tea-lsp`: `document_symbols(path)` (`textDocument/documentSymbol`), em árvore; o formato antigo (lista simples
+    `SymbolInformation`) é aninhado pelo trecho de cada um. Erro do servidor vira lista vazia (o painel não fica
+    esperando). Teste com o clangd.
+  - O LSP não informa visibilidade (conferido com o rust-analyzer: `pub`, privado e `pub(crate)` chegam iguais).
+    `tea-app/src/outline.rs` olha o texto antes do nome, na linha dele (só a declaração dele, depois do último
+    `{`/`,`/`;`), mais a regra de cada linguagem sem palavra: Rust (`pub`, `pub(...)`; variantes e itens de trait
+    herdam; métodos de `impl Trait for` são públicos), Java (sem nada = pacote), C# (membro privado, tipo
+    internal), Kotlin/PHP (público), Swift (internal), TS/JS (`#nome` e `private` privados; no topo, só `export`
+    sai do arquivo), Go (maiúscula = público, senão pacote), Python (`_` privado, `__x__` público), C/C++ (último
+    `public:`/`private:`/`protected:` no nível da classe; class privada e struct pública sem rótulo; `static` fora
+    de classe = só neste arquivo). Locais (dentro de funções) e linguagens sem regra ficam sem ícone.
+  - Quando pede: ao trocar de aba, ao salvar como, quando o servidor fica pronto ou para, e 400 ms depois da última
+    edição (o editor conta as edições enviadas ao servidor; `Editor::text_revision`).
+  - Painel (extensão `tea-ext-outline`, lateral direita, `Alt+7` como no IntelliJ): árvore com ícone e cor por tipo,
+    cadeado aberto (público), fechado (privado) ou chave (restrito, com o detalhe no tooltip), assinatura em cinza,
+    símbolo do cursor destacado, abrir/fechar nós (lembrado por arquivo) e "recolher/expandir tudo".
+  - [x] Teste manual (aprovado): abrir um arquivo Rust e `Alt+7`; ver público/privado/`pub(crate)`; mover o cursor muda o
+    destaque; editar (criar uma função) atualiza a lista; clique leva ao símbolo.
+
 ### Fase 4 — Plugins externos
 - [ ] Host WASM (`wasmtime`) + WIT versionado.
 - [ ] Protocolo de UI declarativa para painéis de plugins.

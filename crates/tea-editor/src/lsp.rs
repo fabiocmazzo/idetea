@@ -16,6 +16,8 @@ pub const HOVER_DELAY: Duration = Duration::from_millis(450);
 pub struct Bridge {
     pub client: Client,
     pub path: PathBuf,
+    /// Conta as edições enviadas ao servidor (ver `Editor::text_revision`).
+    pub revision: std::sync::Arc<std::sync::atomic::AtomicU64>,
 }
 
 fn pos(p: LspPosition) -> Position {
@@ -41,6 +43,7 @@ impl LspClient for Bridge {
     fn did_change(&mut self, document: &LspDocument, changes: &[LspTextChange]) {
         let changes: Vec<(Range, String)> = changes.iter().map(|c| (range(c.range), c.text.clone())).collect();
         self.client.did_change(&self.path, document.version, &changes);
+        self.revision.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
     }
 
     fn did_save(&mut self, _document: &LspDocument, text: &str) {

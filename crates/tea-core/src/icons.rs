@@ -62,6 +62,23 @@ pub enum Icon {
     DebugStackFrame,
     DebugStackFrameActive,
     References,
+    ListTree,
+    Lock,
+    Unlock,
+    Key,
+    SymbolNamespace,
+    SymbolClass,
+    SymbolStructure,
+    SymbolInterface,
+    SymbolEnum,
+    SymbolEnumMember,
+    SymbolMethod,
+    SymbolField,
+    SymbolProperty,
+    SymbolVariable,
+    SymbolConstant,
+    SymbolParameter,
+    SymbolMisc,
 }
 
 impl Icon {
@@ -109,6 +126,23 @@ impl Icon {
             Icon::DebugStackFrame => 0xEB8B,
             Icon::DebugStackFrameActive => 0xEB89,
             Icon::References => 0xEB36,
+            Icon::ListTree => 0xEB86,
+            Icon::Lock => 0xEA75,
+            Icon::Unlock => 0xEB74,
+            Icon::Key => 0xEB11,
+            Icon::SymbolNamespace => 0xEA8B,
+            Icon::SymbolClass => 0xEB5B,
+            Icon::SymbolStructure => 0xEA91,
+            Icon::SymbolInterface => 0xEB61,
+            Icon::SymbolEnum => 0xEA95,
+            Icon::SymbolEnumMember => 0xEB5E,
+            Icon::SymbolMethod => 0xEA8C,
+            Icon::SymbolField => 0xEB5F,
+            Icon::SymbolProperty => 0xEB65,
+            Icon::SymbolVariable => 0xEA88,
+            Icon::SymbolConstant => 0xEB5D,
+            Icon::SymbolParameter => 0xEA92,
+            Icon::SymbolMisc => 0xEB63,
         };
         char::from_u32(code).unwrap_or('?')
     }
@@ -145,6 +179,14 @@ fn icon_button_style(theme: &Theme, status: button::Status) -> button::Style {
         }
         button::Status::Disabled => button::Style { text_color: p.background.base.text.scale_alpha(0.3), ..base },
     }
+}
+
+/// Mostra `tip` ao parar o mouse sobre `content` (mesmo estilo dos botões de ícone).
+pub fn with_tip<'a, M: 'a>(content: impl Into<Element<'a, M>>, tip: impl Into<String>) -> Element<'a, M> {
+    tooltip(content, container(text(tip.into()).size(12)).padding([3, 8]).style(tooltip_style), tooltip::Position::Bottom)
+        .gap(4)
+        .delay(TOOLTIP_DELAY)
+        .into()
 }
 
 fn tooltip_style(theme: &Theme) -> container::Style {

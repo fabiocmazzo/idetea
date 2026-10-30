@@ -3824,6 +3824,7 @@ dependencies = [
  "tea-ext-debug",
  "tea-ext-filetree",
  "tea-ext-git",
+ "tea-ext-outline",
  "tea-ext-problems",
  "tea-ext-references",
  "tea-ext-search",
@@ -3886,6 +3887,14 @@ dependencies = [
  "libc",
  "tea-core",
  "trash",
+]
+
+[[package]]
+name = "tea-ext-outline"
+version = "0.0.1"
+dependencies = [
+ "iced",
+ "tea-core",
 ]
 
 [[package]]

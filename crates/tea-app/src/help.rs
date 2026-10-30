@@ -151,6 +151,9 @@ const GUIDE: &[(&str, &[&str])] = &[
              Referências; clique leva ao uso.",
             "Voltar e avançar depois de um salto (definição, referência, Ctrl+P, cliques nos painéis): \
              {nav.back} e {nav.forward}, ou os botões laterais do mouse.",
+            "Estrutura do arquivo ({outline.toggle}): funções, structs, métodos e campos em árvore. O cadeado \
+             aberto é público, o fechado é privado e a chave é visível só em parte (pub(crate), protected, \
+             pacote). O símbolo onde o cursor está fica destacado; clique leva até ele.",
             "Se um servidor falhar, a barra de status mostra o motivo; \"LSP: reiniciar servidores\" tenta de novo.",
         ],
     ),
@@ -414,6 +417,7 @@ mod tests {
             "git.pull",
             "git.push",
             "references.focus",
+            "outline.toggle",
             "debug.focus",
         ];
         for (_, paragraphs) in GUIDE {

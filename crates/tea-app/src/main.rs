@@ -12,6 +12,7 @@ mod help;
 mod overlay;
 mod lsp;
 mod nav;
+mod outline;
 mod palette;
 mod picker;
 mod settings;
@@ -99,6 +100,8 @@ fn builtin_extensions() -> Vec<Box<dyn AnyExtension>> {
     list.push(Box::new(tea_ext_debug::DebugExtension::new()));
     #[cfg(feature = "ext-references")]
     list.push(Box::new(tea_ext_references::ReferencesExtension::new()));
+    #[cfg(feature = "ext-outline")]
+    list.push(Box::new(tea_ext_outline::OutlineExtension::new()));
     list
 }
 
@@ -227,6 +230,10 @@ struct App {
     debug: debug::Debugger,
     /// De onde se saltou (definição, referência, Ctrl+P...): `Alt+←` volta, `Alt+→` avança.
     nav: nav::History,
+    /// Estrutura: aba e revisão do texto do último pedido, e o número da espera em curso
+    /// (só a última espera depois de digitar vale).
+    outline_seen: (u64, u64),
+    outline_wait: u64,
     /// Quando a própria IDE salvou cada arquivo: o aviso de "mudou no disco" desse save não conta.
     own_saves: std::collections::HashMap<PathBuf, Instant>,
     /// Última lista de arquivos do projeto (para `Ctrl+P` abrir na hora; é relida a cada abertura).
@@ -286,6 +293,8 @@ enum Message {
     Frame(Instant),
     PointerOverPanel(bool),
     MousePressed,
+    /// Passou a espera depois de digitar: pede a estrutura de novo (se for a última espera).
+    OutlineDue(u64),
     /// Botões voltar/avançar do mouse (`true` = avançar).
     Nav(bool),
     CloseRequested,
@@ -349,6 +358,8 @@ impl App {
             window_size: None,
             last_status: EditorStatus::default(),
             nav: nav::History::default(),
+            outline_seen: (u64::MAX, 0),
+            outline_wait: 0,
             config,
         };
         app.push_tab(Editor::scratch(""));
@@ -946,6 +957,45 @@ impl App {
         shown
     }
 
+    // ---- Estrutura ---------------------------------------------------------
+
+    /// Pede a estrutura do arquivo ativo. Sem servidor, manda a lista vazia com o motivo.
+    fn request_outline(&mut self) -> Task<Message> {
+        let tab = &mut self.tabs[self.active];
+        self.outline_seen = (tab.id, tab.editor.text_revision());
+        let note = match tab.editor.path().map(Path::to_path_buf) {
+            None => "Salve o arquivo para ver a estrutura".to_string(),
+            Some(_) if tab.editor.request_document_symbols() => return Task::none(),
+            Some(path) => self.lsp.why_missing(&path),
+        };
+        let path = self.active_path().map(Path::to_path_buf);
+        self.broadcast(CoreEvent::Outline { path, symbols: Default::default(), note: Some(note) })
+    }
+
+    /// Pede a estrutura daqui a pouco (cada edição adia; só a última espera vale).
+    fn outline_later(&mut self) -> Task<Message> {
+        self.outline_wait += 1;
+        let wait = self.outline_wait;
+        let (tx, rx) = iced::futures::channel::oneshot::channel();
+        std::thread::spawn(move || {
+            std::thread::sleep(Duration::from_millis(400));
+            let _ = tx.send(wait);
+        });
+        Task::future(async move { rx.await.ok() }).and_then(|wait| Task::done(Message::OutlineDue(wait)))
+    }
+
+    fn show_outline(&mut self, path: &Path, symbols: &[tea_lsp::DocumentSymbol]) -> Task<Message> {
+        // Resposta atrasada de um arquivo que não está mais ativo.
+        if self.active_path() != Some(path) {
+            return Task::none();
+        }
+        let ext = path.extension().and_then(|e| e.to_str()).unwrap_or_default();
+        let symbols = outline::build(symbols, &self.editor().text(), ext);
+        let note = symbols.is_empty().then(|| "Nenhum símbolo neste arquivo".to_string());
+        let path = Some(path.to_path_buf());
+        self.broadcast(CoreEvent::Outline { path, symbols: std::sync::Arc::new(symbols), note })
+    }
+
     /// Pediu algo do LSP (definição, referências) num arquivo sem servidor: diz por quê.
     fn no_lsp_note(&mut self) -> Task<Message> {
         let why = match self.active_path() {
@@ -1056,7 +1106,11 @@ impl App {
                 }
                 Task::none()
             }
-            E::Ready { server } => self.broadcast(CoreEvent::Activity { source: server, text: None }),
+            E::Ready { server } => {
+                let activity = self.broadcast(CoreEvent::Activity { source: server, text: None });
+                Task::batch([activity, self.request_outline()])
+            }
+            E::DocumentSymbols { path, symbols } => self.show_outline(&path, &symbols),
             E::Exited { server, reason } => {
                 self.lsp.on_exit(&server, &reason);
                 for tab in &mut self.tabs {
@@ -1065,9 +1119,10 @@ impl App {
                     }
                 }
                 let activity = self.broadcast(CoreEvent::Activity { source: server.clone(), text: None });
+                let outline = self.request_outline();
                 let reason = lsp::with_hint(&server, &reason);
                 let note = self.notify(format!("{server} parou — {reason}. Use \"LSP: reiniciar servidores\"."));
-                Task::batch([activity, note])
+                Task::batch([activity, outline, note])
             }
         }
     }
@@ -1079,7 +1134,7 @@ impl App {
         }
         let path = self.active_path().map(Path::to_path_buf);
         let changed = self.broadcast(CoreEvent::ActiveFileChanged(path));
-        Task::batch([changed, self.emit_status(false)])
+        Task::batch([changed, self.emit_status(false), self.request_outline()])
     }
 
     fn close_tab(&mut self, id: u64, force: bool) -> Task<Message> {
@@ -1180,7 +1235,8 @@ impl App {
         let lsp = if ok { self.ensure_lsp(self.active) } else { Task::none() };
         let saved = Task::batch([self.after_save(result), lsp]);
         let changed = if ok { self.broadcast(CoreEvent::ActiveFileChanged(Some(path))) } else { Task::none() };
-        Task::batch([saved, changed])
+        let outline = if ok { self.request_outline() } else { Task::none() };
+        Task::batch([saved, changed, outline])
     }
 
     fn after_save(&mut self, result: std::io::Result<()>) -> Task<Message> {
@@ -2204,7 +2260,18 @@ impl App {
                 if toggled {
                     self.sync_breakpoints(i);
                 }
-                if i == self.active { Task::batch([task, self.emit_status(false)]) } else { task }
+                if i != self.active {
+                    return task;
+                }
+                // O texto mudou: a estrutura é pedida de novo quando parar de digitar.
+                let seen = (id, self.tabs[i].editor.text_revision());
+                let outline = if seen != self.outline_seen {
+                    self.outline_seen = seen;
+                    self.outline_later()
+                } else {
+                    Task::none()
+                };
+                Task::batch([task, self.emit_status(false), outline])
             }
             // O foco do editor sai por clique no painel (`MousePressed`) ou por comando,
             // não aqui: painéis também mandam mensagens sozinhos (ex.: terminal ao mudar de tamanho).
@@ -2303,6 +2370,9 @@ impl App {
             }
             Message::CloseRequested => self.request_quit(),
             Message::Nav(forward) => self.navigate(forward),
+            Message::OutlineDue(wait) => {
+                if wait == self.outline_wait { self.request_outline() } else { Task::none() }
+            }
             Message::Lsp(event) => self.handle_lsp(event),
         }
     }
@@ -2594,7 +2664,7 @@ mod tests {
         ids.dedup();
         assert_eq!(ids.len(), CORE_COMMANDS.len(), "ids repetidos");
 
-        let ext_commands = ["filetree.toggle", "filetree.reveal", "search.focus", "problems.focus", "problems.next", "terminal.focus", "git.focus"];
+        let ext_commands = ["filetree.toggle", "filetree.reveal", "search.focus", "problems.focus", "problems.next", "terminal.focus", "git.focus", "outline.toggle"];
         let cfg = Config::from_layers(&[("padrão".into(), config::DEFAULT_CONFIG.into())]);
         for (chord, cmd) in &cfg.keys {
             assert!(ids.contains(&cmd.as_str()) || ext_commands.contains(&cmd.as_str()), "{chord} -> {cmd}");

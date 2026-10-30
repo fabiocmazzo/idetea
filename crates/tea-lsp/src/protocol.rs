@@ -4,7 +4,7 @@
 use serde_json::Value;
 
 use crate::text::{Position, Range};
-use crate::{CompletionItem, Severity};
+use crate::{CompletionItem, DocumentSymbol, Severity};
 
 pub fn position(v: &Value) -> Option<Position> {
     Some(Position::new(v.get("line")?.as_u64()? as u32, v.get("character")?.as_u64()? as u32))
@@ -149,6 +149,62 @@ pub fn locations(result: &Value) -> Vec<(String, Range)> {
         .collect()
 }
 
+/// Resposta de `textDocument/documentSymbol`: em árvore (`DocumentSymbol[]`) ou no formato antigo,
+/// lista simples (`SymbolInformation[]`), que é aninhada aqui pelo trecho que cada um ocupa.
+/// Posições ainda no formato do servidor.
+pub fn document_symbols(result: &Value) -> Vec<DocumentSymbol> {
+    let Some(items) = result.as_array() else { return Vec::new() };
+    if items.iter().any(|i| i.get("location").is_some()) {
+        let mut flat: Vec<DocumentSymbol> = items
+            .iter()
+            .filter_map(|i| {
+                let r = range(i.get("location")?.get("range")?)?;
+                Some(DocumentSymbol {
+                    name: i.get("name")?.as_str()?.to_string(),
+                    kind: i.get("kind").and_then(Value::as_u64).unwrap_or(0) as u32,
+                    detail: None,
+                    range: r,
+                    selection: r,
+                    children: Vec::new(),
+                })
+            })
+            .collect();
+        flat.sort_by_key(|s| (s.range.start, std::cmp::Reverse(s.range.end)));
+        return nest(flat);
+    }
+    items.iter().filter_map(tree_symbol).collect()
+}
+
+fn tree_symbol(v: &Value) -> Option<DocumentSymbol> {
+    let r = range(v.get("range")?)?;
+    Some(DocumentSymbol {
+        name: v.get("name")?.as_str()?.to_string(),
+        kind: v.get("kind").and_then(Value::as_u64).unwrap_or(0) as u32,
+        detail: v.get("detail").and_then(Value::as_str).filter(|d| !d.is_empty()).map(str::to_string),
+        range: r,
+        selection: v.get("selectionRange").and_then(range).unwrap_or(r),
+        children: v.get("children").and_then(Value::as_array).map(|c| c.iter().filter_map(tree_symbol).collect()).unwrap_or_default(),
+    })
+}
+
+/// Aninha uma lista ordenada pelo começo (e, no empate, o maior antes): cada um vira filho
+/// do último que o contém.
+fn nest(sorted: Vec<DocumentSymbol>) -> Vec<DocumentSymbol> {
+    fn insert(list: &mut Vec<DocumentSymbol>, s: DocumentSymbol) {
+        match list.last_mut() {
+            Some(last) if last.range.start <= s.range.start && s.range.end <= last.range.end => {
+                insert(&mut last.children, s)
+            }
+            _ => list.push(s),
+        }
+    }
+    let mut roots = Vec::new();
+    for s in sorted {
+        insert(&mut roots, s);
+    }
+    roots
+}
+
 pub fn text_edits(result: &Value) -> Vec<(Range, String)> {
     result
         .as_array()
@@ -264,4 +320,27 @@ mod tests {
         assert_eq!(d[1].severity, Severity::Warning);
         assert_eq!(d[1].code.as_deref(), Some("42"));
     }
+
+    #[test]
+    fn document_symbols_tree_and_flat() {
+        let r = |a: u32, b: u32| json!({"start": {"line": a, "character": 0}, "end": {"line": b, "character": 1}});
+        let tree = json!([{ "name": "Conta", "kind": 23, "range": r(0, 5), "selectionRange": r(0, 0),
+            "children": [{ "name": "depositar", "kind": 6, "detail": "fn(&mut self)", "range": r(2, 2), "selectionRange": r(2, 2) }] }]);
+        let s = document_symbols(&tree);
+        assert_eq!((s[0].name.as_str(), s[0].children[0].detail.as_deref()), ("Conta", Some("fn(&mut self)")));
+
+        // Formato antigo: lista simples, aninhada pelo trecho.
+        let loc = |a, b| json!({"uri": "file:///a", "range": r(a, b)});
+        let flat = json!([
+            { "name": "b", "kind": 6, "location": loc(2, 3) },
+            { "name": "A", "kind": 5, "location": loc(0, 9) },
+            { "name": "c", "kind": 6, "location": loc(5, 6) },
+            { "name": "solta", "kind": 12, "location": loc(10, 12) },
+        ]);
+        let s = document_symbols(&flat);
+        let names: Vec<_> = s.iter().map(|x| (x.name.as_str(), x.children.len())).collect();
+        assert_eq!(names, [("A", 2), ("solta", 0)]);
+        assert!(document_symbols(&Value::Null).is_empty());
+    }
+
 }

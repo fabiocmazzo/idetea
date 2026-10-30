@@ -40,6 +40,21 @@ pub struct CompletionItem {
     pub detail: Option<String>,
 }
 
+/// Um símbolo de um arquivo (função, struct, método...), com os de dentro em `children`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DocumentSymbol {
+    pub name: String,
+    /// `SymbolKind` do LSP (6 = método, 12 = função, 23 = struct...).
+    pub kind: u32,
+    /// Ex.: a assinatura (`fn(&self) -> bool`).
+    pub detail: Option<String>,
+    /// Do começo da declaração (atributos, comentário) até o fim do corpo.
+    pub range: Range,
+    /// Só o nome.
+    pub selection: Range,
+    pub children: Vec<DocumentSymbol>,
+}
+
 /// Um trecho de um arquivo (posições em caracteres).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Location {
@@ -75,6 +90,8 @@ pub enum Event {
     /// Onde o símbolo em `path`/`position` é usado (inclui a declaração). Vazio se nada.
     References { path: PathBuf, position: Position, locations: Vec<Location> },
     Formatting { path: PathBuf, edits: Vec<TextEdit> },
+    /// Estrutura do arquivo (vazia se o servidor não souber responder).
+    DocumentSymbols { path: PathBuf, symbols: Vec<DocumentSymbol> },
     Progress { server: String, title: String, message: Option<String>, percentage: Option<u32>, done: bool },
     Message { server: String, level: MessageLevel, text: String },
     Log { server: String, text: String },

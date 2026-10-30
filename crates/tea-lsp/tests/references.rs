@@ -56,6 +56,14 @@ fn clangd_references_and_at_definition() {
     let e = wait(&|e| matches!(e, Event::AtDefinition { .. } | Event::Definition { .. }));
     assert!(matches!(e, Event::Definition { position, .. } if position.line == 0), "{e:?}");
 
+    // Estrutura do arquivo, com as posições do nome.
+    client.document_symbols(&file);
+    let Event::DocumentSymbols { symbols, .. } = wait(&|e| matches!(e, Event::DocumentSymbols { .. })) else {
+        unreachable!()
+    };
+    let names: Vec<_> = symbols.iter().map(|s| (s.name.as_str(), s.selection.start)).collect();
+    assert_eq!(names, [("soma", Position::new(0, 4)), ("main", Position::new(4, 4))], "{symbols:?}");
+
     client.shutdown();
     let _ = std::fs::remove_dir_all(&dir);
 }

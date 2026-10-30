@@ -16,6 +16,7 @@ pub mod config_edit;
 pub mod debug;
 pub mod icons;
 pub mod menu;
+pub mod outline;
 pub mod os;
 pub mod keymap;
 
@@ -61,6 +62,8 @@ pub enum CoreEvent {
     FilesChanged,
     /// Sessão de debug (ver [`debug`]).
     Debug(debug::Event),
+    /// Estrutura do arquivo ativo. `note` explica uma lista vazia (sem servidor, arquivo sem nome...).
+    Outline { path: Option<PathBuf>, symbols: Arc<Vec<outline::Symbol>>, note: Option<String> },
     /// Onde um símbolo é usado (resposta de "listar referências"). Substitui a lista anterior.
     References { symbol: String, items: Vec<Reference> },
 }

@@ -13,7 +13,7 @@ use crate::protocol;
 use crate::text::{DocText, Encoding, Position, Range};
 use crate::transport::{read_message, write_message};
 use crate::uri::{path_to_uri, uri_to_path};
-use crate::{Diagnostic, Event, Location, MessageLevel, ServerConfig, TextEdit};
+use crate::{Diagnostic, DocumentSymbol, Event, Location, MessageLevel, ServerConfig, TextEdit};
 
 /// Recebe os eventos do servidor. Chamado de uma thread do cliente: deve ser rápido.
 pub type EventSink = Arc<dyn Fn(Event) + Send + Sync>;
@@ -54,6 +54,7 @@ enum Pending {
     /// De onde pediu (para saber se já estava na declaração).
     Definition { path: PathBuf, position: Position },
     References { path: PathBuf, position: Position },
+    DocumentSymbols(PathBuf),
     Formatting(PathBuf),
     Shutdown,
 }
@@ -164,6 +165,7 @@ impl Client {
                     "completion": { "completionItem": { "snippetSupport": false } },
                     "definition": { "linkSupport": true },
                     "references": {},
+                    "documentSymbol": { "hierarchicalDocumentSymbolSupport": true },
                     "formatting": {},
                     "publishDiagnostics": { "relatedInformation": false }
                 }
@@ -250,6 +252,12 @@ impl Client {
     pub fn definition(&self, path: &Path, position: Position) {
         let pending = Pending::Definition { path: path.to_path_buf(), position };
         self.position_request("textDocument/definition", path, position, pending);
+    }
+
+    /// Estrutura do arquivo (resposta em [`Event::DocumentSymbols`]).
+    pub fn document_symbols(&self, path: &Path) {
+        let params = json!({ "textDocument": { "uri": path_to_uri(path) } });
+        self.inner.lock().request("textDocument/documentSymbol", params, Pending::DocumentSymbols(path.to_path_buf()));
     }
 
     /// Onde o símbolo é usado, incluindo a declaração (resposta em [`Event::References`]).
@@ -462,6 +470,10 @@ impl Inner {
             if code == -32800 || code == -32801 {
                 return Vec::new();
             }
+            // Servidor que não sabe a estrutura: o painel mostra vazio em vez de esperar para sempre.
+            if let Pending::DocumentSymbols(path) = pending {
+                return vec![Event::DocumentSymbols { path, symbols: Vec::new() }];
+            }
             return vec![Event::Log { server, text: format!("erro na resposta: {text}") }];
         }
         let result = msg.get("result").unwrap_or(&Value::Null);
@@ -509,6 +521,21 @@ impl Inner {
                 },
                 None => vec![Event::DefinitionNotFound],
             },
+            Pending::DocumentSymbols(path) => {
+                let mut disk = HashMap::new();
+                let mut symbols = protocol::document_symbols(result);
+                fn to_chars(st: &State, path: &Path, s: &mut DocumentSymbol, disk: &mut HashMap<PathBuf, Option<DocText>>) {
+                    s.range = st.to_chars(path, s.range, disk);
+                    s.selection = st.to_chars(path, s.selection, disk);
+                    for c in &mut s.children {
+                        to_chars(st, path, c, disk);
+                    }
+                }
+                for s in &mut symbols {
+                    to_chars(st, &path, s, &mut disk);
+                }
+                vec![Event::DocumentSymbols { path, symbols }]
+            }
             Pending::References { path, position } => {
                 let mut disk = HashMap::new();
                 let mut locations: Vec<Location> = protocol::locations(result)

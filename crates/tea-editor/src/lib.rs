@@ -97,6 +97,8 @@ pub struct Editor {
     is_new: bool,
     theme: Theme,
     lsp: Option<LspLink>,
+    /// Sobe a cada edição enviada ao servidor de linguagem.
+    revision: std::sync::Arc<std::sync::atomic::AtomicU64>,
     overlay: LspOverlayState,
     hover: Option<PendingHover>,
     /// Linhas com breakpoint (começando em 0). Andam junto com o texto ao editar.
@@ -147,6 +149,7 @@ impl Editor {
             is_new,
             theme: Theme::TokyoNight,
             lsp: None,
+            revision: Default::default(),
             overlay: LspOverlayState::new(),
             hover: None,
             breakpoints: BTreeSet::new(),
@@ -426,7 +429,7 @@ impl Editor {
         let Some(path) = self.path.clone() else { return };
         self.detach_lsp();
         let uri = tea_lsp::uri::path_to_uri(&path);
-        let bridge = lsp::Bridge { client: client.clone(), path };
+        let bridge = lsp::Bridge { client: client.clone(), path, revision: self.revision.clone() };
         self.inner.attach_lsp(Box::new(bridge), LspDocument::new(uri, language_id));
         self.lsp = Some(LspLink { client, language_id: language_id.to_string(), completions: HashMap::new() });
     }
@@ -489,6 +492,19 @@ impl Editor {
             return false;
         }
         self.inner.lsp_request_definition();
+        true
+    }
+
+    /// Muda quando o texto muda (só com servidor de linguagem ligado): dá para saber se algo
+    /// derivado do texto (a estrutura do arquivo) precisa ser pedido de novo.
+    pub fn text_revision(&self) -> u64 {
+        self.revision.load(std::sync::atomic::Ordering::Relaxed)
+    }
+
+    /// Estrutura do arquivo (resposta em `tea_lsp::Event::DocumentSymbols`).
+    pub fn request_document_symbols(&mut self) -> bool {
+        let (Some(link), Some(path)) = (&self.lsp, &self.path) else { return false };
+        link.client.document_symbols(path);
         true
     }
 

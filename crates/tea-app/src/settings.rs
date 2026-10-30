@@ -354,6 +354,7 @@ fn describe(id: &str) -> &'static str {
         "git" => "Mudanças, stage, commit e diff",
         "debug" => "Botões, pilha, variáveis e saída do debug",
         "references" => "Onde um nome é usado (Shift+F12)",
+        "outline" => "Funções e métodos do arquivo, com visibilidade (Alt+7)",
         _ => "",
     }
 }
