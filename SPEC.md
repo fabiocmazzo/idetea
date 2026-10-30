@@ -432,6 +432,22 @@ Ordem: (1) voltar/avançar + referências → (2) várias definições, implemen
   - [x] Teste manual (aprovado): Ctrl+clique num uso vai para a declaração e `Alt+←` volta; Ctrl+clique na declaração (ou
     `Shift+F12`) abre o painel com os usos; clicar num uso vai até ele; `Alt+→` avança de novo.
 
+- [x] **Item 2 — várias definições, implementação e tipo:**
+  - `tea-lsp`: `implementation` e `type_definition`; as três buscas de lista (mais referências) viram
+    `Event::Locations { lookup, ... }`, ordenadas e sem repetidos. Definição com mais de um resultado também vira
+    lista (com um, continua `Definition`/`AtDefinition`). Servidor sem o recurso: lista vazia ("Nenhuma
+    implementação encontrada"). Pedido do usuário que volta como "conteúdo mudou"/"cancelado" (rust-analyzer
+    carregando o projeto) avisa "ainda carregando o projeto" em vez de sumir.
+  - App: lista vazia avisa; um resultado salta direto (com histórico); vários vão para o painel Referências, que
+    diz o que é ("2 implementações de \"Forma\""; `CoreEvent::Locations` com `LocationKind`). O nome no título é a
+    palavra de onde se pediu.
+  - Conferido com o rust-analyzer: `Ctrl+F12` no trait acha os dois `impl`, no método do trait acha os dois
+    métodos, e "ir para o tipo" numa variável vai para a struct.
+  - Atalhos: `Ctrl+F12` (`lsp.implementation`); "LSP: ir para o tipo" (`lsp.type_definition`) fica sem atalho,
+    na paleta (dá para pôr um em `[keys]`).
+  - [x] Teste manual (aprovado): num trait com dois `impl`, `Ctrl+F12` lista os dois no painel; num tipo com um `impl` só,
+    salta direto; "ir para o tipo" numa variável vai para a struct; `Alt+←` volta.
+
 - [x] **Painel Estrutura** (pedido à parte, inspirado no IntelliJ; adianta o item 3):
   - `tea-lsp`: `document_symbols(path)` (`textDocument/documentSymbol`), em árvore; o formato antigo (lista simples
     `SymbolInformation`) é aninhado pelo trecho de cada um. Erro do servidor vira lista vazia (o painel não fica

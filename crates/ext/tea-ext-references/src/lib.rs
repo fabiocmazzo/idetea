@@ -1,13 +1,13 @@
-//! Painel "Referências": onde um símbolo é usado, agrupado por arquivo, com a linha de cada uso
-//! e o nome destacado. Clique leva ao uso. A lista vem do núcleo ([`CoreEvent::References`]),
-//! que pergunta ao servidor de linguagem.
+//! Painel "Referências": onde um símbolo é usado (ou as implementações dele, ou várias
+//! definições), agrupado por arquivo, com a linha de cada lugar e o nome destacado. Clique leva
+//! até lá. A lista vem do núcleo ([`CoreEvent::Locations`]), que pergunta ao servidor de linguagem.
 
 use std::path::{Path, PathBuf};
 
 use iced::widget::{button, column, row, scrollable, space, text};
 use iced::{Element, Fill, Font, Task, Theme};
 use tea_core::icons::Icon;
-use tea_core::{Context, CoreEvent, Extension, PanelId, Reference, Slot};
+use tea_core::{Context, CoreEvent, Extension, LocationKind, PanelId, Reference, Slot};
 
 const PANEL: PanelId = PanelId("references");
 
@@ -19,6 +19,7 @@ pub enum Message {
 #[derive(Default)]
 pub struct ReferencesExtension {
     root: PathBuf,
+    kind: Option<LocationKind>,
     symbol: String,
     items: Vec<Reference>,
     /// Último uso aberto (fica destacado).
@@ -72,7 +73,8 @@ impl Extension for ReferencesExtension {
     }
 
     fn on_event(&mut self, event: &CoreEvent, ctx: &mut Context) -> Task<Message> {
-        if let CoreEvent::References { symbol, items } = event {
+        if let CoreEvent::Locations { kind, symbol, items } = event {
+            self.kind = Some(*kind);
             self.symbol = symbol.clone();
             self.items = items.clone();
             self.current = None;
@@ -107,8 +109,8 @@ impl Extension for ReferencesExtension {
         let n = self.items.len();
         let files = self.files();
         let summary = format!(
-            "{n} {} de \"{}\" em {files} {}",
-            if n == 1 { "referência" } else { "referências" },
+            "{} de \"{}\" em {files} {}",
+            self.kind.unwrap_or(LocationKind::References).count_label(n),
             self.symbol,
             if files == 1 { "arquivo" } else { "arquivos" },
         );
@@ -181,7 +183,9 @@ mod tests {
         let mut ext = ReferencesExtension::new();
         let mut ctx = Context::new(&root, None);
         let items = vec![reference("/p/a.rs", 1, 9), reference("/p/a.rs", 5, 9), reference("/p/b.rs", 2, 9)];
-        let _ = ext.on_event(&CoreEvent::References { symbol: "soma".into(), items }, &mut ctx);
+        let event = CoreEvent::Locations { kind: LocationKind::Implementations, symbol: "soma".into(), items };
+        let _ = ext.on_event(&event, &mut ctx);
+        assert_eq!(LocationKind::Implementations.count_label(3), "3 implementações");
         assert_eq!(ext.files(), 2);
         let _ = ext.update(Message::Open(2), &mut ctx);
         let reqs = ctx.into_requests();

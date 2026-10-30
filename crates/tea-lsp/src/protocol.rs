@@ -128,10 +128,6 @@ pub fn strip_snippet(s: &str) -> String {
 }
 
 /// Primeiro destino de uma resposta de definição: `(uri, range)`.
-pub fn first_location(result: &Value) -> Option<(String, Range)> {
-    locations(result).into_iter().next()
-}
-
 /// `Location`, `Location[]` ou `LocationLink[]` (resposta de definição, referências...).
 pub fn locations(result: &Value) -> Vec<(String, Range)> {
     let list = match result {
@@ -255,6 +251,10 @@ pub fn diagnostics(params: &Value) -> Option<(String, Vec<RawDiagnostic>)> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn first(result: &Value) -> Option<(String, Range)> {
+        super::locations(result).into_iter().next()
+    }
     use serde_json::json;
 
     #[test]
@@ -295,12 +295,12 @@ mod tests {
     #[test]
     fn locations() {
         let r = json!({"start": {"line": 1, "character": 2}, "end": {"line": 1, "character": 5}});
-        assert_eq!(first_location(&json!({"uri": "file:///a", "range": r})).unwrap().0, "file:///a");
+        assert_eq!(first(&json!({"uri": "file:///a", "range": r})).unwrap().0, "file:///a");
         let link = json!([{"targetUri": "file:///b", "targetRange": r, "targetSelectionRange": r}]);
-        let (uri, range) = first_location(&link).unwrap();
+        let (uri, range) = first(&link).unwrap();
         assert_eq!((uri.as_str(), range.start.line), ("file:///b", 1));
-        assert!(first_location(&json!([])).is_none());
-        assert!(first_location(&Value::Null).is_none());
+        assert!(first(&json!([])).is_none());
+        assert!(first(&Value::Null).is_none());
         let many = json!([{"uri": "file:///a", "range": r}, {"uri": "file:///b", "range": r}, {"bad": 1}]);
         assert_eq!(super::locations(&many).len(), 2, "itens sem uri são ignorados");
     }

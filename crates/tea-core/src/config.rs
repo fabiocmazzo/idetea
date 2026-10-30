@@ -74,6 +74,7 @@ outline = { enabled = true, slot = "right" }
 "f8" = "problems.next"
 "f12" = "lsp.definition"
 "shift+f12" = "lsp.references"
+"ctrl+f12" = "lsp.implementation"
 "alt+left" = "nav.back"
 "alt+right" = "nav.forward"
 "alt+7" = "outline.toggle"

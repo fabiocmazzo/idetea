@@ -64,11 +64,33 @@ pub enum CoreEvent {
     Debug(debug::Event),
     /// Estrutura do arquivo ativo. `note` explica uma lista vazia (sem servidor, arquivo sem nome...).
     Outline { path: Option<PathBuf>, symbols: Arc<Vec<outline::Symbol>>, note: Option<String> },
-    /// Onde um símbolo é usado (resposta de "listar referências"). Substitui a lista anterior.
-    References { symbol: String, items: Vec<Reference> },
+    /// Lista de lugares de um símbolo (onde é usado, implementações...). Substitui a anterior.
+    Locations { kind: LocationKind, symbol: String, items: Vec<Reference> },
 }
 
-/// Um uso de um símbolo.
+/// O que uma lista de lugares ([`CoreEvent::Locations`]) mostra.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum LocationKind {
+    References,
+    Definitions,
+    Implementations,
+    TypeDefinitions,
+}
+
+impl LocationKind {
+    /// "3 implementações", "1 referência"...
+    pub fn count_label(self, n: usize) -> String {
+        let (one, many) = match self {
+            LocationKind::References => ("referência", "referências"),
+            LocationKind::Definitions => ("definição", "definições"),
+            LocationKind::Implementations => ("implementação", "implementações"),
+            LocationKind::TypeDefinitions => ("tipo", "tipos"),
+        };
+        format!("{n} {}", if n == 1 { one } else { many })
+    }
+}
+
+/// Um lugar de um símbolo (uso, definição, implementação...).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Reference {
     pub path: PathBuf,

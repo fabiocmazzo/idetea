@@ -149,6 +149,9 @@ const GUIDE: &[(&str, &[&str])] = &[
              sobre o código · Formatar: {lsp.format}.",
             "Onde é usado: {lsp.references}, ou Ctrl+Clique na própria declaração. A lista aparece no painel \
              Referências; clique leva ao uso.",
+            "Implementações: {lsp.implementation} (num trait ou interface, ou num método dele). Tipo do que está \
+             no cursor: \"LSP: ir para o tipo\" na paleta. Com mais de um resultado (inclusive na definição), \
+             a lista vai para o painel Referências; com um só, salta direto.",
             "Voltar e avançar depois de um salto (definição, referência, Ctrl+P, cliques nos painéis): \
              {nav.back} e {nav.forward}, ou os botões laterais do mouse.",
             "Estrutura do arquivo ({outline.toggle}): funções, structs, métodos e campos em árvore. O cadeado \

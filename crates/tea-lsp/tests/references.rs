@@ -42,7 +42,7 @@ fn clangd_references_and_at_definition() {
 
     // `soma` no uso da linha 6 (0-based 5), coluna 12: a declaração e os dois usos.
     client.references(&file, Position::new(5, 13));
-    let Event::References { locations, .. } = wait(&|e| matches!(e, Event::References { .. })) else { unreachable!() };
+    let Event::Locations { locations, .. } = wait(&|e| matches!(e, Event::Locations { .. })) else { unreachable!() };
     let lines: Vec<(u32, u32)> = locations.iter().map(|l| (l.range.start.line, l.range.start.character)).collect();
     assert_eq!(lines, [(0, 4), (5, 12), (6, 11)], "{locations:?}");
 

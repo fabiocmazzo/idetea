@@ -13,7 +13,7 @@ use crate::protocol;
 use crate::text::{DocText, Encoding, Position, Range};
 use crate::transport::{read_message, write_message};
 use crate::uri::{path_to_uri, uri_to_path};
-use crate::{Diagnostic, DocumentSymbol, Event, Location, MessageLevel, ServerConfig, TextEdit};
+use crate::{Diagnostic, DocumentSymbol, Event, Location, Lookup, MessageLevel, ServerConfig, TextEdit};
 
 /// Recebe os eventos do servidor. Chamado de uma thread do cliente: deve ser rápido.
 pub type EventSink = Arc<dyn Fn(Event) + Send + Sync>;
@@ -53,7 +53,7 @@ enum Pending {
     Completion(PathBuf),
     /// De onde pediu (para saber se já estava na declaração).
     Definition { path: PathBuf, position: Position },
-    References { path: PathBuf, position: Position },
+    Locations { lookup: Lookup, path: PathBuf, position: Position },
     DocumentSymbols(PathBuf),
     Formatting(PathBuf),
     Shutdown,
@@ -165,6 +165,8 @@ impl Client {
                     "completion": { "completionItem": { "snippetSupport": false } },
                     "definition": { "linkSupport": true },
                     "references": {},
+                    "implementation": { "linkSupport": true },
+                    "typeDefinition": { "linkSupport": true },
                     "documentSymbol": { "hierarchicalDocumentSymbolSupport": true },
                     "formatting": {},
                     "publishDiagnostics": { "relatedInformation": false }
@@ -260,18 +262,37 @@ impl Client {
         self.inner.lock().request("textDocument/documentSymbol", params, Pending::DocumentSymbols(path.to_path_buf()));
     }
 
-    /// Onde o símbolo é usado, incluindo a declaração (resposta em [`Event::References`]).
+    /// Onde o símbolo é usado, incluindo a declaração (resposta em [`Event::Locations`]).
     pub fn references(&self, path: &Path, position: Position) {
+        self.locations_request(Lookup::References, path, position);
+    }
+
+    /// Implementações (de um trait/interface, ou de um método dele). Resposta em [`Event::Locations`].
+    pub fn implementation(&self, path: &Path, position: Position) {
+        self.locations_request(Lookup::Implementation, path, position);
+    }
+
+    /// Onde está declarado o tipo do que está na posição (ex.: de uma variável).
+    pub fn type_definition(&self, path: &Path, position: Position) {
+        self.locations_request(Lookup::TypeDefinition, path, position);
+    }
+
+    fn locations_request(&self, lookup: Lookup, path: &Path, position: Position) {
         let mut st = self.inner.lock();
         let enc = st.encoding;
         let Some(doc) = st.docs.get(path) else { return };
         let p = doc.to_server(position, enc);
-        let params = json!({
-            "textDocument": { "uri": path_to_uri(path) },
-            "position": protocol::position_json(p),
-            "context": { "includeDeclaration": true },
-        });
-        st.request("textDocument/references", params, Pending::References { path: path.to_path_buf(), position });
+        let mut params = json!({ "textDocument": { "uri": path_to_uri(path) }, "position": protocol::position_json(p) });
+        let method = match lookup {
+            Lookup::References => {
+                params["context"] = json!({ "includeDeclaration": true });
+                "textDocument/references"
+            }
+            Lookup::Implementation => "textDocument/implementation",
+            Lookup::TypeDefinition => "textDocument/typeDefinition",
+            Lookup::Definition => "textDocument/definition",
+        };
+        st.request(method, params, Pending::Locations { lookup, path: path.to_path_buf(), position });
     }
 
     pub fn formatting(&self, path: &Path, tab_size: u32, insert_spaces: bool) {
@@ -343,6 +364,21 @@ impl State {
     }
 
     /// Converte uma posição do servidor para caracteres. Lê o arquivo do disco se ele não estiver aberto.
+    /// Lugares de uma resposta, em caracteres, ordenados por arquivo e posição, sem repetidos.
+    fn locations(&self, result: &Value) -> Vec<Location> {
+        let mut disk = HashMap::new();
+        let mut locations: Vec<Location> = protocol::locations(result)
+            .into_iter()
+            .filter_map(|(uri, r)| {
+                let p = uri_to_path(&uri)?;
+                Some(Location { range: self.to_chars(&p, r, &mut disk), path: p })
+            })
+            .collect();
+        locations.sort_by(|a, b| (&a.path, a.range.start).cmp(&(&b.path, b.range.start)));
+        locations.dedup();
+        locations
+    }
+
     fn to_chars(&self, path: &Path, r: Range, disk: &mut HashMap<PathBuf, Option<DocText>>) -> Range {
         if self.encoding == Encoding::Utf32 {
             return r;
@@ -468,11 +504,25 @@ impl Inner {
                 return vec![Event::Exited { server, reason: format!("falha no initialize: {text}") }];
             }
             if code == -32800 || code == -32801 {
+                // Pedido feito pelo usuário (definição, referências...) não pode sumir sem resposta:
+                // o servidor ainda está carregando o projeto ou o texto mudou no meio.
+                if matches!(pending, Pending::Definition { .. } | Pending::Locations { .. }) {
+                    let text = "ainda carregando o projeto, tente de novo em instantes".to_string();
+                    return vec![Event::Message { server, level: MessageLevel::Info, text }];
+                }
                 return Vec::new();
             }
             // Servidor que não sabe a estrutura: o painel mostra vazio em vez de esperar para sempre.
-            if let Pending::DocumentSymbols(path) = pending {
-                return vec![Event::DocumentSymbols { path, symbols: Vec::new() }];
+            match pending {
+                Pending::DocumentSymbols(path) => return vec![Event::DocumentSymbols { path, symbols: Vec::new() }],
+                // Ex.: servidor sem "ir para implementação": o usuário fica sabendo que não veio nada.
+                Pending::Locations { lookup, path, position } => {
+                    return vec![
+                        Event::Log { server, text: format!("erro na resposta: {text}") },
+                        Event::Locations { lookup, path, position, locations: Vec::new() },
+                    ];
+                }
+                _ => {}
             }
             return vec![Event::Log { server, text: format!("erro na resposta: {text}") }];
         }
@@ -507,20 +557,17 @@ impl Inner {
                 let items = protocol::completion_items(result);
                 vec![Event::Completion { path, items }]
             }
-            Pending::Definition { path: from, position } => match protocol::first_location(result) {
-                Some((uri, range)) => match uri_to_path(&uri) {
-                    Some(path) => {
-                        let r = st.to_chars(&path, range, &mut HashMap::new());
-                        if path == from && r.start <= position && position <= r.end {
-                            vec![Event::AtDefinition { path, position }]
-                        } else {
-                            vec![Event::Definition { path, position: r.start }]
-                        }
+            Pending::Definition { path: from, position } => {
+                let locations = st.locations(result);
+                match locations.as_slice() {
+                    [] => vec![Event::DefinitionNotFound],
+                    [one] if one.path == from && one.range.start <= position && position <= one.range.end => {
+                        vec![Event::AtDefinition { path: from, position }]
                     }
-                    None => vec![Event::DefinitionNotFound],
-                },
-                None => vec![Event::DefinitionNotFound],
-            },
+                    [one] => vec![Event::Definition { path: one.path.clone(), position: one.range.start }],
+                    _ => vec![Event::Locations { lookup: Lookup::Definition, path: from, position, locations }],
+                }
+            }
             Pending::DocumentSymbols(path) => {
                 let mut disk = HashMap::new();
                 let mut symbols = protocol::document_symbols(result);
@@ -536,18 +583,8 @@ impl Inner {
                 }
                 vec![Event::DocumentSymbols { path, symbols }]
             }
-            Pending::References { path, position } => {
-                let mut disk = HashMap::new();
-                let mut locations: Vec<Location> = protocol::locations(result)
-                    .into_iter()
-                    .filter_map(|(uri, r)| {
-                        let p = uri_to_path(&uri)?;
-                        Some(Location { range: st.to_chars(&p, r, &mut disk), path: p })
-                    })
-                    .collect();
-                locations.sort_by(|a, b| (&a.path, a.range.start).cmp(&(&b.path, b.range.start)));
-                locations.dedup();
-                vec![Event::References { path, position, locations }]
+            Pending::Locations { lookup, path, position } => {
+                vec![Event::Locations { lookup, path, position, locations: st.locations(result) }]
             }
             Pending::Formatting(path) => {
                 let mut disk = HashMap::new();

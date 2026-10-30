@@ -55,6 +55,16 @@ pub struct DocumentSymbol {
     pub children: Vec<DocumentSymbol>,
 }
 
+/// O que foi procurado numa lista de lugares ([`Event::Locations`]).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Lookup {
+    /// Mais de uma definição (uma só vem como [`Event::Definition`]).
+    Definition,
+    Implementation,
+    TypeDefinition,
+    References,
+}
+
 /// Um trecho de um arquivo (posições em caracteres).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Location {
@@ -87,8 +97,9 @@ pub enum Event {
     /// Pediu a definição em cima da própria declaração (`path`/`position` são de onde pediu).
     /// Quem usa costuma listar as referências, como o VS Code faz no Ctrl+clique.
     AtDefinition { path: PathBuf, position: Position },
-    /// Onde o símbolo em `path`/`position` é usado (inclui a declaração). Vazio se nada.
-    References { path: PathBuf, position: Position, locations: Vec<Location> },
+    /// Lista de lugares para o símbolo em `path`/`position`: onde é usado (inclui a declaração),
+    /// implementações, o tipo, ou várias definições. Ordenada por arquivo e posição; vazia se nada.
+    Locations { lookup: Lookup, path: PathBuf, position: Position, locations: Vec<Location> },
     Formatting { path: PathBuf, edits: Vec<TextEdit> },
     /// Estrutura do arquivo (vazia se o servidor não souber responder).
     DocumentSymbols { path: PathBuf, symbols: Vec<DocumentSymbol> },

@@ -80,6 +80,16 @@ fn main() -> iced::Result {
     }
 }
 
+/// A palavra (letras, números e `_`) que contém a coluna `column` (em caracteres).
+fn word_at(line: &str, column: usize) -> String {
+    let chars: Vec<char> = line.chars().collect();
+    let is_word = |c: &char| c.is_alphanumeric() || *c == '_';
+    let column = column.min(chars.len());
+    let start = chars[..column].iter().rposition(|c| !is_word(c)).map_or(0, |i| i + 1);
+    let end = chars[column..].iter().position(|c| !is_word(c)).map_or(chars.len(), |i| column + i);
+    chars[start..end].iter().collect()
+}
+
 /// Extensões compiladas nesta build. Cada uma entra por uma feature do cargo.
 #[allow(unused_mut, clippy::vec_init_then_push)] // cada push depende de uma feature
 fn builtin_extensions() -> Vec<Box<dyn AnyExtension>> {
@@ -139,6 +149,8 @@ const CORE_COMMANDS: &[(&str, &str)] = &[
     ("editor.toggle_vim", "Editor: ligar/desligar modo vim"),
     ("lsp.definition", "LSP: ir para definição"),
     ("lsp.references", "LSP: listar onde é usado"),
+    ("lsp.implementation", "LSP: ir para implementação"),
+    ("lsp.type_definition", "LSP: ir para o tipo"),
     ("nav.back", "Navegação: voltar"),
     ("nav.forward", "Navegação: avançar"),
     ("lsp.hover", "LSP: mostrar documentação no cursor"),
@@ -904,15 +916,38 @@ impl App {
         }
     }
 
-    /// Mostra no painel Referências o resultado do servidor, com a linha de cada uso.
-    fn show_references(
+    /// Lista de lugares que o servidor mandou. Referências vão sempre para o painel; nas outras
+    /// buscas, um resultado só salta direto para ele.
+    fn show_locations(
         &mut self,
+        lookup: tea_lsp::Lookup,
         origin: &Path,
         position: tea_lsp::Position,
         locations: &[tea_lsp::Location],
     ) -> Task<Message> {
-        if locations.is_empty() {
-            return self.notify("Nenhuma referência encontrada");
+        use tea_core::LocationKind as K;
+        use tea_lsp::Lookup as L;
+        let kind = match lookup {
+            L::References => K::References,
+            L::Definition => K::Definitions,
+            L::Implementation => K::Implementations,
+            L::TypeDefinition => K::TypeDefinitions,
+        };
+        match locations {
+            [] => {
+                return self.notify(match kind {
+                    K::References => "Nenhuma referência encontrada",
+                    K::Definitions => "Definição não encontrada",
+                    K::Implementations => "Nenhuma implementação encontrada",
+                    K::TypeDefinitions => "Tipo não encontrado",
+                });
+            }
+            [one] if kind != K::References => {
+                let line = one.range.start.line as usize + 1;
+                self.remember_spot(&one.path, Some(line));
+                return self.open_file_at(one.path.clone(), line, one.range.start.character as usize + 1);
+            }
+            _ => {}
         }
         // Linhas de cada arquivo: da aba aberta (pode ter alterações) ou do disco.
         let mut files: std::collections::HashMap<PathBuf, Vec<String>> = std::collections::HashMap::new();
@@ -926,31 +961,26 @@ impl App {
             });
             lines.get(line).cloned().unwrap_or_default()
         };
-        let mut symbol = String::new();
-        let mut items = Vec::with_capacity(locations.len());
-        for loc in locations {
-            let (start, end) = (loc.range.start, loc.range.end);
-            let full = line_of(self, &loc.path, start.line as usize);
-            let len = if end.line == start.line { end.character.saturating_sub(start.character) as usize } else { 0 };
-            if symbol.is_empty() && loc.path == origin && start <= position && position <= end {
-                symbol = full.chars().skip(start.character as usize).take(len).collect();
-            }
-            let indent = full.chars().take_while(|c| c.is_whitespace()).count();
-            items.push(tea_core::Reference {
-                path: loc.path.clone(),
-                line: start.line as usize + 1,
-                column: start.character as usize + 1,
-                len,
-                preview: full.trim().to_string(),
-                indent,
-            });
-        }
-        if symbol.is_empty() {
-            let r = &items[0];
-            symbol = r.preview.chars().skip((r.column - 1).saturating_sub(r.indent)).take(r.len).collect();
-        }
-        let only_declaration = items.len() == 1;
-        let shown = self.broadcast(CoreEvent::References { symbol: symbol.clone(), items });
+        // O nome procurado: a palavra na posição de onde se pediu.
+        let symbol = word_at(&line_of(self, origin, position.line as usize), position.character as usize);
+        let items: Vec<_> = locations
+            .iter()
+            .map(|loc| {
+                let (start, end) = (loc.range.start, loc.range.end);
+                let full = line_of(self, &loc.path, start.line as usize);
+                let len = if end.line == start.line { end.character.saturating_sub(start.character) as usize } else { 0 };
+                tea_core::Reference {
+                    path: loc.path.clone(),
+                    line: start.line as usize + 1,
+                    column: start.character as usize + 1,
+                    len,
+                    preview: full.trim().to_string(),
+                    indent: full.chars().take_while(|c| c.is_whitespace()).count(),
+                }
+            })
+            .collect();
+        let only_declaration = kind == K::References && items.len() == 1;
+        let shown = self.broadcast(CoreEvent::Locations { kind, symbol: symbol.clone(), items });
         if only_declaration {
             return Task::batch([shown, self.notify(format!("\"{symbol}\" não é usado em outro lugar"))]);
         }
@@ -1071,7 +1101,7 @@ impl App {
                 }
                 _ => Task::none(),
             },
-            E::References { path, position, locations } => self.show_references(&path, position, &locations),
+            E::Locations { lookup, path, position, locations } => self.show_locations(lookup, &path, position, &locations),
             E::Formatting { path, edits } => {
                 if let Some(i) = tab_for(self, &path) {
                     self.tabs[i].editor.apply_formatting(&edits);
@@ -1475,6 +1505,16 @@ impl App {
                 } else {
                     self.no_lsp_note()
                 }
+            }
+            "lsp.implementation" => {
+                if self.editor_mut().request_implementation() {
+                    self.notify("Buscando implementações…")
+                } else {
+                    self.no_lsp_note()
+                }
+            }
+            "lsp.type_definition" => {
+                if self.editor_mut().request_type_definition() { Task::none() } else { self.no_lsp_note() }
             }
             "nav.back" => self.navigate(false),
             "nav.forward" => self.navigate(true),
@@ -2645,6 +2685,14 @@ mod tests {
         assert!(!still_bound("[keys]\n\"ctrl+b\" = \"\"", "", "ctrl+b", "filetree.toggle"));
         // Ligado no global, mexendo no projeto: continua valendo.
         assert!(still_bound("[keys]\n\"ctrl+alt+x\" = \"a.b\"", "", "ctrl+alt+x", "a.b"));
+    }
+
+    #[test]
+    fn word_under_cursor() {
+        assert_eq!(word_at("    let x = soma(1, 2);", 13), "soma");
+        assert_eq!(word_at("    let x = soma(1, 2);", 16), "soma", "logo depois do nome");
+        assert_eq!(word_at("ação_1 + b", 2), "ação_1");
+        assert_eq!(word_at("", 5), "");
     }
 
     #[test]

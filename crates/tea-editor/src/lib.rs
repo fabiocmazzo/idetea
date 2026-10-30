@@ -510,11 +510,25 @@ impl Editor {
 
     /// Onde o símbolo no cursor é usado (resposta em `tea_lsp::Event::References`).
     pub fn request_references(&mut self) -> bool {
+        self.request_at_cursor(tea_lsp::Client::references)
+    }
+
+    /// Implementações do símbolo no cursor (resposta em `tea_lsp::Event::Locations`).
+    pub fn request_implementation(&mut self) -> bool {
+        self.request_at_cursor(tea_lsp::Client::implementation)
+    }
+
+    /// Tipo do que está no cursor (resposta em `tea_lsp::Event::Locations`).
+    pub fn request_type_definition(&mut self) -> bool {
+        self.request_at_cursor(tea_lsp::Client::type_definition)
+    }
+
+    fn request_at_cursor(&mut self, f: fn(&tea_lsp::Client, &Path, tea_lsp::Position)) -> bool {
         let (Some(link), Some(path)) = (&self.lsp, &self.path) else { return false };
         // O servidor precisa do texto atual antes de responder.
         self.inner.lsp_flush_pending_changes();
         let (line, column) = self.inner.cursor_position();
-        link.client.references(path, tea_lsp::Position::new(line as u32, column as u32));
+        f(&link.client, path, tea_lsp::Position::new(line as u32, column as u32));
         true
     }
 
