@@ -2,9 +2,12 @@
 //!
 //! Usado para o menu de autocomplete: com ele aberto, ↑/↓/Enter/Tab/Esc navegam
 //! no menu em vez de mover o cursor do editor.
+//!
+//! Também mostra a mãozinha com Ctrl sobre o texto (Ctrl+clique vai para a definição): o widget
+//! de edição só sublinha a palavra, sem trocar o ponteiro.
 
 use iced::advanced::layout::{self, Layout};
-use iced::advanced::widget::{Operation, Tree};
+use iced::advanced::widget::{Operation, Tree, tree};
 use iced::advanced::{Clipboard, Shell, Widget, mouse, overlay, renderer};
 use iced::keyboard::{self, key::Named};
 use iced::{Element, Event, Length, Rectangle, Size, Vector};
@@ -33,6 +36,14 @@ impl<Message, Theme, Renderer> Widget<Message, Theme, Renderer> for KeyGate<'_, 
 where
     Renderer: renderer::Renderer,
 {
+    fn tag(&self) -> tree::Tag {
+        tree::Tag::of::<keyboard::Modifiers>()
+    }
+
+    fn state(&self) -> tree::State {
+        tree::State::new(keyboard::Modifiers::default())
+    }
+
     fn children(&self) -> Vec<Tree> {
         vec![Tree::new(&self.content)]
     }
@@ -64,6 +75,32 @@ where
         shell: &mut Shell<'_, Message>,
         viewport: &Rectangle,
     ) {
+        if let Event::Keyboard(
+            keyboard::Event::ModifiersChanged(m)
+            | keyboard::Event::KeyPressed { modifiers: m, .. }
+            | keyboard::Event::KeyReleased { modifiers: m, .. },
+        ) = event
+        {
+            let held = tree.state.downcast_mut::<keyboard::Modifiers>();
+            if held.control() != m.control() {
+                // O ponteiro muda sem o mouse se mexer: precisa redesenhar.
+                shell.request_redraw();
+            }
+            *held = *m;
+        }
+        // Alt+←/→ são da IDE (voltar/avançar na navegação): o editor não os vê, então o evento
+        // chega ao app sem estar "capturado".
+        if let Event::Keyboard(keyboard::Event::KeyPressed {
+            key: keyboard::Key::Named(Named::ArrowLeft | Named::ArrowRight),
+            modifiers,
+            ..
+        }) = event
+            && modifiers.alt()
+            && !modifiers.control()
+            && !modifiers.shift()
+        {
+            return;
+        }
         if let (Some(f), Event::Keyboard(keyboard::Event::KeyPressed { key: keyboard::Key::Named(named), .. })) =
             (&self.intercept, event)
             && let Some(message) = f(*named)
@@ -85,7 +122,9 @@ where
         viewport: &Rectangle,
         renderer: &Renderer,
     ) -> mouse::Interaction {
-        self.content.as_widget().mouse_interaction(&tree.children[0], layout, cursor, viewport, renderer)
+        let inner = self.content.as_widget().mouse_interaction(&tree.children[0], layout, cursor, viewport, renderer);
+        let ctrl = tree.state.downcast_ref::<keyboard::Modifiers>().control();
+        if ctrl && inner == mouse::Interaction::Text { mouse::Interaction::Pointer } else { inner }
     }
 
     fn draw(

@@ -45,6 +45,11 @@ impl EditorMessage {
     pub fn is_breakpoint_toggle(&self) -> bool {
         matches!(self.0, Msg::ToggleBreakpoint(_))
     }
+
+    /// Ctrl+clique (ir para definição).
+    pub fn is_jump_click(&self) -> bool {
+        matches!(self.0, Msg::Widget(Inner::JumpClick(_)))
+    }
 }
 
 /// LSP ligado neste editor.
@@ -487,6 +492,16 @@ impl Editor {
         true
     }
 
+    /// Onde o símbolo no cursor é usado (resposta em `tea_lsp::Event::References`).
+    pub fn request_references(&mut self) -> bool {
+        let (Some(link), Some(path)) = (&self.lsp, &self.path) else { return false };
+        // O servidor precisa do texto atual antes de responder.
+        self.inner.lsp_flush_pending_changes();
+        let (line, column) = self.inner.cursor_position();
+        link.client.references(path, tea_lsp::Position::new(line as u32, column as u32));
+        true
+    }
+
     pub fn request_formatting(&mut self) -> bool {
         self.lsp.is_some() && self.inner.lsp_request_formatting()
     }
@@ -573,6 +588,22 @@ fn syntax_for(path: Option<&Path>) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Ctrl+clique no texto chega ao widget como "ir para definição", com as camadas da tela
+    /// (marcas de debug e overlay do LSP) por cima dele.
+    #[test]
+    fn ctrl_click_reaches_the_widget() {
+        use iced::keyboard::{Event as Key, Modifiers};
+        let mut editor = Editor::from_text(&tmp("click.rs"), "fn main() {\n    soma(1);\n}\n");
+        editor.focus();
+        let lh = editor.inner.line_height();
+        let mut ui = iced_test::simulator(editor.view());
+        ui.point_at(iced::Point::new(marks::GUTTER_WIDTH + 40.0, lh * 1.5));
+        ui.simulate([iced::Event::Keyboard(Key::ModifiersChanged(Modifiers::CTRL))]);
+        ui.simulate(iced_test::simulator::click());
+        let msgs: Vec<String> = ui.into_messages().map(|m| format!("{:?}", m.0)).collect();
+        assert!(msgs.iter().any(|m| m.contains("JumpClick")), "{msgs:?}");
+    }
 
     fn tmp(name: &str) -> PathBuf {
         let dir = std::env::temp_dir().join(format!("tea-editor-test-{}", std::process::id()));

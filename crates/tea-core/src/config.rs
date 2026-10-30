@@ -50,6 +50,7 @@ problems = { enabled = true, slot = "bottom" }
 terminal = { enabled = true, slot = "bottom" }
 git = { enabled = true, slot = "bottom" }
 debug = { enabled = true, slot = "bottom" }
+references = { enabled = true, slot = "bottom" }
 
 # Atalhos: "combinação" = "comando". Comando vazio ("") desliga o atalho.
 # Atalhos que o editor já usa (Ctrl+F, Ctrl+H, Ctrl+G, Ctrl+Z, Ctrl+D...) têm prioridade quando ele tem foco.
@@ -71,6 +72,9 @@ debug = { enabled = true, slot = "bottom" }
 "ctrl+shift+m" = "problems.focus"
 "f8" = "problems.next"
 "f12" = "lsp.definition"
+"shift+f12" = "lsp.references"
+"alt+left" = "nav.back"
+"alt+right" = "nav.forward"
 "f9" = "debug.toggle_breakpoint"
 "f5" = "debug.continue"
 "shift+f5" = "debug.stop"

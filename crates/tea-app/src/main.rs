@@ -11,6 +11,7 @@ mod divider;
 mod help;
 mod overlay;
 mod lsp;
+mod nav;
 mod palette;
 mod picker;
 mod settings;
@@ -96,6 +97,8 @@ fn builtin_extensions() -> Vec<Box<dyn AnyExtension>> {
     list.push(Box::new(tea_ext_git::GitExtension::new()));
     #[cfg(feature = "ext-debug")]
     list.push(Box::new(tea_ext_debug::DebugExtension::new()));
+    #[cfg(feature = "ext-references")]
+    list.push(Box::new(tea_ext_references::ReferencesExtension::new()));
     list
 }
 
@@ -132,6 +135,9 @@ const CORE_COMMANDS: &[(&str, &str)] = &[
     ("editor.unfold_all", "Editor: expandir todos os blocos"),
     ("editor.toggle_vim", "Editor: ligar/desligar modo vim"),
     ("lsp.definition", "LSP: ir para definição"),
+    ("lsp.references", "LSP: listar onde é usado"),
+    ("nav.back", "Navegação: voltar"),
+    ("nav.forward", "Navegação: avançar"),
     ("lsp.hover", "LSP: mostrar documentação no cursor"),
     ("lsp.format", "LSP: formatar arquivo"),
     ("lsp.restart", "LSP: reiniciar servidores"),
@@ -219,6 +225,8 @@ struct App {
 
     palette: Option<Palette>,
     debug: debug::Debugger,
+    /// De onde se saltou (definição, referência, Ctrl+P...): `Alt+←` volta, `Alt+→` avança.
+    nav: nav::History,
     /// Quando a própria IDE salvou cada arquivo: o aviso de "mudou no disco" desse save não conta.
     own_saves: std::collections::HashMap<PathBuf, Instant>,
     /// Última lista de arquivos do projeto (para `Ctrl+P` abrir na hora; é relida a cada abertura).
@@ -278,6 +286,8 @@ enum Message {
     Frame(Instant),
     PointerOverPanel(bool),
     MousePressed,
+    /// Botões voltar/avançar do mouse (`true` = avançar).
+    Nav(bool),
     CloseRequested,
     Lsp(tea_lsp::Event),
 }
@@ -338,6 +348,7 @@ impl App {
             state_path,
             window_size: None,
             last_status: EditorStatus::default(),
+            nav: nav::History::default(),
             config,
         };
         app.push_tab(Editor::scratch(""));
@@ -415,7 +426,10 @@ impl App {
         for request in requests {
             match request {
                 Request::OpenFile(path) => tasks.push(self.open_file(path)),
-                Request::OpenFileAt { path, line, column } => tasks.push(self.open_file_at(path, line, column)),
+                Request::OpenFileAt { path, line, column } => {
+                    self.remember_spot(&path, Some(line));
+                    tasks.push(self.open_file_at(path, line, column));
+                }
                 Request::RegisterPanel { id, title, slot, visible } => {
                     let default_slot = slot;
                     let slot = self.slot_for(ext, default_slot);
@@ -856,6 +870,91 @@ impl App {
         Task::batch([open, goto, self.emit_status(false)])
     }
 
+    // ---- Navegação ---------------------------------------------------------
+
+    /// Onde o cursor está agora.
+    fn here(&self) -> Option<nav::Spot> {
+        let tab = self.tabs.get(self.active)?;
+        let (line, column) = tab.editor.cursor();
+        Some(nav::Spot { path: tab.editor.path()?.to_path_buf(), line, column })
+    }
+
+    /// Antes de saltar para `path`: guarda onde estava, para voltar.
+    fn remember_spot(&mut self, path: &Path, line: Option<usize>) {
+        if let Some(here) = self.here() {
+            self.nav.remember(here, path, line);
+        }
+    }
+
+    fn navigate(&mut self, forward: bool) -> Task<Message> {
+        match self.nav.step(forward, self.here(), Path::is_file) {
+            Some(to) => self.open_file_at(to.path, to.line, to.column),
+            None => self.notify(if forward { "Nada para avançar" } else { "Nada para voltar" }),
+        }
+    }
+
+    /// Mostra no painel Referências o resultado do servidor, com a linha de cada uso.
+    fn show_references(
+        &mut self,
+        origin: &Path,
+        position: tea_lsp::Position,
+        locations: &[tea_lsp::Location],
+    ) -> Task<Message> {
+        if locations.is_empty() {
+            return self.notify("Nenhuma referência encontrada");
+        }
+        // Linhas de cada arquivo: da aba aberta (pode ter alterações) ou do disco.
+        let mut files: std::collections::HashMap<PathBuf, Vec<String>> = std::collections::HashMap::new();
+        let mut line_of = |app: &Self, path: &Path, line: usize| -> String {
+            let lines = files.entry(path.to_path_buf()).or_insert_with(|| {
+                let text = match app.tabs.iter().find(|t| t.editor.path() == Some(path)) {
+                    Some(t) => t.editor.text(),
+                    None => std::fs::read_to_string(path).unwrap_or_default(),
+                };
+                text.lines().map(str::to_string).collect()
+            });
+            lines.get(line).cloned().unwrap_or_default()
+        };
+        let mut symbol = String::new();
+        let mut items = Vec::with_capacity(locations.len());
+        for loc in locations {
+            let (start, end) = (loc.range.start, loc.range.end);
+            let full = line_of(self, &loc.path, start.line as usize);
+            let len = if end.line == start.line { end.character.saturating_sub(start.character) as usize } else { 0 };
+            if symbol.is_empty() && loc.path == origin && start <= position && position <= end {
+                symbol = full.chars().skip(start.character as usize).take(len).collect();
+            }
+            let indent = full.chars().take_while(|c| c.is_whitespace()).count();
+            items.push(tea_core::Reference {
+                path: loc.path.clone(),
+                line: start.line as usize + 1,
+                column: start.character as usize + 1,
+                len,
+                preview: full.trim().to_string(),
+                indent,
+            });
+        }
+        if symbol.is_empty() {
+            let r = &items[0];
+            symbol = r.preview.chars().skip((r.column - 1).saturating_sub(r.indent)).take(r.len).collect();
+        }
+        let only_declaration = items.len() == 1;
+        let shown = self.broadcast(CoreEvent::References { symbol: symbol.clone(), items });
+        if only_declaration {
+            return Task::batch([shown, self.notify(format!("\"{symbol}\" não é usado em outro lugar"))]);
+        }
+        shown
+    }
+
+    /// Pediu algo do LSP (definição, referências) num arquivo sem servidor: diz por quê.
+    fn no_lsp_note(&mut self) -> Task<Message> {
+        let why = match self.active_path() {
+            Some(path) => self.lsp.why_missing(path),
+            None => "salve o arquivo para usar o servidor de linguagem".into(),
+        };
+        self.notify(why)
+    }
+
     /// Liga a aba ao servidor de linguagem do arquivo, se houver.
     fn ensure_lsp(&mut self, i: usize) -> Task<Message> {
         let editor = &self.tabs[i].editor;
@@ -909,9 +1008,20 @@ impl App {
                 Task::none()
             }
             E::Definition { path, position } => {
-                self.open_file_at(path, position.line as usize + 1, position.character as usize + 1)
+                let line = position.line as usize + 1;
+                self.remember_spot(&path, Some(line));
+                self.open_file_at(path, line, position.character as usize + 1)
             }
             E::DefinitionNotFound => self.notify("Definição não encontrada"),
+            // Ctrl+clique (ou F12) na própria declaração: lista onde ela é usada.
+            E::AtDefinition { path, position } => match self.lsp.client_for(&path) {
+                Ok(Some((client, _))) => {
+                    client.references(&path, position);
+                    self.notify("Buscando onde é usado…")
+                }
+                _ => Task::none(),
+            },
+            E::References { path, position, locations } => self.show_references(&path, position, &locations),
             E::Formatting { path, edits } => {
                 if let Some(i) = tab_for(self, &path) {
                     self.tabs[i].editor.apply_formatting(&edits);
@@ -955,6 +1065,7 @@ impl App {
                     }
                 }
                 let activity = self.broadcast(CoreEvent::Activity { source: server.clone(), text: None });
+                let reason = lsp::with_hint(&server, &reason);
                 let note = self.notify(format!("{server} parou — {reason}. Use \"LSP: reiniciar servidores\"."));
                 Task::batch([activity, note])
             }
@@ -1300,12 +1411,17 @@ impl App {
                 self.broadcast_appearance()
             }
             "lsp.definition" => {
-                if self.editor_mut().request_definition() {
-                    Task::none()
+                if self.editor_mut().request_definition() { Task::none() } else { self.no_lsp_note() }
+            }
+            "lsp.references" => {
+                if self.editor_mut().request_references() {
+                    self.notify("Buscando onde é usado…")
                 } else {
-                    self.notify("Nenhum servidor de linguagem para este arquivo")
+                    self.no_lsp_note()
                 }
             }
+            "nav.back" => self.navigate(false),
+            "nav.forward" => self.navigate(true),
             "lsp.hover" => {
                 self.editor_mut().request_hover();
                 Task::none()
@@ -1978,6 +2094,7 @@ impl App {
         let Some((rel, line)) = self.palette.as_ref().and_then(|p| p.chosen_file(index)) else { return Task::none() };
         self.close_palette();
         let path = self.root.join(rel);
+        self.remember_spot(&path, line);
         match line {
             Some(line) => self.open_file_at(path, line, 1),
             None => self.open_file(path),
@@ -2076,6 +2193,11 @@ impl App {
                 let Some(i) = self.tab_index(id) else { return Task::none() };
                 if msg.is_save_request() {
                     return if i == self.active { self.save_active() } else { Task::none() };
+                }
+                // Ctrl+clique sem servidor: o editor não tem a quem perguntar, então avisamos aqui.
+                if msg.is_jump_click() && self.tabs[i].editor.lsp_server().is_none() {
+                    let task = self.tabs[i].editor.update(msg).map(move |m| Message::Editor(id, m));
+                    return Task::batch([task, self.no_lsp_note()]);
                 }
                 let toggled = msg.is_breakpoint_toggle();
                 let task = self.tabs[i].editor.update(msg).map(move |m| Message::Editor(id, m));
@@ -2180,6 +2302,7 @@ impl App {
                 Task::none()
             }
             Message::CloseRequested => self.request_quit(),
+            Message::Nav(forward) => self.navigate(forward),
             Message::Lsp(event) => self.handle_lsp(event),
         }
     }
@@ -2192,6 +2315,8 @@ impl App {
                 modifiers,
                 captured: status == iced::event::Status::Captured,
             }),
+            iced::Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Back)) => Some(Message::Nav(false)),
+            iced::Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Forward)) => Some(Message::Nav(true)),
             iced::Event::Mouse(mouse::Event::ButtonPressed(_)) => Some(Message::MousePressed),
             _ => None,
         });

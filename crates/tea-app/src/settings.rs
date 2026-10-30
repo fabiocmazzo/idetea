@@ -353,6 +353,7 @@ fn describe(id: &str) -> &'static str {
         "terminal" => "Terminal integrado",
         "git" => "Mudanças, stage, commit e diff",
         "debug" => "Botões, pilha, variáveis e saída do debug",
+        "references" => "Onde um nome é usado (Shift+F12)",
         _ => "",
     }
 }

@@ -129,15 +129,24 @@ pub fn strip_snippet(s: &str) -> String {
 
 /// Primeiro destino de uma resposta de definição: `(uri, range)`.
 pub fn first_location(result: &Value) -> Option<(String, Range)> {
-    let loc = match result {
-        Value::Array(a) => a.first()?,
-        Value::Object(_) => result,
-        _ => return None,
+    locations(result).into_iter().next()
+}
+
+/// `Location`, `Location[]` ou `LocationLink[]` (resposta de definição, referências...).
+pub fn locations(result: &Value) -> Vec<(String, Range)> {
+    let list = match result {
+        Value::Array(a) => a.iter().collect(),
+        Value::Object(_) => vec![result],
+        _ => Vec::new(),
     };
-    // Location tem `uri`/`range`; LocationLink tem `targetUri`/`targetSelectionRange`.
-    let uri = loc.get("uri").or_else(|| loc.get("targetUri"))?.as_str()?.to_string();
-    let r = loc.get("range").or_else(|| loc.get("targetSelectionRange")).or_else(|| loc.get("targetRange"))?;
-    Some((uri, range(r)?))
+    list.into_iter()
+        .filter_map(|loc| {
+            // Location tem `uri`/`range`; LocationLink tem `targetUri`/`targetSelectionRange`.
+            let uri = loc.get("uri").or_else(|| loc.get("targetUri"))?.as_str()?.to_string();
+            let r = loc.get("range").or_else(|| loc.get("targetSelectionRange")).or_else(|| loc.get("targetRange"))?;
+            Some((uri, range(r)?))
+        })
+        .collect()
 }
 
 pub fn text_edits(result: &Value) -> Vec<(Range, String)> {
@@ -236,6 +245,8 @@ mod tests {
         assert_eq!((uri.as_str(), range.start.line), ("file:///b", 1));
         assert!(first_location(&json!([])).is_none());
         assert!(first_location(&Value::Null).is_none());
+        let many = json!([{"uri": "file:///a", "range": r}, {"uri": "file:///b", "range": r}, {"bad": 1}]);
+        assert_eq!(super::locations(&many).len(), 2, "itens sem uri são ignorados");
     }
 
     #[test]

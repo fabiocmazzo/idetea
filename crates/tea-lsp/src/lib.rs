@@ -40,6 +40,13 @@ pub struct CompletionItem {
     pub detail: Option<String>,
 }
 
+/// Um trecho de um arquivo (posições em caracteres).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Location {
+    pub path: PathBuf,
+    pub range: Range,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TextEdit {
     pub range: Range,
@@ -62,6 +69,11 @@ pub enum Event {
     Definition { path: PathBuf, position: Position },
     /// Nenhuma definição encontrada (para avisar o usuário).
     DefinitionNotFound,
+    /// Pediu a definição em cima da própria declaração (`path`/`position` são de onde pediu).
+    /// Quem usa costuma listar as referências, como o VS Code faz no Ctrl+clique.
+    AtDefinition { path: PathBuf, position: Position },
+    /// Onde o símbolo em `path`/`position` é usado (inclui a declaração). Vazio se nada.
+    References { path: PathBuf, position: Position, locations: Vec<Location> },
     Formatting { path: PathBuf, edits: Vec<TextEdit> },
     Progress { server: String, title: String, message: Option<String>, percentage: Option<u32>, done: bool },
     Message { server: String, level: MessageLevel, text: String },

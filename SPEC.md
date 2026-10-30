@@ -403,6 +403,35 @@ Ordem combinada: abrir pelo nome → perceber mudanças no disco → spike do de
       Mudanças dentro de pastas ignoradas (ex.: `target/` aberto na árvore) só aparecem com "Atualizar".
 - [x] Teste manual das mudanças no disco: aprovado.
 
+### Navegação pelo código
+
+Pesquisa: o caminho é o LSP (o que VS Code, Zed e Helix usam); busca por texto só como alternativa sem servidor.
+Tree-sitter com regras de escopo (stack graphs do GitHub) e índices (SCIP/LSIF, ctags) não compensam numa IDE com LSP.
+Ordem: (1) voltar/avançar + referências → (2) várias definições, implementação e tipo → (3) símbolos na paleta →
+(4) quem chama. Prévia dentro do editor fica de fora (o widget não deixa inserir nada entre as linhas).
+
+- [x] **Item 1 — voltar/avançar e onde é usado:**
+  - `tea-lsp`: `references(path, posição)` (`includeDeclaration`), resposta ordenada por arquivo e posição, sem
+    repetidos. A definição lembra de onde foi pedida: se o resultado cobre essa posição, vem `AtDefinition` em vez de
+    `Definition` (estava na declaração), e o app pede as referências, como o Ctrl+clique do VS Code.
+    Teste com o clangd de verdade (pula sem ele).
+  - Painel "Referências" (extensão `tea-ext-references`, `CoreEvent::References`): agrupado por arquivo, cada uso com
+    o número e a linha (sem o recuo), o nome destacado. As linhas vêm da aba aberta (com as alterações) ou do disco.
+    Só a declaração: avisa que o nome não é usado em outro lugar.
+  - Histórico (`nav.rs`): antes de cada salto (definição, Ctrl+P, cliques nos painéis de referências, problemas e
+    busca) guarda onde o cursor estava; paradas do debug não contam. Saltos na mesma linha não contam; arquivos
+    apagados são pulados; até 100 lugares. Saltar para outro lugar apaga o "avançar", como num navegador.
+  - Atalhos: `Shift+F12` (`lsp.references`), `Alt+←` (`nav.back`), `Alt+→` (`nav.forward`) e os botões laterais
+    do mouse. O widget de edição usaria `Alt+←/→` para mover o cursor; o `KeyGate` não deixa essas duas chegarem nele.
+  - Primeiro teste falhou: o `rust-analyzer` do PATH era o atalho do rustup sem o componente instalado
+    ("Unknown binary 'rust-analyzer'"), o servidor morria ao abrir e `F12`/`Ctrl+clique` ficavam mudos. Agora:
+    pedir definição ou referências (inclusive Ctrl+clique) sem servidor avisa o motivo, e esse erro do rustup vem
+    com "Instale com: rustup component add rust-analyzer". Com Ctrl apertado, o ponteiro vira mãozinha sobre o
+    texto (`KeyGate`; o widget só sublinhava). Teste com o simulador do iced (`iced_test`): Ctrl+clique atravessa
+    as camadas (marcas, overlay do LSP) e chega ao widget.
+  - [x] Teste manual (aprovado): Ctrl+clique num uso vai para a declaração e `Alt+←` volta; Ctrl+clique na declaração (ou
+    `Shift+F12`) abre o painel com os usos; clicar num uso vai até ele; `Alt+→` avança de novo.
+
 ### Fase 4 — Plugins externos
 - [ ] Host WASM (`wasmtime`) + WIT versionado.
 - [ ] Protocolo de UI declarativa para painéis de plugins.

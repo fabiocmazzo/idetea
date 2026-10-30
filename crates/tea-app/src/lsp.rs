@@ -75,6 +75,21 @@ impl LspManager {
         }
     }
 
+    /// Por que um arquivo está sem servidor de linguagem (para avisar quando o usuário pede algo dele).
+    pub fn why_missing(&self, path: &Path) -> String {
+        if !self.enabled {
+            return "LSP desligado no config ([lsp] enabled = false)".into();
+        }
+        let ext = path.extension().and_then(|e| e.to_str()).unwrap_or_default();
+        let Some(server) = self.servers.iter().find(|s| s.language_for(ext).is_some()) else {
+            return format!("nenhum servidor de linguagem configurado para arquivos .{ext}");
+        };
+        match self.failed.get(&server.name) {
+            Some(reason) => format!("{} não está rodando: {}", server.name, with_hint(&server.name, reason)),
+            None => format!("{} ainda não está pronto", server.name),
+        }
+    }
+
     pub fn on_exit(&mut self, server: &str, reason: &str) {
         self.clients.remove(server);
         self.failed.insert(server.to_string(), reason.to_string());
@@ -95,6 +110,18 @@ impl LspManager {
 }
 
 /// Servidores embutidos + mudanças do config (por nome).
+/// Acrescenta como resolver falhas conhecidas.
+pub fn with_hint(server: &str, reason: &str) -> String {
+    // O rustup instala um atalho `rust-analyzer` que só funciona com o componente instalado.
+    if reason.contains("Unknown binary") && reason.contains("rust-analyzer") {
+        return format!("{reason}. Instale com: rustup component add rust-analyzer");
+    }
+    if server == "rust-analyzer" && reason.contains("não encontrado no PATH") {
+        return format!("{reason}. Com rustup: rustup component add rust-analyzer");
+    }
+    reason.to_string()
+}
+
 pub fn servers_from_config(config: &LspConfig) -> Vec<ServerConfig> {
     let mut servers = tea_lsp::default_servers();
     for (name, o) in &config.servers {
@@ -194,5 +221,17 @@ mod tests {
         assert!(m.client_for(Path::new("/tmp/a.fk")).is_err());
         assert!(matches!(m.client_for(Path::new("/tmp/b.fk")), Ok(None)), "não repete o aviso");
         assert!(matches!(m.client_for(Path::new("/tmp/sem-servidor.xyz")), Ok(None)));
+    }
+}
+
+#[cfg(test)]
+mod hint_tests {
+    use super::with_hint;
+
+    #[test]
+    fn rustup_proxy_without_component_gets_install_hint() {
+        let r = "error: Unknown binary 'rust-analyzer' in official toolchain 'stable-x86_64-unknown-linux-gnu'.";
+        assert!(with_hint("rust-analyzer", r).ends_with("rustup component add rust-analyzer"));
+        assert_eq!(with_hint("clangd", "saiu"), "saiu");
     }
 }

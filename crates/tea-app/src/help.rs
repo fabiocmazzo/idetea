@@ -147,6 +147,10 @@ const GUIDE: &[(&str, &[&str])] = &[
              typescript-language-server, gopls e lua-language-server (precisam estar instalados).",
             "Ir para definição: {lsp.definition} ou Ctrl+Clique · Documentação: {lsp.hover} ou mouse parado \
              sobre o código · Formatar: {lsp.format}.",
+            "Onde é usado: {lsp.references}, ou Ctrl+Clique na própria declaração. A lista aparece no painel \
+             Referências; clique leva ao uso.",
+            "Voltar e avançar depois de um salto (definição, referência, Ctrl+P, cliques nos painéis): \
+             {nav.back} e {nav.forward}, ou os botões laterais do mouse.",
             "Se um servidor falhar, a barra de status mostra o motivo; \"LSP: reiniciar servidores\" tenta de novo.",
         ],
     ),
@@ -409,6 +413,7 @@ mod tests {
             "git.fetch",
             "git.pull",
             "git.push",
+            "references.focus",
             "debug.focus",
         ];
         for (_, paragraphs) in GUIDE {

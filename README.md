@@ -45,6 +45,8 @@ O nome é um trocadilho com *Iced Tea*: a IDE é feita com o iced.
 
 ### Linguagens (LSP)
 - Erros e avisos (painel de problemas e contagem na barra de status), hover, autocomplete, ir para definição e formatar.
+- Onde é usado (`Shift+F12`, ou `Ctrl+clique` na declaração) num painel agrupado por arquivo, e voltar/avançar
+  depois de cada salto (`Alt+←` / `Alt+→`, ou os botões laterais do mouse).
 - Já configurados: rust-analyzer, clangd, pyright, typescript-language-server, gopls e lua-language-server.
   Basta ter o servidor instalado; dá para trocar o comando ou adicionar outros.
 

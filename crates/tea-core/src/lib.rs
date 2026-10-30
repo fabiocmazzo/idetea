@@ -61,6 +61,23 @@ pub enum CoreEvent {
     FilesChanged,
     /// Sessão de debug (ver [`debug`]).
     Debug(debug::Event),
+    /// Onde um símbolo é usado (resposta de "listar referências"). Substitui a lista anterior.
+    References { symbol: String, items: Vec<Reference> },
+}
+
+/// Um uso de um símbolo.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Reference {
+    pub path: PathBuf,
+    /// Começam em 1 (coluna em caracteres).
+    pub line: usize,
+    pub column: usize,
+    /// Tamanho do nome em caracteres (para destacar na prévia).
+    pub len: usize,
+    /// A linha inteira, sem o recuo.
+    pub preview: String,
+    /// Recuo tirado da prévia (em caracteres): `column - 1 - indent` é onde o nome começa nela.
+    pub indent: usize,
 }
 
 /// Status de um arquivo no controle de versão. A ordem vai do mais fraco ao mais forte

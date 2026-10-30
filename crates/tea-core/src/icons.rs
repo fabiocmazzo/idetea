@@ -61,6 +61,7 @@ pub enum Icon {
     DebugStepOut,
     DebugStackFrame,
     DebugStackFrameActive,
+    References,
 }
 
 impl Icon {
@@ -107,6 +108,7 @@ impl Icon {
             Icon::DebugStepOut => 0xEAD5,
             Icon::DebugStackFrame => 0xEB8B,
             Icon::DebugStackFrameActive => 0xEB89,
+            Icon::References => 0xEB36,
         };
         char::from_u32(code).unwrap_or('?')
     }

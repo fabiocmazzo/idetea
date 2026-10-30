@@ -13,7 +13,7 @@ use crate::protocol;
 use crate::text::{DocText, Encoding, Position, Range};
 use crate::transport::{read_message, write_message};
 use crate::uri::{path_to_uri, uri_to_path};
-use crate::{Diagnostic, Event, MessageLevel, ServerConfig, TextEdit};
+use crate::{Diagnostic, Event, Location, MessageLevel, ServerConfig, TextEdit};
 
 /// Recebe os eventos do servidor. Chamado de uma thread do cliente: deve ser rápido.
 pub type EventSink = Arc<dyn Fn(Event) + Send + Sync>;
@@ -51,7 +51,9 @@ enum Pending {
     Initialize,
     Hover(PathBuf),
     Completion(PathBuf),
-    Definition,
+    /// De onde pediu (para saber se já estava na declaração).
+    Definition { path: PathBuf, position: Position },
+    References { path: PathBuf, position: Position },
     Formatting(PathBuf),
     Shutdown,
 }
@@ -161,6 +163,7 @@ impl Client {
                     "hover": { "contentFormat": ["markdown", "plaintext"] },
                     "completion": { "completionItem": { "snippetSupport": false } },
                     "definition": { "linkSupport": true },
+                    "references": {},
                     "formatting": {},
                     "publishDiagnostics": { "relatedInformation": false }
                 }
@@ -245,7 +248,22 @@ impl Client {
     }
 
     pub fn definition(&self, path: &Path, position: Position) {
-        self.position_request("textDocument/definition", path, position, Pending::Definition);
+        let pending = Pending::Definition { path: path.to_path_buf(), position };
+        self.position_request("textDocument/definition", path, position, pending);
+    }
+
+    /// Onde o símbolo é usado, incluindo a declaração (resposta em [`Event::References`]).
+    pub fn references(&self, path: &Path, position: Position) {
+        let mut st = self.inner.lock();
+        let enc = st.encoding;
+        let Some(doc) = st.docs.get(path) else { return };
+        let p = doc.to_server(position, enc);
+        let params = json!({
+            "textDocument": { "uri": path_to_uri(path) },
+            "position": protocol::position_json(p),
+            "context": { "includeDeclaration": true },
+        });
+        st.request("textDocument/references", params, Pending::References { path: path.to_path_buf(), position });
     }
 
     pub fn formatting(&self, path: &Path, tab_size: u32, insert_spaces: bool) {
@@ -477,16 +495,33 @@ impl Inner {
                 let items = protocol::completion_items(result);
                 vec![Event::Completion { path, items }]
             }
-            Pending::Definition => match protocol::first_location(result) {
+            Pending::Definition { path: from, position } => match protocol::first_location(result) {
                 Some((uri, range)) => match uri_to_path(&uri) {
                     Some(path) => {
                         let r = st.to_chars(&path, range, &mut HashMap::new());
-                        vec![Event::Definition { path, position: r.start }]
+                        if path == from && r.start <= position && position <= r.end {
+                            vec![Event::AtDefinition { path, position }]
+                        } else {
+                            vec![Event::Definition { path, position: r.start }]
+                        }
                     }
                     None => vec![Event::DefinitionNotFound],
                 },
                 None => vec![Event::DefinitionNotFound],
             },
+            Pending::References { path, position } => {
+                let mut disk = HashMap::new();
+                let mut locations: Vec<Location> = protocol::locations(result)
+                    .into_iter()
+                    .filter_map(|(uri, r)| {
+                        let p = uri_to_path(&uri)?;
+                        Some(Location { range: st.to_chars(&p, r, &mut disk), path: p })
+                    })
+                    .collect();
+                locations.sort_by(|a, b| (&a.path, a.range.start).cmp(&(&b.path, b.range.start)));
+                locations.dedup();
+                vec![Event::References { path, position, locations }]
+            }
             Pending::Formatting(path) => {
                 let mut disk = HashMap::new();
                 let edits = protocol::text_edits(result)
