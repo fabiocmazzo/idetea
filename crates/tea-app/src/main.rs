@@ -1454,6 +1454,10 @@ impl App {
     }
 
     fn save_active(&mut self) -> Task<Message> {
+        // Imagem não se edita: não há o que salvar (nem aviso de "salvo").
+        if self.editor().is_image() {
+            return Task::none();
+        }
         if self.editor().path().is_none() {
             return self.open_save_as();
         }

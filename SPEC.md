@@ -524,6 +524,18 @@ Apache/MIT; pdfium precisa de biblioteca C, MuPDF é AGPL).
   - [x] Teste manual (aprovado): abrir o README.md e `Ctrl+Shift+V` (ou o botão de prévia no fim da barra de abas); editar um título e ver a prévia mudar; clicar num link da
     web e num link para arquivo; abrir um .svg, mudar uma cor e ver o desenho mudar; quebrar o SVG e ver o erro.
 
+- [x] **Item 2 — imagens numa aba:**
+  - Em vez de um segundo tipo de aba (o app usa `editor` em mais de 100 lugares), o `Editor` tem um modo imagem
+    (`tea-editor/src/image_file.rs`): `Editor::open` de png, jpg, gif, webp, bmp, ico, tiff, tga e qoi guarda os
+    bytes e mostra o `image::viewer` do iced (roda do mouse aproxima, arrastar move) com largura × altura e o
+    tamanho do arquivo. Os bytes, não o caminho: arquivo mudado no disco recarrega a aba com a versão nova (pelo
+    caminho, o iced usaria a do cache). Arquivo que não decodifica mostra o erro.
+  - Nada grava na imagem: salvar não faz nada (gravar o texto vazio apagaria o arquivo), salvar como copia o
+    arquivo, F9 e as ações de texto (buscar, desfazer...) não fazem nada; a barra de status mostra "Imagem".
+    GIF animado mostra só o primeiro quadro.
+  - [x] Teste manual (aprovado): abrir um PNG pela árvore e pelo Ctrl+P; aproximar com a roda e arrastar; `Ctrl+S` não muda o
+    arquivo; trocar a imagem por fora (copiar outra por cima) e ver a aba atualizar.
+
 ### Fase 4 — Plugins externos (melhoria futura)
 
 Adiado: prévias de arquivos (Markdown, SVG, imagem, PDF) vêm antes.

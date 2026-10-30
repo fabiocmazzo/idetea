@@ -4550,6 +4550,7 @@ dependencies = [
  "iced",
  "iced-code-editor",
  "iced_test",
+ "image",
  "tea-lsp",
 ]
 

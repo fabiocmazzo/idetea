@@ -3,6 +3,7 @@
 //! O resto da IDE só usa os tipos deste crate. Trocar o `iced-code-editor`
 //! por outro widget deve mexer só aqui.
 
+mod image_file;
 mod key_gate;
 mod lsp;
 mod marks;
@@ -110,6 +111,8 @@ pub struct Editor {
     breakpoints: BTreeSet<usize>,
     /// Linha onde o programa parou no debug (começando em 0).
     exec_line: Option<usize>,
+    /// Aba de imagem: mostra o arquivo em vez do texto e nunca grava nele.
+    image: Option<image_file::ImageFile>,
 }
 
 impl Editor {
@@ -119,6 +122,11 @@ impl Editor {
 
     /// Abre um arquivo. Se ele não existir, abre vazio e cria ao salvar.
     pub fn open(path: &Path) -> io::Result<Self> {
+        if image_file::is_image(path) && path.is_file() {
+            let mut editor = Self::build(Some(path), "", false);
+            editor.image = Some(image_file::ImageFile::read(path)?);
+            return Ok(editor);
+        }
         match std::fs::read(path) {
             Ok(bytes) => {
                 let text = String::from_utf8(bytes).map_err(|_| {
@@ -159,7 +167,13 @@ impl Editor {
             hover: None,
             breakpoints: BTreeSet::new(),
             exec_line: None,
+            image: None,
         }
+    }
+
+    /// Aba de imagem (sem texto para editar).
+    pub fn is_image(&self) -> bool {
+        self.image.is_some()
     }
 
     pub fn path(&self) -> Option<&Path> {
@@ -200,6 +214,9 @@ impl Editor {
     }
 
     pub fn language(&self) -> &'static str {
+        if self.image.is_some() {
+            return "Imagem";
+        }
         self.inner.syntax_name()
     }
 
@@ -208,6 +225,10 @@ impl Editor {
     }
 
     pub fn save(&mut self) -> io::Result<()> {
+        // Imagem não tem alterações: não há o que gravar (gravar o texto vazio apagaria o arquivo).
+        if self.image.is_some() {
+            return Ok(());
+        }
         let path = self.path.clone().ok_or_else(|| io::Error::other("arquivo sem caminho"))?;
         self.write_to(&path)
     }
@@ -218,7 +239,16 @@ impl Editor {
         if self.path.as_deref() != Some(path) {
             self.detach_lsp();
         }
-        self.write_to(path)?;
+        if self.image.is_some() {
+            // Salvar como de uma imagem: cópia do arquivo.
+            if let Some(from) = &self.path
+                && from != path
+            {
+                std::fs::copy(from, path)?;
+            }
+        } else {
+            self.write_to(path)?;
+        }
         if self.path.as_deref() != Some(path) {
             self.path = Some(path.to_path_buf());
             self.inner.set_syntax(&syntax_for(Some(path)));
@@ -284,6 +314,9 @@ impl Editor {
     }
 
     pub fn run(&mut self, action: EditorAction) -> Task<EditorMessage> {
+        if self.image.is_some() {
+            return Task::none();
+        }
         let msg = match action {
             EditorAction::Find => Inner::OpenSearch,
             EditorAction::Replace => Inner::OpenSearchReplace,
@@ -375,6 +408,9 @@ impl Editor {
 
     /// Liga/desliga o breakpoint da linha (começando em 0).
     pub fn toggle_breakpoint(&mut self, line: usize) {
+        if self.image.is_some() {
+            return;
+        }
         if !self.breakpoints.remove(&line) {
             self.breakpoints.insert(line);
         }
@@ -395,6 +431,9 @@ impl Editor {
     }
 
     pub fn view(&self) -> Element<'_, EditorMessage> {
+        if let Some(img) = &self.image {
+            return img.view();
+        }
         let widget = self.inner.view().map(|m| EditorMessage(Msg::Widget(m)));
         let marks = marks::Marks::new(&self.inner, &self.breakpoints, self.exec_line, |line| {
             EditorMessage(Msg::ToggleBreakpoint(line))

@@ -5,7 +5,9 @@ edition.workspace = true
 license.workspace = true
 
 [dependencies]
-iced = { workspace = true, features = ["advanced"] }
+iced = { workspace = true, features = ["advanced", "image"] }
+# Mesma versão do iced: só para ler as dimensões das imagens.
+image = "0.25"
 iced-code-editor = { workspace = true, features = ["lsp-process"] }
 tea-lsp.workspace = true
 

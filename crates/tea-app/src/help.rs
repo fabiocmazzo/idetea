@@ -84,6 +84,7 @@ const GUIDE: &[(&str, &[&str])] = &[
              {file.save_as_path}. Abrir outra pasta ({file.open_folder}) abre uma nova janela da IDE.",
             "Prévia de Markdown e SVG: {preview.toggle} (ou o botão no fim da barra de abas) abre um painel ao lado que acompanha o arquivo ativo e \
              se atualiza enquanto você digita. Links da web abrem no navegador; links para arquivos abrem numa aba.",
+            "Imagens (png, jpg, gif, webp...) abrem numa aba própria: a roda do mouse aproxima e arrastar move.",
             "Trocar de aba: {tab.next} e {tab.prev} (Ctrl+Tab insere tabulação no editor).",
             "Fechar uma aba ou sair com alterações pergunta antes: Salvar, Descartar ou Cancelar.",
             "Arquivo mudado por fora (terminal, outro editor): a aba recarrega sozinha se não tiver alterações; \

@@ -37,6 +37,7 @@ O nome é um trocadilho com *Iced Tea*: a IDE é feita com o iced.
 - Syntax highlight para dezenas de linguagens, temas claro e escuro (e os temas do iced: Nord, Dracula...).
 - Buscar e substituir, ir para linha, desfazer/refazer, multi-cursor, dobrar código e modo vim opcional.
 - Prévia de Markdown e SVG ao lado do editor (`Ctrl+Shift+V` ou o botão na barra de abas), atualizada enquanto você digita.
+- Imagens (png, jpg, gif, webp, bmp, ico...) abrem numa aba, com zoom pela roda do mouse e arrastar.
 - Preserva CRLF. Arquivo que não é UTF-8 não abre, com aviso, em vez de ser corrompido.
 
 ### Projeto
