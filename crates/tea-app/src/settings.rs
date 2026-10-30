@@ -355,6 +355,7 @@ fn describe(id: &str) -> &'static str {
         "debug" => "Botões, pilha, variáveis e saída do debug",
         "references" => "Onde um nome é usado (Shift+F12)",
         "outline" => "Funções e métodos do arquivo, com visibilidade (Alt+7)",
+        "calls" => "Quem chama uma função, e quem ela chama (Alt+Shift+H)",
         _ => "",
     }
 }

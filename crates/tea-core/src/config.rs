@@ -52,6 +52,7 @@ git = { enabled = true, slot = "bottom" }
 debug = { enabled = true, slot = "bottom" }
 references = { enabled = true, slot = "bottom" }
 outline = { enabled = true, slot = "right" }
+calls = { enabled = true, slot = "bottom" }
 
 # Atalhos: "combinação" = "comando". Comando vazio ("") desliga o atalho.
 # Atalhos que o editor já usa (Ctrl+F, Ctrl+H, Ctrl+G, Ctrl+Z, Ctrl+D...) têm prioridade quando ele tem foco.
@@ -77,6 +78,7 @@ outline = { enabled = true, slot = "right" }
 "f12" = "lsp.definition"
 "shift+f12" = "lsp.references"
 "ctrl+f12" = "lsp.implementation"
+"alt+shift+h" = "lsp.incoming_calls"
 "alt+left" = "nav.back"
 "alt+right" = "nav.forward"
 "alt+7" = "outline.toggle"

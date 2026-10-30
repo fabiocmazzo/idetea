@@ -4,7 +4,7 @@ use std::path::PathBuf;
 use std::sync::{Arc, mpsc};
 use std::time::Duration;
 
-use tea_lsp::{Client, Event, EventSink, Position, ServerConfig};
+use tea_lsp::{CallDirection, Client, Event, EventSink, Position, ServerConfig};
 
 const SRC: &str = "int soma(int a, int b) {\n    return a + b;\n}\n\nint main(void) {\n    int x = soma(1, 2);\n    return soma(x, 3);\n}\n";
 
@@ -63,6 +63,25 @@ fn clangd_references_and_at_definition() {
     };
     let names: Vec<_> = symbols.iter().map(|s| (s.name.as_str(), s.selection.start)).collect();
     assert_eq!(names, [("soma", Position::new(0, 4)), ("main", Position::new(4, 4))], "{symbols:?}");
+
+    // Árvore de chamadas: `soma` é chamada duas vezes por `main`; `main` chama `soma`.
+    client.prepare_call_hierarchy(&file, Position::new(0, 5));
+    let Event::CallRoots { items, .. } = wait(&|e| matches!(e, Event::CallRoots { .. })) else { unreachable!() };
+    assert_eq!(items.iter().map(|i| i.name.as_str()).collect::<Vec<_>>(), ["soma"], "{items:?}");
+    client.calls(&items[0], CallDirection::Incoming, 7);
+    let Event::Calls { token, calls, .. } = wait(&|e| matches!(e, Event::Calls { .. })) else { unreachable!() };
+    assert_eq!(token, 7);
+    assert_eq!(calls.len(), 1, "{calls:?}");
+    assert_eq!(calls[0].item.name, "main");
+    let sites: Vec<_> = calls[0].sites.iter().map(|r| r.start).collect();
+    assert_eq!(sites, [Position::new(5, 12), Position::new(6, 11)]);
+
+    client.prepare_call_hierarchy(&file, Position::new(4, 5));
+    let Event::CallRoots { items, .. } = wait(&|e| matches!(e, Event::CallRoots { .. })) else { unreachable!() };
+    client.calls(&items[0], CallDirection::Outgoing, 8);
+    let Event::Calls { calls, .. } = wait(&|e| matches!(e, Event::Calls { .. })) else { unreachable!() };
+    assert_eq!(calls.iter().map(|c| c.item.name.as_str()).collect::<Vec<_>>(), ["soma"], "{calls:?}");
+    assert_eq!(calls[0].sites_path, file);
 
     client.shutdown();
     let _ = std::fs::remove_dir_all(&dir);

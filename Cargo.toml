@@ -33,6 +33,7 @@ tea-ext-git = { path = "crates/ext/tea-ext-git" }
 tea-ext-debug = { path = "crates/ext/tea-ext-debug" }
 tea-ext-references = { path = "crates/ext/tea-ext-references" }
 tea-ext-outline = { path = "crates/ext/tea-ext-outline" }
+tea-ext-calls = { path = "crates/ext/tea-ext-calls" }
 
 [profile.release]
 lto = "thin"

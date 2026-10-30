@@ -3821,6 +3821,7 @@ dependencies = [
  "tea-core",
  "tea-dap",
  "tea-editor",
+ "tea-ext-calls",
  "tea-ext-debug",
  "tea-ext-filetree",
  "tea-ext-git",
@@ -3860,6 +3861,14 @@ dependencies = [
  "iced-code-editor",
  "iced_test",
  "tea-lsp",
+]
+
+[[package]]
+name = "tea-ext-calls"
+version = "0.0.1"
+dependencies = [
+ "iced",
+ "tea-core",
 ]
 
 [[package]]

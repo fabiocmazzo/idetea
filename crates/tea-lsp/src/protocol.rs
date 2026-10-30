@@ -223,6 +223,36 @@ pub fn workspace_symbols(result: &Value) -> Vec<(String, u32, Option<String>, St
         .collect()
 }
 
+/// Um `CallHierarchyItem` cru: (nome, tipo, detalhe, uri, range, selectionRange). Posições do servidor.
+pub type RawCallItem = (String, u32, Option<String>, String, Range, Range);
+
+pub fn call_item(v: &Value) -> Option<RawCallItem> {
+    Some((
+        v.get("name")?.as_str()?.to_string(),
+        v.get("kind").and_then(Value::as_u64).unwrap_or(0) as u32,
+        v.get("detail").and_then(Value::as_str).filter(|d| !d.is_empty()).map(str::to_string),
+        v.get("uri")?.as_str()?.to_string(),
+        range(v.get("range")?)?,
+        range(v.get("selectionRange")?)?,
+    ))
+}
+
+/// Resposta de `callHierarchy/incomingCalls` (`from`) ou `outgoingCalls` (`to`): o item (cru, para
+/// os próximos pedidos) e os trechos das chamadas (`fromRanges`).
+pub fn calls(result: &Value, field: &str) -> Vec<(Value, Vec<Range>)> {
+    let Some(items) = result.as_array() else { return Vec::new() };
+    items
+        .iter()
+        .filter_map(|c| {
+            let item = c.get(field)?.clone();
+            let ranges = c.get("fromRanges").and_then(Value::as_array).map_or(Vec::new(), |rs| {
+                rs.iter().filter_map(range).collect()
+            });
+            Some((item, ranges))
+        })
+        .collect()
+}
+
 pub fn text_edits(result: &Value) -> Vec<(Range, String)> {
     result
         .as_array()

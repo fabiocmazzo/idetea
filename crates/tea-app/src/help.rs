@@ -154,6 +154,9 @@ const GUIDE: &[(&str, &[&str])] = &[
             "Implementações: {lsp.implementation} (num trait ou interface, ou num método dele). Tipo do que está \
              no cursor: \"LSP: ir para o tipo\" na paleta. Com mais de um resultado (inclusive na definição), \
              a lista vai para o painel Referências; com um só, salta direto.",
+            "Quem chama uma função: {lsp.incoming_calls} com o cursor nela. O painel Chamadas mostra a árvore (abra \
+             um nível para ver quem chama quem chama); \"O que chama\" troca para as chamadas feitas por ela. \
+             Clique leva até a chamada.",
             "Voltar e avançar depois de um salto (definição, referência, Ctrl+P, cliques nos painéis): \
              {nav.back} e {nav.forward}, ou os botões laterais do mouse.",
             "Estrutura do arquivo ({outline.toggle}): funções, structs, métodos e campos em árvore. O cadeado \
@@ -423,6 +426,7 @@ mod tests {
             "git.push",
             "references.focus",
             "outline.toggle",
+            "calls.focus",
             "debug.focus",
         ];
         for (_, paragraphs) in GUIDE {

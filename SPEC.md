@@ -484,6 +484,24 @@ Ordem: (1) voltar/avançar + referências → (2) várias definições, implemen
   - [x] Teste manual (aprovado): abrir um arquivo Rust e `Alt+7`; ver público/privado/`pub(crate)`; mover o cursor muda o
     destaque; editar (criar uma função) atualiza a lista; clique leva ao símbolo.
 
+- [x] **Item 4 — quem chama (árvore de chamadas):**
+  - `tea-lsp`: `prepare_call_hierarchy` (`textDocument/prepareCallHierarchy`) acha a função no cursor
+    (`Event::CallRoots`); `calls(item, direção, token)` pede `callHierarchy/incomingCalls` ou `outgoingCalls`
+    (`Event::Calls`). O item cru do servidor vai junto no `CallItem` (os pedidos seguintes precisam dele). Os
+    lugares das chamadas (`fromRanges`) ficam no arquivo de quem chama. Teste com o clangd (`soma` chamada duas
+    vezes por `main`; `main` chama `soma`); conferido com o rust-analyzer entre dois arquivos.
+  - Núcleo: `CoreEvent::Calls` (`calls::Event::Root` / `Children`) e `Context::call_children(nó, direção)`. O app
+    (`tea-app/src/calls.rs`) guarda o item do servidor de cada nó; ids nunca se repetem, então resposta atrasada de
+    uma árvore antiga é ignorada.
+  - Painel "Chamadas" (extensão `tea-ext-calls`, embaixo): a função do cursor como raiz, já aberta; cada nó abre aos
+    poucos (pede os filhos só na primeira vez, "…" enquanto espera; sem filhos, some a seta). Botões "Quem chama" /
+    "O que chama" trocam a direção e recomeçam a árvore. Cada linha: ícone do tipo, nome, "2×" se chama mais de uma
+    vez, assinatura e `arquivo:linha`. Clique em quem chama vai até a chamada; em "o que chama", até a declaração.
+  - Atalhos: `Alt+Shift+H` (`lsp.incoming_calls`, como o Shift+Alt+H do VS Code; `Ctrl+Alt+H` do IntelliJ abriria
+    o substituir do editor). "LSP: o que esta função chama" (`lsp.outgoing_calls`) fica na paleta.
+  - [x] Teste manual (aprovado): numa função Rust chamada de outros lugares, `Alt+Shift+H` abre o painel com quem chama; abrir um
+    nível a mais; clicar leva à chamada e `Alt+←` volta; "O que chama" mostra as chamadas feitas por ela.
+
 ### Fase 4 — Plugins externos
 - [ ] Host WASM (`wasmtime`) + WIT versionado.
 - [ ] Protocolo de UI declarativa para painéis de plugins.

@@ -523,6 +523,11 @@ impl Editor {
         self.request_at_cursor(tea_lsp::Client::type_definition)
     }
 
+    /// A função no cursor, para a árvore de chamadas (resposta em `tea_lsp::Event::CallRoots`).
+    pub fn request_call_hierarchy(&mut self) -> bool {
+        self.request_at_cursor(tea_lsp::Client::prepare_call_hierarchy)
+    }
+
     fn request_at_cursor(&mut self, f: fn(&tea_lsp::Client, &Path, tea_lsp::Position)) -> bool {
         let (Some(link), Some(path)) = (&self.lsp, &self.path) else { return false };
         // O servidor precisa do texto atual antes de responder.

@@ -11,6 +11,7 @@ use std::sync::Arc;
 
 use iced::{Element, Subscription, Task, Theme};
 
+pub mod calls;
 pub mod config;
 pub mod config_edit;
 pub mod debug;
@@ -66,6 +67,8 @@ pub enum CoreEvent {
     Outline { path: Option<PathBuf>, symbols: Arc<Vec<outline::Symbol>>, note: Option<String> },
     /// Lista de lugares de um símbolo (onde é usado, implementações...). Substitui a anterior.
     Locations { kind: LocationKind, symbol: String, items: Vec<Reference> },
+    /// Árvore de chamadas (ver [`calls`]).
+    Calls(calls::Event),
 }
 
 /// O que uma lista de lugares ([`CoreEvent::Locations`]) mostra.
@@ -183,6 +186,8 @@ pub enum Request {
     DebugSelectFrame(usize),
     /// Debug: pede os filhos de uma variável ou grupo (resposta em [`debug::Event::Variables`]).
     DebugVariables(i64),
+    /// Árvore de chamadas: pede os filhos de um nó (resposta em [`calls::Event::Children`]).
+    CallChildren { node: u64, direction: calls::Direction },
 }
 
 /// Estilo de um botão de diálogo.
@@ -347,6 +352,11 @@ impl<'a> Context<'a> {
 
     pub fn debug_variables(&mut self, reference: i64) {
         self.requests.push(Request::DebugVariables(reference));
+    }
+
+    /// Pede quem chama o nó (ou quem ele chama). A resposta chega em [`calls::Event::Children`].
+    pub fn call_children(&mut self, node: u64, direction: calls::Direction) {
+        self.requests.push(Request::CallChildren { node, direction });
     }
 
     pub fn into_requests(self) -> Vec<Request> {

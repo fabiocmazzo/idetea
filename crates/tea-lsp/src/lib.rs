@@ -85,6 +85,41 @@ pub struct Location {
     pub range: Range,
 }
 
+/// Uma função (ou método) na árvore de chamadas. Posições em caracteres.
+#[derive(Debug, Clone, PartialEq)]
+pub struct CallItem {
+    pub name: String,
+    /// `SymbolKind` do LSP.
+    pub kind: u32,
+    /// Ex.: a assinatura ou onde está (`impl Conta`).
+    pub detail: Option<String>,
+    pub path: PathBuf,
+    /// A declaração inteira.
+    pub range: Range,
+    /// Só o nome.
+    pub selection: Range,
+    /// O item como o servidor mandou: vai de volta em [`Client::calls`].
+    raw: std::sync::Arc<serde_json::Value>,
+}
+
+/// Quem chama a função, ou quem ela chama.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum CallDirection {
+    Incoming,
+    Outgoing,
+}
+
+/// Uma ligação na árvore de chamadas.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Call {
+    /// Quem chama (`Incoming`) ou quem é chamado (`Outgoing`).
+    pub item: CallItem,
+    /// Arquivo onde as chamadas estão: o de quem chama.
+    pub sites_path: PathBuf,
+    /// Onde as chamadas acontecem (o nome chamado), em caracteres.
+    pub sites: Vec<Range>,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TextEdit {
     pub range: Range,
@@ -116,6 +151,11 @@ pub enum Event {
     Formatting { path: PathBuf, edits: Vec<TextEdit> },
     /// Símbolos do projeto que combinam com `query` (vazia se o servidor não souber responder).
     WorkspaceSymbols { query: String, symbols: Vec<WorkspaceSymbol> },
+    /// A função em `path`/`position`, para começar a árvore de chamadas (vazia se o cursor não
+    /// está numa função ou o servidor não souber responder).
+    CallRoots { path: PathBuf, position: Position, items: Vec<CallItem> },
+    /// Ligações de um item da árvore de chamadas (`token` é o que foi passado em [`Client::calls`]).
+    Calls { token: u64, direction: CallDirection, calls: Vec<Call> },
     /// Estrutura do arquivo (vazia se o servidor não souber responder).
     DocumentSymbols { path: PathBuf, symbols: Vec<DocumentSymbol> },
     Progress { server: String, title: String, message: Option<String>, percentage: Option<u32>, done: bool },

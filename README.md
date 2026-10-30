@@ -49,6 +49,7 @@ O nome é um trocadilho com *Iced Tea*: a IDE é feita com o iced.
 - Ir para implementação (`Ctrl+F12`) e para o tipo; com mais de um resultado, a lista vai para o painel.
 - Onde é usado (`Shift+F12`, ou `Ctrl+clique` na declaração) num painel agrupado por arquivo, e voltar/avançar
   depois de cada salto (`Alt+←` / `Alt+→`, ou os botões laterais do mouse).
+- Quem chama uma função (`Alt+Shift+H`), em árvore que abre aos poucos, e o que ela chama.
 - Painel Estrutura (`Alt+7`): funções, structs, métodos e campos do arquivo em árvore, mostrando o que é público,
   privado ou restrito (`pub(crate)`, `protected`...), com o símbolo do cursor destacado.
 - Já configurados: rust-analyzer, clangd, pyright, typescript-language-server, gopls e lua-language-server.

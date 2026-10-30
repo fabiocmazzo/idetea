@@ -13,7 +13,10 @@ use crate::protocol;
 use crate::text::{DocText, Encoding, Position, Range};
 use crate::transport::{read_message, write_message};
 use crate::uri::{path_to_uri, uri_to_path};
-use crate::{Diagnostic, DocumentSymbol, Event, Location, Lookup, MessageLevel, ServerConfig, TextEdit, WorkspaceSymbol};
+use crate::{
+    Call, CallDirection, CallItem, Diagnostic, DocumentSymbol, Event, Location, Lookup, MessageLevel, ServerConfig, TextEdit,
+    WorkspaceSymbol,
+};
 
 /// Recebe os eventos do servidor. Chamado de uma thread do cliente: deve ser rápido.
 pub type EventSink = Arc<dyn Fn(Event) + Send + Sync>;
@@ -56,6 +59,9 @@ enum Pending {
     Locations { lookup: Lookup, path: PathBuf, position: Position },
     DocumentSymbols(PathBuf),
     WorkspaceSymbols(String),
+    CallRoots { path: PathBuf, position: Position },
+    /// `from`: arquivo do item expandido (onde ficam as chamadas de `Outgoing`).
+    Calls { token: u64, direction: CallDirection, from: PathBuf },
     Formatting(PathBuf),
     Shutdown,
 }
@@ -169,6 +175,7 @@ impl Client {
                     "implementation": { "linkSupport": true },
                     "typeDefinition": { "linkSupport": true },
                     "documentSymbol": { "hierarchicalDocumentSymbolSupport": true },
+                    "callHierarchy": {},
                     "formatting": {},
                     "publishDiagnostics": { "relatedInformation": false }
                 }
@@ -284,6 +291,23 @@ impl Client {
         self.locations_request(Lookup::TypeDefinition, path, position);
     }
 
+    /// A função na posição, para começar a árvore de chamadas (resposta em [`Event::CallRoots`]).
+    pub fn prepare_call_hierarchy(&self, path: &Path, position: Position) {
+        let pending = Pending::CallRoots { path: path.to_path_buf(), position };
+        self.position_request("textDocument/prepareCallHierarchy", path, position, pending);
+    }
+
+    /// Quem chama `item`, ou quem ele chama (resposta em [`Event::Calls`] com o mesmo `token`).
+    pub fn calls(&self, item: &CallItem, direction: CallDirection, token: u64) {
+        let method = match direction {
+            CallDirection::Incoming => "callHierarchy/incomingCalls",
+            CallDirection::Outgoing => "callHierarchy/outgoingCalls",
+        };
+        let params = json!({ "item": *item.raw });
+        let pending = Pending::Calls { token, direction, from: item.path.clone() };
+        self.inner.lock().request(method, params, pending);
+    }
+
     fn locations_request(&self, lookup: Lookup, path: &Path, position: Position) {
         let mut st = self.inner.lock();
         let enc = st.encoding;
@@ -384,6 +408,21 @@ impl State {
         locations.sort_by(|a, b| (&a.path, a.range.start).cmp(&(&b.path, b.range.start)));
         locations.dedup();
         locations
+    }
+
+    /// Item da árvore de chamadas, com posições em caracteres.
+    fn call_item(&self, raw: Value, disk: &mut HashMap<PathBuf, Option<DocText>>) -> Option<CallItem> {
+        let (name, kind, detail, uri, range, selection) = protocol::call_item(&raw)?;
+        let path = uri_to_path(&uri)?;
+        Some(CallItem {
+            name,
+            kind,
+            detail,
+            range: self.to_chars(&path, range, disk),
+            selection: self.to_chars(&path, selection, disk),
+            path,
+            raw: Arc::new(raw),
+        })
     }
 
     fn to_chars(&self, path: &Path, r: Range, disk: &mut HashMap<PathBuf, Option<DocText>>) -> Range {
@@ -513,7 +552,7 @@ impl Inner {
             if code == -32800 || code == -32801 {
                 // Pedido feito pelo usuário (definição, referências...) não pode sumir sem resposta:
                 // o servidor ainda está carregando o projeto ou o texto mudou no meio.
-                if matches!(pending, Pending::Definition { .. } | Pending::Locations { .. }) {
+                if matches!(pending, Pending::Definition { .. } | Pending::Locations { .. } | Pending::CallRoots { .. }) {
                     let text = "ainda carregando o projeto, tente de novo em instantes".to_string();
                     return vec![Event::Message { server, level: MessageLevel::Info, text }];
                 }
@@ -523,6 +562,18 @@ impl Inner {
             match pending {
                 Pending::DocumentSymbols(path) => return vec![Event::DocumentSymbols { path, symbols: Vec::new() }],
                 Pending::WorkspaceSymbols(query) => return vec![Event::WorkspaceSymbols { query, symbols: Vec::new() }],
+                Pending::CallRoots { path, position } => {
+                    return vec![
+                        Event::Log { server, text: format!("erro na resposta: {text}") },
+                        Event::CallRoots { path, position, items: Vec::new() },
+                    ];
+                }
+                Pending::Calls { token, direction, .. } => {
+                    return vec![
+                        Event::Log { server, text: format!("erro na resposta: {text}") },
+                        Event::Calls { token, direction, calls: Vec::new() },
+                    ];
+                }
                 // Ex.: servidor sem "ir para implementação": o usuário fica sabendo que não veio nada.
                 Pending::Locations { lookup, path, position } => {
                     return vec![
@@ -602,6 +653,34 @@ impl Inner {
                     to_chars(st, &path, s, &mut disk);
                 }
                 vec![Event::DocumentSymbols { path, symbols }]
+            }
+            Pending::CallRoots { path, position } => {
+                let mut disk = HashMap::new();
+                let items = match result.as_array() {
+                    Some(a) => a.iter().filter_map(|v| st.call_item(v.clone(), &mut disk)).collect(),
+                    None => Vec::new(),
+                };
+                vec![Event::CallRoots { path, position, items }]
+            }
+            Pending::Calls { token, direction, from } => {
+                let field = match direction {
+                    CallDirection::Incoming => "from",
+                    CallDirection::Outgoing => "to",
+                };
+                let mut disk = HashMap::new();
+                let calls = protocol::calls(result, field)
+                    .into_iter()
+                    .filter_map(|(raw, ranges)| {
+                        let item = st.call_item(raw, &mut disk)?;
+                        let sites_path = match direction {
+                            CallDirection::Incoming => item.path.clone(),
+                            CallDirection::Outgoing => from.clone(),
+                        };
+                        let sites = ranges.into_iter().map(|r| st.to_chars(&sites_path, r, &mut disk)).collect();
+                        Some(Call { item, sites_path, sites })
+                    })
+                    .collect();
+                vec![Event::Calls { token, direction, calls }]
             }
             Pending::Locations { lookup, path, position } => {
                 vec![Event::Locations { lookup, path, position, locations: st.locations(result) }]

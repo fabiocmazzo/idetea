@@ -2,6 +2,7 @@
 //!
 //! Uso: `idetea [--no-splash] [caminho...]` (ver `cli.rs`).
 
+mod calls;
 mod cli;
 mod context_menu;
 mod debug;
@@ -145,6 +146,8 @@ fn builtin_extensions() -> Vec<Box<dyn AnyExtension>> {
     list.push(Box::new(tea_ext_references::ReferencesExtension::new()));
     #[cfg(feature = "ext-outline")]
     list.push(Box::new(tea_ext_outline::OutlineExtension::new()));
+    #[cfg(feature = "ext-calls")]
+    list.push(Box::new(tea_ext_calls::CallsExtension::new()));
     list
 }
 
@@ -184,6 +187,8 @@ const CORE_COMMANDS: &[(&str, &str)] = &[
     ("lsp.references", "LSP: listar onde é usado"),
     ("lsp.implementation", "LSP: ir para implementação"),
     ("lsp.type_definition", "LSP: ir para o tipo"),
+    ("lsp.incoming_calls", "LSP: quem chama esta função"),
+    ("lsp.outgoing_calls", "LSP: o que esta função chama"),
     ("nav.file_symbol", "Ir para símbolo no arquivo…"),
     ("nav.project_symbol", "Ir para símbolo no projeto…"),
     ("nav.back", "Navegação: voltar"),
@@ -285,6 +290,8 @@ struct App {
     last_outline: (Option<PathBuf>, std::sync::Arc<Vec<tea_core::outline::Symbol>>, Option<String>),
     /// Busca de símbolos no projeto: só a última espera depois de digitar vale.
     symbol_wait: u64,
+    /// Árvore de chamadas (quem chama / quem é chamado).
+    calls: calls::CallTree,
     /// Quando a própria IDE salvou cada arquivo: o aviso de "mudou no disco" desse save não conta.
     own_saves: std::collections::HashMap<PathBuf, Instant>,
     /// Última lista de arquivos do projeto (para `Ctrl+P` abrir na hora; é relida a cada abertura).
@@ -415,6 +422,7 @@ impl App {
             outline_wait: 0,
             last_outline: (None, Default::default(), None),
             symbol_wait: 0,
+            calls: Default::default(),
             config,
         };
         app.push_tab(Editor::scratch(""));
@@ -536,6 +544,9 @@ impl App {
                     if let Some(session) = self.debug.session() {
                         session.variables(reference);
                     }
+                }
+                Request::CallChildren { node, direction } => {
+                    self.calls.request(node, direction);
                 }
                 Request::PanelIcon { id, icon } => {
                     if let Some(p) = self.panels.iter_mut().find(|p| p.ext == ext && p.id == id) {
@@ -1270,6 +1281,22 @@ impl App {
                 _ => Task::none(),
             },
             E::Locations { lookup, path, position, locations } => self.show_locations(lookup, &path, position, &locations),
+            E::CallRoots { path, items, .. } => {
+                if items.is_empty() {
+                    return self.notify("O cursor não está numa função (ou o servidor não sabe as chamadas dela)");
+                }
+                let Ok(Some((client, _))) = self.lsp.client_for(&path) else { return Task::none() };
+                let roots = self.calls.set_roots(&client, items);
+                let direction = self.calls.direction;
+                self.broadcast(CoreEvent::Calls(tea_core::calls::Event::Root { direction, roots }))
+            }
+            E::Calls { token, direction, calls } => match self.calls.children(token, direction, calls) {
+                Some(nodes) => {
+                    let direction = calls::core_direction(direction);
+                    self.broadcast(CoreEvent::Calls(tea_core::calls::Event::Children { parent: token, direction, nodes }))
+                }
+                None => Task::none(),
+            },
             E::Formatting { path, edits } => {
                 if let Some(i) = tab_for(self, &path) {
                     self.tabs[i].editor.apply_formatting(&edits);
@@ -1681,6 +1708,14 @@ impl App {
                 } else {
                     self.no_lsp_note()
                 }
+            }
+            "lsp.incoming_calls" | "lsp.outgoing_calls" => {
+                self.calls.direction = if id == "lsp.incoming_calls" {
+                    tea_core::calls::Direction::Incoming
+                } else {
+                    tea_core::calls::Direction::Outgoing
+                };
+                if self.editor_mut().request_call_hierarchy() { Task::none() } else { self.no_lsp_note() }
             }
             "lsp.type_definition" => {
                 if self.editor_mut().request_type_definition() { Task::none() } else { self.no_lsp_note() }
