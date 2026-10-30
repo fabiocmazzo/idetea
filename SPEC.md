@@ -536,6 +536,21 @@ Apache/MIT; pdfium precisa de biblioteca C, MuPDF é AGPL).
   - [x] Teste manual (aprovado): abrir um PNG pela árvore e pelo Ctrl+P; aproximar com a roda e arrastar; `Ctrl+S` não muda o
     arquivo; trocar a imagem por fora (copiar outra por cima) e ver a aba atualizar.
 
+- [x] **Item 3 — PDF numa aba:**
+  - Mesmo jeito da imagem: modo PDF no `Editor` (`tea-editor/src/pdf_file.rs`), nada grava no arquivo.
+  - `hayro` 0.8 desenha cada página numa imagem, numa thread só dele: a página pedida por último vai primeiro
+    (a que o usuário está vendo) e pedidos de um zoom antigo são jogados fora. Cada página na lista tem um
+    `sensor` do iced: só as que aparecem (ou estão a 400 px de aparecer) são desenhadas; ficam até 12 na
+    memória. Desenha com 1,5× os pixels da tela (texto nítido em tela de alta densidade), no máximo 6000 px
+    de lado.
+  - Barra: "Página X de N", zoom − / % / + (25% a 500%) e "Ajustar" (acompanha a largura da aba; é o começo).
+    Ao mudar o zoom, a imagem anterior fica esticada até chegar a nova.
+  - PDF com senha ou danificado mostra o motivo. Sem seleção nem busca de texto.
+  - Teste: PDF de 3 páginas gerado no teste (tamanho, texto desenhado, ~25 ms por página); zoom e "Ajustar".
+  - Executável release: 47 → 57 MB (fontes padrão e tabelas de caracteres que o `hayro` embute).
+  - [x] Teste manual (aprovado): abrir um PDF de várias páginas; rolar até o fim (as páginas aparecem conforme chegam);
+    `+`/`−` e "Ajustar"; redimensionar o painel com "Ajustar" ligado; `Ctrl+S` não muda o arquivo.
+
 ### Fase 4 — Plugins externos (melhoria futura)
 
 Adiado: prévias de arquivos (Markdown, SVG, imagem, PDF) vêm antes.

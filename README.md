@@ -38,6 +38,7 @@ O nome é um trocadilho com *Iced Tea*: a IDE é feita com o iced.
 - Buscar e substituir, ir para linha, desfazer/refazer, multi-cursor, dobrar código e modo vim opcional.
 - Prévia de Markdown e SVG ao lado do editor (`Ctrl+Shift+V` ou o botão na barra de abas), atualizada enquanto você digita.
 - Imagens (png, jpg, gif, webp, bmp, ico...) abrem numa aba, com zoom pela roda do mouse e arrastar.
+- PDF abre numa aba (desenhado pelo `hayro`, puro Rust), com zoom e ajuste à largura.
 - Preserva CRLF. Arquivo que não é UTF-8 não abre, com aviso, em vez de ser corrompido.
 
 ### Projeto

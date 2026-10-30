@@ -5,6 +5,7 @@
 
 mod image_file;
 mod key_gate;
+mod pdf_file;
 mod lsp;
 mod marks;
 
@@ -34,6 +35,8 @@ enum Msg {
     Overlay(LspOverlayMessage),
     /// Clique nos números de linha (linha começando em 0).
     ToggleBreakpoint(usize),
+    /// Aba de PDF (zoom, páginas desenhadas...).
+    Pdf(pdf_file::Msg),
 }
 
 impl EditorMessage {
@@ -113,6 +116,8 @@ pub struct Editor {
     exec_line: Option<usize>,
     /// Aba de imagem: mostra o arquivo em vez do texto e nunca grava nele.
     image: Option<image_file::ImageFile>,
+    /// Aba de PDF: como a de imagem, só mostra.
+    pdf: Option<pdf_file::PdfFile>,
 }
 
 impl Editor {
@@ -125,6 +130,11 @@ impl Editor {
         if image_file::is_image(path) && path.is_file() {
             let mut editor = Self::build(Some(path), "", false);
             editor.image = Some(image_file::ImageFile::read(path)?);
+            return Ok(editor);
+        }
+        if pdf_file::is_pdf(path) && path.is_file() {
+            let mut editor = Self::build(Some(path), "", false);
+            editor.pdf = Some(pdf_file::PdfFile::read(path)?);
             return Ok(editor);
         }
         match std::fs::read(path) {
@@ -168,12 +178,13 @@ impl Editor {
             breakpoints: BTreeSet::new(),
             exec_line: None,
             image: None,
+            pdf: None,
         }
     }
 
-    /// Aba de imagem (sem texto para editar).
+    /// Aba que só mostra o arquivo (imagem ou PDF), sem texto para editar.
     pub fn is_image(&self) -> bool {
-        self.image.is_some()
+        self.image.is_some() || self.pdf.is_some()
     }
 
     pub fn path(&self) -> Option<&Path> {
@@ -217,6 +228,9 @@ impl Editor {
         if self.image.is_some() {
             return "Imagem";
         }
+        if self.pdf.is_some() {
+            return "PDF";
+        }
         self.inner.syntax_name()
     }
 
@@ -225,8 +239,8 @@ impl Editor {
     }
 
     pub fn save(&mut self) -> io::Result<()> {
-        // Imagem não tem alterações: não há o que gravar (gravar o texto vazio apagaria o arquivo).
-        if self.image.is_some() {
+        // Imagem e PDF não têm alterações: não há o que gravar (gravar o texto vazio apagaria o arquivo).
+        if self.is_image() {
             return Ok(());
         }
         let path = self.path.clone().ok_or_else(|| io::Error::other("arquivo sem caminho"))?;
@@ -239,8 +253,8 @@ impl Editor {
         if self.path.as_deref() != Some(path) {
             self.detach_lsp();
         }
-        if self.image.is_some() {
-            // Salvar como de uma imagem: cópia do arquivo.
+        if self.is_image() {
+            // Salvar como de uma imagem ou PDF: cópia do arquivo.
             if let Some(from) = &self.path
                 && from != path
             {
@@ -314,7 +328,7 @@ impl Editor {
     }
 
     pub fn run(&mut self, action: EditorAction) -> Task<EditorMessage> {
-        if self.image.is_some() {
+        if self.is_image() {
             return Task::none();
         }
         let msg = match action {
@@ -338,6 +352,10 @@ impl Editor {
 
     pub fn update(&mut self, message: EditorMessage) -> Task<EditorMessage> {
         match message.0 {
+            Msg::Pdf(m) => {
+                let Some(pdf) = &mut self.pdf else { return Task::none() };
+                pdf.update(m).map(|m| EditorMessage(Msg::Pdf(m)))
+            }
             Msg::Widget(msg) => {
                 match &msg {
                     Inner::MouseHover(point) => {
@@ -408,7 +426,7 @@ impl Editor {
 
     /// Liga/desliga o breakpoint da linha (começando em 0).
     pub fn toggle_breakpoint(&mut self, line: usize) {
-        if self.image.is_some() {
+        if self.is_image() {
             return;
         }
         if !self.breakpoints.remove(&line) {
@@ -433,6 +451,9 @@ impl Editor {
     pub fn view(&self) -> Element<'_, EditorMessage> {
         if let Some(img) = &self.image {
             return img.view();
+        }
+        if let Some(pdf) = &self.pdf {
+            return pdf.view().map(|m| EditorMessage(Msg::Pdf(m)));
         }
         let widget = self.inner.view().map(|m| EditorMessage(Msg::Widget(m)));
         let marks = marks::Marks::new(&self.inner, &self.breakpoints, self.exec_line, |line| {

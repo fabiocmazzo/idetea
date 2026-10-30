@@ -8,6 +8,8 @@ license.workspace = true
 iced = { workspace = true, features = ["advanced", "image"] }
 # Mesma versão do iced: só para ler as dimensões das imagens.
 image = "0.25"
+# Desenha páginas de PDF (puro Rust, Apache/MIT).
+hayro = "0.8"
 iced-code-editor = { workspace = true, features = ["lsp-process"] }
 tea-lsp.workspace = true
 
