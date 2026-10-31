@@ -2,6 +2,12 @@
 //!
 //! Uso: `idetea [--no-splash] [caminho...]` (ver `cli.rs`).
 
+// Textos da interface (`i18n/<idioma>/tea-app.ftl`). Antes dos `mod`: a macro vale para todos.
+tea_core::i18n_loader!();
+macro_rules! fl {
+    ($($t:tt)*) => { tea_core::i18n::fl!(crate::LOADER, $($t)*) };
+}
+
 mod calls;
 mod cli;
 mod context_menu;
@@ -381,6 +387,8 @@ impl App {
         let root = launch.root.clone();
         let global_config = config::global_config_path();
         let config = Config::load(global_config.as_deref(), Some(&config::project_config_path(&root)));
+        // Antes de qualquer texto: as extensões registram títulos na ativação.
+        tea_core::i18n::init(&config.ui.language);
         let (keymap, key_errors) = Keymap::from_pairs(config.keys.iter().map(|(k, v)| (k.as_str(), v.as_str())));
         let (theme, theme_error) = resolve_theme(&config.ui.theme);
 
@@ -2272,6 +2280,7 @@ impl App {
             }
             M::Splash(on) => self.edit_config(|f| f.set_splash(on)),
             M::ActivityBar(on) => self.edit_config(|f| f.set_activity_bar(on)),
+            M::Language(choice) => self.edit_config(|f| f.set_language(choice.tag())),
             M::ExtEnabled(id, on) => self.edit_config(|f| f.set_extension_enabled(&id, on)),
             M::ExtSlot(id, slot) => self.edit_config(|f| f.set_extension_slot(&id, slot.0)),
             M::LspEnabled(on) => self.edit_config(|f| f.set_lsp_enabled(on)),
@@ -2985,6 +2994,35 @@ fn display_rel(path: &Path, root: &Path) -> String {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn translations_are_complete() {
+        // Todos os crates com textos: inglês e espanhol têm as mesmas mensagens e valores que o português.
+        let workspace = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+        let mut dirs: Vec<PathBuf> = std::fs::read_dir(workspace.join("crates")).unwrap().flatten().map(|e| e.path()).collect();
+        dirs.extend(std::fs::read_dir(workspace.join("crates/ext")).unwrap().flatten().map(|e| e.path()));
+        let mut checked = 0;
+        let mut problems = Vec::new();
+        for dir in dirs.iter().map(|d| d.join("i18n")).filter(|d| d.is_dir()) {
+            checked += 1;
+            problems.extend(tea_core::i18n::check_translations(&dir));
+        }
+        assert!(checked >= 1, "nenhuma pasta i18n achada");
+        assert!(problems.is_empty(), "traduções:\n{}", problems.join("\n"));
+    }
+
+    #[test]
+    fn texts_load_in_each_language() {
+        use tea_core::i18n::{Language, load_in};
+        let en = load_in("tea-app", &Localizations, Language::English);
+        assert_eq!(en.get("settings-theme"), "Theme");
+        let es = load_in("tea-app", &Localizations, Language::Spanish);
+        let args = std::collections::HashMap::from([("language", "English".into())]);
+        // Sem as marcas Unicode de isolamento em volta do valor.
+        assert_eq!(es.get_args_concrete("settings-language-auto", args), "Automático (English)");
+        // Testes sem `init`: português, os textos de hoje.
+        assert_eq!(fl!("settings-theme-detail"), "Cores da IDE, do editor e do terminal.");
+    }
+
     use super::*;
 
     #[test]

@@ -78,6 +78,10 @@ impl ConfigFile {
         self.section("ui")["splash"] = value(on);
     }
 
+    pub fn set_language(&mut self, tag: &str) {
+        self.section("ui")["language"] = value(tag);
+    }
+
     pub fn set_activity_bar(&mut self, on: bool) {
         self.section("ui")["activity_bar"] = value(on);
     }

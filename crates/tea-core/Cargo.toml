@@ -9,3 +9,8 @@ iced = { workspace = true, features = ["advanced"] }
 serde.workspace = true
 toml.workspace = true
 toml_edit.workspace = true
+i18n-embed.workspace = true
+i18n-embed-fl.workspace = true
+rust-embed.workspace = true
+sys-locale.workspace = true
+fluent-syntax.workspace = true

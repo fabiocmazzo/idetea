@@ -164,7 +164,11 @@ impl Editor {
         let mut inner = CodeEditor::new(&text, &syntax_for(path));
         // A command palette é da IDE, não do widget.
         inner.set_command_palette_enabled(false);
-        inner.set_language(iced_code_editor::Language::PortugueseBR);
+        inner.set_language(match tea_core::i18n::current() {
+            tea_core::i18n::Language::PortugueseBr => iced_code_editor::Language::PortugueseBR,
+            tea_core::i18n::Language::English => iced_code_editor::Language::English,
+            tea_core::i18n::Language::Spanish => iced_code_editor::Language::Spanish,
+        });
         Self {
             path: path.map(Path::to_path_buf),
             inner,

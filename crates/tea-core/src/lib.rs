@@ -15,6 +15,7 @@ pub mod calls;
 pub mod config;
 pub mod config_edit;
 pub mod debug;
+pub mod i18n;
 pub mod icons;
 pub mod menu;
 pub mod outline;

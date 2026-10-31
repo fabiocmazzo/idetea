@@ -551,6 +551,32 @@ Apache/MIT; pdfium precisa de biblioteca C, MuPDF é AGPL).
   - [x] Teste manual (aprovado): abrir um PDF de várias páginas; rolar até o fim (as páginas aparecem conforme chegam);
     `+`/`−` e "Ajustar"; redimensionar o painel com "Ajustar" ligado; `Ctrl+S` não muda o arquivo.
 
+### Idiomas (i18n)
+
+Português, inglês e espanhol. Fluent (`i18n-embed` + macro `fl!`, o mesmo dos apps do COSMIC): chave conferida
+na compilação, plural e valores no texto, e cada crate (ou plugin, no futuro) com os próprios `.ftl`. Descartados:
+`rust-i18n` (sem conferência das chaves nem plural) e tabela à mão em Rust. Trocar de idioma vale ao reiniciar
+(como VS Code e IntelliJ): os títulos de comandos e painéis são registrados na ativação. Fica de fora: SPEC e
+DESENVOLVIMENTO; mensagens dos servidores de linguagem e do git (já seguem o idioma do sistema).
+
+Entregas: (1) base → (2) núcleo e app → (3) extensões → (4) traduções da ajuda e revisão.
+
+- [x] **Entrega 1 — base:**
+  - `tea-core/src/i18n.rs`: `Language` (pt-BR, en, es), `resolve` (config vence; `"auto"` segue `LANG`; `pt-PT`
+    vira pt-BR, `es-419` vira es; sistema sem idioma conhecido, como `LANG=C`, fica em inglês), `init` (uma vez, no
+    `boot`, antes de ativar as extensões), `current` (sem `init`, nos testes: português), macro `i18n_loader!`
+    (embute `i18n/` e cria o `LOADER` do crate) e `fl!` reexportada.
+  - O português é a origem e o idioma de reserva: `fl!` confere a chave nele na compilação; o teste
+    `translations_are_complete` confere em todos os crates que en e es têm as mesmas mensagens e os mesmos
+    valores (percorre a árvore do Fluent, inclusive plurais). As marcas Unicode de isolamento em volta dos valores
+    ficam desligadas (o iced desenharia quadradinhos).
+  - `[ui] language = "auto"`; Configurações → Aparência ganha "Idioma" (Automático (idioma do sistema), Português
+    (Brasil), English, Español), avisando que vale ao reiniciar. A aba Aparência já usa os textos traduzidos.
+  - O widget de edição (busca, ir para linha) segue o idioma escolhido.
+  - Custo: executável +0,5 MB; abertura sem mudança (17 ms).
+  - [x] Teste manual (aprovado): Configurações → Aparência → Idioma = English; reiniciar; a aba Aparência fica em inglês e
+    `Ctrl+F` no editor também; voltar para Automático.
+
 ### Fase 4 — Plugins externos (melhoria futura)
 
 Adiado: prévias de arquivos (Markdown, SVG, imagem, PDF) vêm antes.

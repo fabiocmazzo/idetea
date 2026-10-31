@@ -23,6 +23,8 @@ theme = "dark"
 font_size = 14
 # Faixa de ícones na borda esquerda para mostrar/ocultar painéis.
 activity_bar = true
+# Idioma da interface: "auto" (o do sistema), "pt-BR", "en" ou "es". Vale ao reiniciar.
+language = "auto"
 
 # Servidores de linguagem (LSP). Embutidos: rust-analyzer, clangd, pyright,
 # typescript, gopls, lua. Só iniciam se o comando existir no PATH.
@@ -106,11 +108,13 @@ pub struct UiConfig {
     pub theme: String,
     pub font_size: f32,
     pub activity_bar: bool,
+    /// `"auto"` (o do sistema), `"pt-BR"`, `"en"` ou `"es"`. Vale ao reiniciar.
+    pub language: String,
 }
 
 impl Default for UiConfig {
     fn default() -> Self {
-        Self { splash: true, theme: "dark".into(), font_size: 14.0, activity_bar: true }
+        Self { splash: true, theme: "dark".into(), font_size: 14.0, activity_bar: true, language: "auto".into() }
     }
 }
 

@@ -12,6 +12,7 @@ image = "0.25"
 hayro = "0.8"
 iced-code-editor = { workspace = true, features = ["lsp-process"] }
 tea-lsp.workspace = true
+tea-core.workspace = true
 
 [dev-dependencies]
 iced_test = "0.14"

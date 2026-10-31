@@ -10,6 +10,7 @@ use iced::widget::{
 };
 use iced::{Element, Fill, Font, Theme};
 use tea_core::Slot;
+use tea_core::i18n::{self, Language};
 use tea_core::config::Config;
 use tea_core::icons::{Icon, icon_button};
 use tea_core::keymap::Keymap;
@@ -39,6 +40,7 @@ pub enum Msg {
     FontSize(f32),
     Splash(bool),
     ActivityBar(bool),
+    Language(LanguageChoice),
     ExtEnabled(String, bool),
     ExtSlot(String, SlotChoice),
     LspEnabled(bool),
@@ -274,6 +276,47 @@ impl fmt::Display for SlotChoice {
     }
 }
 
+/// Opção da lista de idiomas: automático (o do sistema) ou um idioma.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum LanguageChoice {
+    Auto,
+    Fixed(Language),
+}
+
+impl LanguageChoice {
+    /// Valor de `[ui] language`.
+    pub fn tag(self) -> &'static str {
+        match self {
+            LanguageChoice::Auto => "auto",
+            LanguageChoice::Fixed(l) => l.tag(),
+        }
+    }
+
+    fn from_setting(setting: &str) -> Self {
+        let s = setting.trim();
+        if s.is_empty() || s.eq_ignore_ascii_case("auto") {
+            return LanguageChoice::Auto;
+        }
+        Language::from_tag(s).map_or(LanguageChoice::Auto, LanguageChoice::Fixed)
+    }
+}
+
+impl fmt::Display for LanguageChoice {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            LanguageChoice::Auto => {
+                let system = i18n::resolve("auto", i18n::system_locale().as_deref());
+                f.write_str(&fl!("settings-language-auto", language = system.native_name()))
+            }
+            LanguageChoice::Fixed(l) => f.write_str(l.native_name()),
+        }
+    }
+}
+
+fn language_choices() -> Vec<LanguageChoice> {
+    std::iter::once(LanguageChoice::Auto).chain(Language::ALL.map(LanguageChoice::Fixed)).collect()
+}
+
 const SLOTS: [SlotChoice; 3] = [SlotChoice(Slot::Left), SlotChoice(Slot::Right), SlotChoice(Slot::Bottom)];
 
 fn theme_choices() -> Vec<ThemeChoice> {
@@ -292,21 +335,34 @@ fn appearance(config: &Config) -> Element<'_, Msg> {
     .spacing(6)
     .align_y(iced::Center);
     let current = theme_choices().into_iter().find(|t| t.0.eq_ignore_ascii_case(config.ui.theme.trim()));
+    // O idioma só muda ao reiniciar: avisa quando o escolhido não é o que está na tela.
+    let chosen = i18n::resolve(&config.ui.language, i18n::system_locale().as_deref());
+    let mut language_detail = fl!("settings-language-detail");
+    if chosen != i18n::current() {
+        language_detail = format!(
+            "{language_detail} {}",
+            fl!("settings-language-restart", language = i18n::current().native_name())
+        );
+    }
+    let language = pick_list(language_choices(), Some(LanguageChoice::from_setting(&config.ui.language)), Msg::Language)
+        .text_size(13)
+        .width(220);
     column![
-        setting(
-            "Tema",
-            "Cores da IDE, do editor e do terminal.",
+        setting_owned(
+            fl!("settings-theme"),
+            fl!("settings-theme-detail"),
             pick_list(theme_choices(), current, Msg::Theme).text_size(13).width(220).into()
         ),
-        setting("Tamanho da fonte", "Editor e terminal.", font.into()),
-        setting(
-            "Barra de ícones",
-            "Faixa na borda esquerda para mostrar/ocultar painéis com um clique.",
+        setting_owned(fl!("settings-language"), language_detail, language.into()),
+        setting_owned(fl!("settings-font-size"), fl!("settings-font-size-detail"), font.into()),
+        setting_owned(
+            fl!("settings-activity-bar"),
+            fl!("settings-activity-bar-detail"),
             toggler(config.ui.activity_bar).on_toggle(Msg::ActivityBar).into()
         ),
-        setting(
-            "Splash ao abrir",
-            "Tela de abertura (mínimo de 2 s). --no-splash desliga numa execução.",
+        setting_owned(
+            fl!("settings-splash"),
+            fl!("settings-splash-detail"),
             toggler(config.ui.splash).on_toggle(Msg::Splash).into()
         ),
     ]

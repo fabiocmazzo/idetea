@@ -132,6 +132,35 @@ tema e fonte, status do git, painel aberto pela barra de ícones...
 Extensões não se chamam diretamente: conversam só por **comandos** e **eventos**. Toda extensão pode ser desligada
 em `[extensions] <id> = { enabled = false }` (vale ao reiniciar) ou mudar de lado com `slot = "right"`.
 
+## Textos da interface (idiomas)
+
+A interface fala português, inglês e espanhol ([Fluent](https://projectfluent.org), via `i18n-embed`).
+O idioma vem de `[ui] language` (`"auto"` segue o sistema) e é escolhido uma vez, ao abrir.
+
+Cada crate com textos tem:
+
+- `i18n.toml` com `fallback_language = "pt-BR"` e `assets_dir = "i18n"`;
+- `i18n/pt-BR/<nome-do-crate>.ftl`, `i18n/en/...` e `i18n/es/...`;
+- no topo do `lib.rs`/`main.rs`, antes dos `mod`:
+
+```rust
+tea_core::i18n_loader!();
+macro_rules! fl {
+    ($($t:tt)*) => { tea_core::i18n::fl!(crate::LOADER, $($t)*) };
+}
+```
+
+Para um texto novo: escreva a mensagem nos três `.ftl` e use `fl!("id")` ou `fl!("id", name = valor)`.
+O português é a origem: chave que não existe nele não compila. O teste `translations_are_complete`
+(em `tea-app`) confere que inglês e espanhol têm as mesmas mensagens e os mesmos valores. Plural:
+
+```fluent
+references = { $count ->
+    [one] 1 referência
+   *[other] { $count } referências
+}
+```
+
 ## Convenções
 
 - Textos da interface, mensagens e documentação em português.
