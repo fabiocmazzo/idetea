@@ -576,6 +576,18 @@ Entregas: (1) base → (2) núcleo e app → (3) extensões → (4) traduções 
   - Custo: executável +0,5 MB; abertura sem mudança (17 ms).
   - [x] Teste manual (aprovado): Configurações → Aparência → Idioma = English; reiniciar; a aba Aparência fica em inglês e
     `Ctrl+F` no editor também; voltar para Automático.
+- [x] **Entrega 2 — núcleo e app:**
+  - Textos de tea-app, tea-core e tea-editor em `.ftl` (pt-BR, en, es): títulos dos comandos (paleta e aba
+    Atalhos), avisos, diálogos, menus, Configurações inteira, paleta, ajuda (cabeçalho, atalhos fixos e "Sobre";
+    o guia fica para a entrega 4), LSP, debug, observador de arquivos, `--help`, nomes dos símbolos, contagens
+    do painel Referências (com plural), barra das abas de imagem e PDF, erros do config e dos atalhos.
+  - Títulos dos comandos são ids (`cmd-file-save`); o teste `command_titles_exist` confere que todos têm texto.
+  - O idioma é escolhido antes de ler o config (`peek_language` lê só `[ui] language`), para os avisos do config
+    já saírem no idioma certo; avisos da linha de comando viram texto só depois disso. `--help` segue o sistema.
+  - A dica "Com rustup: ..." do rust-analyzer não depende mais do texto do erro.
+  - [x] Teste manual (aprovado): Idioma = English (ou `LANG=es_ES.UTF-8 idetea`); reiniciar; conferir paleta (`Ctrl+Shift+P`),
+    menus, Configurações, ajuda (`F1`: Atalhos e Sobre), fechar aba com alteração (diálogo), uma imagem e um PDF;
+    `idetea --help` no terminal; voltar para Automático e ver tudo em português como antes.
 
 ### Fase 4 — Plugins externos (melhoria futura)
 

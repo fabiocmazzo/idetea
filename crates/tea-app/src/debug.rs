@@ -49,10 +49,10 @@ impl Debugger {
     ) -> Result<(), String> {
         let adapter = AdapterConfig::gdb();
         if tea_lsp::find_in_path(&adapter.command).is_none() {
-            return Err("gdb não encontrado no PATH (o debug usa o gdb 14 ou mais novo)".into());
+            return Err(fl!("debug-no-gdb"));
         }
         if !program.is_file() {
-            return Err(format!("programa não encontrado: {}", program.display()));
+            return Err(fl!("debug-program-not-found", path = program.display().to_string()));
         }
         self.stop();
         self.generation += 1;
@@ -65,7 +65,7 @@ impl Debugger {
         });
         let launch = Launch { program: program.clone(), args, cwd };
         let session = Session::start(&adapter, launch, breakpoints, sink)
-            .map_err(|e| format!("não foi possível iniciar o gdb: {e}"))?;
+            .map_err(|e| fl!("debug-gdb-start-error", error = e.to_string()))?;
         self.session = Some(session);
         self.program = Some(program);
         self.stopped = None;
@@ -92,15 +92,15 @@ impl Debugger {
     }
 }
 
-/// Motivo da parada em português.
-pub fn reason_label(reason: &str) -> &str {
+/// Motivo da parada, no idioma da interface.
+pub fn reason_label(reason: &str) -> String {
     match reason {
-        "breakpoint" | "function breakpoint" | "data breakpoint" => "breakpoint",
-        "step" => "passo",
-        "pause" => "pausado",
-        "exception" => "exceção",
-        "entry" => "início",
-        "goto" => "salto",
-        other => other,
+        "breakpoint" | "function breakpoint" | "data breakpoint" => fl!("debug-reason-breakpoint"),
+        "step" => fl!("debug-reason-step"),
+        "pause" => fl!("debug-reason-pause"),
+        "exception" => fl!("debug-reason-exception"),
+        "entry" => fl!("debug-reason-entry"),
+        "goto" => fl!("debug-reason-goto"),
+        other => other.to_string(),
     }
 }

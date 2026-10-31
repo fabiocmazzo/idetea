@@ -74,24 +74,24 @@ impl Kind {
         }
     }
 
-    pub fn label(self) -> &'static str {
+    pub fn label(self) -> String {
         match self {
-            Kind::Module => "módulo",
-            Kind::Class => "classe",
-            Kind::Struct => "struct",
-            Kind::Interface => "interface/trait",
-            Kind::Enum => "enum",
-            Kind::EnumMember => "variante",
-            Kind::Method => "método",
-            Kind::Function => "função",
-            Kind::Constructor => "construtor",
-            Kind::Field => "campo",
-            Kind::Property => "propriedade",
-            Kind::Variable => "variável",
-            Kind::Constant => "constante",
-            Kind::TypeParameter => "parâmetro de tipo",
-            Kind::Block => "bloco",
-            Kind::Other => "símbolo",
+            Kind::Module => fl!("kind-module"),
+            Kind::Class => fl!("kind-class"),
+            Kind::Struct => fl!("kind-struct"),
+            Kind::Interface => fl!("kind-interface"),
+            Kind::Enum => fl!("kind-enum"),
+            Kind::EnumMember => fl!("kind-variant"),
+            Kind::Method => fl!("kind-method"),
+            Kind::Function => fl!("kind-function"),
+            Kind::Constructor => fl!("kind-constructor"),
+            Kind::Field => fl!("kind-field"),
+            Kind::Property => fl!("kind-property"),
+            Kind::Variable => fl!("kind-variable"),
+            Kind::Constant => fl!("kind-constant"),
+            Kind::TypeParameter => fl!("kind-type-parameter"),
+            Kind::Block => fl!("kind-block"),
+            Kind::Other => fl!("kind-other"),
         }
     }
 }
@@ -126,8 +126,8 @@ pub struct Symbol {
 /// cadeado aberto verde (público), fechado vermelho (privado), chave amarela (restrito).
 pub fn visibility_badge<'a, M: 'a>(v: &Visibility) -> Element<'a, M> {
     let (icon, tip, color): (Icon, String, fn(&Theme) -> Color) = match v {
-        Visibility::Public => (Icon::Unlock, "público".into(), |t| t.extended_palette().success.base.color),
-        Visibility::Private => (Icon::Lock, "privado".into(), |t| t.extended_palette().danger.base.color),
+        Visibility::Public => (Icon::Unlock, fl!("visibility-public"), |t| t.extended_palette().success.base.color),
+        Visibility::Private => (Icon::Lock, fl!("visibility-private"), |t| t.extended_palette().danger.base.color),
         Visibility::Restricted(label) => (Icon::Key, label.clone(), |t| t.extended_palette().warning.base.color),
         Visibility::Unknown => return space::horizontal().width(14).into(),
     };

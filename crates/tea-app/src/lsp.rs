@@ -55,10 +55,7 @@ impl LspManager {
             return Ok(Some((client.clone(), language)));
         }
         if tea_lsp::find_in_path(&server.command).is_none() {
-            let msg = format!(
-                "{}: comando \"{}\" não encontrado no PATH (instale ou ajuste [lsp.servers.{}] no config)",
-                server.name, server.command, server.name
-            );
+            let msg = fl!("lsp-command-not-found", server = server.name.clone(), command = server.command.clone());
             self.failed.insert(server.name.clone(), msg.clone());
             return Err(msg);
         }
@@ -68,7 +65,7 @@ impl LspManager {
                 Ok(Some((client, language)))
             }
             Err(e) => {
-                let msg = format!("{}: não foi possível iniciar: {e}", server.name);
+                let msg = fl!("lsp-start-error", server = server.name.clone(), error = e.to_string());
                 self.failed.insert(server.name.clone(), msg.clone());
                 Err(msg)
             }
@@ -83,15 +80,15 @@ impl LspManager {
     /// Por que um arquivo está sem servidor de linguagem (para avisar quando o usuário pede algo dele).
     pub fn why_missing(&self, path: &Path) -> String {
         if !self.enabled {
-            return "LSP desligado no config ([lsp] enabled = false)".into();
+            return fl!("lsp-disabled");
         }
         let ext = path.extension().and_then(|e| e.to_str()).unwrap_or_default();
         let Some(server) = self.servers.iter().find(|s| s.language_for(ext).is_some()) else {
-            return format!("nenhum servidor de linguagem configurado para arquivos .{ext}");
+            return fl!("lsp-no-server-for", ext = ext);
         };
         match self.failed.get(&server.name) {
-            Some(reason) => format!("{} não está rodando: {}", server.name, with_hint(&server.name, reason)),
-            None => format!("{} ainda não está pronto", server.name),
+            Some(reason) => fl!("lsp-not-running", server = server.name.clone(), reason = with_hint(&server.name, reason)),
+            None => fl!("lsp-not-ready", server = server.name.clone()),
         }
     }
 
@@ -119,10 +116,10 @@ impl LspManager {
 pub fn with_hint(server: &str, reason: &str) -> String {
     // O rustup instala um atalho `rust-analyzer` que só funciona com o componente instalado.
     if reason.contains("Unknown binary") && reason.contains("rust-analyzer") {
-        return format!("{reason}. Instale com: rustup component add rust-analyzer");
+        return fl!("lsp-hint-rustup-install", reason = reason);
     }
-    if server == "rust-analyzer" && reason.contains("não encontrado no PATH") {
-        return format!("{reason}. Com rustup: rustup component add rust-analyzer");
+    if server == "rust-analyzer" && tea_lsp::find_in_path("rust-analyzer").is_none() {
+        return fl!("lsp-hint-rustup", reason = reason);
     }
     reason.to_string()
 }

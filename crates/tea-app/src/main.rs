@@ -60,7 +60,8 @@ fn main() -> iced::Result {
     let env_no_splash = cli::env_flag(std::env::var_os("IDETEA_NO_SPLASH"));
     match cli::parse(std::env::args_os().skip(1), &cwd, env_no_splash) {
         cli::Cli::Help => {
-            println!("{}", cli::USAGE);
+            tea_core::i18n::init("auto");
+            println!("{}", cli::usage());
             Ok(())
         }
         cli::Cli::Version => {
@@ -159,59 +160,59 @@ fn builtin_extensions() -> Vec<Box<dyn AnyExtension>> {
     list
 }
 
-/// Comandos do núcleo: (id, título).
+/// Comandos do núcleo: (id, mensagem do título em `i18n/*/tea-app.ftl`).
 const CORE_COMMANDS: &[(&str, &str)] = &[
-    ("palette.open", "Paleta de comandos"),
-    ("help.open", "Ajuda: atalhos e guia"),
-    ("settings.open", "Configurações"),
-    ("file.new", "Arquivo: novo"),
-    ("file.save", "Arquivo: salvar"),
-    ("file.open", "Arquivo: abrir…"),
-    ("file.quick_open", "Arquivo: abrir pelo nome…"),
-    ("debug.continue", "Debug: iniciar / continuar"),
-    ("debug.stop", "Debug: parar"),
-    ("debug.pause", "Debug: pausar"),
-    ("debug.next", "Debug: próxima linha"),
-    ("debug.step_in", "Debug: entrar na função"),
-    ("debug.step_out", "Debug: sair da função"),
-    ("debug.toggle_breakpoint", "Debug: liga/desliga breakpoint na linha"),
-    ("debug.choose_program", "Debug: escolher o programa…"),
-    ("file.open_folder", "Arquivo: abrir pasta em nova janela…"),
-    ("file.save_as", "Arquivo: salvar como…"),
-    ("file.save_as_path", "Arquivo: salvar como (digitar caminho)…"),
-    ("file.close", "Arquivo: fechar aba"),
-    ("tab.next", "Abas: próxima"),
-    ("tab.prev", "Abas: anterior"),
-    ("editor.find", "Editor: buscar"),
-    ("editor.replace", "Editor: buscar e substituir"),
-    ("editor.goto_line", "Editor: ir para linha"),
-    ("editor.undo", "Editor: desfazer"),
-    ("editor.redo", "Editor: refazer"),
-    ("editor.select_all", "Editor: selecionar tudo"),
-    ("editor.fold_all", "Editor: recolher todos os blocos"),
-    ("editor.unfold_all", "Editor: expandir todos os blocos"),
-    ("editor.toggle_vim", "Editor: ligar/desligar modo vim"),
-    ("lsp.definition", "LSP: ir para definição"),
-    ("lsp.references", "LSP: listar onde é usado"),
-    ("lsp.implementation", "LSP: ir para implementação"),
-    ("lsp.type_definition", "LSP: ir para o tipo"),
-    ("lsp.incoming_calls", "LSP: quem chama esta função"),
-    ("lsp.outgoing_calls", "LSP: o que esta função chama"),
-    ("nav.file_symbol", "Ir para símbolo no arquivo…"),
-    ("nav.project_symbol", "Ir para símbolo no projeto…"),
-    ("nav.back", "Navegação: voltar"),
-    ("nav.forward", "Navegação: avançar"),
-    ("lsp.hover", "LSP: mostrar documentação no cursor"),
-    ("lsp.format", "LSP: formatar arquivo"),
-    ("lsp.restart", "LSP: reiniciar servidores"),
-    ("theme.toggle", "Tema: alternar claro/escuro"),
-    ("config.open", "Config: abrir config global"),
-    ("config.open_project", "Config: abrir config do projeto"),
-    ("config.reload", "Config: recarregar"),
-    ("view.toggle_left", "Layout: mostrar/ocultar lateral esquerda"),
-    ("view.toggle_right", "Layout: mostrar/ocultar lateral direita"),
-    ("view.toggle_bottom", "Layout: mostrar/ocultar painel inferior"),
-    ("app.quit", "Sair"),
+    ("palette.open", "cmd-palette-open"),
+    ("help.open", "cmd-help-open"),
+    ("settings.open", "cmd-settings-open"),
+    ("file.new", "cmd-file-new"),
+    ("file.save", "cmd-file-save"),
+    ("file.open", "cmd-file-open"),
+    ("file.quick_open", "cmd-file-quick-open"),
+    ("debug.continue", "cmd-debug-continue"),
+    ("debug.stop", "cmd-debug-stop"),
+    ("debug.pause", "cmd-debug-pause"),
+    ("debug.next", "cmd-debug-next"),
+    ("debug.step_in", "cmd-debug-step-in"),
+    ("debug.step_out", "cmd-debug-step-out"),
+    ("debug.toggle_breakpoint", "cmd-debug-toggle-breakpoint"),
+    ("debug.choose_program", "cmd-debug-choose-program"),
+    ("file.open_folder", "cmd-file-open-folder"),
+    ("file.save_as", "cmd-file-save-as"),
+    ("file.save_as_path", "cmd-file-save-as-path"),
+    ("file.close", "cmd-file-close"),
+    ("tab.next", "cmd-tab-next"),
+    ("tab.prev", "cmd-tab-prev"),
+    ("editor.find", "cmd-editor-find"),
+    ("editor.replace", "cmd-editor-replace"),
+    ("editor.goto_line", "cmd-editor-goto-line"),
+    ("editor.undo", "cmd-editor-undo"),
+    ("editor.redo", "cmd-editor-redo"),
+    ("editor.select_all", "cmd-editor-select-all"),
+    ("editor.fold_all", "cmd-editor-fold-all"),
+    ("editor.unfold_all", "cmd-editor-unfold-all"),
+    ("editor.toggle_vim", "cmd-editor-toggle-vim"),
+    ("lsp.definition", "cmd-lsp-definition"),
+    ("lsp.references", "cmd-lsp-references"),
+    ("lsp.implementation", "cmd-lsp-implementation"),
+    ("lsp.type_definition", "cmd-lsp-type-definition"),
+    ("lsp.incoming_calls", "cmd-lsp-incoming-calls"),
+    ("lsp.outgoing_calls", "cmd-lsp-outgoing-calls"),
+    ("nav.file_symbol", "cmd-nav-file-symbol"),
+    ("nav.project_symbol", "cmd-nav-project-symbol"),
+    ("nav.back", "cmd-nav-back"),
+    ("nav.forward", "cmd-nav-forward"),
+    ("lsp.hover", "cmd-lsp-hover"),
+    ("lsp.format", "cmd-lsp-format"),
+    ("lsp.restart", "cmd-lsp-restart"),
+    ("theme.toggle", "cmd-theme-toggle"),
+    ("config.open", "cmd-config-open"),
+    ("config.open_project", "cmd-config-open-project"),
+    ("config.reload", "cmd-config-reload"),
+    ("view.toggle_left", "cmd-view-toggle-left"),
+    ("view.toggle_right", "cmd-view-toggle-right"),
+    ("view.toggle_bottom", "cmd-view-toggle-bottom"),
+    ("app.quit", "cmd-app-quit"),
 ];
 
 const DARK_THEME: Theme = Theme::TokyoNight;
@@ -386,9 +387,10 @@ impl App {
         let launch = LAUNCH.get().expect("argumentos interpretados em main");
         let root = launch.root.clone();
         let global_config = config::global_config_path();
-        let config = Config::load(global_config.as_deref(), Some(&config::project_config_path(&root)));
-        // Antes de qualquer texto: as extensões registram títulos na ativação.
-        tea_core::i18n::init(&config.ui.language);
+        let project_config = config::project_config_path(&root);
+        // Antes de qualquer texto (os avisos do config, os títulos que as extensões registram).
+        tea_core::i18n::init(&config::peek_language(global_config.as_deref(), Some(&project_config)));
+        let config = Config::load(global_config.as_deref(), Some(&project_config));
         let (keymap, key_errors) = Keymap::from_pairs(config.keys.iter().map(|(k, v)| (k.as_str(), v.as_str())));
         let (theme, theme_error) = resolve_theme(&config.ui.theme);
 
@@ -421,7 +423,7 @@ impl App {
             active_bottom: None,
             commands: CORE_COMMANDS
                 .iter()
-                .map(|(id, title)| CommandInfo { id: id.to_string(), title: title.to_string() })
+                .map(|(id, title)| CommandInfo { id: id.to_string(), title: LOADER.get(title) })
                 .collect(),
             palette: None,
             file_list: Default::default(),
@@ -463,7 +465,7 @@ impl App {
         }
         tasks.push(app.emit_status(true));
 
-        let mut problems: Vec<String> = launch.warnings.clone();
+        let mut problems: Vec<String> = launch.warnings.iter().map(ToString::to_string).collect();
         problems.extend(app.config.errors.iter().cloned());
         problems.extend(key_errors);
         problems.extend(theme_error);
@@ -656,7 +658,7 @@ impl App {
                     self.push_tab(editor)
                 };
                 let note = if self.tabs[i].editor.is_new_file() {
-                    self.notify(format!("Arquivo novo: {} (criado ao salvar)", display_rel(&path, &self.root)))
+                    self.notify(fl!("file-new-created-on-save", path = display_rel(&path, &self.root)))
                 } else {
                     Task::none()
                 };
@@ -664,7 +666,7 @@ impl App {
                 let opened = self.broadcast(CoreEvent::FileOpened(path));
                 Task::batch([opened, note, lsp, self.set_active(i)])
             }
-            Err(err) => self.notify(format!("Erro ao abrir {}: {err}", path.display())),
+            Err(err) => self.notify(fl!("file-open-error", path = path.display().to_string(), error = err.to_string())),
         }
     }
 
@@ -677,7 +679,7 @@ impl App {
         }
         if self.tabs[i].editor.is_modified() {
             let name = self.tabs[i].editor.file_name();
-            return self.notify(format!("\"{name}\" mudou no disco, mas a aba tem alterações: ela foi mantida"));
+            return self.notify(fl!("file-changed-on-disk-kept", name = name));
         }
         match Editor::open(path) {
             Ok(mut editor) => {
@@ -689,7 +691,7 @@ impl App {
                 let refresh = if i == self.active { self.set_active(i) } else { Task::none() };
                 Task::batch([lsp, refresh])
             }
-            Err(e) => self.notify(format!("Erro ao recarregar {}: {e}", display_rel(path, &self.root))),
+            Err(e) => self.notify(fl!("file-reload-error", path = display_rel(path, &self.root), error = e.to_string())),
         }
     }
 
@@ -716,9 +718,9 @@ impl App {
     /// F5: inicia (compilando antes, se for o caso) ou continua.
     fn debug_continue(&mut self) -> Task<Message> {
         match self.debug.session() {
-            None if self.debug.building => self.notify("Debug: ainda compilando…"),
+            None if self.debug.building => self.notify(fl!("debug-still-building")),
             None => self.debug_build(),
-            Some(_) if self.debug.stopped.is_none() => self.notify("Debug: o programa já está rodando"),
+            Some(_) if self.debug.stopped.is_none() => self.notify(fl!("debug-already-running")),
             Some(session) => {
                 session.continue_();
                 Task::none()
@@ -734,7 +736,7 @@ impl App {
         };
         self.debug.building = true;
         let status = self.debug_event(DebugEvent::Status(DebugStatus::Building));
-        let note = self.notify(format!("Debug: compilando ({})…", build.label()));
+        let note = self.notify(fl!("debug-building", command = build.label()));
         let root = self.root.clone();
         let (tx, rx) = iced::futures::channel::oneshot::channel();
         std::thread::spawn(move || {
@@ -753,9 +755,9 @@ impl App {
         self.debug.building = false;
         let log = self.debug_event(DebugEvent::Output { category: "build".into(), text: outcome.log.clone() });
         if !outcome.ok {
-            let error = outcome.error.as_deref().unwrap_or("erro desconhecido");
+            let error = outcome.error.clone().unwrap_or_else(|| fl!("unknown-error"));
             let idle = self.debug_event(DebugEvent::Status(DebugStatus::Idle));
-            return Task::batch([log, idle, self.notify(format!("Debug: a compilação falhou: {error}"))]);
+            return Task::batch([log, idle, self.notify(fl!("debug-build-failed", error = error))]);
         }
         let next = self.debug_choose(&outcome.executables);
         // Escolheu nada (diálogo ou janela de arquivos abertos): o painel volta a "sem sessão".
@@ -787,13 +789,13 @@ impl App {
             many if self.debug.program.as_ref().is_some_and(|p| many.contains(p)) => self.debug_start(),
             many => {
                 let mut dialog =
-                    Dialog::new("Qual programa depurar?", "O projeto gerou mais de um executável.");
+                    Dialog::new(fl!("debug-choose-title"), fl!("debug-choose-message"));
                 for (i, exe) in many.iter().enumerate() {
                     let name = exe.file_name().map_or_else(|| exe.display().to_string(), |n| n.to_string_lossy().into_owned());
                     let kind = if i == 0 { ButtonKind::Primary } else { ButtonKind::Secondary };
                     dialog = dialog.button(name, kind, CoreDialog::DebugProgram(exe.clone()));
                 }
-                self.open_dialog(dialog.cancel("Cancelar"), dialog::Owner::Core)
+                self.open_dialog(dialog.cancel(fl!("cancel")), dialog::Owner::Core)
             }
         }
     }
@@ -804,8 +806,8 @@ impl App {
         let cfg = &self.config.debug;
         let cwd = cfg.cwd.as_deref().map_or_else(|| self.root.clone(), |c| self.root.join(c));
         let (status, note) = match self.debug.start(program.clone(), cfg.args.clone(), cwd, breakpoints) {
-            Ok(()) => (DebugStatus::Running, format!("Debug: rodando {}", display_rel(&program, &self.root))),
-            Err(e) => (DebugStatus::Idle, format!("Debug: {e}")),
+            Ok(()) => (DebugStatus::Running, fl!("debug-running", program = display_rel(&program, &self.root))),
+            Err(e) => (DebugStatus::Idle, fl!("debug-error", error = e.to_string())),
         };
         Task::batch([self.debug_event(DebugEvent::Status(status)), self.notify(note)])
     }
@@ -814,7 +816,7 @@ impl App {
         if self.debug.building {
             self.debug.stop();
             let idle = self.debug_event(DebugEvent::Status(DebugStatus::Idle));
-            return Task::batch([idle, self.notify("Debug: cancelado (a compilação termina sozinha)")]);
+            return Task::batch([idle, self.notify(fl!("debug-cancelled"))]);
         }
         if !self.debug.is_running() {
             return Task::none();
@@ -822,7 +824,7 @@ impl App {
         self.debug.stop();
         self.clear_exec_lines();
         let idle = self.debug_event(DebugEvent::Status(DebugStatus::Idle));
-        Task::batch([idle, self.notify("Debug: parado")])
+        Task::batch([idle, self.notify(fl!("debug-stopped"))])
     }
 
     fn debug_event(&mut self, event: DebugEvent) -> Task<Message> {
@@ -839,7 +841,7 @@ impl App {
         let stack = self.debug_event(DebugEvent::Stack { frames: frames.unwrap_or_default(), selected: index });
         let open = match frame.path.filter(|p| p.is_file() && frame.line > 0) {
             Some(path) => self.open_file_at(path, frame.line, 1),
-            None => self.notify(format!("Debug: {} não tem código-fonte", frame.name)),
+            None => self.notify(fl!("debug-no-source", name = frame.name.clone())),
         };
         Task::batch([stack, open])
     }
@@ -858,7 +860,7 @@ impl App {
         match event {
             E::Stopped { reason, frames, .. } => {
                 self.clear_exec_lines();
-                let reason = debug::reason_label(&reason).to_string();
+                let reason = debug::reason_label(&reason);
                 let top = frames.first().map(|f| f.name.clone()).unwrap_or_else(|| "?".into());
                 // O primeiro quadro com código-fonte que existe (passos dentro da std não têm).
                 let shown = frames.iter().position(|f| f.path.as_deref().is_some_and(Path::is_file) && f.line > 0);
@@ -873,7 +875,7 @@ impl App {
                 let shown = shown.map(|i| frames[i].clone());
                 self.debug.stopped = Some(frames);
                 let Some(frame) = shown else {
-                    let note = self.notify(format!("Debug: parado em {top} ({reason}), sem código-fonte"));
+                    let note = self.notify(fl!("debug-paused-no-source", name = top, reason = reason));
                     return Task::batch([status, stack, note]);
                 };
                 let path = frame.path.clone().unwrap_or_default();
@@ -882,7 +884,7 @@ impl App {
                     t.editor.set_exec_line(Some(frame.line - 1));
                 }
                 let note =
-                    self.notify(format!("Debug: parado em {}:{} ({reason})", display_rel(&path, &self.root), frame.line));
+                    self.notify(fl!("debug-paused-at", path = display_rel(&path, &self.root), line = frame.line, reason = reason));
                 Task::batch([status, stack, open, note])
             }
             E::Continued => {
@@ -911,20 +913,22 @@ impl App {
                 self.debug_event(DebugEvent::Variables { reference, variables })
             }
             E::Exited { code } => {
-                let code = code.map(|c| format!(" (código {c})")).unwrap_or_default();
-                self.notify(format!("Debug: o programa terminou{code}"))
+                self.notify(match code {
+                    Some(c) => fl!("debug-exited-code", code = c),
+                    None => fl!("debug-exited"),
+                })
             }
             E::Terminated => {
                 self.debug.ended();
                 self.clear_exec_lines();
                 self.debug_event(DebugEvent::Status(DebugStatus::Idle))
             }
-            E::Error { command, message } => self.notify(format!("Debug: {command} falhou: {message}")),
+            E::Error { command, message } => self.notify(fl!("debug-command-failed", command = command, message = message)),
             E::AdapterExited { reason } => {
                 self.debug.ended();
                 self.clear_exec_lines();
                 let idle = self.debug_event(DebugEvent::Status(DebugStatus::Idle));
-                Task::batch([idle, self.notify(format!("Debug: o gdb encerrou ({reason})"))])
+                Task::batch([idle, self.notify(fl!("debug-gdb-exited", reason = reason))])
             }
         }
     }
@@ -944,7 +948,7 @@ impl App {
             .map(|p| display_rel(p, &self.root))
             .collect();
         for name in conflicts {
-            tasks.push(self.notify(format!("\"{name}\" mudou no disco, mas a aba tem alterações: salvar sobrescreve")));
+            tasks.push(self.notify(fl!("file-changed-on-disk-overwrite", name = name)));
         }
         tasks.push(self.broadcast(CoreEvent::FilesChanged));
         Task::batch(tasks)
@@ -1000,7 +1004,7 @@ impl App {
     fn navigate(&mut self, forward: bool) -> Task<Message> {
         match self.nav.step(forward, self.here(), Path::is_file) {
             Some(to) => self.open_file_at(to.path, to.line, to.column),
-            None => self.notify(if forward { "Nada para avançar" } else { "Nada para voltar" }),
+            None => self.notify(if forward { fl!("nav-nothing-forward") } else { fl!("nav-nothing-back") }),
         }
     }
 
@@ -1024,10 +1028,10 @@ impl App {
         match locations {
             [] => {
                 return self.notify(match kind {
-                    K::References => "Nenhuma referência encontrada",
-                    K::Definitions => "Definição não encontrada",
-                    K::Implementations => "Nenhuma implementação encontrada",
-                    K::TypeDefinitions => "Tipo não encontrado",
+                    K::References => fl!("lsp-no-references"),
+                    K::Definitions => fl!("lsp-no-definition"),
+                    K::Implementations => fl!("lsp-no-implementations"),
+                    K::TypeDefinitions => fl!("lsp-no-type"),
                 });
             }
             [one] if kind != K::References => {
@@ -1070,7 +1074,7 @@ impl App {
         let only_declaration = kind == K::References && items.len() == 1;
         let shown = self.broadcast(CoreEvent::Locations { kind, symbol: symbol.clone(), items });
         if only_declaration {
-            return Task::batch([shown, self.notify(format!("\"{symbol}\" não é usado em outro lugar"))]);
+            return Task::batch([shown, self.notify(fl!("lsp-not-used-elsewhere", symbol = symbol))]);
         }
         shown
     }
@@ -1082,7 +1086,7 @@ impl App {
         let tab = &mut self.tabs[self.active];
         self.outline_seen = (tab.id, tab.editor.text_revision());
         let note = match tab.editor.path().map(Path::to_path_buf) {
-            None => "Salve o arquivo para ver a estrutura".to_string(),
+            None => fl!("outline-save-first"),
             Some(_) if tab.editor.request_document_symbols() => return Task::none(),
             Some(path) => self.lsp.why_missing(&path),
         };
@@ -1117,14 +1121,14 @@ impl App {
             let items = symbol_items(path.as_deref().unwrap_or(Path::new("")), &symbols);
             return self.open_palette(Palette::symbols(false, &self.root, items, note));
         }
-        let open = self.open_palette(Palette::symbols(false, &self.root, Vec::new(), Some("Lendo a estrutura…".into())));
+        let open = self.open_palette(Palette::symbols(false, &self.root, Vec::new(), Some(fl!("outline-reading"))));
         Task::batch([open, self.request_outline()])
     }
 
     /// `Ctrl+T`: símbolos do projeto; a busca vai ao servidor conforme se digita.
     fn open_project_symbols(&mut self) -> Task<Message> {
         let note = if self.project_symbols_client().is_some() {
-            "Digite o nome de uma função, tipo, método…".to_string()
+            fl!("symbols-type-a-name")
         } else {
             self.why_no_lsp()
         };
@@ -1162,11 +1166,11 @@ impl App {
         let client = self.project_symbols_client();
         let Some(p) = &mut self.palette else { return Task::none() };
         match client {
-            _ if query.is_empty() => p.set_symbols(Vec::new(), Some("Digite o nome de uma função, tipo, método…".into())),
+            _ if query.is_empty() => p.set_symbols(Vec::new(), Some(fl!("symbols-type-a-name"))),
             Some(client) => {
                 client.workspace_symbols(&query);
                 if p.symbols.is_empty() {
-                    p.set_symbols(Vec::new(), Some("Buscando…".into()));
+                    p.set_symbols(Vec::new(), Some(fl!("searching")));
                 }
             }
             None => {
@@ -1199,7 +1203,7 @@ impl App {
             .collect::<Vec<_>>();
         let note = items
             .is_empty()
-            .then(|| "Nenhum símbolo encontrado (se o projeto ainda está carregando, tente de novo)".to_string());
+            .then(|| fl!("symbols-none-found"));
         p.set_symbols(items, note);
         Task::none()
     }
@@ -1269,7 +1273,7 @@ impl App {
         }
         let ext = path.extension().and_then(|e| e.to_str()).unwrap_or_default();
         let symbols = outline::build(symbols, &self.editor().text(), ext);
-        let note = symbols.is_empty().then(|| "Nenhum símbolo neste arquivo".to_string());
+        let note = symbols.is_empty().then(|| fl!("symbols-none-in-file"));
         self.set_outline(Some(path.to_path_buf()), std::sync::Arc::new(symbols), note)
     }
 
@@ -1282,7 +1286,7 @@ impl App {
     fn why_no_lsp(&self) -> String {
         match self.active_path() {
             Some(path) => self.lsp.why_missing(path),
-            None => "salve o arquivo para usar o servidor de linguagem".into(),
+            None => fl!("lsp-save-first"),
         }
     }
 
@@ -1343,19 +1347,19 @@ impl App {
                 self.remember_spot(&path, Some(line));
                 self.open_file_at(path, line, position.character as usize + 1)
             }
-            E::DefinitionNotFound => self.notify("Definição não encontrada"),
+            E::DefinitionNotFound => self.notify(fl!("lsp-no-definition")),
             // Ctrl+clique (ou F12) na própria declaração: lista onde ela é usada.
             E::AtDefinition { path, position } => match self.lsp.client_for(&path) {
                 Ok(Some((client, _))) => {
                     client.references(&path, position);
-                    self.notify("Buscando onde é usado…")
+                    self.notify(fl!("lsp-finding-references"))
                 }
                 _ => Task::none(),
             },
             E::Locations { lookup, path, position, locations } => self.show_locations(lookup, &path, position, &locations),
             E::CallRoots { path, items, .. } => {
                 if items.is_empty() {
-                    return self.notify("O cursor não está numa função (ou o servidor não sabe as chamadas dela)");
+                    return self.notify(fl!("calls-not-in-function"));
                 }
                 let Ok(Some((client, _))) = self.lsp.client_for(&path) else { return Task::none() };
                 let roots = self.calls.set_roots(&client, items);
@@ -1373,7 +1377,7 @@ impl App {
                 if let Some(i) = tab_for(self, &path) {
                     self.tabs[i].editor.apply_formatting(&edits);
                     let text = self.text_later();
-                    return Task::batch([self.notify("Arquivo formatado"), self.emit_status(false), text]);
+                    return Task::batch([self.notify(fl!("lsp-formatted")), self.emit_status(false), text]);
                 }
                 Task::none()
             }
@@ -1392,9 +1396,9 @@ impl App {
             }
             E::Message { server, level, text } => {
                 let prefix = match level {
-                    tea_lsp::MessageLevel::Error => "erro: ",
-                    tea_lsp::MessageLevel::Warning => "aviso: ",
-                    tea_lsp::MessageLevel::Info => "",
+                    tea_lsp::MessageLevel::Error => fl!("lsp-level-error"),
+                    tea_lsp::MessageLevel::Warning => fl!("lsp-level-warning"),
+                    tea_lsp::MessageLevel::Info => String::new(),
                 };
                 self.notify(format!("{server}: {prefix}{text}"))
             }
@@ -1420,7 +1424,7 @@ impl App {
                 let activity = self.broadcast(CoreEvent::Activity { source: server.clone(), text: None });
                 let outline = self.request_outline();
                 let reason = lsp::with_hint(&server, &reason);
-                let note = self.notify(format!("{server} parou — {reason}. Use \"LSP: reiniciar servidores\"."));
+                let note = self.notify(fl!("lsp-server-stopped", server = server.clone(), reason = reason));
                 Task::batch([activity, outline, note])
             }
         }
@@ -1443,10 +1447,10 @@ impl App {
         let editor = &self.tabs[i].editor;
         if editor.is_modified() && !force {
             let name = editor.file_name();
-            let dialog = Dialog::new("Salvar alterações?", format!("\"{name}\" tem alterações que não foram salvas."))
-                .button("Salvar", ButtonKind::Primary, CoreDialog::SaveAndClose(id))
-                .button("Descartar", ButtonKind::Danger, CoreDialog::DiscardAndClose(id))
-                .cancel("Cancelar");
+            let dialog = Dialog::new(fl!("save-changes-title"), fl!("save-changes-message", name = name))
+                .button(fl!("save"), ButtonKind::Primary, CoreDialog::SaveAndClose(id))
+                .button(fl!("discard"), ButtonKind::Danger, CoreDialog::DiscardAndClose(id))
+                .cancel(fl!("cancel"));
             return self.open_dialog(dialog, dialog::Owner::Core);
         }
         self.tabs.remove(i);
@@ -1496,7 +1500,7 @@ impl App {
 
     fn pick(&mut self, dialog: impl Future<Output = picker::Picked> + Send + 'static) -> Task<Message> {
         if self.picking {
-            return self.notify("Já há uma janela de arquivos aberta");
+            return self.notify(fl!("picker-already-open"));
         }
         self.picking = true;
         Task::perform(dialog, Message::Picked)
@@ -1506,7 +1510,7 @@ impl App {
         self.picking = false;
         match picked {
             picker::Picked::SaveAs { tab, path: Some(path) } => {
-                let Some(i) = self.tab_index(tab) else { return self.notify("A aba foi fechada antes de salvar") };
+                let Some(i) = self.tab_index(tab) else { return self.notify(fl!("save-tab-closed")) };
                 let activate = self.set_active(i);
                 Task::batch([activate, self.save_as_path(path)])
             }
@@ -1516,8 +1520,8 @@ impl App {
                 self.debug_start()
             }
             picker::Picked::Folder(Some(dir)) => match picker::open_window(&dir) {
-                Ok(()) => self.notify(format!("Abrindo {} numa nova janela", dir.display())),
-                Err(e) => self.notify(format!("Não foi possível abrir a pasta: {e}")),
+                Ok(()) => self.notify(fl!("folder-opening", path = dir.display().to_string())),
+                Err(e) => self.notify(fl!("folder-open-error", error = e.to_string())),
             },
             // Cancelou.
             _ => Task::none(),
@@ -1553,11 +1557,11 @@ impl App {
                 let is_config = Some(path.as_path()) == self.global_config.as_deref()
                     || path == config::project_config_path(&self.root);
                 let saved = self.broadcast(CoreEvent::FileSaved(path.clone()));
-                let note = self.notify(format!("Salvo: {}", display_rel(&path, &self.root)));
+                let note = self.notify(fl!("saved", path = display_rel(&path, &self.root)));
                 let reload = if is_config { self.reload_config() } else { Task::none() };
                 Task::batch([saved, note, reload, self.emit_status(false)])
             }
-            Err(err) => self.notify(format!("Erro ao salvar: {err}")),
+            Err(err) => self.notify(fl!("save-error", error = err.to_string())),
         }
     }
 
@@ -1592,7 +1596,7 @@ impl App {
         let mut tasks = Vec::new();
         for (id, modified) in gone {
             if modified {
-                tasks.push(self.notify("Arquivo apagado no disco; a aba com alterações foi mantida"));
+                tasks.push(self.notify(fl!("file-deleted-kept")));
             } else {
                 tasks.push(self.close_tab(id, true));
             }
@@ -1624,9 +1628,9 @@ impl App {
         }
         self.apply_panel_slots();
         let msg = if !problems.is_empty() {
-            Some(format!("Config recarregado com problemas: {}", problems.join(" · ")))
+            Some(fl!("config-reloaded-problems", problems = problems.join(" · ")))
         } else if announce {
-            Some("Config recarregado (ligar/desligar extensões só vale ao reiniciar)".to_string())
+            Some(fl!("config-reloaded"))
         } else {
             None
         };
@@ -1664,7 +1668,7 @@ impl App {
     fn open_config(&mut self, global: bool) -> Task<Message> {
         let path = if global {
             let Some(path) = self.global_config.clone() else {
-                return self.notify("Não foi possível descobrir a pasta de config (HOME não definido)");
+                return self.notify(fl!("config-no-home"));
             };
             if !path.exists() {
                 let created = path
@@ -1672,7 +1676,7 @@ impl App {
                     .map_or(Ok(()), std::fs::create_dir_all)
                     .and_then(|()| std::fs::write(&path, config::DEFAULT_CONFIG));
                 if let Err(e) = created {
-                    return self.notify(format!("Erro ao criar {}: {e}", path.display()));
+                    return self.notify(fl!("create-error", path = path.display().to_string(), error = e.to_string()));
                 }
             }
             path
@@ -1720,7 +1724,7 @@ impl App {
             }
             "debug.pause" | "debug.next" | "debug.step_in" | "debug.step_out" => {
                 let Some(session) = self.debug.session() else {
-                    return self.notify("Debug: nenhuma sessão rodando (F5 inicia)");
+                    return self.notify(fl!("debug-no-session"));
                 };
                 let stopped = self.debug.stopped.is_some();
                 match id {
@@ -1728,8 +1732,8 @@ impl App {
                     "debug.next" if stopped => session.next(),
                     "debug.step_in" if stopped => session.step_in(),
                     "debug.step_out" if stopped => session.step_out(),
-                    "debug.pause" => return self.notify("Debug: o programa já está parado"),
-                    _ => return self.notify("Debug: o programa está rodando (pause antes)"),
+                    "debug.pause" => return self.notify(fl!("debug-already-paused")),
+                    _ => return self.notify(fl!("debug-pause-first")),
                 }
                 Task::none()
             }
@@ -1777,14 +1781,14 @@ impl App {
             }
             "lsp.references" => {
                 if self.editor_mut().request_references() {
-                    self.notify("Buscando onde é usado…")
+                    self.notify(fl!("lsp-finding-references"))
                 } else {
                     self.no_lsp_note()
                 }
             }
             "lsp.implementation" => {
                 if self.editor_mut().request_implementation() {
-                    self.notify("Buscando implementações…")
+                    self.notify(fl!("lsp-finding-implementations"))
                 } else {
                     self.no_lsp_note()
                 }
@@ -1812,7 +1816,7 @@ impl App {
                 if self.editor_mut().request_formatting() {
                     Task::none()
                 } else {
-                    self.notify("Formatação indisponível para este arquivo")
+                    self.notify(fl!("lsp-no-formatting"))
                 }
             }
             "lsp.restart" => {
@@ -1821,7 +1825,7 @@ impl App {
                     tab.editor.detach_lsp();
                 }
                 let relink: Vec<Task<Message>> = (0..self.tabs.len()).map(|i| self.ensure_lsp(i)).collect();
-                Task::batch([Task::batch(relink), self.notify("Servidores de linguagem reiniciados")])
+                Task::batch([Task::batch(relink), self.notify(fl!("lsp-restarted"))])
             }
             "config.open" => self.open_config(true),
             "config.open_project" => self.open_config(false),
@@ -1839,7 +1843,7 @@ impl App {
                         self.editor_mut().lose_focus();
                         self.call_ext(i, |e, ctx| e.on_command(id, ctx))
                     }
-                    None => self.notify(format!("Comando desconhecido: {id}")),
+                    None => self.notify(fl!("unknown-command", id = id.to_string())),
                 }
             }
         }
@@ -1885,12 +1889,12 @@ impl App {
         }
         let mut names = unsaved.iter().take(5).map(|n| format!("• {n}")).collect::<Vec<_>>().join("\n");
         if unsaved.len() > 5 {
-            names.push_str(&format!("\n… e mais {}", unsaved.len() - 5));
+            names.push_str(&format!("\n{}", fl!("and-more", count = (unsaved.len() - 5))));
         }
-        let dialog = Dialog::new("Sair com alterações não salvas?", names)
-            .button("Salvar tudo e sair", ButtonKind::Primary, CoreDialog::SaveAllAndQuit)
-            .button("Sair sem salvar", ButtonKind::Danger, CoreDialog::QuitWithoutSaving)
-            .cancel("Cancelar");
+        let dialog = Dialog::new(fl!("quit-unsaved-title"), names)
+            .button(fl!("quit-save-all"), ButtonKind::Primary, CoreDialog::SaveAllAndQuit)
+            .button(fl!("quit-without-saving"), ButtonKind::Danger, CoreDialog::QuitWithoutSaving)
+            .cancel(fl!("cancel"));
         self.open_dialog(dialog, dialog::Owner::Core)
     }
 
@@ -1916,7 +1920,7 @@ impl App {
             let Some(path) = self.tabs[i].editor.path().map(Path::to_path_buf) else {
                 failed.push(id);
                 let name = self.tabs[i].editor.file_name();
-                tasks.push(self.notify(format!("\"{name}\" não tem nome: use \"Salvar como\"")));
+                tasks.push(self.notify(fl!("save-needs-name", name = name)));
                 continue;
             };
             match self.tabs[i].editor.save() {
@@ -1926,7 +1930,7 @@ impl App {
                 }
                 Err(e) => {
                     failed.push(id);
-                    tasks.push(self.notify(format!("Erro ao salvar {}: {e}", display_rel(&path, &self.root))));
+                    tasks.push(self.notify(fl!("save-file-error", path = display_rel(&path, &self.root), error = e.to_string())));
                 }
             }
         }
@@ -1956,13 +1960,13 @@ impl App {
         }
         let mut names = modified.iter().take(5).map(|n| format!("• {n}")).collect::<Vec<_>>().join("\n");
         if modified.len() > 5 {
-            names.push_str(&format!("\n… e mais {}", modified.len() - 5));
+            names.push_str(&format!("\n{}", fl!("and-more", count = (modified.len() - 5))));
         }
-        let title = format!("Fechar {} abas?", ids.len());
-        let dialog = Dialog::new(title, format!("Com alterações não salvas:\n{names}"))
-            .button("Salvar e fechar", ButtonKind::Primary, CoreDialog::CloseMany { ids: ids.clone(), save: true })
-            .button("Descartar alterações", ButtonKind::Danger, CoreDialog::CloseMany { ids, save: false })
-            .cancel("Cancelar");
+        let title = fl!("close-tabs-title", count = ids.len());
+        let dialog = Dialog::new(title, format!("{}\n{names}", fl!("close-tabs-unsaved")))
+            .button(fl!("save-and-close"), ButtonKind::Primary, CoreDialog::CloseMany { ids: ids.clone(), save: true })
+            .button(fl!("discard-changes"), ButtonKind::Danger, CoreDialog::CloseMany { ids, save: false })
+            .cancel(fl!("cancel"));
         self.open_dialog(dialog, dialog::Owner::Core)
     }
 
@@ -1970,25 +1974,25 @@ impl App {
         use tea_core::icons::Icon;
         let i = self.tab_index(id).unwrap_or(0);
         let n = self.tabs.len();
-        let mut menu = tea_core::menu::Menu::new(at).item(Some(Icon::Close), "Fechar", CoreMenu::Close(id));
-        menu = if n > 1 { menu.item(None, "Fechar outras", CoreMenu::CloseOthers(id)) } else { menu.disabled(None, "Fechar outras") };
+        let mut menu = tea_core::menu::Menu::new(at).item(Some(Icon::Close), fl!("tab-close"), CoreMenu::Close(id));
+        menu = if n > 1 { menu.item(None, fl!("tab-close-others"), CoreMenu::CloseOthers(id)) } else { menu.disabled(None, fl!("tab-close-others")) };
         menu = if i + 1 < n {
-            menu.item(None, "Fechar à direita", CoreMenu::CloseRight(id))
+            menu.item(None, fl!("tab-close-right"), CoreMenu::CloseRight(id))
         } else {
-            menu.disabled(None, "Fechar à direita")
+            menu.disabled(None, fl!("tab-close-right"))
         };
-        menu = menu.item(None, "Fechar as salvas", CoreMenu::CloseSaved).item(None, "Fechar todas", CoreMenu::CloseAll);
+        menu = menu.item(None, fl!("tab-close-saved"), CoreMenu::CloseSaved).item(None, fl!("tab-close-all"), CoreMenu::CloseAll);
         if let Some(path) = self.tabs.get(i).and_then(|t| t.editor.path()) {
             let rel = display_rel(path, &self.root);
             let dir = path.parent().unwrap_or(&self.root).to_path_buf();
             menu = menu
                 .separator()
-                .item(Some(Icon::Copy), "Copiar caminho", CoreMenu::CopyPath(path.display().to_string()))
-                .item(None, "Copiar caminho relativo", CoreMenu::CopyPath(rel));
+                .item(Some(Icon::Copy), fl!("copy-path"), CoreMenu::CopyPath(path.display().to_string()))
+                .item(None, fl!("copy-relative-path"), CoreMenu::CopyPath(rel));
             if self.extensions.iter().any(|e| e.id() == "filetree") {
-                menu = menu.item(Some(Icon::Files), "Revelar na árvore", CoreMenu::Reveal(id));
+                menu = menu.item(Some(Icon::Files), fl!("reveal-in-tree"), CoreMenu::Reveal(id));
             }
-            menu = menu.item(Some(Icon::LinkExternal), "Abrir no gerenciador de arquivos", CoreMenu::OpenInFileManager(dir));
+            menu = menu.item(Some(Icon::LinkExternal), fl!("open-in-file-manager"), CoreMenu::OpenInFileManager(dir));
         }
         menu
     }
@@ -2015,7 +2019,7 @@ impl App {
                 self.close_many(all)
             }
             CoreMenu::CopyPath(text) => {
-                let note = self.notify(format!("Copiado: {text}"));
+                let note = self.notify(fl!("copied", text = text.clone()));
                 Task::batch([iced::clipboard::write(text), note])
             }
             CoreMenu::Reveal(id) => {
@@ -2025,7 +2029,7 @@ impl App {
             }
             CoreMenu::OpenInFileManager(dir) => match tea_core::os::open_in_file_manager(&dir) {
                 Ok(()) => Task::none(),
-                Err(e) => self.notify(format!("Não foi possível abrir o gerenciador de arquivos: {e}")),
+                Err(e) => self.notify(fl!("file-manager-error", error = e.to_string())),
             },
         }
     }
@@ -2162,7 +2166,7 @@ impl App {
             Some(settings::Target::Project) => ConfigFile::open_project(&config::project_config_path(&self.root)),
             _ => match &self.global_config {
                 Some(p) => ConfigFile::open_global(p),
-                None => Err("não foi possível descobrir a pasta de config (HOME não definido)".into()),
+                None => Err(fl!("config-no-home")),
             },
         }
     }
@@ -2171,11 +2175,11 @@ impl App {
     fn edit_config(&mut self, f: impl FnOnce(&mut tea_core::config_edit::ConfigFile)) -> Task<Message> {
         let mut file = match self.settings_target_file() {
             Ok(file) => file,
-            Err(e) => return self.notify(format!("Config: {e}")),
+            Err(e) => return self.notify(fl!("config-error", error = e.to_string())),
         };
         f(&mut file);
         if let Err(e) = file.save() {
-            return self.notify(format!("Erro ao gravar {}: {e}", file.path().display()));
+            return self.notify(fl!("write-error", path = file.path().display().to_string(), error = e.to_string()));
         }
         self.reload_config_with(false)
     }
@@ -2225,7 +2229,7 @@ impl App {
         // Só modificador (Ctrl sozinho...): espera o resto.
         let Some(chord) = Chord::from_event(key, modifiers) else { return Task::none() };
         if !chord.is_bindable() {
-            st.record_hint = Some("Use Ctrl, Alt ou uma tecla especial (F1–F12, PageUp…). Esc cancela.".into());
+            st.record_hint = Some(fl!("keys-record-hint"));
             return Task::none();
         }
         st.recording = None;
@@ -2233,9 +2237,9 @@ impl App {
         let previous = self.keymap.command_for(&chord).map(str::to_string);
         let (shown, title) = (chord.to_string(), self.command_title(&cmd));
         let note = match previous {
-            Some(p) if p == cmd => format!("{shown} já era de \"{title}\""),
-            Some(p) => format!("{shown} era de \"{}\"; agora é de \"{title}\"", self.command_title(&p)),
-            None => format!("{shown} → \"{title}\""),
+            Some(p) if p == cmd => fl!("keys-already-bound", key = shown.clone(), command = title.clone()),
+            Some(p) => fl!("keys-rebound", key = shown.clone(), old = self.command_title(&p), command = title.clone()),
+            None => fl!("keys-bound", key = shown.clone(), command = title.clone()),
         };
         let config_chord = chord.to_config();
         let saved = self.edit_config(|f| f.bind(&config_chord, &cmd));
@@ -2374,7 +2378,7 @@ impl App {
                 let Some(i) = self.tab_index(id) else { return Task::none() };
                 let activate = self.set_active(i);
                 if self.editor().path().is_none() {
-                    let note = self.notify("Escolha onde salvar; depois feche a aba de novo");
+                    let note = self.notify(fl!("save-then-close"));
                     return Task::batch([activate, self.open_save_as(), note]);
                 }
                 let saved = self.save_active();
@@ -2943,7 +2947,7 @@ fn resolve_theme(name: &str) -> (Theme, Option<String>) {
         "light" | "claro" => (LIGHT_THEME, None),
         other => match Theme::ALL.iter().find(|t| t.to_string().to_lowercase() == other) {
             Some(t) => (t.clone(), None),
-            None => (DARK_THEME, Some(format!("tema desconhecido {name:?}, usando \"dark\""))),
+            None => (DARK_THEME, Some(fl!("theme-unknown", name = name.to_string()))),
         },
     }
 }
@@ -2972,7 +2976,7 @@ fn activity_style(theme: &Theme, status: button::Status, shown: bool) -> button:
 /// Com estes textos de config global e de projeto, `chord` ainda roda `command`?
 fn still_bound(global: &str, project: &str, chord: &str, command: &str) -> bool {
     let layers = [
-        ("padrão".to_string(), config::DEFAULT_CONFIG.to_string()),
+        (fl!("default"), config::DEFAULT_CONFIG.to_string()),
         ("global".to_string(), global.to_string()),
         ("projeto".to_string(), project.to_string()),
     ];
@@ -3021,6 +3025,14 @@ mod tests {
         assert_eq!(es.get_args_concrete("settings-language-auto", args), "Automático (English)");
         // Testes sem `init`: português, os textos de hoje.
         assert_eq!(fl!("settings-theme-detail"), "Cores da IDE, do editor e do terminal.");
+    }
+
+    #[test]
+    fn command_titles_exist() {
+        // Os títulos são buscados pelo id em tempo de execução (o fl! não confere esses).
+        let missing: Vec<_> = CORE_COMMANDS.iter().filter(|(_, t)| !LOADER.has(t)).map(|(_, t)| *t).collect();
+        assert!(missing.is_empty(), "títulos sem texto: {missing:?}");
+        assert_eq!(LOADER.get("cmd-file-save"), "Arquivo: salvar");
     }
 
     use super::*;

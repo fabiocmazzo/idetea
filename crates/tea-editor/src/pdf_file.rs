@@ -226,7 +226,7 @@ impl PdfFile {
         let pages = match &self.pages {
             Ok(p) => p,
             Err(e) => {
-                return container(text(format!("Não foi possível abrir o PDF: {e}")).size(13).style(text::secondary))
+                return container(text(fl!("pdf-error", error = e.as_str())).size(13).style(text::secondary))
                     .padding(12)
                     .into();
             }
@@ -234,12 +234,12 @@ impl PdfFile {
         let current = self.visible.first().map_or(1, |p| p + 1);
         let small = |label: &'static str, msg: Msg| button(text(label).size(13)).on_press(msg).style(button::text).padding([0, 8]);
         let toolbar = row![
-            text(format!("Página {current} de {}", pages.len())).size(12).style(text::secondary),
+            text(fl!("pdf-page", current = current, total = pages.len())).size(12).style(text::secondary),
             Space::new().width(Fill),
             small("−", Msg::ZoomOut),
             text(format!("{:.0}%", self.zoom * 100.0)).size(12).width(44).align_x(Center),
             small("+", Msg::ZoomIn),
-            button(text("Ajustar").size(12))
+            button(text(fl!("pdf-fit")).size(12))
                 .on_press(Msg::Fit)
                 .padding([1, 8])
                 .style(if self.fit { button::secondary } else { button::text }),
@@ -285,8 +285,8 @@ impl PdfFile {
 
 fn describe(e: &hayro::hayro_syntax::LoadPdfError) -> String {
     match e {
-        hayro::hayro_syntax::LoadPdfError::Decryption(_) => "PDF protegido por senha (ainda não suportado)".into(),
-        _ => "arquivo inválido ou danificado".into(),
+        hayro::hayro_syntax::LoadPdfError::Decryption(_) => fl!("pdf-encrypted"),
+        _ => fl!("pdf-invalid"),
     }
 }
 

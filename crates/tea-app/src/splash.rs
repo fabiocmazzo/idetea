@@ -65,7 +65,7 @@ impl Splash {
         // A logo sobe levemente durante o fade de entrada.
         let lift = (1.0 - alpha) * 12.0;
         let progress = self.progress();
-        let status = if self.ready_at.is_some() { "pronto" } else { "carregando…" };
+        let status = if self.ready_at.is_some() { fl!("splash-ready") } else { fl!("splash-loading") };
 
         let title = text("TEA")
             .size(84)

@@ -1,0 +1,6 @@
+# Textos da interface: i18n/<idioma>/tea-core.ftl. O português é a origem (a macro fl! confere as
+# chaves nele na compilação); um teste confere que inglês e espanhol têm as mesmas.
+fallback_language = "pt-BR"
+
+[fluent]
+assets_dir = "i18n"

@@ -18,7 +18,7 @@ pub enum Picked {
 }
 
 pub async fn save_as(tab: u64, dir: PathBuf, name: String) -> Picked {
-    let mut dialog = AsyncFileDialog::new().set_title("Salvar como").set_directory(&dir);
+    let mut dialog = AsyncFileDialog::new().set_title(fl!("picker-save-as")).set_directory(&dir);
     if !name.is_empty() {
         dialog = dialog.set_file_name(name);
     }
@@ -27,17 +27,17 @@ pub async fn save_as(tab: u64, dir: PathBuf, name: String) -> Picked {
 }
 
 pub async fn open_files(dir: PathBuf) -> Picked {
-    let files = AsyncFileDialog::new().set_title("Abrir arquivos").set_directory(&dir).pick_files().await;
+    let files = AsyncFileDialog::new().set_title(fl!("picker-open-files")).set_directory(&dir).pick_files().await;
     Picked::Files(files.map(|f| f.iter().map(|h| h.path().to_path_buf()).collect()))
 }
 
 pub async fn open_folder(dir: PathBuf) -> Picked {
-    let folder = AsyncFileDialog::new().set_title("Abrir pasta").set_directory(&dir).pick_folder().await;
+    let folder = AsyncFileDialog::new().set_title(fl!("picker-open-folder")).set_directory(&dir).pick_folder().await;
     Picked::Folder(folder.map(|f| f.path().to_path_buf()))
 }
 
 pub async fn debug_program(dir: PathBuf) -> Picked {
-    let file = AsyncFileDialog::new().set_title("Programa para depurar").set_directory(&dir).pick_file().await;
+    let file = AsyncFileDialog::new().set_title(fl!("picker-debug-program")).set_directory(&dir).pick_file().await;
     Picked::DebugProgram(file.map(|f| f.path().to_path_buf()))
 }
 

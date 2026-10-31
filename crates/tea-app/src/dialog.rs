@@ -77,7 +77,7 @@ impl Open {
                 text(&self.dialog.title).size(16),
                 text(&self.dialog.message).size(13),
                 row![
-                    text("Enter confirma · Esc cancela").size(11).style(text::secondary),
+                    text(fl!("dialog-hint")).size(11).style(text::secondary),
                     space::horizontal(),
                     buttons
                 ]

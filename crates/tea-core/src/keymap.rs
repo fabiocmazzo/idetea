@@ -26,7 +26,7 @@ impl Chord {
         let (mods, key) = match parts.as_slice() {
             [.., "", ""] => (&parts[..parts.len() - 2], "+"),
             [mods @ .., key] => (mods, *key),
-            [] => return Err("atalho vazio".into()),
+            [] => return Err(fl!("chord-empty")),
         };
         for m in mods {
             match m.to_lowercase().as_str() {
@@ -34,11 +34,11 @@ impl Chord {
                 "alt" | "option" => chord.alt = true,
                 "shift" => chord.shift = true,
                 "cmd" | "super" | "meta" | "logo" => chord.logo = true,
-                other => return Err(format!("modificador desconhecido: {other:?}")),
+                other => return Err(fl!("chord-unknown-modifier", modifier = format!("{other:?}"))),
             }
         }
         if key.is_empty() {
-            return Err(format!("atalho sem tecla: {text:?}"));
+            return Err(fl!("chord-no-key", chord = format!("{text:?}")));
         }
         chord.key = normalize_key_name(key);
         Ok(chord)

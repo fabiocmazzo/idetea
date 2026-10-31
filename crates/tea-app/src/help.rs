@@ -46,17 +46,20 @@ pub fn input_id() -> Id {
 }
 
 /// Atalhos do widget de edição: fixos, não passam pelo mapa de teclas.
-const EDITOR_KEYS: &[(&str, &str)] = &[
-    ("Ctrl+F", "Buscar no arquivo"),
-    ("Ctrl+H", "Buscar e substituir"),
-    ("Ctrl+G", "Ir para linha"),
-    ("Ctrl+Z / Ctrl+Y", "Desfazer / refazer"),
-    ("Ctrl+D", "Selecionar a próxima ocorrência (multi-cursor)"),
-    ("Ctrl+K / Ctrl+J", "Recolher / expandir blocos"),
-    ("Ctrl+.", "Ações rápidas do LSP (quando houver)"),
-    ("Ctrl+Clique", "Ir para definição (LSP)"),
-    ("Tab / Ctrl+Tab", "Inserir tabulação"),
-];
+fn editor_keys() -> Vec<(String, String)> {
+    [
+        ("Ctrl+F".to_string(), fl!("help-key-find")),
+        ("Ctrl+H".to_string(), fl!("help-key-replace")),
+        ("Ctrl+G".to_string(), fl!("help-key-goto-line")),
+        ("Ctrl+Z / Ctrl+Y".to_string(), fl!("help-key-undo")),
+        ("Ctrl+D".to_string(), fl!("help-key-next-match")),
+        ("Ctrl+K / Ctrl+J".to_string(), fl!("help-key-fold")),
+        ("Ctrl+.".to_string(), fl!("help-key-quick-fix")),
+        (fl!("help-key-ctrl-click"), fl!("help-key-definition")),
+        ("Tab / Ctrl+Tab".to_string(), fl!("help-key-tab")),
+    ]
+    .into()
+}
 
 /// Guia: (título, parágrafos). `{comando}` vira o atalho atual.
 const GUIDE: &[(&str, &[&str])] = &[
@@ -200,18 +203,18 @@ impl Help {
     }
 
     pub fn view<'a>(&'a self, commands: &'a [CommandInfo], keymap: &'a Keymap, about: AboutInfo<'_>) -> Element<'a, Msg> {
-        let tab_button = |label: &'static str, tab: Tab| {
+        let tab_button = |label: String, tab: Tab| {
             let style = if self.tab == tab { button::secondary } else { button::text };
             button(text(label).size(13)).on_press(Msg::Tab(tab)).style(style).padding([4, 12])
         };
         let header = row![
-            text("Ajuda").size(18),
+            text(fl!("help-title")).size(18),
             space::horizontal().width(16),
-            tab_button("Atalhos", Tab::Shortcuts),
-            tab_button("Guia", Tab::Guide),
-            tab_button("Sobre", Tab::About),
+            tab_button(fl!("help-tab-shortcuts"), Tab::Shortcuts),
+            tab_button(fl!("help-tab-guide"), Tab::Guide),
+            tab_button(fl!("help-tab-about"), Tab::About),
             space::horizontal(),
-            icon_button(Icon::Close, "Fechar (Esc)", Some(Msg::Close)),
+            icon_button(Icon::Close, fl!("help-close"), Some(Msg::Close)),
         ]
         .spacing(4)
         .align_y(iced::Center);
@@ -226,7 +229,7 @@ impl Help {
     }
 
     fn shortcuts<'a>(&'a self, commands: &'a [CommandInfo], keymap: &'a Keymap) -> Element<'a, Msg> {
-        let search = text_input("Filtrar por nome, comando ou tecla…", &self.query)
+        let search = text_input(&fl!("help-filter"), &self.query)
             .id(input_id())
             .on_input(Msg::Query)
             .size(14)
@@ -236,6 +239,7 @@ impl Help {
         let matches = |fields: &[&str]| q.is_empty() || fields.iter().any(|f| f.to_lowercase().contains(&q));
 
         // Agrupa pelo prefixo do título ("Arquivo: salvar" → "Arquivo").
+        let general = fl!("help-group-general");
         let mut groups: BTreeMap<&str, Vec<(&CommandInfo, String)>> = BTreeMap::new();
         let mut seen = std::collections::HashSet::new();
         for c in commands {
@@ -246,7 +250,7 @@ impl Help {
             if !matches(&[&c.title, &c.id, &keys]) {
                 continue;
             }
-            let group = c.title.split_once(':').map_or("Geral", |(g, _)| g.trim());
+            let group = c.title.split_once(':').map_or(general.as_str(), |(g, _)| g.trim());
             groups.entry(group).or_default().push((c, keys));
         }
 
@@ -256,25 +260,25 @@ impl Help {
             list = list.push(section_title(group));
             for (c, keys) in items {
                 let title = c.title.split_once(':').map_or(c.title.as_str(), |(_, t)| t.trim());
-                list = list.push(shortcut_row(title, Some(&c.id), keys));
+                list = list.push(shortcut_row(title.to_string(), Some(&c.id), keys));
             }
         }
-        let editor: Vec<_> = EDITOR_KEYS.iter().filter(|(k, d)| matches(&[k, d])).collect();
+        let editor: Vec<_> = editor_keys().into_iter().filter(|(k, d)| matches(&[k, d])).collect();
         if !editor.is_empty() {
-            list = list.push(section_title("Editor (fixos)"));
+            list = list.push(section_title(&fl!("help-editor-keys")));
             for (keys, desc) in editor {
-                list = list.push(shortcut_row(desc, None, keys.to_string()));
+                list = list.push(shortcut_row(desc, None, keys));
             }
         }
         column![search, scrollable(list.padding([0, 12])).height(Fill)].spacing(8).into()
     }
 }
 
-fn section_title(title: &str) -> Element<'_, Msg> {
+fn section_title<'a>(title: &str) -> Element<'a, Msg> {
     container(text(title.to_uppercase()).size(11).style(text::secondary)).padding([10, 0]).into()
 }
 
-fn shortcut_row<'a>(title: &'a str, id: Option<&'a str>, keys: String) -> Element<'a, Msg> {
+fn shortcut_row<'a>(title: String, id: Option<&'a str>, keys: String) -> Element<'a, Msg> {
     let keys: Element<'a, Msg> = if keys.is_empty() {
         text("—").size(12).style(text::secondary).into()
     } else {
@@ -327,7 +331,7 @@ pub fn render_paragraph(paragraph: &str, keymap: &Keymap) -> Vec<(String, Chunk)
         if close == '}' {
             match keymap.chord_for(inner) {
                 Some(k) => out.push((k.to_string(), Chunk::Key)),
-                None => out.push(("(paleta)".to_string(), Chunk::Code)),
+                None => out.push((fl!("help-in-palette"), Chunk::Code)),
             }
         } else {
             out.push((inner.to_string(), Chunk::Code));
@@ -371,19 +375,19 @@ fn about_view<'a>(about: AboutInfo<'_>) -> Element<'a, Msg> {
         ]
         .spacing(8)
     };
-    let global = about.global_config.map_or("(HOME não definido)".to_string(), |p| p.display().to_string());
+    let global = about.global_config.map_or(fl!("about-no-home"), |p| p.display().to_string());
     column![
         text("IDE TEA").size(24),
         text("Just code. Add ice.").size(14).style(text::secondary),
         space::vertical().height(12),
-        line("Versão", env!("CARGO_PKG_VERSION").to_string()),
-        line("Licença", format!("{} (livre e gratuita, sempre)", env!("CARGO_PKG_LICENSE"))),
-        line("Projeto", about.root.display().to_string()),
-        line("Config global", global),
-        line("Config do projeto", about.project_config.display().to_string()),
+        line(&fl!("about-version"), env!("CARGO_PKG_VERSION").to_string()),
+        line(&fl!("about-license"), fl!("about-license-value", license = env!("CARGO_PKG_LICENSE"))),
+        line(&fl!("about-project"), about.root.display().to_string()),
+        line(&fl!("about-global-config"), global),
+        line(&fl!("about-project-config"), about.project_config.display().to_string()),
         space::vertical().height(12),
-        text("Feita em Rust com iced, iced-code-editor, alacritty_terminal (via iced_term) e syntect.").size(13),
-        text("Ícones: Codicons © Microsoft, licença CC BY 4.0.").size(13),
+        text(fl!("about-built-with")).size(13),
+        text(fl!("about-icons")).size(13),
     ]
     .spacing(6)
     .padding([0, 12])

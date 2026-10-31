@@ -212,7 +212,7 @@ fn cpp(s: &DocumentSymbol, kind: Kind, parent: Option<&Parent>, prefix: &str, ct
         }
         Some(_) if kind == Kind::EnumMember => parent.map_or(Visibility::Unknown, |p| p.visibility.clone()),
         _ if matches!(kind, Kind::Function | Kind::Variable | Kind::Constant) => {
-            if words(prefix).any(|w| w == "static") { restricted("só neste arquivo") } else { Visibility::Public }
+            if words(prefix).any(|w| w == "static") { restricted(&fl!("visibility-file-only")) } else { Visibility::Public }
         }
         _ => Visibility::Unknown,
     }

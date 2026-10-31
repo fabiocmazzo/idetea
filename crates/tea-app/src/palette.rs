@@ -221,13 +221,13 @@ impl Palette {
 
     pub fn view<'a>(&'a self, commands: &'a [CommandInfo], keymap: &'a Keymap) -> Element<'a, Msg> {
         let placeholder = match self.mode {
-            Mode::Commands => "Digite um comando…",
-            Mode::SaveAs => "Caminho do arquivo (relativo à raiz do projeto)",
-            Mode::Files => "Nome do arquivo (arquivo:linha vai para a linha, > para comandos)",
-            Mode::FileSymbols => "Função, tipo, método… deste arquivo",
-            Mode::ProjectSymbols => "Função, tipo, método… do projeto",
+            Mode::Commands => fl!("palette-commands"),
+            Mode::SaveAs => fl!("palette-save-as"),
+            Mode::Files => fl!("palette-files"),
+            Mode::FileSymbols => fl!("palette-file-symbols"),
+            Mode::ProjectSymbols => fl!("palette-project-symbols"),
         };
-        let input = text_input(placeholder, &self.query)
+        let input = text_input(&placeholder, &self.query)
             .id(input_id())
             .on_input(Msg::Query)
             .on_submit(Msg::Submit)
@@ -239,7 +239,7 @@ impl Palette {
             Mode::Commands => {
                 let found = self.matches(commands);
                 if found.is_empty() {
-                    body = body.push(text("Nenhum comando encontrado").size(13));
+                    body = body.push(text(fl!("palette-no-commands")).size(13));
                 }
                 let mut list = column![];
                 for (pos, &i) in found.iter().enumerate() {
@@ -266,11 +266,11 @@ impl Palette {
                 body = body.push(scrollable(list).id(list_id()).height(Length::Fixed(rows * ROW_HEIGHT)));
             }
             Mode::SaveAs => {
-                body = body.push(text("Enter salva · Esc cancela").size(12).style(text::secondary));
+                body = body.push(text(fl!("palette-save-hint")).size(12).style(text::secondary));
             }
             Mode::Files => {
                 if self.found.is_empty() {
-                    let msg = if self.loading { "Lendo os arquivos do projeto…" } else { "Nenhum arquivo encontrado" };
+                    let msg = if self.loading { fl!("palette-reading-files") } else { fl!("palette-no-files") };
                     body = body.push(text(msg).size(13).style(text::secondary));
                 }
                 let mut list = column![];
@@ -304,9 +304,9 @@ impl Palette {
             Mode::FileSymbols | Mode::ProjectSymbols => {
                 if self.found.is_empty() {
                     let msg = match &self.note {
-                        Some(n) => n.as_str(),
-                        None if self.symbols.is_empty() => "Nenhum símbolo",
-                        None => "Nenhum símbolo combina com a busca",
+                        Some(n) => n.clone(),
+                        None if self.symbols.is_empty() => fl!("palette-no-symbols"),
+                        None => fl!("palette-no-matching-symbols"),
                     };
                     body = body.push(text(msg).size(13).style(text::secondary));
                 }

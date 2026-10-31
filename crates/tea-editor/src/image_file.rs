@@ -35,8 +35,8 @@ impl ImageFile {
 
     pub fn view<'a, M: 'a>(&'a self) -> Element<'a, M> {
         let info = match &self.size {
-            Ok((w, h)) => format!("{w} × {h} px · {} · roda do mouse aproxima, arrastar move", human_size(self.bytes)),
-            Err(e) => format!("Não foi possível ler a imagem: {e}"),
+            Ok((w, h)) => fl!("image-info", width = w, height = h, size = human_size(self.bytes)),
+            Err(e) => fl!("image-error", error = e.as_str()),
         };
         let viewer = image::viewer(self.handle.clone()).width(Fill).height(Fill).min_scale(0.05).max_scale(40.0);
         let canvas = container(viewer).width(Fill).height(Fill).style(|t: &Theme| {

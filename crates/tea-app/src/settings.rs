@@ -109,38 +109,38 @@ impl Settings {
         commands: &'a [CommandInfo],
         global_path: Option<&'a Path>,
     ) -> Element<'a, Msg> {
-        let tab_button = |label: &'static str, tab: Tab| {
+        let tab_button = |label: String, tab: Tab| {
             let style = if self.tab == tab { button::secondary } else { button::text };
             button(text(label).size(13)).on_press(Msg::Tab(tab)).style(style).padding([4, 12])
         };
         let header = row![
-            text("Configurações").size(18),
+            text(fl!("settings-title")).size(18),
             space::horizontal().width(16),
-            tab_button("Aparência", Tab::Appearance),
-            tab_button("Extensões", Tab::Extensions),
-            tab_button("Atalhos", Tab::Shortcuts),
-            tab_button("LSP", Tab::Lsp),
+            tab_button(fl!("settings-tab-appearance"), Tab::Appearance),
+            tab_button(fl!("settings-tab-extensions"), Tab::Extensions),
+            tab_button(fl!("settings-tab-shortcuts"), Tab::Shortcuts),
+            tab_button("LSP".into(), Tab::Lsp),
             space::horizontal(),
-            icon_button(Icon::Close, "Fechar (Esc)", Some(Msg::Close)),
+            icon_button(Icon::Close, fl!("close-esc"), Some(Msg::Close)),
         ]
         .spacing(4)
         .align_y(iced::Center);
 
-        let target_button = |label: &'static str, t: Target| {
+        let target_button = |label: String, t: Target| {
             let style = if self.target == t { button::primary } else { button::text };
             button(text(label).size(12)).on_press(Msg::Target(t)).style(style).padding([2, 10])
         };
         let path = match self.target {
-            Target::Global => global_path.map_or("(HOME não definido)".into(), |p| p.display().to_string()),
+            Target::Global => global_path.map_or(fl!("settings-no-home"), |p| p.display().to_string()),
             Target::Project => self.project_path.display().to_string(),
         };
         let target = row![
-            text("Gravar em").size(12).style(text::secondary),
-            target_button("Global", Target::Global),
-            target_button("Projeto", Target::Project),
+            text(fl!("settings-write-to")).size(12).style(text::secondary),
+            target_button(fl!("settings-target-global"), Target::Global),
+            target_button(fl!("settings-target-project"), Target::Project),
             text(path).size(11).font(Font::MONOSPACE).style(text::secondary),
             space::horizontal(),
-            button(text("Abrir arquivo").size(12)).on_press(Msg::OpenFile).style(button::text).padding([2, 8]),
+            button(text(fl!("settings-open-file")).size(12)).on_press(Msg::OpenFile).style(button::text).padding([2, 8]),
         ]
         .spacing(8)
         .align_y(iced::Center);
@@ -156,7 +156,7 @@ impl Settings {
     }
 
     fn shortcuts<'a>(&'a self, keymap: &'a Keymap, commands: &'a [CommandInfo]) -> Element<'a, Msg> {
-        let filter = text_input("Filtrar por nome, comando ou tecla…", &self.filter)
+        let filter = text_input(&fl!("keys-filter"), &self.filter)
             .id(filter_id())
             .on_input(Msg::Filter)
             .size(14)
@@ -179,16 +179,16 @@ impl Settings {
             }
             let action: Element<'a, Msg> = if recording {
                 row![
-                    text(self.record_hint.as_deref().unwrap_or("Pressione as teclas… (Esc cancela)"))
+                    text(self.record_hint.clone().unwrap_or_else(|| fl!("keys-press")))
                         .size(12)
                         .style(text::primary),
-                    icon_button(Icon::Close, "Cancelar", Some(Msg::CancelRecord)),
+                    icon_button(Icon::Close, fl!("cancel"), Some(Msg::CancelRecord)),
                 ]
                 .spacing(4)
                 .align_y(iced::Center)
                 .into()
             } else {
-                icon_button(Icon::Add, "Adicionar atalho", Some(Msg::Record(c.id.clone())))
+                icon_button(Icon::Add, fl!("keys-add"), Some(Msg::Record(c.id.clone())))
             };
             list = list.push(
                 row![
@@ -207,7 +207,7 @@ impl Settings {
         }
         column![
             filter,
-            text("Clique numa tecla para removê-la. + grava uma tecla nova (vale também para atalhos já usados: eles mudam de dono).")
+            text(fl!("keys-help"))
                 .size(11)
                 .style(text::secondary),
             scrollable(list.padding([0, 12])).height(Fill)
@@ -217,16 +217,16 @@ impl Settings {
     }
 
     fn lsp<'a>(&'a self, config: &'a Config) -> Element<'a, Msg> {
-        let mut list = column![setting(
-            "Servidores de linguagem",
-            "Liga ou desliga o LSP inteiro.",
+        let mut list = column![setting_owned(
+            fl!("settings-lsp"),
+            fl!("settings-lsp-detail"),
             toggler(config.lsp.enabled).on_toggle(Msg::LspEnabled).into(),
         )]
         .spacing(4);
-        list = list.push(section_title("Servidores"));
+        list = list.push(section_title(fl!("settings-servers")));
         for s in &self.servers {
             let on = config.lsp.servers.get(&s.name).and_then(|o| o.enabled) != Some(false);
-            let status = if s.found { "encontrado no PATH" } else { "não encontrado no PATH" };
+            let status = if s.found { fl!("settings-server-found") } else { fl!("settings-server-not-found") };
             let detail = format!("{} · {status}", s.command);
             let name = s.name.clone();
             list = list.push(setting_owned(
@@ -237,9 +237,9 @@ impl Settings {
         }
         list = list.push(
             row![
-                text("Mudanças valem para servidores iniciados daqui em diante.").size(11).style(text::secondary),
+                text(fl!("settings-lsp-note")).size(11).style(text::secondary),
                 space::horizontal(),
-                button(text("Reiniciar servidores").size(12)).on_press(Msg::RestartLsp).padding([3, 10]),
+                button(text(fl!("settings-restart-servers")).size(12)).on_press(Msg::RestartLsp).padding([3, 10]),
             ]
             .align_y(iced::Center)
             .padding([10, 0]),
@@ -255,8 +255,8 @@ pub struct ThemeChoice(pub String);
 impl fmt::Display for ThemeChoice {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self.0.as_str() {
-            "dark" => f.write_str("Escuro (padrão)"),
-            "light" => f.write_str("Claro"),
+            "dark" => f.write_str(&fl!("theme-dark")),
+            "light" => f.write_str(&fl!("theme-light")),
             other => f.write_str(other),
         }
     }
@@ -267,11 +267,11 @@ pub struct SlotChoice(pub Slot);
 
 impl fmt::Display for SlotChoice {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(match self.0 {
-            Slot::Left => "Esquerda",
-            Slot::Right => "Direita",
-            Slot::Bottom => "Embaixo",
-            Slot::Status => "Barra de status",
+        f.write_str(&match self.0 {
+            Slot::Left => fl!("slot-left"),
+            Slot::Right => fl!("slot-right"),
+            Slot::Bottom => fl!("slot-bottom"),
+            Slot::Status => fl!("slot-status"),
         })
     }
 }
@@ -375,7 +375,7 @@ fn extensions_view<'a>(config: &'a Config, extensions: &'a [ExtRow]) -> Element<
     let mut list = column![].spacing(4);
     for e in extensions {
         let cfg = config.extension(e.id);
-        let restart = if cfg.enabled != e.loaded { " · vale ao reiniciar a IDE" } else { "" };
+        let restart = if cfg.enabled != e.loaded { format!(" · {}", fl!("settings-on-restart")) } else { String::new() };
         let id = e.id.to_string();
         let enabled = toggler(cfg.enabled).on_toggle(move |v| Msg::ExtEnabled(id.clone(), v));
         let mut controls = row![].spacing(12).align_y(iced::Center);
@@ -384,7 +384,7 @@ fn extensions_view<'a>(config: &'a Config, extensions: &'a [ExtRow]) -> Element<
             let current = cfg.slot.map(SlotChoice);
             controls = controls.push(
                 pick_list(SLOTS, current, move |s| Msg::ExtSlot(id.clone(), s))
-                    .placeholder("Padrão")
+                    .placeholder(fl!("default-capitalized"))
                     .text_size(13)
                     .width(130),
             );
@@ -393,32 +393,28 @@ fn extensions_view<'a>(config: &'a Config, extensions: &'a [ExtRow]) -> Element<
         list = list.push(setting_owned(e.id.to_string(), format!("{}{restart}", describe(e.id)), controls.into()));
     }
     list = list.push(
-        text("Ligar ou desligar uma extensão vale ao reiniciar. Mudar o lado de um painel vale na hora.")
+        text(fl!("settings-extensions-note"))
             .size(11)
             .style(text::secondary),
     );
     scrollable(list.padding([0, 12])).height(Fill).into()
 }
 
-fn describe(id: &str) -> &'static str {
+fn describe(id: &str) -> String {
     match id {
-        "filetree" => "Árvore de arquivos",
-        "statusbar" => "Barra de status",
-        "search" => "Busca no projeto",
-        "problems" => "Erros e avisos",
-        "terminal" => "Terminal integrado",
-        "git" => "Mudanças, stage, commit e diff",
-        "debug" => "Botões, pilha, variáveis e saída do debug",
-        "references" => "Onde um nome é usado (Shift+F12)",
-        "outline" => "Funções e métodos do arquivo, com visibilidade (Alt+7)",
-        "preview" => "Prévia de Markdown e SVG ao lado do editor (Ctrl+Shift+V)",
-        "calls" => "Quem chama uma função, e quem ela chama (Alt+Shift+H)",
-        _ => "",
+        "filetree" => fl!("ext-filetree"),
+        "statusbar" => fl!("ext-statusbar"),
+        "search" => fl!("ext-search"),
+        "problems" => fl!("ext-problems"),
+        "terminal" => fl!("ext-terminal"),
+        "git" => fl!("ext-git"),
+        "debug" => fl!("ext-debug"),
+        "references" => fl!("ext-references"),
+        "outline" => fl!("ext-outline"),
+        "preview" => fl!("ext-preview"),
+        "calls" => fl!("ext-calls"),
+        _ => String::new(),
     }
-}
-
-fn setting<'a>(title: &'a str, detail: &'a str, control: Element<'a, Msg>) -> Element<'a, Msg> {
-    setting_owned(title.to_string(), detail.to_string(), control)
 }
 
 fn setting_owned<'a>(title: String, detail: String, control: Element<'a, Msg>) -> Element<'a, Msg> {
@@ -429,7 +425,7 @@ fn setting_owned<'a>(title: String, detail: String, control: Element<'a, Msg>) -
         .into()
 }
 
-fn section_title(title: &str) -> Element<'_, Msg> {
+fn section_title<'a>(title: String) -> Element<'a, Msg> {
     container(text(title.to_uppercase()).size(11).style(text::secondary)).padding([10, 0]).into()
 }
 

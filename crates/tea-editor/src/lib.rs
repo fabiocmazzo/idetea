@@ -3,6 +3,11 @@
 //! O resto da IDE só usa os tipos deste crate. Trocar o `iced-code-editor`
 //! por outro widget deve mexer só aqui.
 
+tea_core::i18n_loader!();
+macro_rules! fl {
+    ($($t:tt)*) => { tea_core::i18n::fl!(crate::LOADER, $($t)*) };
+}
+
 mod image_file;
 mod key_gate;
 mod pdf_file;
@@ -140,7 +145,7 @@ impl Editor {
         match std::fs::read(path) {
             Ok(bytes) => {
                 let text = String::from_utf8(bytes).map_err(|_| {
-                    io::Error::new(io::ErrorKind::InvalidData, "arquivo não é UTF-8 (ainda não suportado)")
+                    io::Error::new(io::ErrorKind::InvalidData, fl!("not-utf8"))
                 })?;
                 Ok(Self::from_text(path, &text))
             }
@@ -200,7 +205,7 @@ impl Editor {
             .as_deref()
             .and_then(|p| p.file_name())
             .map(|n| n.to_string_lossy().into_owned())
-            .unwrap_or_else(|| "sem título".into())
+            .unwrap_or_else(|| fl!("untitled"))
     }
 
     pub fn title(&self) -> String {

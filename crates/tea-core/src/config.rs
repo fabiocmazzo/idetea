@@ -181,6 +181,21 @@ pub struct Config {
     pub errors: Vec<String>,
 }
 
+/// Só o `[ui] language` dos arquivos (o do projeto vence), sem conferir o resto. Lido antes de
+/// [`Config::load`] para os avisos do config já saírem no idioma escolhido.
+pub fn peek_language(global: Option<&Path>, project: Option<&Path>) -> String {
+    let mut language = String::from("auto");
+    for path in [global, project].into_iter().flatten() {
+        let Some(table) = std::fs::read_to_string(path).ok().and_then(|t| t.parse::<toml::Table>().ok()) else {
+            continue;
+        };
+        if let Some(l) = table.get("ui").and_then(|u| u.get("language")).and_then(|l| l.as_str()) {
+            language = l.to_string();
+        }
+    }
+    language
+}
+
 impl Config {
     /// Carrega padrões + arquivos que existirem.
     pub fn load(global: Option<&Path>, project: Option<&Path>) -> Self {
@@ -218,11 +233,11 @@ impl Config {
                         for (chord, cmd) in t {
                             match cmd {
                                 toml::Value::String(cmd) => keys.push((chord, cmd)),
-                                other => errors.push(format!("{name}: [keys] {chord:?} deve ser texto, veio {other}")),
+                                other => errors.push(fl!("config-key-not-text", layer = name.as_str(), chord = format!("{chord:?}"), value = other.to_string())),
                             }
                         }
                     }
-                    _ => errors.push(format!("{name}: [keys] deve ser uma tabela")),
+                    _ => errors.push(fl!("config-keys-not-table", layer = name.as_str())),
                 }
             }
             deep_merge(&mut merged, table);
@@ -233,7 +248,7 @@ impl Config {
         let lsp = take_section(&mut merged, "lsp", &mut errors);
         let debug = take_section(&mut merged, "debug", &mut errors);
         for unknown in merged.keys() {
-            errors.push(format!("seção desconhecida: [{unknown}]"));
+            errors.push(fl!("config-unknown-section", section = unknown.as_str()));
         }
         Self { ui, lsp, debug, extensions, keys, errors }
     }

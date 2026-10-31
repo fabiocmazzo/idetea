@@ -11,6 +11,14 @@ use std::sync::Arc;
 
 use iced::{Element, Subscription, Task, Theme};
 
+// Para a macro `i18n_loader!` (que usa o caminho `tea_core::`) funcionar aqui dentro também.
+extern crate self as tea_core;
+
+tea_core::i18n_loader!();
+macro_rules! fl {
+    ($($t:tt)*) => { tea_core::i18n::fl!(crate::LOADER, $($t)*) };
+}
+
 pub mod calls;
 pub mod config;
 pub mod config_edit;
@@ -88,13 +96,12 @@ pub enum LocationKind {
 impl LocationKind {
     /// "3 implementações", "1 referência"...
     pub fn count_label(self, n: usize) -> String {
-        let (one, many) = match self {
-            LocationKind::References => ("referência", "referências"),
-            LocationKind::Definitions => ("definição", "definições"),
-            LocationKind::Implementations => ("implementação", "implementações"),
-            LocationKind::TypeDefinitions => ("tipo", "tipos"),
-        };
-        format!("{n} {}", if n == 1 { one } else { many })
+        match self {
+            LocationKind::References => fl!("count-references", count = n),
+            LocationKind::Definitions => fl!("count-definitions", count = n),
+            LocationKind::Implementations => fl!("count-implementations", count = n),
+            LocationKind::TypeDefinitions => fl!("count-types", count = n),
+        }
     }
 }
 

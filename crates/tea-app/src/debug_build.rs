@@ -69,7 +69,7 @@ pub fn run(build: &Build, root: &Path) -> Outcome {
     let out = match out {
         Ok(o) => o,
         Err(e) => {
-            let error = format!("não foi possível rodar \"{}\": {e}", build.label());
+            let error = fl!("build-run-error", command = build.label(), error = e.to_string());
             return Outcome { error: Some(error), ..Outcome::default() };
         }
     };
@@ -112,7 +112,8 @@ fn first_error(log: &str) -> String {
         .lines()
         .find(|l| l.trim_start().starts_with("error"))
         .or_else(|| log.lines().rfind(|l| !l.trim().is_empty()))
-        .unwrap_or("falhou sem mensagem");
+        .map(str::to_string)
+        .unwrap_or_else(|| fl!("build-no-message"));
     line.trim().to_string()
 }
 

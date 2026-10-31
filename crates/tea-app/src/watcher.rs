@@ -54,7 +54,7 @@ impl Dirs {
                 continue;
             }
             if self.watched.len() >= MAX_DIRS {
-                self.warn(tx, format!("pasta grande demais: só as primeiras {MAX_DIRS} pastas são observadas"));
+                self.warn(tx, fl!("watch-too-many", count = MAX_DIRS));
                 return;
             }
             match self.watcher.watch(entry.path(), RecursiveMode::NonRecursive) {
@@ -63,7 +63,7 @@ impl Dirs {
                 }
                 Err(e) => {
                     // Normalmente o limite de observadores do sistema (fs.inotify.max_user_watches).
-                    self.warn(tx, format!("não foi possível observar todas as pastas ({e})"));
+                    self.warn(tx, fl!("watch-partial", error = e.to_string()));
                     return;
                 }
             }
@@ -73,8 +73,8 @@ impl Dirs {
     fn warn(&mut self, tx: &mpsc::UnboundedSender<Change>, msg: String) {
         if !self.warned {
             self.warned = true;
-            let _ = tx.unbounded_send(Change::Problem(format!(
-                "Mudanças no disco: {msg}. Use \"Atualizar\" na árvore quando precisar."
+            let _ = tx.unbounded_send(Change::Problem(fl!(
+                "watch-problem", message = msg
             )));
         }
     }
@@ -97,7 +97,7 @@ fn run(root: &Path, tx: &mpsc::UnboundedSender<Change>) {
     let watcher = match notify::recommended_watcher(events_tx) {
         Ok(w) => w,
         Err(e) => {
-            let _ = tx.unbounded_send(Change::Problem(format!("Mudanças no disco: não foi possível observar ({e})")));
+            let _ = tx.unbounded_send(Change::Problem(fl!("watch-failed", error = e.to_string())));
             return;
         }
     };

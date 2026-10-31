@@ -6,14 +6,26 @@
 use std::ffi::OsString;
 use std::path::{Path, PathBuf};
 
-pub const USAGE: &str = "\
-Uso: idetea [opções] [caminho...]
+/// Texto do `--help`, no idioma da interface.
+pub fn usage() -> String {
+    fl!("cli-usage")
+}
 
-  caminho        arquivo para abrir (pode não existir: é criado ao salvar)
-                 ou pasta para usar como raiz do projeto
-  --no-splash    não mostra a splash screen (também: IDETEA_NO_SPLASH=1)
-  -h, --help     mostra esta ajuda
-  -V, --version  mostra a versão";
+/// Aviso sobre um argumento ignorado. Vira texto só na hora de mostrar (depois de escolher o idioma).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Warning {
+    UnknownOption(String),
+    ExtraRoot(PathBuf),
+}
+
+impl std::fmt::Display for Warning {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Warning::UnknownOption(o) => f.write_str(&fl!("cli-unknown-option", option = o.as_str())),
+            Warning::ExtraRoot(p) => f.write_str(&fl!("cli-extra-root", path = p.display().to_string())),
+        }
+    }
+}
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum Cli {
@@ -27,7 +39,7 @@ pub struct Launch {
     pub root: PathBuf,
     pub files: Vec<PathBuf>,
     pub no_splash: bool,
-    pub warnings: Vec<String>,
+    pub warnings: Vec<Warning>,
 }
 
 pub fn parse(args: impl IntoIterator<Item = OsString>, cwd: &Path, env_no_splash: bool) -> Cli {
@@ -42,14 +54,14 @@ pub fn parse(args: impl IntoIterator<Item = OsString>, cwd: &Path, env_no_splash
                 "--no-splash" => launch.no_splash = true,
                 "-h" | "--help" => return Cli::Help,
                 "-V" | "--version" => return Cli::Version,
-                other => launch.warnings.push(format!("opção desconhecida ignorada: {other}")),
+                other => launch.warnings.push(Warning::UnknownOption(other.to_string())),
             }
             continue;
         }
         let path = absolute(cwd, Path::new(&arg));
         if path.is_dir() {
             if root_set {
-                launch.warnings.push(format!("só uma pasta raiz por vez, ignorando {}", path.display()));
+                launch.warnings.push(Warning::ExtraRoot(path));
             } else {
                 launch.root = path;
                 root_set = true;
