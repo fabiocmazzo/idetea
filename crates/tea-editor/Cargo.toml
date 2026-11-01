@@ -17,3 +17,6 @@ similar.workspace = true
 
 [dev-dependencies]
 iced_test = "0.14"
+# Para o exemplo `large_render` (quadros com o estado da tela entre um e outro, e o PNG do quadro).
+iced_runtime = "0.14"
+png = "0.18"

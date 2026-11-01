@@ -835,6 +835,8 @@ impl App {
                 };
                 let note = if self.tabs[i].editor.is_new_file() {
                     self.notify(fl!("file-new-created-on-save", path = display_rel(&path, &self.root)))
+                } else if self.tabs[i].editor.is_light() {
+                    self.notify(fl!("file-light-mode", name = self.tabs[i].editor.file_name()))
                 } else {
                     Task::none()
                 };
@@ -1557,7 +1559,7 @@ impl App {
         let note = match tab.editor.path().map(Path::to_path_buf) {
             None => fl!("outline-save-first"),
             Some(_) if tab.editor.request_document_symbols() => return Task::none(),
-            Some(path) => self.lsp.why_missing(&path),
+            Some(_) => self.why_no_lsp(),
         };
         let path = self.active_path().map(Path::to_path_buf);
         self.set_outline(path, Default::default(), Some(note))
@@ -1765,6 +1767,9 @@ impl App {
     }
 
     fn why_no_lsp(&self) -> String {
+        if self.editor().is_light() {
+            return fl!("lsp-light-mode");
+        }
         match self.active_path() {
             Some(path) => self.lsp.why_missing(path),
             None => fl!("lsp-save-first"),
@@ -1775,7 +1780,7 @@ impl App {
     fn ensure_lsp(&mut self, i: usize) -> Task<Message> {
         let editor = &self.tabs[i].editor;
         let Some(path) = editor.path().map(Path::to_path_buf) else { return Task::none() };
-        if editor.lsp_server().is_some() {
+        if editor.lsp_server().is_some() || editor.is_light() {
             return Task::none();
         }
         match self.lsp.client_for(&path) {

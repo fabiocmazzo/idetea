@@ -475,3 +475,7 @@ desktop-installed =
     IDE TEA no menu de aplicativos: { $desktop }
     Abre: { $exe }
 desktop-removed = IDE TEA saiu do menu de aplicativos.
+
+## Arquivos grandes
+file-light-mode = "{ $name }" tem uma linha muito longa e abriu no modo leve: sem cores, sem servidor de linguagem e com quebra de linha
+lsp-light-mode = arquivo no modo leve (linha muito longa): sem servidor de linguagem

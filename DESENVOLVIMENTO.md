@@ -61,10 +61,15 @@ cargo clippy --workspace --all-targets
 
 Os testes do git criam repositórios temporários (inclusive um "remoto" local) e pulam sozinhos se não houver `git`.
 
-Benchmark do editor com arquivo grande, sem abrir janela:
+Arquivos grandes, sem abrir janela:
 
 ```sh
+# Operações do widget (abrir, digitar, buscar, desfazer) com N linhas.
 cargo run --release -p tea-editor --example large_file -- 50000 [--write grande.rs]
+# Quadros de verdade (layout, desenho e texto na GPU, sem janela): Rust de 50 MB, JSON de 10 MB numa linha só
+# e JS minificado. Rolar até o meio e o fim, rolar devagar e digitar; quadro acima de 1 s é marcado.
+cargo run --release -p tea-editor --example large_render -- [rust|json|js|todos] [bytes]
+QUADROS=/tmp/quadros cargo run --release -p tea-editor --example large_render -- json   # grava o último quadro em PNG
 ```
 
 ## Variáveis de ambiente

@@ -475,3 +475,7 @@ desktop-installed =
     IDE TEA in the applications menu: { $desktop }
     Runs: { $exe }
 desktop-removed = IDE TEA removed from the applications menu.
+
+## Arquivos grandes
+file-light-mode = "{ $name }" has a very long line and opened in light mode: no colors, no language server and with line wrap
+lsp-light-mode = file in light mode (very long line): no language server

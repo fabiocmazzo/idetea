@@ -184,6 +184,18 @@ pub struct Editor {
     diff_hash: u64,
     /// Trecho aberto (clique na marca).
     hunk_open: Option<usize>,
+    /// Modo leve: o arquivo tem uma linha gigante (ver [`LONG_LINE`]). Guarda o nome da linguagem (o
+    /// widget passa a achar que é texto puro).
+    light: Option<String>,
+}
+
+/// Linha maior que isto (em bytes) liga o modo leve: sem ela, um JSON ou JS minificado trava a tela (o
+/// desenho do texto cresce com o quadrado do tamanho da linha sem quebra, e o destaque refaz a linha inteira a
+/// cada tecla). O mesmo limite do VS Code para parar o destaque.
+pub const LONG_LINE: usize = 20_000;
+
+fn has_long_line(text: &str) -> bool {
+    text.split('\n').any(|l| l.len() > LONG_LINE)
 }
 
 impl Editor {
@@ -235,7 +247,7 @@ impl Editor {
             tea_core::i18n::Language::English => iced_code_editor::Language::English,
             tea_core::i18n::Language::Spanish => iced_code_editor::Language::Spanish,
         });
-        Self {
+        let mut editor = Self {
             path: path.map(Path::to_path_buf),
             options: Options::default(),
             inner,
@@ -256,7 +268,32 @@ impl Editor {
             hunks: Vec::new(),
             diff_hash: 0,
             hunk_open: None,
+            light: None,
+        };
+        if has_long_line(&text) {
+            editor.enter_light_mode();
         }
+        editor
+    }
+
+    /// Modo leve: quebra de linha sempre ligada e sem destaque, espaços visíveis, guias, cores de parênteses,
+    /// amostras de cor e servidor de linguagem. Fica até fechar a aba.
+    fn enter_light_mode(&mut self) {
+        self.light = Some(self.inner.syntax_name().to_string());
+        self.inner.set_syntax("text");
+        self.inner.set_wrap_enabled(true);
+        self.inner.set_show_whitespace(false);
+        self.inner.set_show_indent_guides(false);
+        self.inner.set_sticky_scroll_enabled(false);
+        self.inner.set_bracket_pair_colorization_enabled(false);
+        self.inner.set_bracket_match_highlight_enabled(false);
+        self.inner.set_show_color_previews(false);
+        self.inner.set_lsp_enabled(false);
+    }
+
+    /// Aberto no modo leve (linha gigante): a barra de status avisa.
+    pub fn is_light(&self) -> bool {
+        self.light.is_some()
     }
 
     /// Aba que só mostra o arquivo (imagem ou PDF), sem texto para editar.
@@ -326,6 +363,9 @@ impl Editor {
         if self.pdf.is_some() {
             return "PDF".into();
         }
+        if let Some(language) = &self.light {
+            return fl!("language-light", language = language.clone());
+        }
         self.inner.syntax_name().to_string()
     }
 
@@ -370,9 +410,11 @@ impl Editor {
         if &self.options == options {
             return;
         }
-        self.inner.set_wrap_enabled(options.wrap);
-        self.inner.set_show_whitespace(options.show_whitespace);
-        self.inner.set_show_indent_guides(options.indent_guides);
+        if self.light.is_none() {
+            self.inner.set_wrap_enabled(options.wrap);
+            self.inner.set_show_whitespace(options.show_whitespace);
+            self.inner.set_show_indent_guides(options.indent_guides);
+        }
         self.inner.set_indent_style(if options.insert_spaces {
             iced_code_editor::IndentStyle::Spaces(options.tab_size.max(1))
         } else {
@@ -675,7 +717,7 @@ impl Editor {
 
     /// Liga o editor a um servidor LSP. Precisa de caminho.
     pub fn attach_lsp(&mut self, client: tea_lsp::Client, language_id: &str) {
-        let Some(path) = self.path.clone() else { return };
+        let Some(path) = self.path.clone().filter(|_| self.light.is_none()) else { return };
         self.detach_lsp();
         let uri = tea_lsp::uri::path_to_uri(&path);
         let bridge = lsp::Bridge { client: client.clone(), path, revision: self.revision.clone() };
@@ -1257,6 +1299,21 @@ mod tests {
         ed.save_as(&path).unwrap();
         assert_eq!(ed.path(), Some(path.as_path()));
         assert_eq!(std::fs::read_to_string(&path).unwrap(), "oi");
+    }
+
+    /// Uma linha gigante (JSON minificado) abre no modo leve: sem destaque e sem desligar a quebra de linha.
+    #[test]
+    fn long_line_opens_in_light_mode() {
+        let json = format!("[{}0]\n", "1,".repeat(LONG_LINE / 2));
+        let mut ed = Editor::from_text(Path::new("/p/dados.json"), &json);
+        assert!(ed.is_light());
+        assert!(ed.language().contains("JSON"), "{}", ed.language());
+        ed.set_options(&Options { wrap: false, ..Options::default() });
+        assert!(ed.inner.wrap_enabled(), "a quebra de linha fica ligada");
+        assert_eq!(ed.text(), json, "o texto não muda");
+
+        let normal = Editor::from_text(Path::new("/p/dados.json"), &"[1,2]\n".repeat(10_000));
+        assert!(!normal.is_light(), "muitas linhas curtas não é linha longa");
     }
 
     #[test]

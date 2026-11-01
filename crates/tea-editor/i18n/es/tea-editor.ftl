@@ -10,6 +10,7 @@ pdf-encrypted = PDF protegido con contraseña (aún no compatible)
 pdf-invalid = archivo no válido o dañado
 
 language-image = Imagen
+language-light = { $language } (modo ligero)
 
 ## Marcas do git
 hunk-added = 

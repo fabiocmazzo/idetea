@@ -795,7 +795,26 @@ O que mais falta no uso diário. Cada item é uma entrega com teste manual; a or
     menu com o ícone e abre o último projeto. Abrir um arquivo de um repositório pelo gerenciador de arquivos
     ("Abrir com IDE TEA"): a raiz é o repositório. `just dist`: gera o `.tar.gz` e o AppImage; o AppImage abre com
     `./IDE_TEA-*.AppImage .`. Depois do push: o CI passa no GitHub.
-- [ ] **Arquivos grandes:** medir com um arquivo de 50 MB e com uma linha gigante (objetivo "não trava").
+- [x] **Arquivos grandes:** medir com um arquivo de 50 MB e com uma linha gigante (objetivo "não trava").
+  Medido com `cargo run --release -p tea-editor --example large_render`: quadros de verdade (layout, desenho e texto
+  no wgpu, sem janela), 1200×800, guardando a rolagem entre um quadro e outro, como no app.
+  - **50 MB de Rust (1,46 milhão de linhas): não trava.** Abrir ~80 ms; quadro normal 5–30 ms; o pior quadro
+    (saltar para o meio, o destaque alcança aos poucos) ~350 ms; digitar ~160 ms por tecla no pior caso; texto
+    inteiro (salvar) ~14 ms.
+  - **Uma linha gigante travava.** Sem quebra de linha, o desenho do texto molda a linha inteira e cresce com o
+    quadrado do tamanho: 100 KB = 0,7 s por quadro, 1 MB = 56 s (10 MB não terminou). Com quebra, o destaque refaz a
+    linha a cada tecla: ~0,65 s por MB (10 MB = vários segundos por tecla).
+  - **Modo leve** (`tea_editor::LONG_LINE`, linha com mais de 20 mil bytes, o mesmo limite do VS Code para parar o
+    destaque): quebra de linha sempre ligada (a opção é ignorada nessa aba), texto puro, sem espaços visíveis, guias,
+    cores de parênteses, amostras de cor nem servidor de linguagem. A barra de status mostra "JSON (modo leve)" e um
+    aviso explica ao abrir. Com ele, um JSON de 10 MB numa linha só: abrir ~5 ms, quadro 20–75 ms, rolar ~140 ms no
+    pior caso, digitar ~170 ms por tecla.
+  - Ficou como está (medido, não trava): a cópia de recuperação de uma aba de 50 MB com alterações custa ~75 ms a
+    cada 3 s (copiar o texto e o hash); as marcas do git, ~100 ms depois de parar de digitar. Números de linha com 7
+    dígitos (mais de um milhão de linhas) perdem o primeiro dígito: a margem do widget tem largura fixa.
+  - [x] Teste manual (aprovado): abrir um arquivo de 50 MB (`cargo run --release -p tea-editor --example large_file --
+    1500000 --write /tmp/grande.rs`) e um JSON de uma linha só de alguns MB: rolar com a barra até o fim, `Ctrl+End`,
+    buscar e digitar sem travar; o JSON abre com o aviso do modo leve e "(modo leve)" na barra de status.
 
 ### Fase 4 — Plugins externos (melhoria futura)
 

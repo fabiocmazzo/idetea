@@ -40,6 +40,8 @@ O nome é um trocadilho com *Iced Tea*: a IDE é feita com o iced.
 - Imagens (png, jpg, gif, webp, bmp, ico...) abrem numa aba, com zoom pela roda do mouse e arrastar.
 - PDF abre numa aba (desenhado pelo `hayro`, puro Rust), com zoom e ajuste à largura.
 - Preserva CRLF. Arquivo que não é UTF-8 não abre, com aviso, em vez de ser corrompido.
+- Arquivos grandes: um de 50 MB abre em menos de 0,1 s. Um com uma linha gigante (JSON ou JS minificado) abre no
+  modo leve, sem cores e com quebra de linha, para não travar.
 
 ### Projeto
 - **Árvore de arquivos:** criar, renomear e apagar (vai para a lixeira), revelar o arquivo atual e cores do git
