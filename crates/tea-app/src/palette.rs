@@ -47,6 +47,8 @@ pub enum Mode {
     ProjectSymbols,
     /// Projetos e arquivos abertos por último (`Ctrl+R`).
     Recent,
+    /// Novo nome para o símbolo no cursor (`F2`). `note` guarda o nome atual.
+    Rename,
 }
 
 /// Um item de "Abrir recente".
@@ -150,6 +152,10 @@ impl Palette {
         Self::new(Mode::SaveAs, initial)
     }
 
+    pub fn rename(current: String) -> Self {
+        Self { note: Some(current.clone()), ..Self::new(Mode::Rename, current) }
+    }
+
     /// `files` é a última lista conhecida (pode estar velha ou vazia: `loading` diz que vem outra).
     pub fn files(files: Arc<Vec<String>>, recent: Vec<String>, loading: bool) -> Self {
         let mut p = Self { files, recent, loading, ..Self::new(Mode::Files, String::new()) };
@@ -199,7 +205,7 @@ impl Palette {
             Mode::Files => self.found = match_files(&self.query, &self.files, &self.recent),
             Mode::FileSymbols | Mode::ProjectSymbols => self.found = match_symbols(&self.query, &self.symbols),
             Mode::Recent => self.found = match_recent(&self.query, &self.recent_items),
-            Mode::Commands | Mode::SaveAs => {}
+            Mode::Commands | Mode::SaveAs | Mode::Rename => {}
         }
     }
 
@@ -208,7 +214,7 @@ impl Palette {
         match self.mode {
             Mode::Commands => self.matches(commands).len(),
             Mode::Files | Mode::FileSymbols | Mode::ProjectSymbols | Mode::Recent => self.found.len(),
-            Mode::SaveAs => 0,
+            Mode::SaveAs | Mode::Rename => 0,
         }
     }
 
@@ -254,6 +260,7 @@ impl Palette {
         let placeholder = match self.mode {
             Mode::Commands => fl!("palette-commands"),
             Mode::SaveAs => fl!("palette-save-as"),
+            Mode::Rename => fl!("palette-rename"),
             Mode::Files => fl!("palette-files"),
             Mode::FileSymbols => fl!("palette-file-symbols"),
             Mode::ProjectSymbols => fl!("palette-project-symbols"),
@@ -299,6 +306,10 @@ impl Palette {
             }
             Mode::SaveAs => {
                 body = body.push(text(fl!("palette-save-hint")).size(12).style(text::secondary));
+            }
+            Mode::Rename => {
+                let name = self.note.clone().unwrap_or_default();
+                body = body.push(text(fl!("palette-rename-hint", name = name)).size(12).style(text::secondary));
             }
             Mode::Files => {
                 if self.found.is_empty() {

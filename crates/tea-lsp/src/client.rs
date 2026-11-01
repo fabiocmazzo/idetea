@@ -14,7 +14,7 @@ use crate::text::{DocText, Encoding, Position, Range};
 use crate::transport::{read_message, write_message};
 use crate::uri::{path_to_uri, uri_to_path};
 use crate::{
-    Call, CallDirection, CallItem, Diagnostic, DocumentSymbol, Event, Location, Lookup, MessageLevel, ServerConfig, TextEdit,
+    Call, CallDirection, CallItem, Diagnostic, DocumentSymbol, Event, FileEdits, Location, Lookup, MessageLevel, ServerConfig, TextEdit,
     WorkspaceSymbol,
 };
 
@@ -63,6 +63,7 @@ enum Pending {
     /// `from`: arquivo do item expandido (onde ficam as chamadas de `Outgoing`).
     Calls { token: u64, direction: CallDirection, from: PathBuf },
     Formatting(PathBuf),
+    Rename { new_name: String },
     Shutdown,
 }
 
@@ -164,7 +165,12 @@ impl Client {
             "workspaceFolders": [{ "uri": root_uri, "name": folder_name }],
             "capabilities": {
                 "general": { "positionEncodings": ["utf-32", "utf-16"] },
-                "workspace": { "workspaceFolders": true, "configuration": true, "symbol": {} },
+                "workspace": {
+                    "workspaceFolders": true,
+                    "configuration": true,
+                    "symbol": {},
+                    "workspaceEdit": { "documentChanges": true }
+                },
                 "window": { "workDoneProgress": true },
                 "textDocument": {
                     "synchronization": { "didSave": true, "dynamicRegistration": false },
@@ -177,6 +183,7 @@ impl Client {
                     "documentSymbol": { "hierarchicalDocumentSymbolSupport": true },
                     "callHierarchy": {},
                     "formatting": {},
+                    "rename": { "prepareSupport": false },
                     "publishDiagnostics": { "relatedInformation": false }
                 }
             }
@@ -332,6 +339,21 @@ impl Client {
             "options": { "tabSize": tab_size, "insertSpaces": insert_spaces }
         });
         self.inner.lock().request("textDocument/formatting", params, Pending::Formatting(path.to_path_buf()));
+    }
+
+    /// Renomeia o símbolo na posição em todo o projeto. Resposta em [`Event::Rename`] (ou
+    /// [`Event::RenameFailed`]); nada muda antes de quem pediu aplicar as edições.
+    pub fn rename(&self, path: &Path, position: Position, new_name: &str) {
+        let mut st = self.inner.lock();
+        let enc = st.encoding;
+        let Some(doc) = st.docs.get(path) else { return };
+        let p = doc.to_server(position, enc);
+        let params = json!({
+            "textDocument": { "uri": path_to_uri(path) },
+            "position": protocol::position_json(p),
+            "newName": new_name
+        });
+        st.request("textDocument/rename", params, Pending::Rename { new_name: new_name.to_string() });
     }
 
     fn position_request(&self, method: &str, path: &Path, position: Position, pending: Pending) {
@@ -552,7 +574,10 @@ impl Inner {
             if code == -32800 || code == -32801 {
                 // Pedido feito pelo usuário (definição, referências...) não pode sumir sem resposta:
                 // o servidor ainda está carregando o projeto ou o texto mudou no meio.
-                if matches!(pending, Pending::Definition { .. } | Pending::Locations { .. } | Pending::CallRoots { .. }) {
+                if matches!(
+                    pending,
+                    Pending::Definition { .. } | Pending::Locations { .. } | Pending::CallRoots { .. } | Pending::Rename { .. }
+                ) {
                     let text = "ainda carregando o projeto, tente de novo em instantes".to_string();
                     return vec![Event::Message { server, level: MessageLevel::Info, text }];
                 }
@@ -581,6 +606,8 @@ impl Inner {
                         Event::Locations { lookup, path, position, locations: Vec::new() },
                     ];
                 }
+                // Ex.: "não dá para renomear isto" (palavra-chave, símbolo da biblioteca padrão).
+                Pending::Rename { .. } => return vec![Event::RenameFailed { message: text }],
                 _ => {}
             }
             return vec![Event::Log { server, text: format!("erro na resposta: {text}") }];
@@ -692,6 +719,21 @@ impl Inner {
                     .map(|(r, new_text)| TextEdit { range: st.to_chars(&path, r, &mut disk), new_text })
                     .collect();
                 vec![Event::Formatting { path, edits }]
+            }
+            Pending::Rename { new_name } => {
+                let mut disk = HashMap::new();
+                let files = protocol::workspace_edit(result)
+                    .into_iter()
+                    .filter_map(|(uri, edits)| {
+                        let path = uri_to_path(&uri)?;
+                        let edits = edits
+                            .into_iter()
+                            .map(|(r, new_text)| TextEdit { range: st.to_chars(&path, r, &mut disk), new_text })
+                            .collect();
+                        Some(FileEdits { path, edits })
+                    })
+                    .collect();
+                vec![Event::Rename { new_name, files }]
             }
             Pending::Shutdown => {
                 st.write(notification("exit", Value::Null));

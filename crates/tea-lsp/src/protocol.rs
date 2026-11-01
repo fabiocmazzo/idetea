@@ -264,6 +264,30 @@ pub fn text_edits(result: &Value) -> Vec<(Range, String)> {
         .unwrap_or_default()
 }
 
+/// `WorkspaceEdit` → `(uri, edições)` por arquivo. Aceita `changes` e `documentChanges` (só as edições
+/// de texto: criar, renomear ou apagar arquivos fica de fora). Posições ainda no formato do servidor.
+pub fn workspace_edit(result: &Value) -> Vec<(String, Vec<(Range, String)>)> {
+    let mut out: Vec<(String, Vec<(Range, String)>)> = Vec::new();
+    if let Some(changes) = result.get("documentChanges").and_then(Value::as_array) {
+        for change in changes {
+            let (Some(uri), Some(edits)) = (
+                change.get("textDocument").and_then(|d| d.get("uri")).and_then(Value::as_str),
+                change.get("edits"),
+            ) else {
+                continue;
+            };
+            out.push((uri.to_string(), text_edits(edits)));
+        }
+    } else if let Some(changes) = result.get("changes").and_then(Value::as_object) {
+        for (uri, edits) in changes {
+            out.push((uri.clone(), text_edits(edits)));
+        }
+    }
+    out.retain(|(_, e)| !e.is_empty());
+    out.sort_by(|a, b| a.0.cmp(&b.0));
+    out
+}
+
 pub struct RawDiagnostic {
     pub range: Range,
     pub severity: Severity,
@@ -303,6 +327,27 @@ pub fn diagnostics(params: &Value) -> Option<(String, Vec<RawDiagnostic>)> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn workspace_edit_both_shapes() {
+        let edit = |l: u32, c: u32, t: &str| json!({ "range": { "start": { "line": l, "character": c }, "end": { "line": l, "character": c + 3 } }, "newText": t });
+        let changes = json!({ "changes": {
+            "file:///b.rs": [edit(1, 4, "novo")],
+            "file:///a.rs": [edit(0, 0, "novo"), edit(5, 2, "novo")],
+            "file:///vazio.rs": []
+        }});
+        let got = workspace_edit(&changes);
+        assert_eq!(got.iter().map(|(u, e)| (u.as_str(), e.len())).collect::<Vec<_>>(), [("file:///a.rs", 2), ("file:///b.rs", 1)]);
+
+        let doc = json!({ "documentChanges": [
+            { "textDocument": { "uri": "file:///a.rs", "version": 3 }, "edits": [edit(2, 1, "x")] },
+            { "kind": "rename", "oldUri": "file:///c.rs", "newUri": "file:///d.rs" }
+        ]});
+        let got = workspace_edit(&doc);
+        assert_eq!(got.len(), 1, "operações de arquivo ficam de fora");
+        assert_eq!(got[0].1[0].1, "x");
+        assert!(workspace_edit(&Value::Null).is_empty());
+    }
 
     fn first(result: &Value) -> Option<(String, Range)> {
         super::locations(result).into_iter().next()

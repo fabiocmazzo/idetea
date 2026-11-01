@@ -83,6 +83,29 @@ fn clangd_references_and_at_definition() {
     assert_eq!(calls.iter().map(|c| c.item.name.as_str()).collect::<Vec<_>>(), ["soma"], "{calls:?}");
     assert_eq!(calls[0].sites_path, file);
 
+    // Renomear `soma`: a declaração e os dois usos, só neste arquivo; nada muda antes de aplicar.
+    client.rename(&file, Position::new(5, 13), "somar");
+    let Event::Rename { new_name, files } = wait(&|e| matches!(e, Event::Rename { .. } | Event::RenameFailed { .. })) else {
+        panic!("o clangd recusou renomear")
+    };
+    assert_eq!(new_name, "somar");
+    assert_eq!(files.len(), 1, "{files:?}");
+    assert_eq!(files[0].path, file);
+    let mut starts: Vec<_> = files[0].edits.iter().map(|e| (e.range.start, e.new_text.as_str())).collect();
+    starts.sort();
+    assert_eq!(starts, [(Position::new(0, 4), "somar"), (Position::new(5, 12), "somar"), (Position::new(6, 11), "somar")]);
+    assert_eq!(std::fs::read_to_string(&file).unwrap(), SRC);
+
+    // Num lugar sem nome (o `{`): o servidor recusa.
+    client.rename(&file, Position::new(0, 23), "x");
+    let e = wait(&|e| matches!(e, Event::Rename { .. } | Event::RenameFailed { .. }));
+    let refused = match &e {
+        Event::RenameFailed { .. } => true,
+        Event::Rename { files, .. } => files.is_empty(),
+        _ => false,
+    };
+    assert!(refused, "{e:?}");
+
     client.shutdown();
     let _ = std::fs::remove_dir_all(&dir);
 }

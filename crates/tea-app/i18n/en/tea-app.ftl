@@ -372,3 +372,32 @@ recovered =
         [one] 1 file recovered (not saved yet)
        *[other] { $count } files recovered (not saved yet)
     }
+
+## Renomear símbolo e salvar todos
+cmd-lsp-rename = LSP: rename symbol…
+cmd-file-save-all = File: save all
+save-all-untitled = Untitled tabs were not saved (use Save as)
+palette-rename = New name
+palette-rename-hint = Rename "{ $name }" across the project · Enter shows what changes · Esc cancels
+rename-no-word = Put the cursor on a name to rename it
+rename-asking = Rename "{ $name }": asking the server…
+rename-nothing = Nothing to rename for "{ $name }"
+rename-failed = Could not rename: { $message }
+rename-title = Rename "{ $old }" to "{ $new }"?
+rename-summary = 
+    { $changes ->
+        [one] 1 change
+       *[other] { $changes } changes
+    } in { $files ->
+        [one] 1 file:
+       *[other] { $files } files:
+    }
+rename-detail = The files stay changed in their tabs, not saved yet: Ctrl+Z undoes in each one, and "File: save all" writes everything.
+rename = Rename
+renamed = 
+    { $count ->
+        [one] Renamed in 1 file (not saved yet)
+       *[other] Renamed in { $count } files (not saved yet)
+    }
+
+guide-lsp-9 = Rename: { $lsp-rename } with the cursor on the name. A preview shows how many changes and in which files; once confirmed, they stay changed in their tabs (Ctrl+Z undoes in each) and { $file-save_all } saves them all.

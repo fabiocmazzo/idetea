@@ -126,6 +126,13 @@ pub struct TextEdit {
     pub new_text: String,
 }
 
+/// Edições num arquivo.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FileEdits {
+    pub path: PathBuf,
+    pub edits: Vec<TextEdit>,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum MessageLevel {
     Error,
@@ -149,6 +156,11 @@ pub enum Event {
     /// implementações, o tipo, ou várias definições. Ordenada por arquivo e posição; vazia se nada.
     Locations { lookup: Lookup, path: PathBuf, position: Position, locations: Vec<Location> },
     Formatting { path: PathBuf, edits: Vec<TextEdit> },
+    /// Edições para renomear um símbolo, por arquivo (vazia: nada para renomear). Posições em caracteres,
+    /// em relação ao texto que o servidor conhece (o da aba aberta, ou o do disco).
+    Rename { new_name: String, files: Vec<FileEdits> },
+    /// O servidor recusou renomear (a mensagem dele explica).
+    RenameFailed { message: String },
     /// Símbolos do projeto que combinam com `query` (vazia se o servidor não souber responder).
     WorkspaceSymbols { query: String, symbols: Vec<WorkspaceSymbol> },
     /// A função em `path`/`position`, para começar a árvore de chamadas (vazia se o cursor não

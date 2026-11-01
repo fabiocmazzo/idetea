@@ -372,3 +372,32 @@ recovered =
         [one] 1 archivo recuperado (aún sin guardar)
        *[other] { $count } archivos recuperados (aún sin guardar)
     }
+
+## Renomear símbolo e salvar todos
+cmd-lsp-rename = LSP: renombrar símbolo…
+cmd-file-save-all = Archivo: guardar todos
+save-all-untitled = Las pestañas sin nombre no se guardaron (use Guardar como)
+palette-rename = Nuevo nombre
+palette-rename-hint = Renombrar "{ $name }" en todo el proyecto · Enter muestra lo que cambia · Esc cancela
+rename-no-word = Ponga el cursor en un nombre para renombrarlo
+rename-asking = Renombrar "{ $name }": preguntando al servidor…
+rename-nothing = Nada que renombrar en "{ $name }"
+rename-failed = No se pudo renombrar: { $message }
+rename-title = ¿Renombrar "{ $old }" a "{ $new }"?
+rename-summary = 
+    { $changes ->
+        [one] 1 cambio
+       *[other] { $changes } cambios
+    } en { $files ->
+        [one] 1 archivo:
+       *[other] { $files } archivos:
+    }
+rename-detail = Los archivos quedan cambiados en sus pestañas, aún sin guardar: Ctrl+Z deshace en cada uno, y "Archivo: guardar todos" guarda todo.
+rename = Renombrar
+renamed = 
+    { $count ->
+        [one] Renombrado en 1 archivo (aún sin guardar)
+       *[other] Renombrado en { $count } archivos (aún sin guardar)
+    }
+
+guide-lsp-9 = Renombrar: { $lsp-rename } con el cursor en el nombre. Una vista previa muestra cuántos cambios y en qué archivos; al confirmar, quedan cambiados en sus pestañas (Ctrl+Z deshace en cada uno) y { $file-save_all } los guarda todos.

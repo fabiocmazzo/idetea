@@ -372,3 +372,32 @@ recovered =
         [one] 1 arquivo recuperado (ainda sem salvar)
        *[other] { $count } arquivos recuperados (ainda sem salvar)
     }
+
+## Renomear símbolo e salvar todos
+cmd-lsp-rename = LSP: renomear símbolo…
+cmd-file-save-all = Arquivo: salvar todos
+save-all-untitled = Abas sem nome não foram salvas (use Salvar como)
+palette-rename = Novo nome
+palette-rename-hint = Renomear "{ $name }" em todo o projeto · Enter mostra o que muda · Esc cancela
+rename-no-word = Coloque o cursor num nome para renomear
+rename-asking = Renomear "{ $name }": perguntando ao servidor…
+rename-nothing = Nada para renomear em "{ $name }"
+rename-failed = Não deu para renomear: { $message }
+rename-title = Renomear "{ $old }" para "{ $new }"?
+rename-summary = 
+    { $changes ->
+        [one] 1 mudança
+       *[other] { $changes } mudanças
+    } em { $files ->
+        [one] 1 arquivo:
+       *[other] { $files } arquivos:
+    }
+rename-detail = Os arquivos ficam alterados nas abas, ainda sem salvar: Ctrl+Z desfaz em cada um, e "Arquivo: salvar todos" grava tudo.
+rename = Renomear
+renamed = 
+    { $count ->
+        [one] Renomeado em 1 arquivo (ainda sem salvar)
+       *[other] Renomeado em { $count } arquivos (ainda sem salvar)
+    }
+
+guide-lsp-9 = Renomear: { $lsp-rename } com o cursor no nome. Uma prévia mostra quantas mudanças e em quais arquivos; confirmando, eles ficam alterados nas abas (Ctrl+Z desfaz em cada um) e { $file-save_all } grava todos.

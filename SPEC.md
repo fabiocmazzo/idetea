@@ -653,7 +653,17 @@ O que mais falta no uso diário. Cada item é uma entrega com teste manual; a or
     (`pkill -9 idetea`); abrir de novo: o diálogo lista os três; Recuperar: as abas voltam com ● e o texto
     alterado, `Ctrl+Z` volta ao do disco. Repetir e escolher Descartar: abre limpo e não pergunta mais. Sair
     normalmente com alterações descartadas: não pergunta na próxima.
-- [ ] **Renomear símbolo (F2):** o LSP renomeia no projeto inteiro, com prévia.
+- [x] **Renomear símbolo (F2):** "LSP: renomear símbolo…" abre a paleta com o nome no cursor; Enter pede ao
+  servidor (`textDocument/rename`) e uma prévia mostra "N mudanças em M arquivos" com a lista, antes de mudar
+  qualquer coisa.
+  - Confirmando, os arquivos que faltam abrem em abas e todos ficam alterados, sem salvar (uma edição por arquivo:
+    `Ctrl+Z` desfaz). Novo "Arquivo: salvar todos" (`Ctrl+Alt+S`) grava tudo.
+  - Aceita as duas formas da resposta (`changes` e `documentChanges`); criar, renomear ou apagar arquivos (ex.:
+    renomear um módulo no Rust) fica de fora por enquanto. Servidor que recusa: a mensagem dele aparece.
+  - O teste com o clangd confere as três mudanças de `soma` e que o disco não muda antes de aplicar.
+  - [x] Teste manual (aprovado, Rust): `F2` numa função usada em outro arquivo, novo nome, Enter: a prévia lista os dois
+    arquivos; Renomear: as abas abrem com ●, o código compila depois de `Ctrl+Alt+S`; `Ctrl+Z` numa aba volta o
+    nome. `F2` num espaço avisa; Esc na paleta ou Cancelar na prévia não muda nada.
 - [ ] **Substituir no projeto:** "substituir" e "substituir tudo" no painel Busca, com prévia.
 - [ ] **Editor e salvar:** quebra de linha, mostrar espaços e guias de recuo nas Configurações (o widget já
   tem); ao salvar, tirar espaços no fim das linhas, garantir a linha final e formatar (opcional);

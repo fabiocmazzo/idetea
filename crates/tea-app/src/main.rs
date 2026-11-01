@@ -201,6 +201,7 @@ const CORE_COMMANDS: &[(&str, &str)] = &[
     ("file.open_recent", "cmd-file-open-recent"),
     ("file.save_as", "cmd-file-save-as"),
     ("file.save_as_path", "cmd-file-save-as-path"),
+    ("file.save_all", "cmd-file-save-all"),
     ("file.close", "cmd-file-close"),
     ("tab.next", "cmd-tab-next"),
     ("tab.prev", "cmd-tab-prev"),
@@ -225,6 +226,7 @@ const CORE_COMMANDS: &[(&str, &str)] = &[
     ("nav.forward", "cmd-nav-forward"),
     ("lsp.hover", "cmd-lsp-hover"),
     ("lsp.format", "cmd-lsp-format"),
+    ("lsp.rename", "cmd-lsp-rename"),
     ("lsp.restart", "cmd-lsp-restart"),
     ("theme.toggle", "cmd-theme-toggle"),
     ("config.open", "cmd-config-open"),
@@ -250,6 +252,8 @@ enum CoreDialog {
     CloseMany { ids: Vec<u64>, save: bool },
     /// Depurar este executável (havia mais de um).
     DebugProgram(PathBuf),
+    /// Aplicar as edições do "renomear símbolo" que estão esperando.
+    ApplyRename,
     /// Cópias de alterações deixadas por uma janela que travou: abrir de volta ou apagar.
     Recover,
     DiscardRecovery,
@@ -362,6 +366,10 @@ struct App {
     backed_up: std::collections::HashMap<u64, (String, u64)>,
     /// Cópias de uma janela que travou, esperando a resposta do diálogo.
     pending_recovery: Vec<backup::Orphan>,
+    /// Renomear símbolo: o que foi pedido (aba, linha, coluna, nome atual) e, depois da resposta, as
+    /// edições esperando a confirmação na prévia.
+    rename_target: Option<(u64, usize, usize, String)>,
+    rename_edits: Option<(String, Vec<tea_lsp::FileEdits>)>,
 }
 
 #[derive(Debug, Clone)]
@@ -485,6 +493,8 @@ impl App {
             backup_dir: backup::dir_for(&launch.root),
             backed_up: Default::default(),
             pending_recovery: Vec::new(),
+            rename_target: None,
+            rename_edits: None,
             last_status: EditorStatus::default(),
             nav: nav::History::default(),
             outline_seen: (u64::MAX, 0),
@@ -1108,6 +1118,84 @@ impl App {
         Task::batch(tasks)
     }
 
+    // ---- Renomear símbolo --------------------------------------------------
+
+    /// `F2`: pede o novo nome na paleta, já com o nome atual.
+    fn start_rename(&mut self) -> Task<Message> {
+        if self.editor().lsp_server().is_none() {
+            return self.no_lsp_note();
+        }
+        let Some((word, line, column)) = self.editor().word_at_cursor() else {
+            return self.notify(fl!("rename-no-word"));
+        };
+        self.rename_target = Some((self.tabs[self.active].id, line, column, word.clone()));
+        self.open_palette(Palette::rename(word))
+    }
+
+    fn request_rename(&mut self, new_name: String) -> Task<Message> {
+        let Some((tab, line, column, old)) = self.rename_target.clone() else { return Task::none() };
+        if new_name.is_empty() || new_name == old {
+            return Task::none();
+        }
+        let Some(i) = self.tab_index(tab) else { return Task::none() };
+        if self.tabs[i].editor.request_rename(line, column, &new_name) {
+            self.notify(fl!("rename-asking", name = old))
+        } else {
+            self.no_lsp_note()
+        }
+    }
+
+    /// Resposta do servidor: mostra quantas mudanças e onde, e espera a confirmação.
+    fn preview_rename(&mut self, new_name: String, files: Vec<tea_lsp::FileEdits>) -> Task<Message> {
+        let old = self.rename_target.as_ref().map(|t| t.3.clone()).unwrap_or_default();
+        if files.is_empty() {
+            return self.notify(fl!("rename-nothing", name = old));
+        }
+        let changes: usize = files.iter().map(|f| f.edits.len()).sum();
+        let mut list: Vec<String> = files
+            .iter()
+            .take(10)
+            .map(|f| format!("• {} ({})", display_rel(&f.path, &self.root), f.edits.len()))
+            .collect();
+        if files.len() > 10 {
+            list.push(fl!("and-more", count = (files.len() - 10)));
+        }
+        let body = format!(
+            "{}\n\n{}\n\n{}",
+            fl!("rename-summary", changes = changes, files = files.len()),
+            list.join("\n"),
+            fl!("rename-detail")
+        );
+        let dialog = Dialog::new(fl!("rename-title", old = old, new = new_name.as_str()), body)
+            .button(fl!("rename"), ButtonKind::Primary, CoreDialog::ApplyRename)
+            .cancel(fl!("cancel"));
+        self.rename_edits = Some((new_name, files));
+        self.open_dialog(dialog, dialog::Owner::Core)
+    }
+
+    /// Abre os arquivos que faltam e aplica as edições como alterações não salvas (uma por arquivo no desfazer).
+    fn apply_rename(&mut self) -> Task<Message> {
+        let Some((_, files)) = self.rename_edits.take() else { return Task::none() };
+        let active = self.tabs.get(self.active).map(|t| t.id);
+        let mut tasks = Vec::new();
+        let mut done = 0;
+        for f in files {
+            if !self.tabs.iter().any(|t| t.editor.path() == Some(f.path.as_path())) {
+                tasks.push(self.open_file(f.path.clone()));
+            }
+            let Some(i) = self.tabs.iter().position(|t| t.editor.path() == Some(f.path.as_path())) else { continue };
+            self.tabs[i].editor.apply_formatting(&f.edits);
+            done += 1;
+        }
+        // Volta para a aba de onde pediu (abrir os arquivos trocou a ativa).
+        if let Some(i) = active.and_then(|id| self.tab_index(id)) {
+            tasks.push(self.set_active(i));
+        }
+        tasks.push(self.text_later());
+        tasks.push(self.notify(fl!("renamed", count = done)));
+        Task::batch(tasks)
+    }
+
     // ---- Recuperar alterações não salvas -----------------------------------
 
     /// Copia as abas com alterações que mudaram desde a última cópia; apaga as que não servem mais
@@ -1581,6 +1669,8 @@ impl App {
                 }
                 None => Task::none(),
             },
+            E::Rename { new_name, files } => self.preview_rename(new_name, files),
+            E::RenameFailed { message } => self.notify(fl!("rename-failed", message = message)),
             E::Formatting { path, edits } => {
                 if let Some(i) = tab_for(self, &path) {
                     self.tabs[i].editor.apply_formatting(&edits);
@@ -1967,6 +2057,10 @@ impl App {
                 self.set_active(i)
             }
             "file.save" => self.save_active(),
+            "file.save_all" => {
+                let (ok, task) = self.save_all();
+                if ok { task } else { Task::batch([task, self.notify(fl!("save-all-untitled"))]) }
+            }
             "file.save_as" => self.open_save_as(),
             "file.save_as_path" => self.open_save_as_typed(),
             "file.open" => {
@@ -2021,6 +2115,7 @@ impl App {
                 self.editor_mut().request_hover();
                 Task::none()
             }
+            "lsp.rename" => self.start_rename(),
             "lsp.format" => {
                 if self.editor_mut().request_formatting() {
                     Task::none()
@@ -2614,6 +2709,7 @@ impl App {
                 self.debug_start()
             }
             CoreDialog::Recover => self.recover(),
+            CoreDialog::ApplyRename => self.apply_rename(),
             CoreDialog::DiscardRecovery => {
                 for o in std::mem::take(&mut self.pending_recovery) {
                     o.remove();
@@ -2694,6 +2790,11 @@ impl App {
                     Some(i) => self.palette_update(palette::Msg::Pick(i)),
                     None => Task::none(),
                 },
+                palette::Mode::Rename => {
+                    let new_name = p.query.trim().to_string();
+                    self.close_palette();
+                    self.request_rename(new_name)
+                }
                 palette::Mode::SaveAs => {
                     let input = p.query.clone();
                     self.close_palette();

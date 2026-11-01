@@ -629,6 +629,29 @@ impl Editor {
         true
     }
 
+    /// Nome no cursor (letras, números e `_`), com a linha e a coluna onde ele começa (a partir de 0).
+    pub fn word_at_cursor(&self) -> Option<(String, usize, usize)> {
+        if self.is_image() {
+            return None;
+        }
+        let (line, column) = self.inner.cursor_position();
+        let text = self.inner.content();
+        let chars: Vec<char> = text.split('\n').nth(line)?.chars().collect();
+        let is_word = |c: &char| c.is_alphanumeric() || *c == '_';
+        let column = column.min(chars.len());
+        let start = chars[..column].iter().rposition(|c| !is_word(c)).map_or(0, |i| i + 1);
+        let end = chars[column..].iter().position(|c| !is_word(c)).map_or(chars.len(), |i| column + i);
+        (start < end).then(|| (chars[start..end].iter().collect(), line, start))
+    }
+
+    /// Pede para renomear o símbolo em `line`/`column` (a partir de 0). Resposta em `tea_lsp::Event::Rename`.
+    pub fn request_rename(&mut self, line: usize, column: usize, new_name: &str) -> bool {
+        let (Some(link), Some(path)) = (&self.lsp, &self.path) else { return false };
+        self.inner.lsp_flush_pending_changes();
+        link.client.rename(path, tea_lsp::Position::new(line as u32, column as u32), new_name);
+        true
+    }
+
     pub fn request_formatting(&mut self) -> bool {
         self.lsp.is_some() && self.inner.lsp_request_formatting()
     }
@@ -722,19 +745,33 @@ fn common_suffix(a: &str, b: &str) -> usize {
     a.chars().rev().zip(b.chars().rev()).take_while(|(x, y)| x == y).map(|(x, _)| x.len_utf8()).sum()
 }
 
-/// Posição (linha, coluna em UTF-16, como no LSP) de um byte do texto.
+/// Posição (linha, coluna em caracteres, como o widget usa) de um byte do texto.
 fn lsp_position(text: &str, byte: usize) -> iced_code_editor::LspPosition {
     let before = &text[..byte];
     let line_start = before.rfind('\n').map_or(0, |i| i + 1);
     iced_code_editor::LspPosition {
         line: u32::try_from(before.matches('\n').count()).unwrap_or(u32::MAX),
-        character: u32::try_from(before[line_start..].encode_utf16().count()).unwrap_or(u32::MAX),
+        character: u32::try_from(before[line_start..].chars().count()).unwrap_or(u32::MAX),
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn word_at_cursor() {
+        let mut ed = Editor::from_text(Path::new("/p/a.rs"), "let conta_nova = soma(1);\n");
+        let at = |ed: &mut Editor, col: usize| {
+            let _ = ed.goto(1, col);
+            ed.word_at_cursor().map(|(w, _, start)| (w, start))
+        };
+        assert_eq!(at(&mut ed, 7), Some(("conta_nova".into(), 4)), "no meio");
+        assert_eq!(at(&mut ed, 5), Some(("conta_nova".into(), 4)), "no começo");
+        assert_eq!(at(&mut ed, 15), Some(("conta_nova".into(), 4)), "logo depois do nome");
+        assert_eq!(at(&mut ed, 16), None, "em cima do =");
+        assert_eq!(at(&mut ed, 18), Some(("soma".into(), 17)));
+    }
 
     #[test]
     fn replace_text_counts_as_a_change() {
