@@ -4,6 +4,11 @@
 //! No Markdown, imagens locais aparecem (caminho relativo ao arquivo); links da web abrem no
 //! navegador e links para arquivos do projeto abrem numa aba.
 
+tea_core::i18n_loader!();
+macro_rules! fl {
+    ($($t:tt)*) => { tea_core::i18n::fl!(crate::LOADER, $($t)*) };
+}
+
 use std::path::{Path, PathBuf};
 
 use iced::widget::{column, container, image, markdown, row, scrollable, svg, text};
@@ -151,14 +156,14 @@ impl Extension for PreviewExtension {
     }
 
     fn activate(&mut self, ctx: &mut Context) -> Task<Message> {
-        ctx.register_panel_hidden(PANEL, "Prévia", Slot::Right);
+        ctx.register_panel_hidden(PANEL, fl!("preview-panel"), Slot::Right);
         ctx.panel_icon(PANEL, Icon::Preview);
-        ctx.register_command("preview.toggle", "Prévia: mostrar/ocultar (Markdown, SVG)");
+        ctx.register_command("preview.toggle", fl!("cmd-preview-toggle"));
         ctx.watch_text(MARKDOWN.iter().chain(SVG).copied());
         ctx.file_action(FileAction {
             extensions: MARKDOWN.iter().chain(SVG).map(|e| e.to_string()).collect(),
             icon: Icon::Preview,
-            tip: "Prévia".into(),
+            tip: fl!("preview-panel"),
             command: "preview.toggle".into(),
             panel: Some(PANEL),
         });
@@ -198,20 +203,20 @@ impl Extension for PreviewExtension {
         match link_target(&url, self.path.as_deref()) {
             LinkTarget::Web(url) => {
                 if let Err(e) = tea_core::os::open_url(&url) {
-                    ctx.notify(format!("Não deu para abrir o link: {e}"));
+                    ctx.notify(fl!("preview-link-error", error = e.to_string()));
                 }
             }
             LinkTarget::File(path) if path.is_file() => ctx.open_file(path),
-            LinkTarget::File(path) => ctx.notify(format!("Arquivo do link não existe: {}", path.display())),
+            LinkTarget::File(path) => ctx.notify(fl!("preview-link-missing", path = path.display().to_string())),
             LinkTarget::Anchor => {}
         }
         Task::none()
     }
 
     fn view(&self, _panel: PanelId) -> Element<'_, Message> {
-        let note = |s: &'static str| -> Element<'_, Message> { text(s).size(12).style(text::secondary).into() };
+        let note = |s: String| -> Element<'_, Message> { text(s).size(12).style(text::secondary).into() };
         match &self.doc {
-            Doc::Nothing => note("Abra um arquivo Markdown (.md) ou SVG para ver a prévia aqui."),
+            Doc::Nothing => note(fl!("preview-empty")),
             Doc::Markdown(content) => {
                 let viewer = Viewer { base: self.path.as_deref() };
                 let body = markdown::view_with(content.items(), self.settings(), &viewer);
@@ -220,11 +225,11 @@ impl Extension for PreviewExtension {
             Doc::Svg { handle, size, error } => {
                 let mut info = row![text(format!("{} × {}", size.0.round(), size.1.round())).size(11).style(text::secondary)];
                 if let Some(e) = error {
-                    info = info.push(text(format!("  SVG inválido: {e}")).size(11).style(text::danger));
+                    info = info.push(text(fl!("preview-svg-invalid", error = e.as_str())).size(11).style(text::danger));
                 }
                 let drawing: Element<'_, Message> = match handle {
                     Some(h) => svg(h.clone()).width(Fill).height(Fill).content_fit(ContentFit::Contain).into(),
-                    None => note("Nada para desenhar ainda."),
+                    None => note(fl!("preview-nothing")),
                 };
                 column![info, container(drawing).padding(8).width(Fill).height(Fill)].spacing(4).into()
             }

@@ -2,6 +2,11 @@
 //! definições), agrupado por arquivo, com a linha de cada lugar e o nome destacado. Clique leva
 //! até lá. A lista vem do núcleo ([`CoreEvent::Locations`]), que pergunta ao servidor de linguagem.
 
+tea_core::i18n_loader!();
+macro_rules! fl {
+    ($($t:tt)*) => { tea_core::i18n::fl!(crate::LOADER, $($t)*) };
+}
+
 use std::path::{Path, PathBuf};
 
 use iced::widget::{button, column, row, scrollable, space, text};
@@ -66,9 +71,9 @@ impl Extension for ReferencesExtension {
 
     fn activate(&mut self, ctx: &mut Context) -> Task<Message> {
         self.root = ctx.root().to_path_buf();
-        ctx.register_panel_hidden(PANEL, "Referências", Slot::Bottom);
+        ctx.register_panel_hidden(PANEL, fl!("references-panel"), Slot::Bottom);
         ctx.panel_icon(PANEL, Icon::References);
-        ctx.register_command("references.focus", "Referências: mostrar painel");
+        ctx.register_command("references.focus", fl!("cmd-references-focus"));
         Task::none()
     }
 
@@ -101,18 +106,18 @@ impl Extension for ReferencesExtension {
 
     fn view(&self, _panel: PanelId) -> Element<'_, Message> {
         if self.items.is_empty() {
-            return text("Nenhuma busca ainda. Shift+F12 (ou Ctrl+clique na declaração) lista onde um nome é usado.")
+            return text(fl!("references-empty"))
                 .size(13)
                 .style(text::secondary)
                 .into();
         }
         let n = self.items.len();
         let files = self.files();
-        let summary = format!(
-            "{} de \"{}\" em {files} {}",
-            self.kind.unwrap_or(LocationKind::References).count_label(n),
-            self.symbol,
-            if files == 1 { "arquivo" } else { "arquivos" },
+        let summary = fl!(
+            "references-summary",
+            what = self.kind.unwrap_or(LocationKind::References).count_label(n),
+            symbol = self.symbol.as_str(),
+            count = files
         );
         let mut list = column![text(summary).size(12).style(text::secondary)].spacing(1);
         let mut last: Option<&Path> = None;

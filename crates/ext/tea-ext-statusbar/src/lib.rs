@@ -1,6 +1,11 @@
 //! Barra de status: notificação, atividade em segundo plano, erros/avisos,
 //! posição do cursor, linguagem, encoding e fim de linha.
 
+tea_core::i18n_loader!();
+macro_rules! fl {
+    ($($t:tt)*) => { tea_core::i18n::fl!(crate::LOADER, $($t)*) };
+}
+
 use std::collections::{BTreeMap, HashMap};
 use std::path::PathBuf;
 use std::time::{Duration, Instant};
@@ -99,7 +104,7 @@ impl Extension for StatusBarExtension {
     fn view(&self, _panel: PanelId) -> Element<'_, Message> {
         let s = &self.status;
         let size = 12;
-        let modified = if s.modified { "● não salvo" } else { "" };
+        let modified = if s.modified { fl!("status-unsaved") } else { String::new() };
         let activity = self.activity.iter().map(|(k, v)| format!("{k}: {v}")).collect::<Vec<_>>().join(" · ");
         let (errors, warnings) = self.totals();
         let problems = button(
@@ -126,7 +131,7 @@ impl Extension for StatusBarExtension {
             text(activity).size(size).style(text::secondary),
             text(modified).size(size),
             problems,
-            text(format!("Ln {}, Col {}", s.line, s.column)).size(size),
+            text(fl!("status-position", line = s.line, column = s.column)).size(size),
             text(&s.language).size(size),
             text(s.encoding).size(size),
             text(s.line_ending).size(size),

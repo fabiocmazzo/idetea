@@ -3,6 +3,11 @@
 //! ([`Context::call_children`]), que pergunta ao servidor de linguagem. Clique leva até a chamada
 //! (ou até a declaração, em "o que chama").
 
+tea_core::i18n_loader!();
+macro_rules! fl {
+    ($($t:tt)*) => { tea_core::i18n::fl!(crate::LOADER, $($t)*) };
+}
+
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 
@@ -125,8 +130,8 @@ impl CallsExtension {
                 None => list = list.push(row![pad, text("…").size(12).style(text::secondary)]),
                 Some(c) if c.is_empty() && depth == 0 => {
                     let note = match self.direction {
-                        Direction::Incoming => "Ninguém chama esta função",
-                        Direction::Outgoing => "Esta função não chama outras",
+                        Direction::Incoming => fl!("calls-no-callers"),
+                        Direction::Outgoing => fl!("calls-no-callees"),
                     };
                     list = list.push(row![pad, text(note).size(12).style(text::secondary)]);
                 }
@@ -137,7 +142,7 @@ impl CallsExtension {
     }
 }
 
-fn direction_button<'a>(label: &'a str, icon: Icon, d: Direction, active: Direction) -> Element<'a, Message> {
+fn direction_button<'a>(label: String, icon: Icon, d: Direction, active: Direction) -> Element<'a, Message> {
     let on = d == active;
     button(row![icons::icon(icon).size(13), text(label).size(12)].spacing(4).align_y(iced::Center))
         .on_press(Message::SetDirection(d))
@@ -163,9 +168,9 @@ impl Extension for CallsExtension {
 
     fn activate(&mut self, ctx: &mut Context) -> Task<Message> {
         self.root = ctx.root().to_path_buf();
-        ctx.register_panel_hidden(PANEL, "Chamadas", Slot::Bottom);
+        ctx.register_panel_hidden(PANEL, fl!("calls-panel"), Slot::Bottom);
         ctx.panel_icon(PANEL, Icon::CallIncoming);
-        ctx.register_command("calls.focus", "Chamadas: mostrar painel");
+        ctx.register_command("calls.focus", fl!("cmd-calls-focus"));
         Task::none()
     }
 
@@ -220,14 +225,14 @@ impl Extension for CallsExtension {
 
     fn view(&self, _panel: PanelId) -> Element<'_, Message> {
         if self.roots.is_empty() {
-            return text("Nenhuma busca ainda. Alt+Shift+H dentro de uma função mostra quem a chama.")
+            return text(fl!("calls-empty"))
                 .size(13)
                 .style(text::secondary)
                 .into();
         }
         let header = row![
-            direction_button("Quem chama", Icon::CallIncoming, Direction::Incoming, self.direction),
-            direction_button("O que chama", Icon::CallOutgoing, Direction::Outgoing, self.direction),
+            direction_button(fl!("calls-incoming"), Icon::CallIncoming, Direction::Incoming, self.direction),
+            direction_button(fl!("calls-outgoing"), Icon::CallOutgoing, Direction::Outgoing, self.direction),
         ]
         .spacing(4);
         let list = self.push_rows(column![].spacing(0), &self.roots, 0);

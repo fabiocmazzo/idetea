@@ -2,6 +2,11 @@
 //!
 //! A busca roda numa thread à parte. Cada nova busca cancela a anterior.
 
+tea_core::i18n_loader!();
+macro_rules! fl {
+    ($($t:tt)*) => { tea_core::i18n::fl!(crate::LOADER, $($t)*) };
+}
+
 pub mod engine;
 
 use std::collections::HashSet;
@@ -109,10 +114,10 @@ impl Extension for SearchExtension {
 
     fn activate(&mut self, ctx: &mut Context) -> Task<Message> {
         self.root = ctx.root().to_path_buf();
-        ctx.register_panel_hidden(PANEL, "Busca", Slot::Bottom);
+        ctx.register_panel_hidden(PANEL, fl!("search-panel"), Slot::Bottom);
         ctx.panel_icon(PANEL, Icon::Search);
-        ctx.register_command("search.focus", "Busca: buscar no projeto");
-        ctx.register_command("search.clear", "Busca: limpar");
+        ctx.register_command("search.focus", fl!("cmd-search-focus"));
+        ctx.register_command("search.clear", fl!("cmd-search-clear"));
         Task::none()
     }
 
@@ -191,7 +196,7 @@ impl Extension for SearchExtension {
                 .style(if on { button::primary } else { button::text })
         };
         let bar = row![
-            text_input("Buscar no projeto (Enter busca de novo)", &self.query)
+            text_input(&fl!("search-placeholder"), &self.query)
                 .id(input_id())
                 .on_input(Message::QueryChanged)
                 .on_submit(Message::Submit)
@@ -205,19 +210,20 @@ impl Extension for SearchExtension {
         .align_y(iced::Center);
 
         let summary = match (&self.error, &self.results) {
-            (Some(e), _) => text(format!("Regex inválida: {e}")).style(text::danger),
-            (None, _) if self.running() => text("Buscando…").style(text::secondary),
+            (Some(e), _) => text(fl!("search-bad-regex", error = e.as_str())).style(text::danger),
+            (None, _) if self.running() => text(fl!("search-running")).style(text::secondary),
             (None, Some(r)) => {
-                let more = if r.truncated { format!(" (parou em {})", engine::MAX_MATCHES) } else { String::new() };
-                text(format!(
-                    "{} resultado(s) em {} arquivo(s){more} · {} arquivos lidos",
-                    r.total,
-                    r.files.len(),
-                    r.files_scanned
+                let more = if r.truncated { fl!("search-truncated", count = engine::MAX_MATCHES) } else { String::new() };
+                text(fl!(
+                    "search-summary",
+                    results = r.total,
+                    files = r.files.len(),
+                    more = more,
+                    scanned = r.files_scanned
                 ))
                 .style(text::secondary)
             }
-            (None, None) => text(format!("Digite ao menos {MIN_QUERY_CHARS} caracteres")).style(text::secondary),
+            (None, None) => text(fl!("search-min-chars", count = MIN_QUERY_CHARS)).style(text::secondary),
         }
         .size(12);
 

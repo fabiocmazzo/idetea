@@ -56,7 +56,7 @@ pub fn build_matcher(query: &str, opts: &Options) -> Result<Regex, String> {
         .size_limit(10 * (1 << 20))
         .build()
         .map_err(|e| match e {
-            regex::Error::Syntax(s) => s.lines().last().unwrap_or("regex inválida").trim().to_string(),
+            regex::Error::Syntax(s) => s.lines().last().unwrap_or("invalid regex").trim().to_string(),
             other => other.to_string(),
         })
 }

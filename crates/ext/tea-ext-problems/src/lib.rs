@@ -1,6 +1,11 @@
 //! Painel "Problemas": erros e avisos de todas as fontes (LSP hoje, outras no futuro).
 //! Clique leva à linha. `problems.next` pula para o próximo.
 
+tea_core::i18n_loader!();
+macro_rules! fl {
+    ($($t:tt)*) => { tea_core::i18n::fl!(crate::LOADER, $($t)*) };
+}
+
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
@@ -65,10 +70,10 @@ impl Extension for ProblemsExtension {
 
     fn activate(&mut self, ctx: &mut Context) -> Task<Message> {
         self.root = ctx.root().to_path_buf();
-        ctx.register_panel_hidden(PANEL, "Problemas", Slot::Bottom);
+        ctx.register_panel_hidden(PANEL, fl!("problems-panel"), Slot::Bottom);
         ctx.panel_icon(PANEL, Icon::Warning);
-        ctx.register_command("problems.focus", "Problemas: mostrar painel");
-        ctx.register_command("problems.next", "Problemas: ir para o próximo");
+        ctx.register_command("problems.focus", fl!("cmd-problems-focus"));
+        ctx.register_command("problems.next", fl!("cmd-problems-next"));
         Task::none()
     }
 
@@ -90,7 +95,7 @@ impl Extension for ProblemsExtension {
             "problems.next" => {
                 let all = self.ordered();
                 if all.is_empty() {
-                    ctx.notify("Nenhum problema");
+                    ctx.notify(fl!("problems-none"));
                 } else {
                     let i = self.cursor % all.len();
                     let (path, d) = all[i];
@@ -113,7 +118,7 @@ impl Extension for ProblemsExtension {
     fn view(&self, _panel: PanelId) -> Element<'_, Message> {
         let all = self.ordered();
         if all.is_empty() {
-            return text("Nenhum problema encontrado.").size(13).style(text::secondary).into();
+            return text(fl!("problems-none-found")).size(13).style(text::secondary).into();
         }
         let mut list = column![];
         let mut current: Option<&Path> = None;
@@ -125,7 +130,7 @@ impl Extension for ProblemsExtension {
                 list = list.push(
                     row![
                         text(self.rel(path)).size(13),
-                        text(format!("  {e} erro(s), {w} aviso(s)")).size(12).style(text::secondary),
+                        text(fl!("problems-count", errors = e, warnings = w)).size(12).style(text::secondary),
                     ]
                     .padding([4, 4]),
                 );

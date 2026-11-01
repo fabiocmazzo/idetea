@@ -3,6 +3,11 @@
 //!
 //! Usa só a API pública de `tea-core`.
 
+tea_core::i18n_loader!();
+macro_rules! fl {
+    ($($t:tt)*) => { tea_core::i18n::fl!(crate::LOADER, $($t)*) };
+}
+
 use std::collections::{HashMap, HashSet};
 use std::path::{Component, Path, PathBuf};
 use std::sync::Arc;
@@ -149,26 +154,26 @@ impl FileTreeExtension {
         let dir = if target.is_dir() { target.to_path_buf() } else { target.parent().unwrap_or(&self.root).to_path_buf() };
         let rel = target.strip_prefix(&self.root).unwrap_or(target).to_string_lossy().into_owned();
         let mut menu = Menu::new(at)
-            .item(Some(Icon::NewFile), "Novo arquivo", Message::NewFile)
-            .item(Some(Icon::NewFolder), "Nova pasta", Message::NewFolder)
+            .item(Some(Icon::NewFile), fl!("filetree-new-file"), Message::NewFile)
+            .item(Some(Icon::NewFolder), fl!("filetree-new-folder"), Message::NewFolder)
             .separator();
         if path.is_some() {
             menu = menu
-                .item(Some(Icon::Edit), "Renomear", Message::Rename)
-                .danger(Some(Icon::Trash), "Apagar…", Message::Delete)
+                .item(Some(Icon::Edit), fl!("filetree-rename"), Message::Rename)
+                .danger(Some(Icon::Trash), fl!("filetree-delete-menu"), Message::Delete)
                 .separator();
         }
-        menu = menu.item(Some(Icon::Copy), "Copiar caminho", Message::CopyPath(target.to_string_lossy().into_owned()));
+        menu = menu.item(Some(Icon::Copy), fl!("filetree-copy-path"), Message::CopyPath(target.to_string_lossy().into_owned()));
         if path.is_some() {
-            menu = menu.item(None, "Copiar caminho relativo", Message::CopyPath(rel));
+            menu = menu.item(None, fl!("filetree-copy-relative"), Message::CopyPath(rel));
         }
         menu = menu
-            .item(Some(Icon::LinkExternal), "Abrir no gerenciador de arquivos", Message::OpenInFileManager(dir))
+            .item(Some(Icon::LinkExternal), fl!("filetree-open-file-manager"), Message::OpenInFileManager(dir))
             .separator();
         if path.is_none() {
             menu = menu
-                .item(Some(Icon::Refresh), "Atualizar", Message::Refresh)
-                .item(Some(Icon::CollapseAll), "Recolher tudo", Message::CollapseAll);
+                .item(Some(Icon::Refresh), fl!("filetree-refresh"), Message::Refresh)
+                .item(Some(Icon::CollapseAll), fl!("filetree-collapse-all"), Message::CollapseAll);
         }
         menu
     }
@@ -261,7 +266,7 @@ impl FileTreeExtension {
             EditKind::Rename { path } => {
                 let to = path.parent().unwrap_or(&self.root).join(name);
                 if to.exists() && to != *path {
-                    Err(std::io::Error::new(std::io::ErrorKind::AlreadyExists, "já existe"))
+                    Err(std::io::Error::new(std::io::ErrorKind::AlreadyExists, fl!("filetree-exists")))
                 } else {
                     std::fs::rename(path, &to).map(|()| {
                         ctx.path_renamed(path, &to);
@@ -289,24 +294,24 @@ impl FileTreeExtension {
         match trash::delete(&path) {
             Ok(()) => {
                 ctx.path_deleted(&path);
-                ctx.notify(format!("Enviado para a lixeira: {}", display_name(&path)));
+                ctx.notify(fl!("filetree-trashed", name = display_name(&path)));
                 self.selected = None;
                 self.refresh_all();
             }
-            Err(e) => self.error = Some(format!("Não foi possível apagar: {e}")),
+            Err(e) => self.error = Some(fl!("filetree-delete-error", error = e.to_string())),
         }
     }
 
     fn edit_row(&self, depth: usize) -> Element<'_, Message> {
         let Some(edit) = &self.edit else { return space::horizontal().into() };
         let placeholder = match edit.kind {
-            EditKind::NewFile { .. } => "nome do arquivo",
-            EditKind::NewFolder { .. } => "nome da pasta",
-            EditKind::Rename { .. } => "novo nome",
+            EditKind::NewFile { .. } => fl!("filetree-file-name"),
+            EditKind::NewFolder { .. } => fl!("filetree-folder-name"),
+            EditKind::Rename { .. } => fl!("filetree-new-name"),
         };
         row![
             space::horizontal().width(depth as f32 * INDENT + 14.0),
-            text_input(placeholder, &edit.value)
+            text_input(&placeholder, &edit.value)
                 .id(input_id())
                 .on_input(Message::EditChanged)
                 .on_submit(Message::EditSubmit)
@@ -329,19 +334,19 @@ impl Extension for FileTreeExtension {
     fn activate(&mut self, ctx: &mut Context) -> Task<Message> {
         self.root = ctx.root().to_path_buf();
         self.load(&self.root.clone());
-        ctx.register_panel(PANEL, "Arquivos", Slot::Left);
+        ctx.register_panel(PANEL, fl!("filetree-panel"), Slot::Left);
         ctx.panel_icon(PANEL, Icon::Files);
         for (id, title) in [
-            ("filetree.toggle", "Árvore: mostrar/ocultar"),
-            ("filetree.reveal", "Árvore: revelar arquivo ativo"),
-            ("filetree.refresh", "Árvore: recarregar"),
-            ("filetree.new_file", "Árvore: novo arquivo"),
-            ("filetree.new_folder", "Árvore: nova pasta"),
-            ("filetree.rename", "Árvore: renomear selecionado"),
-            ("filetree.delete", "Árvore: apagar selecionado (lixeira)"),
-            ("filetree.collapse", "Árvore: recolher tudo"),
+            ("filetree.toggle", "cmd-filetree-toggle"),
+            ("filetree.reveal", "cmd-filetree-reveal"),
+            ("filetree.refresh", "cmd-filetree-refresh"),
+            ("filetree.new_file", "cmd-filetree-new-file"),
+            ("filetree.new_folder", "cmd-filetree-new-folder"),
+            ("filetree.rename", "cmd-filetree-rename"),
+            ("filetree.delete", "cmd-filetree-delete"),
+            ("filetree.collapse", "cmd-filetree-collapse"),
         ] {
-            ctx.register_command(id, title);
+            ctx.register_command(id, LOADER.get(title));
         }
         match ctx.active_file().map(Path::to_path_buf) {
             Some(active) => {
@@ -446,21 +451,21 @@ impl Extension for FileTreeExtension {
                 if let Some(path) = self.selected.clone() {
                     return self.start_edit(EditKind::Rename { path });
                 }
-                ctx.notify("Selecione um item na árvore para renomear");
+                ctx.notify(fl!("filetree-select-to-rename"));
             }
             Message::Delete => match self.selected.clone() {
                 Some(path) => {
                     self.edit = None;
                     let is_dir = path.is_dir();
-                    let what = if is_dir { "A pasta e todo o conteúdo dela vão" } else { "O arquivo vai" };
-                    let title = format!("Apagar \"{}\"?", display_name(&path));
+                    let what = if is_dir { fl!("filetree-delete-folder-detail") } else { fl!("filetree-delete-file-detail") };
+                    let title = fl!("filetree-delete-title", name = display_name(&path));
                     ctx.show_dialog(
-                        Dialog::new(title, format!("{what} para a lixeira (dá para recuperar por lá)."))
-                            .button("Mover para a lixeira", ButtonKind::Danger, Message::ConfirmDelete(path))
-                            .cancel("Cancelar"),
+                        Dialog::new(title, what)
+                            .button(fl!("filetree-move-to-trash"), ButtonKind::Danger, Message::ConfirmDelete(path))
+                            .cancel(fl!("cancel")),
                     );
                 }
-                None => ctx.notify("Selecione um item na árvore para apagar"),
+                None => ctx.notify(fl!("filetree-select-to-delete")),
             },
             Message::ConfirmDelete(path) => self.delete_confirmed(path, ctx),
             Message::EditChanged(value) => {
@@ -486,12 +491,12 @@ impl Extension for FileTreeExtension {
                 ctx.show_menu(self.context_menu(path.as_deref(), at));
             }
             Message::CopyPath(text) => {
-                ctx.notify(format!("Copiado: {text}"));
+                ctx.notify(fl!("copied", text = text.as_str()));
                 return iced::clipboard::write(text);
             }
             Message::OpenInFileManager(dir) => {
                 if let Err(e) = tea_core::os::open_in_file_manager(&dir) {
-                    ctx.notify(format!("Não foi possível abrir o gerenciador de arquivos: {e}"));
+                    ctx.notify(fl!("filetree-file-manager-error", error = e.to_string()));
                 }
             }
         }
@@ -503,12 +508,12 @@ impl Extension for FileTreeExtension {
         let toolbar = row![
             text(display_name(&self.root)).size(13),
             space::horizontal(),
-            icon_button(Icon::NewFile, "Novo arquivo", Some(Message::NewFile)),
-            icon_button(Icon::NewFolder, "Nova pasta", Some(Message::NewFolder)),
-            icon_button(Icon::Edit, "Renomear", has_sel.then_some(Message::Rename)),
-            icon_button(Icon::Trash, "Apagar (lixeira)", has_sel.then_some(Message::Delete)),
-            icon_button(Icon::Refresh, "Atualizar", Some(Message::Refresh)),
-            icon_button(Icon::CollapseAll, "Recolher tudo", Some(Message::CollapseAll)),
+            icon_button(Icon::NewFile, fl!("filetree-new-file"), Some(Message::NewFile)),
+            icon_button(Icon::NewFolder, fl!("filetree-new-folder"), Some(Message::NewFolder)),
+            icon_button(Icon::Edit, fl!("filetree-rename"), has_sel.then_some(Message::Rename)),
+            icon_button(Icon::Trash, fl!("filetree-delete-button"), has_sel.then_some(Message::Delete)),
+            icon_button(Icon::Refresh, fl!("filetree-refresh"), Some(Message::Refresh)),
+            icon_button(Icon::CollapseAll, fl!("filetree-collapse-all"), Some(Message::CollapseAll)),
         ]
         .spacing(1)
         .align_y(iced::Center);
@@ -666,10 +671,10 @@ fn read_dir_sorted(dir: &Path) -> Vec<Entry> {
 fn validate_name(name: &str) -> Result<(), String> {
     let path = Path::new(name);
     if path.is_absolute() {
-        return Err("use um nome relativo".into());
+        return Err(fl!("filetree-name-relative"));
     }
     if path.components().any(|c| !matches!(c, Component::Normal(_))) {
-        return Err("nome não pode conter \"..\" nem \".\"".into());
+        return Err(fl!("filetree-name-dots"));
     }
     Ok(())
 }

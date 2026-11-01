@@ -4,6 +4,11 @@
 //! no terminal, Ctrl+letra, F-teclas etc. vão para o shell; atalhos da IDE com
 //! Ctrl+Shift continuam valendo (regra aplicada pelo app em todos os painéis).
 
+tea_core::i18n_loader!();
+macro_rules! fl {
+    ($($t:tt)*) => { tea_core::i18n::fl!(crate::LOADER, $($t)*) };
+}
+
 use std::path::PathBuf;
 
 use iced::widget::{button, column, container, text};
@@ -70,7 +75,7 @@ impl TerminalExtension {
                 true
             }
             Err(e) => {
-                ctx.notify(format!("Terminal: não foi possível iniciar o shell: {e}"));
+                ctx.notify(fl!("terminal-start-error", error = e.to_string()));
                 false
             }
         }
@@ -95,8 +100,8 @@ impl Extension for TerminalExtension {
         self.root = ctx.root().to_path_buf();
         ctx.register_panel_hidden(PANEL, "Terminal", Slot::Bottom);
         ctx.panel_icon(PANEL, Icon::Terminal);
-        ctx.register_command("terminal.focus", "Terminal: abrir e focar");
-        ctx.register_command("terminal.new", "Terminal: reiniciar o shell");
+        ctx.register_command("terminal.focus", fl!("cmd-terminal-focus"));
+        ctx.register_command("terminal.new", fl!("cmd-terminal-new"));
         Task::none()
     }
 
@@ -155,7 +160,7 @@ impl Extension for TerminalExtension {
                 if term.handle(iced_term::Command::ProxyToBackend(cmd)) == Action::Shutdown {
                     self.term = None;
                     ctx.hide_panel(PANEL);
-                    ctx.notify("Terminal encerrado");
+                    ctx.notify(fl!("terminal-ended"));
                 }
             }
         }
@@ -167,8 +172,8 @@ impl Extension for TerminalExtension {
             Some(term) => TerminalView::show(term).map(Message::Term),
             None => container(
                 column![
-                    text("O shell não está rodando.").size(13).style(text::secondary),
-                    button(text("Iniciar terminal").size(13)).on_press(Message::Start).padding([3, 10]),
+                    text(fl!("terminal-not-running")).size(13).style(text::secondary),
+                    button(text(fl!("terminal-start")).size(13)).on_press(Message::Start).padding([3, 10]),
                 ]
                 .spacing(8)
                 .align_x(iced::Center),

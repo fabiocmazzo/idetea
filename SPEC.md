@@ -588,6 +588,15 @@ Entregas: (1) base → (2) núcleo e app → (3) extensões → (4) traduções 
   - [x] Teste manual (aprovado): Idioma = English (ou `LANG=es_ES.UTF-8 idetea`); reiniciar; conferir paleta (`Ctrl+Shift+P`),
     menus, Configurações, ajuda (`F1`: Atalhos e Sobre), fechar aba com alteração (diálogo), uma imagem e um PDF;
     `idetea --help` no terminal; voltar para Automático e ver tudo em português como antes.
+- [x] **Entrega 3 — extensões:**
+  - Cada uma das 11 extensões tem os próprios `.ftl` (pt-BR, en, es): nomes dos painéis, comandos, botões,
+    menus de contexto, diálogos, avisos e textos vazios. No git, também as explicações dos erros de rede.
+  - O git deixou de reconhecer o resultado pelo texto ("Commit ...", "alterações descartadas"): cada ação diz o
+    que fazer depois (`After`).
+  - [x] Teste manual (aprovado): Idioma = English; reiniciar; abrir cada painel (Arquivos, Git, Busca, Problemas, Terminal,
+    Referências, Chamadas, Estrutura, Prévia, Debug) e ver os textos em inglês; na árvore, botão direito → menu e
+    Apagar… (diálogo, cancelar); no git, stage de um arquivo, Descartar alterações… (cancelar) e um commit (a
+    caixa da mensagem limpa); barra de status ("Ln, Col", "● unsaved"); voltar para Automático.
 
 ### Fase 4 — Plugins externos (melhoria futura)
 

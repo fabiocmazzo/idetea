@@ -7,6 +7,11 @@
 //! Variáveis abertas são lembradas pelo caminho (`Locals/pessoa/nome`), não pela referência do
 //! adaptador, que muda a cada parada: assim o que estava aberto continua aberto depois de um passo.
 
+tea_core::i18n_loader!();
+macro_rules! fl {
+    ($($t:tt)*) => { tea_core::i18n::fl!(crate::LOADER, $($t)*) };
+}
+
 use std::collections::{HashMap, HashSet, VecDeque};
 
 use iced::widget::{button, column, container, row, rule, scrollable, space, text};
@@ -142,9 +147,9 @@ impl Extension for DebugExtension {
     }
 
     fn activate(&mut self, ctx: &mut Context) -> Task<Message> {
-        ctx.register_panel_hidden(PANEL, "Debug", Slot::Bottom);
+        ctx.register_panel_hidden(PANEL, fl!("debug-panel"), Slot::Bottom);
         ctx.panel_icon(PANEL, Icon::Debug);
-        ctx.register_command("debug.focus", "Debug: mostrar painel");
+        ctx.register_command("debug.focus", fl!("cmd-debug-focus"));
         Task::none()
     }
 
@@ -204,7 +209,7 @@ fn secondary(t: &Theme) -> text::Style {
     text::secondary(t)
 }
 
-fn heading(label: &str) -> Element<'_, Message> {
+fn heading<'a>(label: String) -> Element<'a, Message> {
     text(label).size(11).style(secondary).into()
 }
 
@@ -246,22 +251,22 @@ impl DebugExtension {
         let idle = self.status == Status::Idle;
         let when = |ok: bool, id: &'static str| ok.then_some(Message::Command(id));
         let label = match &self.status {
-            Status::Idle => "Sem sessão. F5 inicia.".to_string(),
-            Status::Building => "Compilando…".to_string(),
-            Status::Running => "Rodando".to_string(),
-            Status::Stopped { reason } => format!("Parado ({reason})"),
+            Status::Idle => fl!("debug-idle"),
+            Status::Building => fl!("debug-building"),
+            Status::Running => fl!("debug-running"),
+            Status::Stopped { reason } => fl!("debug-stopped", reason = reason.as_str()),
         };
         row![
             icons::icon_button(
                 Icon::DebugContinue,
-                if idle { "Iniciar" } else { "Continuar" },
+                if idle { fl!("debug-start") } else { fl!("debug-continue") },
                 when(idle || stopped, "debug.continue")
             ),
-            icons::icon_button(Icon::DebugPause, "Pausar", when(running, "debug.pause")),
-            icons::icon_button(Icon::DebugStepOver, "Próxima linha", when(stopped, "debug.next")),
-            icons::icon_button(Icon::DebugStepInto, "Entrar na função", when(stopped, "debug.step_in")),
-            icons::icon_button(Icon::DebugStepOut, "Sair da função", when(stopped, "debug.step_out")),
-            icons::icon_button(Icon::DebugStop, "Parar", when(!idle, "debug.stop")),
+            icons::icon_button(Icon::DebugPause, fl!("debug-pause"), when(running, "debug.pause")),
+            icons::icon_button(Icon::DebugStepOver, fl!("debug-step-over"), when(stopped, "debug.next")),
+            icons::icon_button(Icon::DebugStepInto, fl!("debug-step-into"), when(stopped, "debug.step_in")),
+            icons::icon_button(Icon::DebugStepOut, fl!("debug-step-out"), when(stopped, "debug.step_out")),
+            icons::icon_button(Icon::DebugStop, fl!("debug-stop"), when(!idle, "debug.stop")),
             space::horizontal().width(8),
             text(label).size(12).style(secondary),
         ]
@@ -271,15 +276,15 @@ impl DebugExtension {
     }
 
     fn stack_view(&self) -> Element<'_, Message> {
-        let mut list = column![heading("PILHA DE CHAMADAS")].spacing(1);
+        let mut list = column![heading(fl!("debug-call-stack"))].spacing(1);
         if self.frames.is_empty() {
-            let hint = if matches!(self.status, Status::Stopped { .. }) { "Sem pilha." } else { "Só com o programa parado." };
+            let hint = if matches!(self.status, Status::Stopped { .. }) { fl!("debug-no-stack") } else { fl!("debug-only-stopped") };
             list = list.push(text(hint).size(12).style(secondary));
         }
         for (i, f) in self.frames.iter().enumerate() {
             let place = match &f.path {
                 Some(p) => format!("{}:{}", p.file_name().map(|n| n.to_string_lossy()).unwrap_or_default(), f.line),
-                None => "sem código-fonte".into(),
+                None => fl!("debug-no-source"),
             };
             let icon = if i == 0 { Icon::DebugStackFrameActive } else { Icon::DebugStackFrame };
             let has_source = f.path.is_some();
@@ -301,9 +306,9 @@ impl DebugExtension {
     }
 
     fn variables_view(&self) -> Element<'_, Message> {
-        let mut list = column![heading("VARIÁVEIS")].spacing(1);
+        let mut list = column![heading(fl!("debug-variables"))].spacing(1);
         if self.scopes.is_empty() {
-            list = list.push(text("Só com o programa parado.").size(12).style(secondary));
+            list = list.push(text(fl!("debug-only-stopped")).size(12).style(secondary));
         }
         for scope in &self.scopes {
             let open = self.scope_is_open(scope);
@@ -328,7 +333,7 @@ impl DebugExtension {
             return list.push(row![indent, text("…").size(12).style(secondary)]);
         };
         if vars.is_empty() {
-            return list.push(row![indent, text("(vazio)").size(12).style(secondary)]);
+            return list.push(row![indent, text(fl!("debug-empty")).size(12).style(secondary)]);
         }
         for v in vars {
             let path = format!("{parent}/{}", v.name);
@@ -362,7 +367,7 @@ impl DebugExtension {
     fn output_view(&self) -> Element<'_, Message> {
         let mut list = column![].spacing(0);
         if self.output.is_empty() {
-            list = list.push(text("Nada ainda.").size(12).style(secondary));
+            list = list.push(text(fl!("debug-nothing-yet")).size(12).style(secondary));
         }
         let skip = self.output.len().saturating_sub(SHOWN_OUTPUT);
         for (category, line) in self.output.iter().skip(skip) {
@@ -373,7 +378,7 @@ impl DebugExtension {
             };
             list = list.push(text(line).size(12).font(Font::MONOSPACE).style(style));
         }
-        column![heading("SAÍDA"), scrollable(list).anchor_bottom().width(Fill).height(Fill)].spacing(1).into()
+        column![heading(fl!("debug-output")), scrollable(list).anchor_bottom().width(Fill).height(Fill)].spacing(1).into()
     }
 }
 

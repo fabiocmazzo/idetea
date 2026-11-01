@@ -31,14 +31,16 @@ pub fn run(dir: &Path, args: &[&str], ok_codes: &[i32]) -> Result<String, String
         .env("LC_ALL", "C")
         .stdin(std::process::Stdio::null())
         .output()
-        .map_err(|e| format!("não foi possível rodar git: {e}"))?;
+        .map_err(|e| fl!("git-run-error", error = e.to_string()))?;
     let code = out.status.code().unwrap_or(-1);
     if code == 0 || ok_codes.contains(&code) {
         Ok(String::from_utf8_lossy(&out.stdout).into_owned())
     } else {
         let err = String::from_utf8_lossy(&out.stderr);
-        let msg = err.lines().rfind(|l| !l.trim().is_empty()).unwrap_or("erro desconhecido");
-        Err(msg.trim().to_string())
+        match err.lines().rfind(|l| !l.trim().is_empty()) {
+            Some(msg) => Err(msg.trim().to_string()),
+            None => Err(fl!("git-unknown-error")),
+        }
     }
 }
 
@@ -316,7 +318,7 @@ pub fn unstage_all(repo: &Repo) -> Result<String, String> {
 /// arquivo novo (não rastreado) vai para a lixeira.
 pub fn discard(repo: &Repo, entry: &Entry) -> Result<String, String> {
     if entry.untracked {
-        trash::delete(repo.root.join(&entry.path)).map_err(|e| format!("não foi possível mover para a lixeira: {e}"))?;
+        trash::delete(repo.root.join(&entry.path)).map_err(|e| fl!("git-trash-error", error = e.to_string()))?;
         return Ok(String::new());
     }
     run(&repo.root, &["restore", "--", &entry.path], &[])
@@ -362,7 +364,7 @@ fn run_net(dir: &Path, args: &[&str], timeout: Duration) -> Result<String, Strin
             });
         }
     }
-    let mut child = cmd.spawn().map_err(|e| format!("não foi possível rodar git: {e}"))?;
+    let mut child = cmd.spawn().map_err(|e| fl!("git-run-error", error = e.to_string()))?;
     let read = |pipe: Option<Box<dyn Read + Send>>| {
         std::thread::spawn(move || {
             let mut text = String::new();
@@ -384,7 +386,7 @@ fn run_net(dir: &Path, args: &[&str], timeout: Duration) -> Result<String, Strin
             Ok(None) => {
                 kill_group(&mut child);
                 let _ = (out.join(), err.join());
-                return Err(format!("tempo esgotado ({} s) falando com o remoto", timeout.as_secs()));
+                return Err(fl!("git-timeout", seconds = timeout.as_secs()));
             }
             Err(e) => return Err(e.to_string()),
         }
@@ -408,22 +410,24 @@ fn kill_group(child: &mut std::process::Child) {
 pub fn explain(stderr: &str) -> String {
     let has = |s: &str| stderr.contains(s);
     if has("[rejected]") || has("fetch first") || has("non-fast-forward") {
-        "o remoto tem commits que você não tem: faça pull antes".into()
+        fl!("git-explain-rejected")
     } else if has("reconcile divergent branches") {
-        "a branch local e a remota divergiram: configure pull.rebase (ou resolva no terminal)".into()
+        fl!("git-explain-diverged")
     } else if has("CONFLICT") || has("Automatic merge failed") {
-        "pull com conflitos: resolva os arquivos marcados e faça commit".into()
+        fl!("git-explain-conflict")
     } else if has("would be overwritten") {
-        "alterações locais seriam sobrescritas: faça commit ou descarte antes do pull".into()
+        fl!("git-explain-overwritten")
     } else if has("Authentication failed") || has("could not read Username") || has("could not read Password") {
-        "falha de autenticação: configure um credential helper (ex.: gh auth setup-git)".into()
+        fl!("git-explain-auth")
     } else if has("Permission denied (publickey") || has("Host key verification failed") {
-        "o ssh recusou a conexão: carregue a chave no agente (ssh-add) ou confirme o servidor no terminal".into()
+        fl!("git-explain-ssh")
     } else if has("Could not resolve host") || has("Could not read from remote repository") {
-        "não foi possível falar com o remoto (rede ou endereço)".into()
+        fl!("git-explain-network")
     } else {
-        let line = stderr.lines().rfind(|l| !l.trim().is_empty()).unwrap_or("erro desconhecido");
-        line.trim().to_string()
+        match stderr.lines().rfind(|l| !l.trim().is_empty()) {
+            Some(line) => line.trim().to_string(),
+            None => fl!("git-unknown-error"),
+        }
     }
 }
 
@@ -433,12 +437,12 @@ pub fn remotes(repo: &Repo) -> Vec<String> {
 
 pub fn fetch(repo: &Repo) -> Result<String, String> {
     run_net(&repo.root, &["fetch", "--prune"], NET_TIMEOUT).map_err(|e| explain(&e))?;
-    Ok("fetch feito".into())
+    Ok(fl!("git-fetch-done"))
 }
 
 pub fn pull(repo: &Repo) -> Result<String, String> {
     let out = run_net(&repo.root, &["pull"], NET_TIMEOUT).map_err(|e| explain(&e))?;
-    Ok(if out.contains("Already up to date") { "já estava atualizado".into() } else { "pull feito".into() })
+    Ok(if out.contains("Already up to date") { fl!("git-up-to-date") } else { fl!("git-pull-done") })
 }
 
 /// `publish`: (remoto, branch) para criar o upstream (`push -u`) numa branch que ainda não tem.
@@ -449,9 +453,9 @@ pub fn push(repo: &Repo, publish: Option<(&str, &str)>) -> Result<String, String
     }
     let out = run_net(&repo.root, &args, NET_TIMEOUT).map_err(|e| explain(&e))?;
     Ok(match publish {
-        Some((remote, branch)) => format!("branch {branch} publicada em {remote}"),
-        None if out.contains("Everything up-to-date") => "nada para enviar".into(),
-        None => "push feito".into(),
+        Some((remote, branch)) => fl!("git-published", branch = branch, remote = remote),
+        None if out.contains("Everything up-to-date") => fl!("git-nothing-to-push"),
+        None => fl!("git-push-done"),
     })
 }
 

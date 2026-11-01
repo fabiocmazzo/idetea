@@ -5,6 +5,11 @@
 //! A lista vem do núcleo ([`CoreEvent::Outline`]), que pergunta ao servidor de linguagem e
 //! descobre a visibilidade pelo texto.
 
+tea_core::i18n_loader!();
+macro_rules! fl {
+    ($($t:tt)*) => { tea_core::i18n::fl!(crate::LOADER, $($t)*) };
+}
+
 use std::collections::HashSet;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -139,9 +144,9 @@ impl Extension for OutlineExtension {
     }
 
     fn activate(&mut self, ctx: &mut Context) -> Task<Message> {
-        ctx.register_panel_hidden(PANEL, "Estrutura", Slot::Right);
+        ctx.register_panel_hidden(PANEL, fl!("outline-panel"), Slot::Right);
         ctx.panel_icon(PANEL, Icon::ListTree);
-        ctx.register_command("outline.toggle", "Estrutura: mostrar/ocultar painel");
+        ctx.register_command("outline.toggle", fl!("cmd-outline-toggle"));
         Task::none()
     }
 
@@ -198,13 +203,13 @@ impl Extension for OutlineExtension {
             text(name.unwrap_or_default()).size(12).style(text::secondary).width(Fill),
             icons::icon_button(
                 Icon::CollapseAll,
-                "Recolher/expandir tudo",
+                fl!("outline-collapse-all"),
                 (!self.symbols.is_empty()).then_some(Message::CollapseAll)
             ),
         ]
         .align_y(iced::Center);
         if self.symbols.is_empty() {
-            let note = self.note.clone().unwrap_or_else(|| "Abra um arquivo para ver a estrutura.".into());
+            let note = self.note.clone().unwrap_or_else(|| fl!("outline-empty"));
             return column![header, text(note).size(12).style(text::secondary)].spacing(6).into();
         }
         let current = innermost(&self.symbols, self.cursor_line, "");

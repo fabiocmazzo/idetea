@@ -1,0 +1,7 @@
+## Terminal
+terminal-start-error = Terminal: could not start the shell: { $error }
+cmd-terminal-focus = Terminal: open and focus
+cmd-terminal-new = Terminal: restart the shell
+terminal-ended = Terminal closed
+terminal-not-running = The shell is not running.
+terminal-start = Start terminal

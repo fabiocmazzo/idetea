@@ -1,6 +1,11 @@
 //! Git: branch na barra de status e um painel com as mudanças, stage/unstage,
 //! commit e diff do arquivo selecionado. Usa o binário `git` do sistema.
 
+tea_core::i18n_loader!();
+macro_rules! fl {
+    ($($t:tt)*) => { tea_core::i18n::fl!(crate::LOADER, $($t)*) };
+}
+
 mod git;
 
 use std::collections::HashMap;
@@ -25,6 +30,16 @@ const MAX_DIFF_LINES: usize = 3000;
 /// De quanto em quanto tempo olhar se o `.git` mudou (commit no terminal, checkout...).
 const WATCH_INTERVAL: Duration = Duration::from_millis(1000);
 
+/// O que fazer quando uma ação dá certo (além de avisar e atualizar).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum After {
+    Nothing,
+    /// Commit feito: limpa a caixa da mensagem.
+    ClearMessage,
+    /// Alterações descartadas: o diff na tela já não vale.
+    ClearSelection,
+}
+
 #[derive(Debug, Clone)]
 pub enum Message {
     Discovered(Option<Repo>),
@@ -41,7 +56,7 @@ pub enum Message {
     CommitMessage(String),
     Commit,
     /// Uma ação terminou: `Ok(Some(msg))` vira notificação.
-    Done(Arc<Result<Option<String>, String>>),
+    Done(After, Arc<Result<Option<String>, String>>),
     GitDirChanged,
     /// Botão direito num arquivo da lista.
     EntryMenu { path: String, staged: bool, at: Point },
@@ -80,7 +95,7 @@ pub struct GitExtension {
     /// Arquivo que a ação em andamento muda no disco (as abas abertas dele precisam recarregar).
     touched: Option<PathBuf>,
     /// Fetch/pull/push em andamento ("Enviando…"). Um por vez; não bloqueia stage e commit.
-    remote: Option<&'static str>,
+    remote: Option<String>,
     /// Último status enviado à árvore (só reenvia se mudar).
     published: Option<Arc<HashMap<PathBuf, tea_core::FileStatus>>>,
 }
@@ -135,10 +150,10 @@ impl GitExtension {
     }
 
     /// Roda uma ação do git e depois atualiza a lista.
-    fn action(&mut self, f: impl FnOnce(&Repo) -> Result<Option<String>, String> + Send + 'static) -> Task<Message> {
+    fn action(&mut self, after: After, f: impl FnOnce(&Repo) -> Result<Option<String>, String> + Send + 'static) -> Task<Message> {
         let Some(repo) = self.repo.clone() else { return Task::none() };
         self.busy = true;
-        spawn(move || f(&repo), |r| Message::Done(Arc::new(r)))
+        spawn(move || f(&repo), move |r| Message::Done(after, Arc::new(r)))
     }
 
     /// Caminho e, numa renomeação, o nome antigo (os dois lados entram e saem do stage juntos).
@@ -153,14 +168,14 @@ impl GitExtension {
     /// Roda fetch/pull/push numa thread (a rede pode demorar).
     fn remote_op(
         &mut self,
-        label: &'static str,
+        label: String,
         is_pull: bool,
         ctx: &mut Context,
         f: impl FnOnce(&Repo) -> Result<String, String> + Send + 'static,
     ) -> Task<Message> {
         let Some(repo) = self.repo.clone() else { return Task::none() };
-        if let Some(running) = self.remote {
-            ctx.notify(format!("Git: aguarde, ainda {}", running.to_lowercase()));
+        if let Some(running) = &self.remote {
+            ctx.notify(fl!("git-wait", running = running.to_lowercase()));
             return Task::none();
         }
         self.remote = Some(label);
@@ -181,17 +196,17 @@ impl Extension for GitExtension {
 
     fn activate(&mut self, ctx: &mut Context) -> Task<Message> {
         self.root = ctx.root().to_path_buf();
-        ctx.register_panel_hidden(PANEL, "Git", Slot::Bottom);
+        ctx.register_panel_hidden(PANEL, fl!("git-panel"), Slot::Bottom);
         ctx.panel_icon(PANEL, Icon::SourceControl);
         ctx.register_panel(BAR, "Git", Slot::Status);
-        ctx.register_command("git.focus", "Git: mostrar mudanças");
-        ctx.register_command("git.refresh", "Git: atualizar");
-        ctx.register_command("git.stage_all", "Git: adicionar tudo ao stage");
-        ctx.register_command("git.unstage_all", "Git: tirar tudo do stage");
-        ctx.register_command("git.commit", "Git: commit (foca a mensagem)");
-        ctx.register_command("git.pull", "Git: pull (baixar e juntar)");
-        ctx.register_command("git.push", "Git: push (enviar commits)");
-        ctx.register_command("git.fetch", "Git: fetch (ver se o remoto tem novidades)");
+        ctx.register_command("git.focus", fl!("cmd-git-focus"));
+        ctx.register_command("git.refresh", fl!("cmd-git-refresh"));
+        ctx.register_command("git.stage_all", fl!("cmd-git-stage-all"));
+        ctx.register_command("git.unstage_all", fl!("cmd-git-unstage-all"));
+        ctx.register_command("git.commit", fl!("cmd-git-commit"));
+        ctx.register_command("git.pull", fl!("cmd-git-pull"));
+        ctx.register_command("git.push", fl!("cmd-git-push"));
+        ctx.register_command("git.fetch", fl!("cmd-git-fetch"));
         let root = self.root.clone();
         spawn(move || git::discover(&root), Message::Discovered)
     }
@@ -208,7 +223,7 @@ impl Extension for GitExtension {
 
     fn on_command(&mut self, command: &str, ctx: &mut Context) -> Task<Message> {
         if self.repo.is_none() {
-            ctx.notify("Git: esta pasta não está num repositório");
+            ctx.notify(fl!("git-no-repo-notice"));
             return Task::none();
         }
         match command {
@@ -282,23 +297,23 @@ impl Extension for GitExtension {
             Message::OpenAt(path, line) => ctx.open_file_at(self.abs(&path), line, 1),
             Message::Stage(path) => {
                 let paths = self.paths_of(&path);
-                return self.action(move |r| git::stage(r, &paths).map(|_| None));
+                return self.action(After::Nothing, move |r| git::stage(r, &paths).map(|_| None));
             }
             Message::Unstage(path) => {
                 let paths = self.paths_of(&path);
-                return self.action(move |r| git::unstage(r, &paths).map(|_| None));
+                return self.action(After::Nothing, move |r| git::unstage(r, &paths).map(|_| None));
             }
-            Message::StageAll => return self.action(|r| git::stage_all(r).map(|_| None)),
-            Message::UnstageAll => return self.action(|r| git::unstage_all(r).map(|_| None)),
+            Message::StageAll => return self.action(After::Nothing, |r| git::stage_all(r).map(|_| None)),
+            Message::UnstageAll => return self.action(After::Nothing, |r| git::unstage_all(r).map(|_| None)),
             Message::CommitMessage(m) => self.message = m,
             Message::Commit => {
                 let msg = self.message.trim().to_string();
                 if msg.is_empty() {
-                    ctx.notify("Git: escreva a mensagem do commit");
+                    ctx.notify(fl!("git-need-message"));
                 } else if self.status.as_ref().is_none_or(Status::is_staged_empty) {
-                    ctx.notify("Git: nada no stage (use + para adicionar)");
+                    ctx.notify(fl!("git-nothing-staged"));
                 } else if !self.busy {
-                    return self.action(move |r| git::commit(r, &msg).map(|c| Some(format!("Commit {c}"))));
+                    return self.action(After::ClearMessage, move |r| git::commit(r, &msg).map(Some));
                 }
             }
             Message::EntryMenu { path, staged, at } => {
@@ -307,69 +322,62 @@ impl Extension for GitExtension {
             }
             Message::Discard(path) => {
                 let Some(entry) = self.entry(&path) else { return Task::none() };
-                let what = if entry.untracked {
-                    "O arquivo é novo (não rastreado) e vai para a lixeira."
-                } else {
-                    "As mudanças fora do stage serão perdidas; o arquivo volta ao que está no stage/último commit."
-                };
+                let what = if entry.untracked { fl!("git-discard-untracked") } else { fl!("git-discard-tracked") };
                 ctx.show_dialog(
-                    Dialog::new(format!("Descartar alterações em \"{path}\"?"), what)
-                        .button("Descartar", ButtonKind::Danger, Message::DiscardConfirmed(path.clone()))
-                        .cancel("Cancelar"),
+                    Dialog::new(fl!("git-discard-title", path = path.as_str()), what)
+                        .button(fl!("git-discard"), ButtonKind::Danger, Message::DiscardConfirmed(path.clone()))
+                        .cancel(fl!("cancel")),
                 );
             }
             Message::DiscardConfirmed(path) => {
                 let Some(entry) = self.entry(&path).cloned() else { return Task::none() };
                 self.touched = Some(self.abs(&path));
-                return self.action(move |r| git::discard(r, &entry).map(|_| Some(format!("alterações descartadas em {path}"))));
+                return self.action(After::ClearSelection, move |r| git::discard(r, &entry).map(|_| Some(fl!("git-discarded", path = path))));
             }
-            Message::Fetch => return self.remote_op("Buscando…", false, ctx, git::fetch),
+            Message::Fetch => return self.remote_op(fl!("git-fetching"), false, ctx, git::fetch),
             Message::Pull => {
                 let Some(st) = &self.status else { return Task::none() };
                 if st.branch.is_none() {
-                    ctx.notify("Git: HEAD solto (detached): faça checkout de uma branch para o pull");
+                    ctx.notify(fl!("git-detached-pull"));
                 } else if st.upstream.is_none() {
-                    ctx.notify("Git: esta branch não acompanha nenhuma remota (faça push para publicar)");
+                    ctx.notify(fl!("git-no-upstream"));
                 } else {
-                    return self.remote_op("Baixando…", true, ctx, git::pull);
+                    return self.remote_op(fl!("git-pulling"), true, ctx, git::pull);
                 }
             }
             Message::Push => {
                 let (Some(st), Some(repo)) = (&self.status, &self.repo) else { return Task::none() };
                 let Some(branch) = st.branch.clone() else {
-                    ctx.notify("Git: HEAD solto (detached): faça checkout de uma branch para o push");
+                    ctx.notify(fl!("git-detached-push"));
                     return Task::none();
                 };
                 if st.upstream.is_some() {
-                    return self.remote_op("Enviando…", false, ctx, |r| git::push(r, None));
+                    return self.remote_op(fl!("git-pushing"), false, ctx, |r| git::push(r, None));
                 }
                 // Branch nova: pergunta antes de criar ela no remoto.
                 let remotes = git::remotes(repo);
                 let Some(remote) = remotes.iter().find(|r| *r == "origin").or(remotes.first()).cloned() else {
-                    ctx.notify("Git: o repositório não tem remoto (git remote add origin <url>)");
+                    ctx.notify(fl!("git-no-remote"));
                     return Task::none();
                 };
                 ctx.show_dialog(
                     Dialog::new(
-                        format!("Publicar a branch \"{branch}\"?"),
-                        format!(
-                            "Ela ainda não existe em {remote}. O push cria a branch lá e passa a acompanhá-la \
-                             (git push -u {remote} {branch})."
-                        ),
+                        fl!("git-publish-title", branch = branch.as_str()),
+                        fl!("git-publish-detail", branch = branch.as_str(), remote = remote.as_str()),
                     )
-                    .button("Publicar", ButtonKind::Primary, Message::PushConfirmed { remote, branch })
-                    .cancel("Cancelar"),
+                    .button(fl!("git-publish"), ButtonKind::Primary, Message::PushConfirmed { remote, branch })
+                    .cancel(fl!("cancel")),
                 );
             }
             Message::PushConfirmed { remote, branch } => {
-                return self.remote_op("Publicando…", false, ctx, move |r| git::push(r, Some((&remote, &branch))));
+                return self.remote_op(fl!("git-publishing"), false, ctx, move |r| git::push(r, Some((&remote, &branch))));
             }
             Message::RemoteDone(is_pull, result) => {
                 self.remote = None;
                 match &*result {
-                    Ok(Some(msg)) => ctx.notify(format!("Git: {msg}")),
+                    Ok(Some(msg)) => ctx.notify(fl!("git-notice", message = msg.as_str())),
                     Ok(None) => {}
-                    Err(e) => ctx.notify(format!("Git: {e}")),
+                    Err(e) => ctx.notify(fl!("git-notice", message = e.as_str())),
                 }
                 // Mesmo com erro (ex.: conflito) o pull pode ter mexido nos arquivos.
                 if is_pull {
@@ -378,10 +386,10 @@ impl Extension for GitExtension {
                 return self.refresh();
             }
             Message::CopyPath(text) => {
-                ctx.notify(format!("Copiado: {text}"));
+                ctx.notify(fl!("copied", text = text.as_str()));
                 return iced::clipboard::write(text);
             }
-            Message::Done(result) => {
+            Message::Done(after, result) => {
                 self.busy = false;
                 if let Some(path) = self.touched.take()
                     && result.is_ok()
@@ -390,17 +398,15 @@ impl Extension for GitExtension {
                 }
                 match &*result {
                     Ok(Some(msg)) => {
-                        if msg.starts_with("Commit ") {
-                            self.message.clear();
+                        match after {
+                            After::ClearMessage => self.message.clear(),
+                            After::ClearSelection => self.selected = None,
+                            After::Nothing => {}
                         }
-                        ctx.notify(format!("Git: {}", msg.trim_start_matches("Commit ")));
-                        // O arquivo descartado pode estar aberto: o diff na tela já não vale.
-                        if msg.starts_with("alterações descartadas") {
-                            self.selected = None;
-                        }
+                        ctx.notify(fl!("git-notice", message = msg.as_str()));
                     }
                     Ok(None) => {}
-                    Err(e) => ctx.notify(format!("Git: {e}")),
+                    Err(e) => ctx.notify(fl!("git-notice", message = e.as_str())),
                 }
                 return self.refresh();
             }
@@ -413,7 +419,7 @@ impl Extension for GitExtension {
             return self.bar_view();
         }
         if self.repo.is_none() {
-            return text("Esta pasta não está num repositório git.").size(13).style(text::secondary).into();
+            return text(fl!("git-no-repo")).size(13).style(text::secondary).into();
         }
         row![container(self.changes_view()).width(340).height(Fill), rule::vertical(1), self.diff_view()]
             .spacing(6)
@@ -451,7 +457,7 @@ impl GitExtension {
         if st.behind > 0 {
             label = label.push(row![icon(Icon::ArrowDown).size(12), text(st.behind).size(12)]);
         }
-        if let Some(running) = self.remote {
+        if let Some(running) = &self.remote {
             label = label.push(text(running).size(12).style(text::secondary));
         }
         if !st.entries.is_empty() {
@@ -468,17 +474,17 @@ impl GitExtension {
         let header = row![
             icon(Icon::SourceControl).size(14),
             text(head).size(13),
-            text(self.remote.unwrap_or_default()).size(12).style(text::secondary),
+            text(self.remote.clone().unwrap_or_default()).size(12).style(text::secondary),
             space::horizontal(),
-            icon_button(Icon::RepoFetch, "Fetch: ver se o remoto tem novidades", idle.then_some(Message::Fetch)),
-            icon_button(Icon::RepoPull, format!("Pull: baixar e juntar{}", count(behind, "↓")), idle.then_some(Message::Pull)),
-            icon_button(Icon::RepoPush, format!("Push: enviar commits{}", count(ahead, "↑")), idle.then_some(Message::Push)),
-            icon_button(Icon::Refresh, "Atualizar", Some(Message::Refresh)),
+            icon_button(Icon::RepoFetch, fl!("git-fetch-tip"), idle.then_some(Message::Fetch)),
+            icon_button(Icon::RepoPull, fl!("git-pull-tip", count = count(behind, "↓")), idle.then_some(Message::Pull)),
+            icon_button(Icon::RepoPush, fl!("git-push-tip", count = count(ahead, "↑")), idle.then_some(Message::Push)),
+            icon_button(Icon::Refresh, fl!("git-refresh"), Some(Message::Refresh)),
         ]
         .spacing(4)
         .align_y(iced::Center);
 
-        let mut commit = text_input("Mensagem do commit (Enter)", &self.message)
+        let mut commit = text_input(&fl!("git-commit-placeholder"), &self.message)
             .id(commit_input_id())
             .size(13)
             .padding([3, 6]);
@@ -494,25 +500,25 @@ impl GitExtension {
             let staged: Vec<&Entry> = st.entries.iter().filter(|e| e.staged.is_some()).collect();
             let unstaged: Vec<&Entry> = st.entries.iter().filter(|e| e.unstaged.is_some()).collect();
             if !staged.is_empty() {
-                list = list.push(self.section("No stage", staged.len(), icon_button(Icon::Remove, "Tirar tudo do stage", Some(Message::UnstageAll))));
+                list = list.push(self.section(fl!("git-staged"), staged.len(), icon_button(Icon::Remove, fl!("git-unstage-all"), Some(Message::UnstageAll))));
                 for e in staged {
                     list = list.push(self.entry_row(e, true));
                 }
             }
             if !unstaged.is_empty() {
-                list = list.push(self.section("Mudanças", unstaged.len(), icon_button(Icon::Add, "Adicionar tudo ao stage", Some(Message::StageAll))));
+                list = list.push(self.section(fl!("git-changes"), unstaged.len(), icon_button(Icon::Add, fl!("git-stage-all"), Some(Message::StageAll))));
                 for e in unstaged {
                     list = list.push(self.entry_row(e, false));
                 }
             }
             if st.entries.is_empty() {
-                list = list.push(text("Nada para commitar.").size(12).style(text::secondary));
+                list = list.push(text(fl!("git-nothing-to-commit")).size(12).style(text::secondary));
             }
         }
         column![header, commit, scrollable(list).height(Fill)].spacing(4).into()
     }
 
-    fn section<'a>(&self, title: &'a str, n: usize, action: Element<'a, Message>) -> Element<'a, Message> {
+    fn section<'a>(&self, title: String, n: usize, action: Element<'a, Message>) -> Element<'a, Message> {
         row![text(format!("{} ({n})", title.to_uppercase())).size(11).style(text::secondary), space::horizontal(), action]
             .align_y(iced::Center)
             .padding([2, 0])
@@ -537,9 +543,9 @@ impl GitExtension {
         .spacing(6)
         .align_y(iced::Center);
         let toggle = if staged {
-            icon_button(Icon::Remove, "Tirar do stage", Some(Message::Unstage(e.path.clone())))
+            icon_button(Icon::Remove, fl!("git-unstage"), Some(Message::Unstage(e.path.clone())))
         } else {
-            icon_button(Icon::Add, "Adicionar ao stage", Some(Message::Stage(e.path.clone())))
+            icon_button(Icon::Add, fl!("git-stage"), Some(Message::Stage(e.path.clone())))
         };
         let line = row![
             button(label)
@@ -547,7 +553,7 @@ impl GitExtension {
                 .style(if selected { button::secondary } else { button::text })
                 .padding([1, 4])
                 .width(Fill),
-            icon_button(Icon::GoToFile, "Abrir arquivo", Some(Message::Open(e.path.clone()))),
+            icon_button(Icon::GoToFile, fl!("git-open-file"), Some(Message::Open(e.path.clone()))),
             toggle,
         ]
         .align_y(iced::Center);
@@ -559,23 +565,23 @@ impl GitExtension {
         let path = e.path.clone();
         let abs = self.abs(&path).display().to_string();
         let mut menu = Menu::new(at)
-            .item(Some(Icon::GoToFile), "Abrir arquivo", Message::Open(path.clone()))
-            .item(None, "Ver diff", Message::Select { path: path.clone(), staged })
+            .item(Some(Icon::GoToFile), fl!("git-open-file"), Message::Open(path.clone()))
+            .item(None, fl!("git-view-diff"), Message::Select { path: path.clone(), staged })
             .separator();
         menu = if staged {
-            menu.item(Some(Icon::Remove), "Tirar do stage", Message::Unstage(path.clone()))
+            menu.item(Some(Icon::Remove), fl!("git-unstage"), Message::Unstage(path.clone()))
         } else {
-            menu.item(Some(Icon::Add), "Adicionar ao stage", Message::Stage(path.clone()))
-                .danger(Some(Icon::Discard), "Descartar alterações…", Message::Discard(path.clone()))
+            menu.item(Some(Icon::Add), fl!("git-stage"), Message::Stage(path.clone()))
+                .danger(Some(Icon::Discard), fl!("git-discard-menu"), Message::Discard(path.clone()))
         };
         menu.separator()
-            .item(Some(Icon::Copy), "Copiar caminho", Message::CopyPath(abs))
-            .item(None, "Copiar caminho relativo", Message::CopyPath(path))
+            .item(Some(Icon::Copy), fl!("git-copy-path"), Message::CopyPath(abs))
+            .item(None, fl!("git-copy-relative"), Message::CopyPath(path))
     }
 
     fn diff_view(&self) -> Element<'_, Message> {
         let Some(sel) = &self.selected else {
-            return container(text("Selecione um arquivo para ver o diff.").size(12).style(text::secondary))
+            return container(text(fl!("git-select-file")).size(12).style(text::secondary))
                 .center(Fill)
                 .into();
         };
@@ -583,7 +589,7 @@ impl GitExtension {
             text(&sel.path).size(12),
             text(if sel.staged { "  (stage)" } else { "" }).size(11).style(text::secondary),
             space::horizontal(),
-            icon_button(Icon::GoToFile, "Abrir arquivo", Some(Message::Open(sel.path.clone()))),
+            icon_button(Icon::GoToFile, fl!("git-open-file"), Some(Message::Open(sel.path.clone()))),
         ]
         .align_y(iced::Center);
         if let Some(e) = &sel.error {
@@ -610,10 +616,10 @@ impl GitExtension {
             });
         }
         if sel.truncated {
-            lines = lines.push(text(format!("… diff cortado em {MAX_DIFF_LINES} linhas")).size(12).style(text::secondary));
+            lines = lines.push(text(fl!("git-diff-truncated", count = MAX_DIFF_LINES)).size(12).style(text::secondary));
         }
         if sel.lines.is_empty() {
-            lines = lines.push(text("Sem diferenças (arquivo binário ou só permissão).").size(12).style(text::secondary));
+            lines = lines.push(text(fl!("git-no-diff")).size(12).style(text::secondary));
         }
         column![
             title,
