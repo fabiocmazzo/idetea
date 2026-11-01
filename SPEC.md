@@ -679,9 +679,25 @@ O que mais falta no uso diário. Cada item é uma entrega com teste manual; a or
     escrever a troca: a prévia aparece em cada linha. "Substituir" numa linha de arquivo fechado: o arquivo
     muda no disco (Git mostra) e a linha sai da lista. "Substituir tudo": confirma, o aberto fica com ● e
     `Ctrl+Z` volta; regex `(\w+)_(\w+)` → `$2_$1` troca a ordem.
-- [ ] **Editor e salvar:** quebra de linha, mostrar espaços e guias de recuo nas Configurações (o widget já
-  tem); ao salvar, tirar espaços no fim das linhas, garantir a linha final e formatar (opcional);
-  `.editorconfig` (tamanho do tab, espaços ou tabs).
+- [x] **Editor e salvar:** seção `[editor]` no config e aba "Editor" nas Configurações: quebrar linhas
+  longas, mostrar espaços, guias de recuo, tamanho do recuo, recuar com espaços ou tabs; ao salvar, tirar
+  espaços no fim das linhas (nunca em Markdown, a não ser que o `.editorconfig` mande), garantir a quebra de
+  linha final, e formatar com o LSP. A limpeza é uma edição (um passo de desfazer) e vale para todo salvar
+  (Ctrl+S, salvar todos, fechar salvando); formatar só no Ctrl+S, esperando até 2 s pelo servidor (depois
+  grava sem formatar, com aviso).
+  `.editorconfig` (`indent_style`, `indent_size`/`tab_width`, `trim_trailing_whitespace`,
+  `insert_final_newline`): lido da pasta do arquivo para cima até `root = true`, o mais perto vence; vale
+  mais que o config. Sem ele, arquivo que já recua com tabs (maioria das linhas recuadas) continua com tabs.
+  As opções são recalculadas ao abrir, ao recarregar o config, ao salvar um `.editorconfig` na IDE e ao
+  renomear.
+  Limites: o caractere tab sempre ocupa 4 colunas na tela (fixo no widget; `tab_size` só muda quantos
+  espaços o Tab insere); faixas `{1..3}` nos padrões do `.editorconfig` não são aceitas (a seção é
+  ignorada); `.editorconfig` mudado fora da IDE só vale ao reabrir o arquivo ou recarregar o config.
+  - [x] Teste manual (aprovado): Configurações → Editor: desligar "Quebrar linhas longas" e "Mostrar espaços" muda na
+    hora. Ligar "Tirar espaços" e "Quebra de linha no fim": salvar um `.rs` com espaços no fim limpa, e
+    `Ctrl+Z` volta. Um `.md` mantém os dois espaços. Criar `.editorconfig` com `[*.rs]` e `indent_size = 2`,
+    salvar: Tab num `.rs` insere 2 espaços. Num Makefile, Tab insere o caractere tab. Com "Formatar ao
+    salvar", `Ctrl+S` num `.rs` desarrumado formata e grava.
 - [ ] **Dica de parâmetros:** a assinatura da função aparece ao digitar `(` (signature help do LSP).
 - [ ] **Git:** marcas na margem nas linhas alteradas (clique mostra o diff), trocar e criar branch, blame da
   linha atual.

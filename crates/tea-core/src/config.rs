@@ -28,6 +28,24 @@ language = "auto"
 # Reabrir as abas e os painéis de cada projeto como estavam (não vale para `idetea arquivo...`).
 restore_session = true
 
+# Editor. Um `.editorconfig` no projeto vale mais que isto (tamanho do recuo, tabs ou espaços, limpar ao
+# salvar). Sem `.editorconfig`, um arquivo que já usa tabs para recuar continua com tabs.
+[editor]
+# Quebrar linhas longas na largura da janela.
+wrap = true
+# Mostrar espaços (·) e tabs (→).
+show_whitespace = true
+# Linhas verticais finas em cada nível de recuo.
+indent_guides = true
+# Tamanho do recuo (Tab insere espaços) e se usa espaços ou o caractere tab.
+tab_size = 4
+insert_spaces = true
+# Ao salvar: tirar espaços no fim das linhas (menos em Markdown, onde dois espaços quebram a linha),
+# garantir a quebra de linha no fim do arquivo, e formatar com o LSP (só no Ctrl+S).
+trim_trailing_whitespace = false
+insert_final_newline = false
+format_on_save = false
+
 # Servidores de linguagem (LSP). Embutidos: rust-analyzer, clangd, pyright,
 # typescript, gopls, lua. Só iniciam se o comando existir no PATH.
 [lsp]
@@ -171,6 +189,35 @@ pub struct LspServerConfig {
     pub languages: Option<BTreeMap<String, String>>,
 }
 
+/// Editor (`[editor]`).
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+#[serde(default)]
+pub struct EditorConfig {
+    pub wrap: bool,
+    pub show_whitespace: bool,
+    pub indent_guides: bool,
+    pub tab_size: u8,
+    pub insert_spaces: bool,
+    pub trim_trailing_whitespace: bool,
+    pub insert_final_newline: bool,
+    pub format_on_save: bool,
+}
+
+impl Default for EditorConfig {
+    fn default() -> Self {
+        Self {
+            wrap: true,
+            show_whitespace: true,
+            indent_guides: true,
+            tab_size: 4,
+            insert_spaces: true,
+            trim_trailing_whitespace: false,
+            insert_final_newline: false,
+            format_on_save: false,
+        }
+    }
+}
+
 /// Como depurar o projeto (`[debug]`). Tudo opcional.
 #[derive(Debug, Clone, Default, Deserialize)]
 #[serde(default)]
@@ -187,6 +234,7 @@ pub struct DebugConfig {
 #[derive(Debug, Clone, Default)]
 pub struct Config {
     pub ui: UiConfig,
+    pub editor: EditorConfig,
     pub lsp: LspConfig,
     pub debug: DebugConfig,
     pub extensions: BTreeMap<String, ExtensionConfig>,
@@ -259,13 +307,15 @@ impl Config {
         }
 
         let ui = take_section(&mut merged, "ui", &mut errors);
+        let mut editor: EditorConfig = take_section(&mut merged, "editor", &mut errors);
+        editor.tab_size = editor.tab_size.clamp(1, 16);
         let extensions = take_section(&mut merged, "extensions", &mut errors);
         let lsp = take_section(&mut merged, "lsp", &mut errors);
         let debug = take_section(&mut merged, "debug", &mut errors);
         for unknown in merged.keys() {
             errors.push(fl!("config-unknown-section", section = unknown.as_str()));
         }
-        Self { ui, lsp, debug, extensions, keys, errors }
+        Self { ui, editor, lsp, debug, extensions, keys, errors }
     }
 
     /// Config de uma extensão (padrão: ligada, slot escolhido pela extensão).
@@ -328,6 +378,8 @@ mod tests {
         let c = layers(&[DEFAULT_CONFIG]);
         assert!(c.errors.is_empty(), "{:?}", c.errors);
         assert!(c.ui.splash);
+        assert_eq!(c.editor, EditorConfig::default(), "o texto e o Default dizem o mesmo");
+        assert_eq!(layers(&["[editor]\ntab_size = 0"]).editor.tab_size, 1);
         assert_eq!(c.extension("filetree").slot, Some(Slot::Left));
         assert!(c.keys.iter().any(|(k, v)| k == "ctrl+s" && v == "file.save"));
     }

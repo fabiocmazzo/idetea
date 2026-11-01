@@ -5099,6 +5099,7 @@ dependencies = [
 name = "tea-app"
 version = "0.0.1"
 dependencies = [
+ "globset",
  "iced",
  "ignore",
  "notify",

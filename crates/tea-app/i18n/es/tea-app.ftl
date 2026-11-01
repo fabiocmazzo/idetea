@@ -407,3 +407,27 @@ replaced = { $count } reemplazo(s) en { $files } archivo(s)
 replaced-failed = { $count } reemplazo(s) en { $files } archivo(s); { $failed } no se pudieron cambiar (sin permiso o no es texto)
 
 guide-bottom-3 = Reemplazar en el proyecto: { $search-replace } (o ▸ junto a la búsqueda) abre "Reemplazar por". Cada resultado muestra cómo queda; "Reemplazar" cambia la línea o el archivo, y "Reemplazar todo" pide confirmación. Los archivos abiertos en pestañas quedan cambiados sin guardar (Ctrl+Z deshace); los demás se guardan directo en el disco.
+
+## Editor e salvar
+format-save-timeout = El servidor no formateó a tiempo: guardado sin formatear
+
+settings-tab-editor = Editor
+settings-wrap = Ajustar líneas largas
+settings-wrap-detail = Una línea más ancha que la ventana sigue debajo, sin desplazamiento lateral.
+settings-whitespace = Mostrar espacios
+settings-whitespace-detail = Los espacios se ven como · y los tabs como →.
+settings-indent-guides = Guías de sangría
+settings-indent-guides-detail = Líneas verticales finas en cada nivel de sangría.
+settings-tab-size = Tamaño de la sangría
+settings-tab-size-detail = Cuántos espacios inserta Tab.
+settings-insert-spaces = Sangrar con espacios
+settings-insert-spaces-detail = Desactivado: Tab inserta un carácter tab. Un archivo que ya usa tabs sigue con tabs.
+settings-trim = Quitar espacios al final de las líneas al guardar
+settings-trim-detail = Salvo en Markdown, donde dos espacios al final cortan la línea.
+settings-final-newline = Salto de línea al final del archivo al guardar
+settings-final-newline-detail = Asegura que la última línea termine con un salto de línea.
+settings-format-on-save = Formatear al guardar
+settings-format-on-save-detail = Ctrl+S formatea con el servidor de lenguaje antes de guardar (espera hasta 2 s). Guardar todos no formatea.
+settings-editorconfig-note = Un .editorconfig en el proyecto prevalece sobre estas opciones (sangría, tabs o espacios, limpieza al guardar).
+
+guide-config-5 = Editor: la pestaña Editor de la configuración ({ $settings-open }) tiene ajuste de línea, espacios visibles, guías de sangría, tamaño de la sangría y qué hacer al guardar (quitar espacios al final, salto de línea final, formatear). Un .editorconfig en el proyecto prevalece; sin él, un archivo que ya usa tabs sigue con tabs.

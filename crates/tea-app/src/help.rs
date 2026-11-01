@@ -71,7 +71,7 @@ const GUIDE: &[(&str, &[&str])] = &[
     ("guide-debug", &["guide-debug-1", "guide-debug-2", "guide-debug-3"]),
     ("guide-git", &["guide-git-1", "guide-git-2", "guide-git-3", "guide-git-4"]),
     ("guide-lsp", &["guide-lsp-1", "guide-lsp-2", "guide-lsp-3", "guide-lsp-4", "guide-lsp-5", "guide-lsp-6", "guide-lsp-7", "guide-lsp-8", "guide-lsp-9"]),
-    ("guide-config", &["guide-config-1", "guide-config-2", "guide-config-3", "guide-config-4"]),
+    ("guide-config", &["guide-config-1", "guide-config-2", "guide-config-3", "guide-config-4", "guide-config-5"]),
 ];
 
 impl Help {

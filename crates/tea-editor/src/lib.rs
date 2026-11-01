@@ -103,8 +103,36 @@ impl LineEnding {
     }
 }
 
+/// Como o editor mostra e grava o texto. Vem do config `[editor]` e do `.editorconfig` (quem monta é o app).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Options {
+    pub wrap: bool,
+    pub show_whitespace: bool,
+    pub indent_guides: bool,
+    /// Tamanho do recuo em espaços (o Tab do teclado). O caractere tab sempre ocupa 4 colunas na tela.
+    pub tab_size: u8,
+    pub insert_spaces: bool,
+    pub trim_trailing_whitespace: bool,
+    pub insert_final_newline: bool,
+}
+
+impl Default for Options {
+    fn default() -> Self {
+        Self {
+            wrap: true,
+            show_whitespace: true,
+            indent_guides: true,
+            tab_size: 4,
+            insert_spaces: true,
+            trim_trailing_whitespace: false,
+            insert_final_newline: false,
+        }
+    }
+}
+
 pub struct Editor {
     path: Option<PathBuf>,
+    options: Options,
     inner: CodeEditor,
     line_ending: LineEnding,
     /// Arquivo ainda não existe no disco (aberto pela linha de comando).
@@ -176,6 +204,7 @@ impl Editor {
         });
         Self {
             path: path.map(Path::to_path_buf),
+            options: Options::default(),
             inner,
             line_ending,
             is_new,
@@ -297,7 +326,45 @@ impl Editor {
         Ok(())
     }
 
+    /// Muda as opções. As de tela valem na hora; as de salvar, no próximo salvar.
+    pub fn set_options(&mut self, options: &Options) {
+        if &self.options == options {
+            return;
+        }
+        self.inner.set_wrap_enabled(options.wrap);
+        self.inner.set_show_whitespace(options.show_whitespace);
+        self.inner.set_show_indent_guides(options.indent_guides);
+        self.inner.set_indent_style(if options.insert_spaces {
+            iced_code_editor::IndentStyle::Spaces(options.tab_size.max(1))
+        } else {
+            iced_code_editor::IndentStyle::Tab
+        });
+        self.options = options.clone();
+    }
+
+    pub fn options(&self) -> &Options {
+        &self.options
+    }
+
+    /// O arquivo recua com tabs? `None`: não tem linha recuada para saber.
+    pub fn indents_with_tabs(&self) -> Option<bool> {
+        indents_with_tabs(&self.inner.content())
+    }
+
+    /// Limpa o texto antes de gravar, conforme as opções (um passo de desfazer, como formatar).
+    fn tidy(&mut self) {
+        let (trim, newline) = (self.options.trim_trailing_whitespace, self.options.insert_final_newline);
+        if !trim && !newline {
+            return;
+        }
+        let edits = tidy_edits(&self.inner.content(), trim, newline);
+        if !edits.is_empty() {
+            self.apply_formatting(&edits);
+        }
+    }
+
     fn write_to(&mut self, path: &Path) -> io::Result<()> {
+        self.tidy();
         if let Some(dir) = path.parent()
             && !dir.as_os_str().is_empty()
         {
@@ -736,6 +803,44 @@ fn syntax_for(path: Option<&Path>) -> String {
 }
 
 /// Bytes iguais no começo (em fronteira de caractere).
+/// Edições para tirar espaços no fim das linhas e pôr a quebra de linha no fim (colunas em caracteres).
+fn tidy_edits(text: &str, trim: bool, final_newline: bool) -> Vec<tea_lsp::TextEdit> {
+    let edit = |line: usize, from: usize, to: usize, new_text: &str| tea_lsp::TextEdit {
+        range: tea_lsp::Range {
+            start: tea_lsp::Position::new(line as u32, from as u32),
+            end: tea_lsp::Position::new(line as u32, to as u32),
+        },
+        new_text: new_text.to_string(),
+    };
+    let mut edits = Vec::new();
+    let lines: Vec<&str> = text.split('\n').collect();
+    let last = lines.len() - 1;
+    let needs_newline = final_newline && !text.is_empty() && !text.ends_with('\n');
+    for (i, line) in lines.iter().enumerate() {
+        let len = line.chars().count();
+        let kept = if trim { line.trim_end_matches([' ', '\t']).chars().count() } else { len };
+        let newline = i == last && needs_newline;
+        if kept != len || newline {
+            edits.push(edit(i, kept, len, if newline { "\n" } else { "" }));
+        }
+    }
+    edits
+}
+
+/// Recuo com tabs ou espaços, pelo que a maioria das linhas recuadas usa (olha só o começo do arquivo).
+fn indents_with_tabs(text: &str) -> Option<bool> {
+    let (mut tabs, mut spaces) = (0usize, 0usize);
+    for line in text.lines().take(2000) {
+        if line.starts_with('\t') {
+            tabs += 1;
+        } else if line.starts_with("  ") && !line.trim_start().starts_with('*') {
+            // Linha que começa com espaços e `*` costuma ser continuação de comentário `/* */`.
+            spaces += 1;
+        }
+    }
+    (tabs + spaces > 0).then_some(tabs > spaces)
+}
+
 fn common_prefix(a: &str, b: &str) -> usize {
     a.char_indices().zip(b.chars()).find(|((_, x), y)| x != y).map_or(a.len().min(b.len()), |((i, _), _)| i)
 }
@@ -758,6 +863,34 @@ fn lsp_position(text: &str, byte: usize) -> iced_code_editor::LspPosition {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn tidy_before_save() {
+        let mut ed = Editor::scratch("fn a() {  \n\tx;\t\n}  ");
+        ed.tidy();
+        assert_eq!(ed.text(), "fn a() {  \n\tx;\t\n}  ", "opções desligadas: nada muda");
+        ed.set_options(&Options { trim_trailing_whitespace: true, insert_final_newline: true, ..Options::default() });
+        ed.tidy();
+        assert_eq!(ed.text(), "fn a() {\n\tx;\n}\n");
+        ed.tidy();
+        assert_eq!(ed.text(), "fn a() {\n\tx;\n}\n", "já limpo");
+
+        let mut ed = Editor::scratch("a  \nb");
+        ed.set_options(&Options { insert_final_newline: true, ..Options::default() });
+        ed.tidy();
+        assert_eq!(ed.text(), "a  \nb\n", "só a linha final");
+        let mut ed = Editor::scratch("");
+        ed.set_options(&Options { insert_final_newline: true, ..Options::default() });
+        ed.tidy();
+        assert_eq!(ed.text(), "", "arquivo vazio fica vazio");
+    }
+
+    #[test]
+    fn detects_tab_indent() {
+        assert_eq!(indents_with_tabs("a\n\tb\n\tc\n  d"), Some(true));
+        assert_eq!(indents_with_tabs("a\n    b\n/*\n * x\n */"), Some(false));
+        assert_eq!(indents_with_tabs("a\nb"), None);
+    }
 
     #[test]
     fn word_at_cursor() {

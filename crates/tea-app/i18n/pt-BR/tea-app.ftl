@@ -407,3 +407,27 @@ replaced = { $count } troca(s) em { $files } arquivo(s)
 replaced-failed = { $count } troca(s) em { $files } arquivo(s); { $failed } não deu para mudar (sem permissão ou não é texto)
 
 guide-bottom-3 = Substituir no projeto: { $search-replace } (ou ▸ ao lado da busca) abre "Substituir por". Cada resultado mostra como fica; "Substituir" troca a linha ou o arquivo, e "Substituir tudo" pede confirmação. Arquivos abertos em abas ficam alterados sem salvar (Ctrl+Z desfaz); os outros são gravados direto no disco.
+
+## Editor e salvar
+format-save-timeout = O servidor não formatou a tempo: salvo sem formatar
+
+settings-tab-editor = Editor
+settings-wrap = Quebrar linhas longas
+settings-wrap-detail = Linha maior que a janela continua embaixo, sem rolar para o lado.
+settings-whitespace = Mostrar espaços
+settings-whitespace-detail = Espaços aparecem como · e tabs como →.
+settings-indent-guides = Guias de recuo
+settings-indent-guides-detail = Linhas verticais finas em cada nível de recuo.
+settings-tab-size = Tamanho do recuo
+settings-tab-size-detail = Quantos espaços o Tab insere.
+settings-insert-spaces = Recuar com espaços
+settings-insert-spaces-detail = Desligado: Tab insere o caractere tab. Arquivo que já recua com tabs continua com tabs.
+settings-trim = Tirar espaços no fim das linhas ao salvar
+settings-trim-detail = Menos em Markdown, onde dois espaços no fim quebram a linha.
+settings-final-newline = Quebra de linha no fim do arquivo ao salvar
+settings-final-newline-detail = Garante que a última linha termina com quebra de linha.
+settings-format-on-save = Formatar ao salvar
+settings-format-on-save-detail = Ctrl+S formata com o servidor de linguagem antes de gravar (espera até 2 s). Salvar todos não formata.
+settings-editorconfig-note = Um .editorconfig no projeto vale mais que estas opções (recuo, tabs ou espaços, limpar ao salvar).
+
+guide-config-5 = Editor: na aba Editor das configurações ({ $settings-open }) ficam quebra de linha, espaços visíveis, guias de recuo, tamanho do recuo e o que fazer ao salvar (tirar espaços no fim, quebra de linha final, formatar). Um .editorconfig no projeto vale mais; sem ele, arquivo que já recua com tabs continua com tabs.

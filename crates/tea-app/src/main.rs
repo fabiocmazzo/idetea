@@ -15,6 +15,7 @@ mod context_menu;
 mod debug;
 mod debug_build;
 mod dialog;
+mod editorconfig;
 mod divider;
 mod help;
 mod overlay;
@@ -334,6 +335,9 @@ struct App {
     /// Último texto enviado (não manda de novo se nada mudou) e a espera em curso depois de digitar.
     text_sent: Option<(PathBuf, std::sync::Arc<str>)>,
     text_wait: u64,
+    /// Ctrl+S com "formatar ao salvar": a aba espera a resposta do servidor para gravar (e a espera em curso).
+    format_save: Option<u64>,
+    format_save_wait: u64,
     /// Botões da barra de abas por tipo de arquivo (extensão dona, ação).
     file_actions: Vec<(usize, tea_core::FileAction)>,
     /// Quando a própria IDE salvou cada arquivo: o aviso de "mudou no disco" desse save não conta.
@@ -417,6 +421,8 @@ enum Message {
     OutlineDue(u64),
     /// Hora de mandar o texto do arquivo ativo (só a última espera vale).
     TextDue(u64),
+    /// O servidor demorou para formatar: salva assim mesmo.
+    FormatSaveDue(u64),
     /// Passou a espera depois de digitar na busca de símbolos do projeto.
     SymbolQueryDue(u64),
     /// Botões voltar/avançar do mouse (`true` = avançar).
@@ -505,6 +511,8 @@ impl App {
             text_watch: Default::default(),
             text_sent: None,
             text_wait: 0,
+            format_save: None,
+            format_save_wait: 0,
             file_actions: Vec::new(),
             config,
         };
@@ -700,9 +708,56 @@ impl App {
 
     // ---- Abas e arquivos ----------------------------------------------------
 
-    fn push_tab(&mut self, mut editor: Editor) -> usize {
+    /// Tema, fonte e opções do editor (config `[editor]` + `.editorconfig`).
+    fn style_editor(&self, editor: &mut Editor) {
         editor.set_theme(&self.theme);
         editor.set_font_size(self.config.ui.font_size);
+        editor.set_options(&self.editor_options(editor));
+    }
+
+    fn editor_options(&self, editor: &Editor) -> tea_editor::Options {
+        let c = &self.config.editor;
+        let mut o = tea_editor::Options {
+            wrap: c.wrap,
+            show_whitespace: c.show_whitespace,
+            indent_guides: c.indent_guides,
+            tab_size: c.tab_size,
+            insert_spaces: c.insert_spaces,
+            trim_trailing_whitespace: c.trim_trailing_whitespace,
+            insert_final_newline: c.insert_final_newline,
+        };
+        let Some(path) = editor.path() else { return o };
+        // Em Markdown, dois espaços no fim quebram a linha: só tira se o `.editorconfig` mandar.
+        let ext = path.extension().map(|e| e.to_string_lossy().to_lowercase());
+        if matches!(ext.as_deref(), Some("md" | "markdown")) {
+            o.trim_trailing_whitespace = false;
+        }
+        let ec = editorconfig::Props::for_file(path);
+        match ec.insert_spaces {
+            Some(spaces) => o.insert_spaces = spaces,
+            // Sem `.editorconfig`: segue o que o arquivo já usa (Makefile, Go...).
+            None => {
+                if let Some(tabs) = editor.indents_with_tabs() {
+                    o.insert_spaces = !tabs;
+                }
+            }
+        }
+        o.tab_size = ec.tab_size.unwrap_or(o.tab_size);
+        o.trim_trailing_whitespace = ec.trim_trailing_whitespace.unwrap_or(o.trim_trailing_whitespace);
+        o.insert_final_newline = ec.insert_final_newline.unwrap_or(o.insert_final_newline);
+        o
+    }
+
+    /// Recalcula as opções de todas as abas (config recarregado, `.editorconfig` salvo, arquivo renomeado).
+    fn refresh_editor_options(&mut self) {
+        for i in 0..self.tabs.len() {
+            let options = self.editor_options(&self.tabs[i].editor);
+            self.tabs[i].editor.set_options(&options);
+        }
+    }
+
+    fn push_tab(&mut self, mut editor: Editor) -> usize {
+        self.style_editor(&mut editor);
         self.tabs.push(Tab { id: self.next_tab_id, editor });
         self.next_tab_id += 1;
         self.tabs.len() - 1
@@ -720,8 +775,7 @@ impl App {
             Ok(mut editor) => {
                 // Troca a aba vazia inicial em vez de acumular abas "sem título".
                 let i = if self.tabs.len() == 1 && self.tabs[0].editor.is_blank() {
-                    editor.set_theme(&self.theme);
-                    editor.set_font_size(self.config.ui.font_size);
+                    self.style_editor(&mut editor);
                     self.tabs[0].editor = editor;
                     0
                 } else {
@@ -758,8 +812,7 @@ impl App {
         }
         match Editor::open(path) {
             Ok(mut editor) => {
-                editor.set_theme(&self.theme);
-                editor.set_font_size(self.config.ui.font_size);
+                self.style_editor(&mut editor);
                 // A aba antiga sai (e avisa o LSP); a nova entra no lugar, com o mesmo id.
                 self.tabs[i].editor = editor;
                 let lsp = self.ensure_lsp(i);
@@ -1730,6 +1783,14 @@ impl App {
             E::Rename { new_name, files } => self.preview_rename(new_name, files),
             E::RenameFailed { message } => self.notify(fl!("rename-failed", message = message)),
             E::Formatting { path, edits } => {
+                // Formatou para salvar (Ctrl+S): grava em seguida, sem o aviso de "formatado".
+                if let Some(i) = self.format_save.and_then(|id| self.tab_index(id))
+                    && self.tabs[i].editor.path() == Some(path.as_path())
+                {
+                    self.tabs[i].editor.apply_formatting(&edits);
+                    let text = self.text_later();
+                    return Task::batch([self.finish_format_save(), text]);
+                }
                 if let Some(i) = tab_for(self, &path) {
                     self.tabs[i].editor.apply_formatting(&edits);
                     let text = self.text_later();
@@ -1829,8 +1890,38 @@ impl App {
         if self.editor().path().is_none() {
             return self.open_save_as();
         }
+        if self.config.editor.format_on_save && self.format_save.is_none() && self.editor_mut().request_formatting() {
+            self.format_save = Some(self.tabs[self.active].id);
+            return self.format_save_later();
+        }
+        self.save_active_now()
+    }
+
+    fn save_active_now(&mut self) -> Task<Message> {
         let result = self.editor_mut().save();
         self.after_save(result)
+    }
+
+    /// Espera a formatação por até 2 s; depois disso grava sem formatar.
+    fn format_save_later(&mut self) -> Task<Message> {
+        self.format_save_wait += 1;
+        let wait = self.format_save_wait;
+        let (tx, rx) = iced::futures::channel::oneshot::channel();
+        std::thread::spawn(move || {
+            std::thread::sleep(Duration::from_secs(2));
+            let _ = tx.send(wait);
+        });
+        Task::future(async move { rx.await.ok() }).and_then(|wait| Task::done(Message::FormatSaveDue(wait)))
+    }
+
+    /// Grava a aba que esperava a formatação.
+    fn finish_format_save(&mut self) -> Task<Message> {
+        let Some(id) = self.format_save.take() else { return Task::none() };
+        match self.tab_index(id) {
+            Some(i) if i == self.active => self.save_active_now(),
+            Some(_) => self.save_tabs(&[id]).1,
+            None => Task::none(),
+        }
     }
 
     /// "Salvar como" com a janela nativa do sistema.
@@ -1897,6 +1988,11 @@ impl App {
     fn save_as_path(&mut self, path: PathBuf) -> Task<Message> {
         let result = self.editor_mut().save_as(&path);
         let ok = result.is_ok();
+        if ok {
+            // Outro nome, outra extensão: Markdown, `.editorconfig` de outra pasta...
+            let options = self.editor_options(self.editor());
+            self.editor_mut().set_options(&options);
+        }
         let lsp = if ok { self.ensure_lsp(self.active) } else { Task::none() };
         let saved = Task::batch([self.after_save(result), lsp]);
         let changed = if ok { self.broadcast(CoreEvent::ActiveFileChanged(Some(path))) } else { Task::none() };
@@ -1912,6 +2008,9 @@ impl App {
                 self.own_saves.insert(path.clone(), Instant::now());
                 let is_config = Some(path.as_path()) == self.global_config.as_deref()
                     || path == config::project_config_path(&self.root);
+                if path.file_name().is_some_and(|n| n == ".editorconfig") {
+                    self.refresh_editor_options();
+                }
                 let saved = self.broadcast(CoreEvent::FileSaved(path.clone()));
                 let note = self.notify(fl!("saved", path = display_rel(&path, &self.root)));
                 let reload = if is_config { self.reload_config() } else { Task::none() };
@@ -1934,6 +2033,7 @@ impl App {
         }
         let relink: Vec<Task<Message>> = (0..self.tabs.len()).map(|i| self.ensure_lsp(i)).collect();
         let relink = Task::batch(relink);
+        self.refresh_editor_options();
         if active_changed {
             let path = self.active_path().map(Path::to_path_buf);
             Task::batch([relink, self.broadcast(CoreEvent::ActiveFileChanged(path)), self.emit_status(false)])
@@ -1982,6 +2082,7 @@ impl App {
         for tab in &mut self.tabs {
             tab.editor.set_font_size(font_size);
         }
+        self.refresh_editor_options();
         self.apply_panel_slots();
         let msg = if !problems.is_empty() {
             Some(fl!("config-reloaded-problems", problems = problems.join(" · ")))
@@ -2296,6 +2397,9 @@ impl App {
             };
             match self.tabs[i].editor.save() {
                 Ok(()) => {
+                    if path.file_name().is_some_and(|n| n == ".editorconfig") {
+                        self.refresh_editor_options();
+                    }
                     self.own_saves.insert(path.clone(), Instant::now());
                     tasks.push(self.broadcast(CoreEvent::FileSaved(path)));
                 }
@@ -2655,6 +2759,11 @@ impl App {
             }
             M::Splash(on) => self.edit_config(|f| f.set_splash(on)),
             M::RestoreSession(on) => self.edit_config(|f| f.set_restore_session(on)),
+            M::EditorFlag(key, on) => self.edit_config(|f| f.set_editor_flag(key, on)),
+            M::TabSize(n) => {
+                let n = n.clamp(settings::TAB_MIN, settings::TAB_MAX);
+                self.edit_config(|f| f.set_tab_size(n))
+            }
             M::ActivityBar(on) => self.edit_config(|f| f.set_activity_bar(on)),
             M::Language(choice) => self.edit_config(|f| f.set_language(choice.tag())),
             M::ExtEnabled(id, on) => self.edit_config(|f| f.set_extension_enabled(&id, on)),
@@ -3146,6 +3255,14 @@ impl App {
             }
             Message::TextDue(wait) => {
                 if wait == self.text_wait { self.send_active_text() } else { Task::none() }
+            }
+            Message::FormatSaveDue(wait) => {
+                if wait == self.format_save_wait && self.format_save.is_some() {
+                    let note = self.notify(fl!("format-save-timeout"));
+                    Task::batch([self.finish_format_save(), note])
+                } else {
+                    Task::none()
+                }
             }
             Message::OutlineDue(wait) => {
                 if wait == self.outline_wait { self.request_outline() } else { Task::none() }

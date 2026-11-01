@@ -20,6 +20,7 @@ use crate::palette::CommandInfo;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Tab {
     Appearance,
+    Editor,
     Extensions,
     Shortcuts,
     Lsp,
@@ -40,6 +41,9 @@ pub enum Msg {
     FontSize(f32),
     Splash(bool),
     RestoreSession(bool),
+    /// Opção de `[editor]` que liga/desliga: a chave no config e o valor.
+    EditorFlag(&'static str, bool),
+    TabSize(u8),
     ActivityBar(bool),
     Language(LanguageChoice),
     ExtEnabled(String, bool),
@@ -118,6 +122,7 @@ impl Settings {
             text(fl!("settings-title")).size(18),
             space::horizontal().width(16),
             tab_button(fl!("settings-tab-appearance"), Tab::Appearance),
+            tab_button(fl!("settings-tab-editor"), Tab::Editor),
             tab_button(fl!("settings-tab-extensions"), Tab::Extensions),
             tab_button(fl!("settings-tab-shortcuts"), Tab::Shortcuts),
             tab_button("LSP".into(), Tab::Lsp),
@@ -148,6 +153,7 @@ impl Settings {
 
         let body: Element<'a, Msg> = match self.tab {
             Tab::Appearance => appearance(config),
+            Tab::Editor => editor_view(config),
             Tab::Extensions => extensions_view(config, &self.extensions),
             Tab::Shortcuts => self.shortcuts(keymap, commands),
             Tab::Lsp => self.lsp(config),
@@ -375,6 +381,43 @@ fn appearance(config: &Config) -> Element<'_, Msg> {
     .spacing(4)
     .padding([0, 12])
     .into()
+}
+
+pub const TAB_MIN: u8 = 1;
+pub const TAB_MAX: u8 = 16;
+
+fn editor_view(config: &Config) -> Element<'_, Msg> {
+    let e = &config.editor;
+    let flag = |label: String, detail: String, key: &'static str, on: bool| {
+        setting_owned(label, detail, toggler(on).on_toggle(move |v| Msg::EditorFlag(key, v)).into())
+    };
+    let size = e.tab_size;
+    let tab_size = row![
+        button(text("−").size(14)).on_press_maybe((size > TAB_MIN).then(|| Msg::TabSize(size - 1))).padding([2, 10]),
+        text(format!("{size}")).size(14).width(36).align_x(iced::Center),
+        button(text("+").size(14)).on_press_maybe((size < TAB_MAX).then(|| Msg::TabSize(size + 1))).padding([2, 10]),
+    ]
+    .spacing(6)
+    .align_y(iced::Center);
+    let list = column![
+        flag(fl!("settings-wrap"), fl!("settings-wrap-detail"), "wrap", e.wrap),
+        flag(fl!("settings-whitespace"), fl!("settings-whitespace-detail"), "show_whitespace", e.show_whitespace),
+        flag(fl!("settings-indent-guides"), fl!("settings-indent-guides-detail"), "indent_guides", e.indent_guides),
+        setting_owned(fl!("settings-tab-size"), fl!("settings-tab-size-detail"), tab_size.into()),
+        flag(fl!("settings-insert-spaces"), fl!("settings-insert-spaces-detail"), "insert_spaces", e.insert_spaces),
+        flag(
+            fl!("settings-trim"),
+            fl!("settings-trim-detail"),
+            "trim_trailing_whitespace",
+            e.trim_trailing_whitespace
+        ),
+        flag(fl!("settings-final-newline"), fl!("settings-final-newline-detail"), "insert_final_newline", e.insert_final_newline),
+        flag(fl!("settings-format-on-save"), fl!("settings-format-on-save-detail"), "format_on_save", e.format_on_save),
+        text(fl!("settings-editorconfig-note")).size(11).style(text::secondary),
+    ]
+    .spacing(4)
+    .padding([0, 12]);
+    scrollable(list).height(Fill).into()
 }
 
 fn extensions_view<'a>(config: &'a Config, extensions: &'a [ExtRow]) -> Element<'a, Msg> {

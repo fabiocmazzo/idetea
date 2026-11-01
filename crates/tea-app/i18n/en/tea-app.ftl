@@ -407,3 +407,27 @@ replaced = { $count } replacement(s) in { $files } file(s)
 replaced-failed = { $count } replacement(s) in { $files } file(s); { $failed } could not be changed (no permission or not text)
 
 guide-bottom-3 = Replace in project: { $search-replace } (or ▸ next to the search) opens "Replace with". Each result shows how it will look; "Replace" changes the line or the file, and "Replace all" asks first. Files open in tabs stay changed, not saved (Ctrl+Z undoes); the others are written straight to disk.
+
+## Editor e salvar
+format-save-timeout = The server did not format in time: saved without formatting
+
+settings-tab-editor = Editor
+settings-wrap = Wrap long lines
+settings-wrap-detail = A line wider than the window continues below, with no sideways scrolling.
+settings-whitespace = Show whitespace
+settings-whitespace-detail = Spaces show as · and tabs as →.
+settings-indent-guides = Indent guides
+settings-indent-guides-detail = Thin vertical lines at each indent level.
+settings-tab-size = Indent size
+settings-tab-size-detail = How many spaces Tab inserts.
+settings-insert-spaces = Indent with spaces
+settings-insert-spaces-detail = Off: Tab inserts a tab character. A file already indented with tabs keeps tabs.
+settings-trim = Trim trailing whitespace on save
+settings-trim-detail = Except in Markdown, where two trailing spaces break the line.
+settings-final-newline = Final newline on save
+settings-final-newline-detail = Makes sure the last line ends with a newline.
+settings-format-on-save = Format on save
+settings-format-on-save-detail = Ctrl+S formats with the language server before writing (waits up to 2 s). Save all does not format.
+settings-editorconfig-note = A .editorconfig in the project overrides these options (indent, tabs or spaces, cleanup on save).
+
+guide-config-5 = Editor: the Editor tab in settings ({ $settings-open }) has line wrap, visible whitespace, indent guides, indent size and what to do on save (trim trailing spaces, final newline, format). A .editorconfig in the project overrides them; without one, a file already indented with tabs keeps tabs.

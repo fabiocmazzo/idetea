@@ -86,6 +86,15 @@ impl ConfigFile {
         self.section("ui")["restore_session"] = value(on);
     }
 
+    /// Uma opção de `[editor]` que é ligar/desligar (`wrap`, `trim_trailing_whitespace`...).
+    pub fn set_editor_flag(&mut self, key: &str, on: bool) {
+        self.section("editor")[key] = value(on);
+    }
+
+    pub fn set_tab_size(&mut self, size: u8) {
+        self.section("editor")["tab_size"] = value(i64::from(size));
+    }
+
     pub fn set_activity_bar(&mut self, on: bool) {
         self.section("ui")["activity_bar"] = value(on);
     }
