@@ -46,6 +46,12 @@ trim_trailing_whitespace = false
 insert_final_newline = false
 format_on_save = false
 
+# Tarefas (Ctrl+Shift+B): "nome" = "comando", rodam na raiz do projeto com a saída no terminal. Além destas,
+# a lista traz o que achar no projeto (cargo, scripts do package.json, alvos do Makefile).
+# Costumam ficar no config do projeto (.idetea/config.toml).
+[tasks]
+# "servidor" = "cargo run -- --porta 8080"
+
 # Servidores de linguagem (LSP). Embutidos: rust-analyzer, clangd, pyright,
 # typescript, gopls, lua. Só iniciam se o comando existir no PATH.
 [lsp]
@@ -120,6 +126,8 @@ preview = { enabled = true, slot = "right" }
 "ctrl+shift+i" = "lsp.format"
 "f2" = "lsp.rename"
 "ctrl+shift+t" = "terminal.focus"
+"ctrl+shift+b" = "tasks.run"
+"ctrl+shift+r" = "tasks.rerun"
 "ctrl+shift+g" = "git.focus"
 "ctrl+," = "settings.open"
 "ctrl+q" = "app.quit"
@@ -237,6 +245,8 @@ pub struct Config {
     pub editor: EditorConfig,
     pub lsp: LspConfig,
     pub debug: DebugConfig,
+    /// Tarefas do usuário: nome → comando.
+    pub tasks: BTreeMap<String, String>,
     pub extensions: BTreeMap<String, ExtensionConfig>,
     /// Atalhos na ordem das camadas (os últimos vencem).
     pub keys: Vec<(String, String)>,
@@ -312,10 +322,11 @@ impl Config {
         let extensions = take_section(&mut merged, "extensions", &mut errors);
         let lsp = take_section(&mut merged, "lsp", &mut errors);
         let debug = take_section(&mut merged, "debug", &mut errors);
+        let tasks = take_section(&mut merged, "tasks", &mut errors);
         for unknown in merged.keys() {
             errors.push(fl!("config-unknown-section", section = unknown.as_str()));
         }
-        Self { ui, editor, lsp, debug, extensions, keys, errors }
+        Self { ui, editor, lsp, debug, tasks, extensions, keys, errors }
     }
 
     /// Config de uma extensão (padrão: ligada, slot escolhido pela extensão).
@@ -380,6 +391,8 @@ mod tests {
         assert!(c.ui.splash);
         assert_eq!(c.editor, EditorConfig::default(), "o texto e o Default dizem o mesmo");
         assert_eq!(layers(&["[editor]\ntab_size = 0"]).editor.tab_size, 1);
+        assert!(c.tasks.is_empty());
+        assert_eq!(layers(&["[tasks]\nservidor = \"cargo run\""]).tasks["servidor"], "cargo run");
         assert_eq!(c.extension("filetree").slot, Some(Slot::Left));
         assert!(c.keys.iter().any(|(k, v)| k == "ctrl+s" && v == "file.save"));
     }

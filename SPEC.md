@@ -742,8 +742,24 @@ O que mais falta no uso diário. Cada item é uma entrega com teste manual; a or
     - [x] Teste manual (aprovado): andar com o cursor por um arquivo antigo do repositório: autor e mensagem mudam por linha.
       Clicar: aparece o commit; "Copiar hash" copia. Digitar algo: some; salvar: a linha mostra "ainda não
       commitado".
-- [ ] **Tarefas:** rodar `cargo run`/`cargo test` ou um comando do config, com a saída no terminal; no Rust,
+- [x] **Tarefas:** rodar `cargo run`/`cargo test` ou um comando do config, com a saída no terminal; no Rust,
   "rodar este teste".
+  `Ctrl+Shift+B` (`tasks.run`) abre a lista na paleta: primeiro a última rodada, depois as de `[tasks]` no config
+  (`nome = "comando"`, global ou do projeto; vencem uma achada de mesmo nome), cargo build/run/test/clippy (com
+  `Cargo.toml` na raiz), scripts do `package.json` (npm, ou pnpm/yarn pelo lockfile) e até 15 alvos do `Makefile`.
+  A tarefa roda na raiz do projeto, num terminal só dela ao lado do shell (abas "Terminal" / "Tarefa: nome" no
+  topo do painel, mais "Fechar tarefa"): `/bin/sh -c` com `eval`, então `&&`, pipes e variáveis funcionam.
+  `Ctrl+C` para só o comando; no fim, "[nome terminou: código N · Enter fecha]". Rodar outra substitui a
+  anterior. `Ctrl+Shift+R` (`tasks.rerun`) roda a última de novo (sem nenhuma, abre a lista).
+  "Rust: rodar o teste no cursor" (`tasks.test_here`, sem atalho): o `fn` mais perto acima do cursor com
+  `#[test]`/`#[x::test]`/`#[rstest]`; pacote = o `Cargo.toml` com `[package]` mais perto; em `tests/x.rs` junta
+  `--test x`. Roda `cargo test -p pacote [--test x] nome`. O evento é genérico (`CoreEvent::RunTask`), para
+  plugins poderem rodar comandos também.
+  - [x] Teste manual (aprovado): `Ctrl+Shift+B` neste repo: aparecem as tarefas do cargo; escolher "cargo build": a aba
+    "Tarefa" abre com a saída colorida e o código no fim; Enter fecha e volta ao shell. `Ctrl+Shift+R` roda de
+    novo. Rodar "cargo run" e `Ctrl+C`: para e mostra o código. Criar `[tasks] oi = "echo oi && exit 2"` no config
+    do projeto: aparece primeiro e termina com código 2. Num `#[test] fn` (ex. `tasks.rs`), "Rust: rodar o teste no
+    cursor" roda só ele.
 - [ ] **Editor dividido:** dois arquivos lado a lado.
 - [ ] **Distribuição:** `.desktop` com ícone, `cargo install`, AppImage ou Flatpak; CI no GitHub (testes,
   clippy e o executável a cada versão).

@@ -118,9 +118,9 @@ pub struct Palette {
     root: PathBuf,
     /// Modo `Recent`: projetos primeiro, depois arquivos, do mais novo para o mais velho.
     pub recent_items: Vec<RecentItem>,
-    /// Modo `Pick`: a lista e a extensão que pediu.
+    /// Modo `Pick`: a lista e a extensão que pediu (`None`: o próprio app).
     pick: Option<tea_core::pick::Pick>,
-    pub pick_owner: usize,
+    pub pick_owner: Option<usize>,
 }
 
 impl Palette {
@@ -138,11 +138,11 @@ impl Palette {
             root: PathBuf::new(),
             recent_items: Vec::new(),
             pick: None,
-            pick_owner: 0,
+            pick_owner: None,
         }
     }
 
-    pub fn pick(owner: usize, pick: tea_core::pick::Pick) -> Self {
+    pub fn pick(owner: Option<usize>, pick: tea_core::pick::Pick) -> Self {
         let mut p = Self { pick_owner: owner, ..Self::new(Mode::Pick, String::new()) };
         p.found = match_pick(&p.query, &pick.items);
         p.pick = Some(pick);
@@ -698,7 +698,7 @@ mod tests {
             .item(None, "main", "atual", M::Go("main"))
             .item(None, "feature", "", M::Go("feature"))
             .create("Criar", M::New);
-        let mut p = Palette::pick(3, pick);
+        let mut p = Palette::pick(Some(3), pick);
         let got = |p: &Palette, msg: Option<&Msg>| p.chosen_pick(msg).and_then(|m| m.downcast_ref::<M>().map(|m| format!("{m:?}")));
         assert_eq!(p.total(&[]), 2, "sem texto, sem a linha de criar");
         assert_eq!(got(&p, None).as_deref(), Some("Go(\"main\")"));
@@ -711,7 +711,7 @@ mod tests {
         assert_eq!(got(&p, None).as_deref(), Some("New(\"zzz\")"), "nada combina: criar vem primeiro");
         p.set_query("main".into());
         assert_eq!(p.total(&[]), 1, "nome igual a um item: sem criar");
-        assert_eq!(p.pick_owner, 3);
+        assert_eq!(p.pick_owner, Some(3));
     }
 
     fn cmds(titles: &[(&str, &str)]) -> Vec<CommandInfo> {

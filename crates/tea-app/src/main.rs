@@ -27,6 +27,7 @@ mod picker;
 mod settings;
 mod pass_keys;
 mod splash;
+mod tasks;
 mod recent;
 mod session;
 mod ui_state;
@@ -236,6 +237,9 @@ const CORE_COMMANDS: &[(&str, &str)] = &[
     ("view.toggle_left", "cmd-view-toggle-left"),
     ("view.toggle_right", "cmd-view-toggle-right"),
     ("view.toggle_bottom", "cmd-view-toggle-bottom"),
+    ("tasks.run", "cmd-tasks-run"),
+    ("tasks.rerun", "cmd-tasks-rerun"),
+    ("tasks.test_here", "cmd-tasks-test-here"),
     ("app.quit", "cmd-app-quit"),
 ];
 
@@ -341,6 +345,8 @@ struct App {
     /// Versão de referência de cada arquivo para as marcas do git (vem do git; vale ao abrir de novo).
     diff_bases: std::collections::HashMap<PathBuf, std::sync::Arc<str>>,
     diff_wait: u64,
+    /// Última tarefa rodada (`Ctrl+Shift+R` roda de novo).
+    last_task: Option<tasks::TaskDef>,
     /// Botões da barra de abas por tipo de arquivo (extensão dona, ação).
     file_actions: Vec<(usize, tea_core::FileAction)>,
     /// Quando a própria IDE salvou cada arquivo: o aviso de "mudou no disco" desse save não conta.
@@ -520,6 +526,7 @@ impl App {
             format_save_wait: 0,
             diff_bases: std::collections::HashMap::new(),
             diff_wait: 0,
+            last_task: None,
             file_actions: Vec::new(),
             config,
         };
@@ -650,7 +657,7 @@ impl App {
                     tasks.push(self.broadcast(CoreEvent::FilesChanged));
                 }
                 Request::Menu(menu) => tasks.push(self.open_menu(menu, dialog::Owner::Ext(ext))),
-                Request::Pick(pick) => tasks.push(self.open_palette(Palette::pick(ext, pick))),
+                Request::Pick(pick) => tasks.push(self.open_palette(Palette::pick(Some(ext), pick))),
                 Request::DebugSelectFrame(i) => tasks.push(self.debug_select_frame(i)),
                 Request::DebugVariables(reference) => {
                     if let Some(session) = self.debug.session() {
@@ -2335,6 +2342,12 @@ impl App {
             "view.toggle_right" => self.toggle_slot(Slot::Right),
             "view.toggle_bottom" => self.toggle_slot(Slot::Bottom),
             "app.quit" => self.request_quit(),
+            "tasks.run" => self.open_tasks(),
+            "tasks.rerun" => match self.last_task.clone() {
+                Some(task) => self.run_task(task),
+                None => self.open_tasks(),
+            },
+            "tasks.test_here" => self.test_here(),
             _ => {
                 // Comandos de extensão: o prefixo antes do ponto é o id da extensão.
                 let prefix = id.split('.').next().unwrap_or_default();
@@ -3020,7 +3033,56 @@ impl App {
         let Some(chosen) = p.chosen_pick(msg) else { return Task::none() };
         let owner = p.pick_owner;
         self.close_palette();
-        self.call_ext(owner, |e, ctx| e.update(chosen, ctx))
+        match owner {
+            Some(owner) => self.call_ext(owner, |e, ctx| e.update(chosen, ctx)),
+            None => match chosen.downcast_ref::<tasks::TaskDef>() {
+                Some(task) => self.run_task(task.clone()),
+                None => Task::none(),
+            },
+        }
+    }
+
+    /// `Ctrl+Shift+B`: lista das tarefas do projeto (a última rodada vem primeiro).
+    fn open_tasks(&mut self) -> Task<Message> {
+        let mut list = tasks::list(&self.root, &self.config.tasks);
+        if let Some(last) = &self.last_task {
+            match list.iter().position(|t| t == last) {
+                Some(i) => list[..=i].rotate_right(1),
+                None => list.insert(0, last.clone()),
+            }
+        }
+        if list.is_empty() {
+            return self.notify(fl!("tasks-none"));
+        }
+        let mut pick = tea_core::pick::Pick::new(fl!("tasks-placeholder"));
+        for task in list {
+            let detail = if task.command == task.name { String::new() } else { task.command.clone() };
+            pick = pick.item(Some(tea_core::icons::Icon::Terminal), task.name.clone(), detail, task);
+        }
+        self.editor_mut().lose_focus();
+        self.open_palette(Palette::pick(None, pick))
+    }
+
+    /// Manda a tarefa para a extensão do terminal.
+    fn run_task(&mut self, task: tasks::TaskDef) -> Task<Message> {
+        if !self.extensions.iter().any(|e| e.id() == "terminal") {
+            return self.notify(fl!("tasks-no-terminal"));
+        }
+        self.last_task = Some(task.clone());
+        let done = fl!("tasks-done", name = task.name.clone(), code = "{code}");
+        self.broadcast(CoreEvent::RunTask { name: task.name, command: task.command, cwd: task.cwd, done })
+    }
+
+    /// Rust: roda o teste em volta do cursor.
+    fn test_here(&mut self) -> Task<Message> {
+        let Some(path) = self.active_path().map(Path::to_path_buf) else { return self.notify(fl!("tasks-no-test")) };
+        let ed = self.editor();
+        let found = if path.extension().is_some_and(|e| e == "rs") { tasks::rust_test_at(&ed.text(), ed.cursor().0) } else { None };
+        let Some(name) = found else { return self.notify(fl!("tasks-no-test")) };
+        match tasks::rust_test_task(&self.root, &path, &name) {
+            Some(task) => self.run_task(task),
+            None => self.notify(fl!("tasks-no-package")),
+        }
     }
 
     /// `Ctrl+R`: projetos (menos este) e arquivos (menos o ativo) que ainda existem.
@@ -3709,7 +3771,7 @@ mod tests {
         ids.dedup();
         assert_eq!(ids.len(), CORE_COMMANDS.len(), "ids repetidos");
 
-        let ext_commands = ["filetree.toggle", "filetree.reveal", "search.focus", "search.replace", "problems.focus", "problems.next", "terminal.focus", "git.focus", "outline.toggle", "preview.toggle"];
+        let ext_commands = ["filetree.toggle", "filetree.reveal", "search.focus", "search.replace", "problems.focus", "problems.next", "terminal.focus", "git.focus", "outline.toggle", "preview.toggle", "tasks.run", "tasks.rerun"];
         let cfg = Config::from_layers(&[("padrão".into(), config::DEFAULT_CONFIG.into())]);
         for (chord, cmd) in &cfg.keys {
             assert!(ids.contains(&cmd.as_str()) || ext_commands.contains(&cmd.as_str()), "{chord} -> {cmd}");

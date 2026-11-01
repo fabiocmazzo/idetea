@@ -87,6 +87,9 @@ pub enum CoreEvent {
     /// Resposta de [`Request::Replace`]: quantas trocas, em quais arquivos, e os que não deu para mudar
     /// (sem permissão, não é UTF-8...).
     Replaced { count: usize, files: Vec<PathBuf>, failed: Vec<PathBuf> },
+    /// Rodar uma tarefa no terminal (quem cuida é a extensão do terminal): `name` para mostrar, `command`
+    /// para o shell, na pasta `cwd`. `done` é o texto do fim, com `{code}` no lugar do código de saída.
+    RunTask { name: String, command: String, cwd: PathBuf, done: String },
 }
 
 /// O que uma lista de lugares ([`CoreEvent::Locations`]) mostra.

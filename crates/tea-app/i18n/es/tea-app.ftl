@@ -441,3 +441,17 @@ palette-no-items = Nada coincide con la búsqueda
 guide-git-6 = Ramas: { $git-checkout } (o haga clic en el nombre de la rama, en la barra de estado o en el panel Git) lista las ramas, la más reciente primero; las remotas que aún no existen aquí van después y, al elegirlas, se vuelven locales. Escriba un nombre nuevo para crear la rama desde donde está. Los cambios sin commit van con usted; si chocan con la otra rama, git se niega y lo explica.
 
 guide-git-7 = Autor de la línea: en la barra de estado, junto a la rama, aparece quién cambió por última vez la línea del cursor, cuándo y el mensaje del commit (haga clic para ver el hash y copiarlo). Con la pestaña cambiada y sin guardar, desaparece hasta guardar (las líneas del disco pueden no coincidir).
+
+## Tarefas
+cmd-tasks-run = Tareas: ejecutar…
+cmd-tasks-rerun = Tareas: ejecutar la última otra vez
+cmd-tasks-test-here = Rust: ejecutar la prueba en el cursor
+tasks-placeholder = Ejecutar tarea…
+tasks-none = Ninguna tarea: cree una en [tasks] en la configuración, o abra un proyecto con Cargo.toml, package.json o Makefile.
+tasks-no-terminal = Las tareas necesitan la extensión del terminal, que está desactivada.
+tasks-no-test = El cursor no está en una prueba Rust (#[test] fn).
+tasks-no-package = No encontré el Cargo.toml del paquete de este archivo.
+tasks-done = [{ $name } terminó: código { $code } · Enter cierra]
+
+guide-terminal-3 = Tareas: { $tasks-run } lista los comandos del proyecto ([tasks] en la configuración, cargo build/run/test/clippy, scripts de package.json, objetivos del Makefile) y ejecuta el elegido en una pestaña "Tarea" del terminal, sin tocar el shell. Al final aparece el código de salida; Enter la cierra. Ctrl+C detiene solo el comando. { $tasks-rerun } ejecuta la última otra vez.
+guide-terminal-4 = Prueba en el cursor (Rust): con el cursor dentro de un #[test] fn, { $tasks-test_here } ejecuta solo esa prueba (cargo test -p paquete nombre). Sin atajo por defecto: cree uno en [keys] si la usa mucho.

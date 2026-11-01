@@ -67,7 +67,7 @@ const GUIDE: &[(&str, &[&str])] = &[
     ("guide-files", &["guide-files-1", "guide-files-2", "guide-files-3", "guide-files-4", "guide-files-5", "guide-files-6", "guide-files-7", "guide-files-8", "guide-files-9", "guide-files-10", "guide-files-11", "guide-files-12"]),
     ("guide-tree", &["guide-tree-1", "guide-tree-2", "guide-tree-3"]),
     ("guide-bottom", &["guide-bottom-1", "guide-bottom-2", "guide-bottom-3"]),
-    ("guide-terminal", &["guide-terminal-1", "guide-terminal-2"]),
+    ("guide-terminal", &["guide-terminal-1", "guide-terminal-2", "guide-terminal-3", "guide-terminal-4"]),
     ("guide-debug", &["guide-debug-1", "guide-debug-2", "guide-debug-3"]),
     ("guide-git", &["guide-git-1", "guide-git-2", "guide-git-3", "guide-git-4", "guide-git-5", "guide-git-6", "guide-git-7"]),
     ("guide-lsp", &["guide-lsp-1", "guide-lsp-2", "guide-lsp-3", "guide-lsp-4", "guide-lsp-5", "guide-lsp-6", "guide-lsp-7", "guide-lsp-8", "guide-lsp-9", "guide-lsp-10"]),

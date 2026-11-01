@@ -441,3 +441,17 @@ palette-no-items = Nothing matches the search
 guide-git-6 = Branches: { $git-checkout } (or click the branch name, in the status bar or the Git panel) lists branches, most recent first; remote ones that do not exist here come after and become local when chosen. Type a new name to create a branch from where you are. Uncommitted changes come along; if they clash with the other branch, git refuses and explains.
 
 guide-git-7 = Line author: in the status bar, next to the branch, you see who last changed the cursor line, when, and the commit message (click to see the hash and copy it). While the tab has unsaved changes it hides until you save (disk lines may not match).
+
+## Tarefas
+cmd-tasks-run = Tasks: run…
+cmd-tasks-rerun = Tasks: run the last one again
+cmd-tasks-test-here = Rust: run the test at the cursor
+tasks-placeholder = Run task…
+tasks-none = No tasks: add one under [tasks] in the config, or open a project with Cargo.toml, package.json or Makefile.
+tasks-no-terminal = Tasks need the terminal extension, which is turned off.
+tasks-no-test = The cursor is not in a Rust test (#[test] fn).
+tasks-no-package = Could not find the Cargo.toml of this file's package.
+tasks-done = [{ $name } finished: code { $code } · Enter closes]
+
+guide-terminal-3 = Tasks: { $tasks-run } lists the project commands ([tasks] in the config, cargo build/run/test/clippy, package.json scripts, Makefile targets) and runs the chosen one in a "Task" tab of the terminal, without touching the shell. At the end the exit code shows up; Enter closes it. Ctrl+C stops only the command. { $tasks-rerun } runs the last one again.
+guide-terminal-4 = Test at the cursor (Rust): with the cursor inside a #[test] fn, { $tasks-test_here } runs just that test (cargo test -p package name). No default key: add one under [keys] if you use it a lot.
