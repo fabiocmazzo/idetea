@@ -8,3 +8,5 @@ pdf-page = Página { $current } de { $total }
 pdf-fit = Ajustar
 pdf-encrypted = PDF protegido por senha (ainda não suportado)
 pdf-invalid = arquivo inválido ou danificado
+
+language-image = Imagem

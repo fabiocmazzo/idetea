@@ -608,6 +608,44 @@ Entregas: (1) base → (2) núcleo e app → (3) extensões → (4) traduções 
     certo (ex.: Ctrl+Shift+P em "Getting started"); repetir com Español; voltar para Automático e ver o guia
     em português.
 
+### IDE básica (antes dos plugins)
+
+O que mais falta no uso diário. Cada item é uma entrega com teste manual; a ordem é a sugerida.
+
+- [x] **Sessão:** ao abrir um projeto, voltam as abas (com a posição do cursor), a aba ativa, os painéis abertos
+  e o tamanho da janela.
+  - Um arquivo por projeto em `$XDG_STATE_HOME/idetea/sessions/` (fora do projeto: nada para o git). O tamanho
+    da janela fica no `state.toml`, que vale para todos.
+  - Grava ao sair e sempre que as abas ou os painéis mudam (um travamento perde no máximo o cursor).
+  - `idetea arquivo...` abre só os arquivos pedidos, sem a sessão (uso rápido no terminal). `idetea pasta`
+    restaura a sessão daquela pasta.
+  - Abas sem nome e arquivos que sumiram ficam de fora. `[ui] restore_session = false` desliga (também em
+    Configurações → Aparência).
+  - Painéis restaurados não recebem "painel apareceu" (o terminal e a busca pegariam o teclado): o terminal
+    restaurado mostra o botão "Iniciar terminal"; o git se atualiza sozinho ao achar o repositório.
+  - Custo (release): cerca de 12 ms por aba na abertura (lê e colore o arquivo); com 2 abas, 22 → 50 ms.
+    Se pesar com muitas abas, as de fundo podem carregar só quando forem clicadas.
+  - [x] Teste manual (aprovado): abrir 3 arquivos, mover o cursor, deixar outro ativo, abrir Git e Estrutura, mudar o
+    tamanho da janela; sair e abrir de novo: tudo volta. `idetea Cargo.toml` abre só ele. Desligar em
+    Configurações e reabrir: abre vazio.
+- [ ] **Recentes:** "Abrir recente" na paleta, com projetos e arquivos.
+- [ ] **Recuperar não salvos:** cópia das abas alteradas enquanto se digita; depois de um travamento, a IDE
+  oferece recuperar.
+- [ ] **Renomear símbolo (F2):** o LSP renomeia no projeto inteiro, com prévia.
+- [ ] **Substituir no projeto:** "substituir" e "substituir tudo" no painel Busca, com prévia.
+- [ ] **Editor e salvar:** quebra de linha, mostrar espaços e guias de recuo nas Configurações (o widget já
+  tem); ao salvar, tirar espaços no fim das linhas, garantir a linha final e formatar (opcional);
+  `.editorconfig` (tamanho do tab, espaços ou tabs).
+- [ ] **Dica de parâmetros:** a assinatura da função aparece ao digitar `(` (signature help do LSP).
+- [ ] **Git:** marcas na margem nas linhas alteradas (clique mostra o diff), trocar e criar branch, blame da
+  linha atual.
+- [ ] **Tarefas:** rodar `cargo run`/`cargo test` ou um comando do config, com a saída no terminal; no Rust,
+  "rodar este teste".
+- [ ] **Editor dividido:** dois arquivos lado a lado.
+- [ ] **Distribuição:** `.desktop` com ícone, `cargo install`, AppImage ou Flatpak; CI no GitHub (testes,
+  clippy e o executável a cada versão).
+- [ ] **Arquivos grandes:** medir com um arquivo de 50 MB e com uma linha gigante (objetivo "não trava").
+
 ### Fase 4 — Plugins externos (melhoria futura)
 
 Adiado: prévias de arquivos (Markdown, SVG, imagem, PDF) vêm antes.

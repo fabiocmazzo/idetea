@@ -233,14 +233,14 @@ impl Editor {
         (l + 1, c + 1)
     }
 
-    pub fn language(&self) -> &'static str {
+    pub fn language(&self) -> String {
         if self.image.is_some() {
-            return "Imagem";
+            return fl!("language-image");
         }
         if self.pdf.is_some() {
-            return "PDF";
+            return "PDF".into();
         }
-        self.inner.syntax_name()
+        self.inner.syntax_name().to_string()
     }
 
     pub fn line_ending(&self) -> LineEnding {

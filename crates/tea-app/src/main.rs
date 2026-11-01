@@ -25,6 +25,7 @@ mod picker;
 mod settings;
 mod pass_keys;
 mod splash;
+mod session;
 mod ui_state;
 mod watcher;
 
@@ -70,12 +71,14 @@ fn main() -> iced::Result {
         }
         cli::Cli::Run(launch) => {
             let _ = LAUNCH.set(launch);
+            let saved = ui_state::UiState::load(ui_state::state_path().as_deref());
             iced::application(App::boot, App::update, App::view)
                 .title(App::title)
                 .subscription(App::subscription)
                 .theme(App::theme)
                 .font(tea_core::icons::FONT_BYTES)
                 .window(window::Settings {
+                    size: saved.window().unwrap_or(window::Settings::default().size),
                     platform_specific: window::settings::PlatformSpecific {
                         application_id: APP_ID.into(),
                         ..Default::default()
@@ -328,6 +331,9 @@ struct App {
     state_path: Option<PathBuf>,
     window_size: Option<iced::Size>,
     last_status: EditorStatus,
+    /// Onde gravar a sessão do projeto (`None`: desligada ou `idetea arquivo...`) e a última gravada.
+    session_path: Option<PathBuf>,
+    session_saved: Option<session::Session>,
 }
 
 #[derive(Debug, Clone)]
@@ -396,6 +402,10 @@ impl App {
 
         let show_splash = config.ui.splash && !launch.no_splash;
         let state_path = ui_state::state_path();
+        // `idetea arquivo...` é uso rápido: abre só o pedido e não mexe na sessão do projeto.
+        let session_path =
+            (config.ui.restore_session && launch.files.is_empty()).then(|| session::path_for(&root)).flatten();
+        let restored = session_path.as_deref().and_then(|p| session::Session::load(p, &root));
         let builtin = builtin_extensions();
         let all_extensions: Vec<&'static str> = builtin.iter().map(|e| e.id()).collect();
         let extensions = builtin.into_iter().filter(|e| config.extension(e.id()).enabled).collect();
@@ -439,6 +449,8 @@ impl App {
             ui_state: ui_state::UiState::load(state_path.as_deref()),
             state_path,
             window_size: None,
+            session_path,
+            session_saved: None,
             last_status: EditorStatus::default(),
             nav: nav::History::default(),
             outline_seen: (u64::MAX, 0),
@@ -463,6 +475,10 @@ impl App {
         for file in launch.files.clone() {
             tasks.push(app.open_file(file));
         }
+        if let Some(s) = restored {
+            tasks.push(app.restore_session(s));
+        }
+        app.session_saved = Some(app.session_snapshot());
         tasks.push(app.emit_status(true));
 
         let mut problems: Vec<String> = launch.warnings.iter().map(ToString::to_string).collect();
@@ -616,7 +632,7 @@ impl App {
             path: ed.path().map(Path::to_path_buf),
             line,
             column,
-            language: ed.language().to_string(),
+            language: ed.language(),
             modified: ed.is_modified(),
             encoding: "UTF-8",
             line_ending: ed.line_ending().label(),
@@ -983,6 +999,65 @@ impl App {
         let tab_id = self.tabs[self.active].id;
         let goto = self.editor_mut().goto(line, column).map(move |m| Message::Editor(tab_id, m));
         Task::batch([open, goto, self.emit_status(false)])
+    }
+
+    // ---- Sessão -------------------------------------------------------------
+
+    /// Abas, aba ativa e painéis de agora (abas sem nome ficam de fora).
+    fn session_snapshot(&self) -> session::Session {
+        let tabs: Vec<session::SessionTab> = self
+            .tabs
+            .iter()
+            .filter_map(|t| {
+                let path = t.editor.path()?.to_path_buf();
+                let (line, column) = t.editor.cursor();
+                Some(session::SessionTab { path, line, column })
+            })
+            .collect();
+        let active = self.active_path().and_then(|p| tabs.iter().position(|t| t.path == p)).unwrap_or(0);
+        session::Session {
+            root: self.root.clone(),
+            active,
+            bottom: self.active_bottom.and_then(|i| self.panels.get(i)).map(|p| p.id.0.to_string()),
+            panels: self.panels.iter().filter(|p| p.slot != Slot::Status).map(|p| (p.id.0.to_string(), p.visible)).collect(),
+            tabs,
+        }
+    }
+
+    /// Grava a sessão se as abas ou os painéis mudaram (`force`: sempre, com o cursor de agora).
+    fn save_session(&mut self, force: bool) {
+        let Some(path) = &self.session_path else { return };
+        let now = self.session_snapshot();
+        if !force && self.session_saved.as_ref().is_some_and(|s| s.same_shape(&now)) {
+            return;
+        }
+        now.save(path);
+        self.session_saved = Some(now);
+    }
+
+    /// Reabre o projeto como estava: painéis, abas (com o cursor) e a aba ativa.
+    fn restore_session(&mut self, s: session::Session) -> Task<Message> {
+        for p in self.panels.iter_mut().filter(|p| p.slot != Slot::Status) {
+            if let Some(visible) = s.panels.get(p.id.0) {
+                p.visible = *visible;
+            }
+        }
+        let bottom = s.bottom.as_deref().and_then(|b| {
+            self.panels.iter().position(|p| p.id.0 == b && p.slot == Slot::Bottom && p.visible)
+        });
+        match bottom {
+            Some(i) => self.active_bottom = Some(i),
+            None => self.apply_panel_slots(),
+        }
+        let active = s.tabs.get(s.active).map(|t| t.path.clone());
+        let mut tasks = Vec::new();
+        for t in s.tabs.into_iter().filter(|t| t.path.is_file()) {
+            tasks.push(self.open_file_at(t.path, t.line, t.column));
+        }
+        if let Some(path) = active.filter(|p| p.is_file()) {
+            tasks.push(self.open_file(path));
+        }
+        Task::batch(tasks)
     }
 
     // ---- Navegação ---------------------------------------------------------
@@ -1899,6 +1974,11 @@ impl App {
     }
 
     fn quit(&mut self) -> Task<Message> {
+        self.save_session(true);
+        if let Some(size) = self.window_size {
+            self.ui_state.set_window(size);
+            self.ui_state.save(self.state_path.as_deref());
+        }
         self.lsp.shutdown_all();
         self.debug.stop();
         iced::exit()
@@ -2283,6 +2363,7 @@ impl App {
                 self.edit_config(|f| f.set_font_size(v))
             }
             M::Splash(on) => self.edit_config(|f| f.set_splash(on)),
+            M::RestoreSession(on) => self.edit_config(|f| f.set_restore_session(on)),
             M::ActivityBar(on) => self.edit_config(|f| f.set_activity_bar(on)),
             M::Language(choice) => self.edit_config(|f| f.set_language(choice.tag())),
             M::ExtEnabled(id, on) => self.edit_config(|f| f.set_extension_enabled(&id, on)),
@@ -2576,6 +2657,12 @@ impl App {
     // ---- Loop do iced ------------------------------------------------------
 
     fn update(&mut self, message: Message) -> Task<Message> {
+        let task = self.handle(message);
+        self.save_session(false);
+        task
+    }
+
+    fn handle(&mut self, message: Message) -> Task<Message> {
         match message {
             Message::Editor(id, msg) => {
                 let Some(i) = self.tab_index(id) else { return Task::none() };

@@ -39,6 +39,7 @@ pub enum Msg {
     Theme(ThemeChoice),
     FontSize(f32),
     Splash(bool),
+    RestoreSession(bool),
     ActivityBar(bool),
     Language(LanguageChoice),
     ExtEnabled(String, bool),
@@ -364,6 +365,11 @@ fn appearance(config: &Config) -> Element<'_, Msg> {
             fl!("settings-splash"),
             fl!("settings-splash-detail"),
             toggler(config.ui.splash).on_toggle(Msg::Splash).into()
+        ),
+        setting_owned(
+            fl!("settings-restore-session"),
+            fl!("settings-restore-session-detail"),
+            toggler(config.ui.restore_session).on_toggle(Msg::RestoreSession).into()
         ),
     ]
     .spacing(4)

@@ -346,3 +346,7 @@ guide-config-1 = The settings screen ({ $settings-open }) changes theme, font, e
 guide-config-2 = There is a global config and one per project (`.idetea/config.toml`); the project one wins. To edit the file directly: "Config: open global config" or "Config: open project config". On save, everything reloads.
 guide-config-3 = Shortcuts live in [keys]: "ctrl+alt+t" = "terminal.focus". Empty text turns off a default shortcut. Command ids show in the Shortcuts tab.
 guide-config-4 = Language: Settings → Appearance → Language (Automatic follows the system). Takes effect after restarting the IDE.
+
+## Sessão
+settings-restore-session = Reopen as it was
+settings-restore-session-detail = When a project opens, its tabs, cursor and panels come back. idetea file... opens just the file.

@@ -25,6 +25,8 @@ font_size = 14
 activity_bar = true
 # Idioma da interface: "auto" (o do sistema), "pt-BR", "en" ou "es". Vale ao reiniciar.
 language = "auto"
+# Reabrir as abas e os painéis de cada projeto como estavam (não vale para `idetea arquivo...`).
+restore_session = true
 
 # Servidores de linguagem (LSP). Embutidos: rust-analyzer, clangd, pyright,
 # typescript, gopls, lua. Só iniciam se o comando existir no PATH.
@@ -110,11 +112,20 @@ pub struct UiConfig {
     pub activity_bar: bool,
     /// `"auto"` (o do sistema), `"pt-BR"`, `"en"` ou `"es"`. Vale ao reiniciar.
     pub language: String,
+    /// Reabrir as abas e os painéis do projeto como estavam.
+    pub restore_session: bool,
 }
 
 impl Default for UiConfig {
     fn default() -> Self {
-        Self { splash: true, theme: "dark".into(), font_size: 14.0, activity_bar: true, language: "auto".into() }
+        Self {
+            splash: true,
+            theme: "dark".into(),
+            font_size: 14.0,
+            activity_bar: true,
+            language: "auto".into(),
+            restore_session: true,
+        }
     }
 }
 

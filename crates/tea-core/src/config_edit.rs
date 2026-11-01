@@ -82,6 +82,10 @@ impl ConfigFile {
         self.section("ui")["language"] = value(tag);
     }
 
+    pub fn set_restore_session(&mut self, on: bool) {
+        self.section("ui")["restore_session"] = value(on);
+    }
+
     pub fn set_activity_bar(&mut self, on: bool) {
         self.section("ui")["activity_bar"] = value(on);
     }

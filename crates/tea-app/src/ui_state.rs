@@ -19,11 +19,23 @@ pub struct UiState {
     pub left_width: f32,
     pub right_width: f32,
     pub bottom_height: f32,
+    /// Tamanho da janela ao sair (0 = ainda não salvo: fica o padrão).
+    pub window_width: f32,
+    pub window_height: f32,
 }
+
+/// Janela menor que isso não volta (provavelmente um valor estragado).
+const MIN_WINDOW: (f32, f32) = (400.0, 300.0);
 
 impl Default for UiState {
     fn default() -> Self {
-        Self { left_width: DEFAULT_SIDE, right_width: DEFAULT_SIDE, bottom_height: DEFAULT_BOTTOM }
+        Self {
+            left_width: DEFAULT_SIDE,
+            right_width: DEFAULT_SIDE,
+            bottom_height: DEFAULT_BOTTOM,
+            window_width: 0.0,
+            window_height: 0.0,
+        }
     }
 }
 
@@ -46,12 +58,25 @@ impl UiState {
         }
     }
 
+    /// Tamanho da janela salvo, se houver.
+    pub fn window(&self) -> Option<iced::Size> {
+        (self.window_width > 0.0 && self.window_height > 0.0).then(|| iced::Size::new(self.window_width, self.window_height))
+    }
+
+    pub fn set_window(&mut self, size: iced::Size) {
+        if size.width >= MIN_WINDOW.0 && size.height >= MIN_WINDOW.1 {
+            (self.window_width, self.window_height) = (size.width, size.height);
+        }
+    }
+
     fn sanitized(self) -> Self {
         let ok = |v: f32, min: f32, default: f32| if v.is_finite() && v >= min { v } else { default };
         Self {
             left_width: ok(self.left_width, MIN_SIDE, DEFAULT_SIDE),
             right_width: ok(self.right_width, MIN_SIDE, DEFAULT_SIDE),
             bottom_height: ok(self.bottom_height, MIN_BOTTOM, DEFAULT_BOTTOM),
+            window_width: ok(self.window_width, MIN_WINDOW.0, 0.0),
+            window_height: ok(self.window_height, MIN_WINDOW.1, 0.0),
         }
     }
 }
@@ -77,13 +102,15 @@ mod tests {
     #[test]
     fn roundtrip_and_bad_values() {
         let path = std::env::temp_dir().join(format!("idetea-state-{}", std::process::id())).join("state.toml");
-        let s = UiState { left_width: 300.0, right_width: 200.0, bottom_height: 400.0 };
+        let s = UiState { left_width: 300.0, right_width: 200.0, bottom_height: 400.0, window_width: 1200.0, window_height: 800.0 };
         s.save(Some(&path));
         assert_eq!(UiState::load(Some(&path)), s);
         std::fs::write(&path, "left_width = 5\nbottom_height = \"x\"").unwrap();
         assert_eq!(UiState::load(Some(&path)), UiState::default(), "arquivo estragado: padrões");
         std::fs::write(&path, "left_width = 10").unwrap();
         assert_eq!(UiState::load(Some(&path)).left_width, DEFAULT_SIDE, "abaixo do mínimo: padrão");
+        std::fs::write(&path, "window_width = 50\nwindow_height = 800").unwrap();
+        assert_eq!(UiState::load(Some(&path)).window(), None, "janela minúscula: padrão");
         let _ = std::fs::remove_dir_all(path.parent().unwrap());
     }
 
