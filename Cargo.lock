@@ -5131,6 +5131,7 @@ dependencies = [
  "i18n-embed",
  "i18n-embed-fl",
  "iced",
+ "regex",
  "rust-embed",
  "serde",
  "sys-locale",

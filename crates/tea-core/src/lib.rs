@@ -28,6 +28,7 @@ pub mod icons;
 pub mod menu;
 pub mod outline;
 pub mod os;
+pub mod replace;
 pub mod keymap;
 
 /// Onde um painel aparece na janela.
@@ -82,6 +83,9 @@ pub enum CoreEvent {
     /// pedidas). Chega ao trocar de aba e um instante depois de parar de digitar. Arquivo ativo de
     /// outro tipo: só [`CoreEvent::ActiveFileChanged`].
     ActiveText { path: PathBuf, text: Arc<str> },
+    /// Resposta de [`Request::Replace`]: quantas trocas, em quais arquivos, e os que não deu para mudar
+    /// (sem permissão, não é UTF-8...).
+    Replaced { count: usize, files: Vec<PathBuf>, failed: Vec<PathBuf> },
 }
 
 /// O que uma lista de lugares ([`CoreEvent::Locations`]) mostra.
@@ -204,6 +208,9 @@ pub enum Request {
     WatchText(Vec<String>),
     /// Árvore de chamadas: pede os filhos de um nó (resposta em [`calls::Event::Children`]).
     CallChildren { node: u64, direction: calls::Direction },
+    /// Substitui em vários arquivos: abas abertas mudam na memória (dá para desfazer), os outros são
+    /// gravados no disco. A resposta chega em [`CoreEvent::Replaced`].
+    Replace(replace::Replace),
 }
 
 /// Botão no canto da barra de abas, que aparece só quando o arquivo ativo é de certos tipos
@@ -397,6 +404,10 @@ impl<'a> Context<'a> {
     /// Pede quem chama o nó (ou quem ele chama). A resposta chega em [`calls::Event::Children`].
     pub fn call_children(&mut self, node: u64, direction: calls::Direction) {
         self.requests.push(Request::CallChildren { node, direction });
+    }
+
+    pub fn replace(&mut self, replace: replace::Replace) {
+        self.requests.push(Request::Replace(replace));
     }
 
     pub fn into_requests(self) -> Vec<Request> {

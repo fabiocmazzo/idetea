@@ -6,7 +6,7 @@ use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 
 use ignore::WalkState;
-use regex::{Regex, RegexBuilder};
+use regex::Regex;
 
 /// Limite de resultados para a UI continuar leve.
 pub const MAX_MATCHES: usize = 2_000;
@@ -47,14 +47,16 @@ pub struct Results {
     pub cancelled: bool,
 }
 
-/// Monta a regex da busca. Erro = regex inválida (mensagem para o usuário).
-pub fn build_matcher(query: &str, opts: &Options) -> Result<Regex, String> {
+/// A regex da busca em texto (com `(?i)` se não diferencia maiúsculas): é o que vai para o app ao substituir.
+pub fn pattern(query: &str, opts: &Options) -> String {
     let pattern = if opts.regex { query.to_string() } else { regex::escape(query) };
     let pattern = if opts.whole_word { format!(r"\b(?:{pattern})\b") } else { pattern };
-    RegexBuilder::new(&pattern)
-        .case_insensitive(!opts.case_sensitive)
-        .size_limit(10 * (1 << 20))
-        .build()
+    if opts.case_sensitive { pattern } else { format!("(?i){pattern}") }
+}
+
+/// Monta a regex da busca. Erro = regex inválida (mensagem para o usuário).
+pub fn build_matcher(query: &str, opts: &Options) -> Result<Regex, String> {
+    tea_core::replace::build(&pattern(query, opts))
         .map_err(|e| match e {
             regex::Error::Syntax(s) => s.lines().last().unwrap_or("invalid regex").trim().to_string(),
             other => other.to_string(),

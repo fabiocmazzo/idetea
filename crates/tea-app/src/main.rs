@@ -653,6 +653,7 @@ impl App {
                 Request::CallChildren { node, direction } => {
                     self.calls.request(node, direction);
                 }
+                Request::Replace(replace) => tasks.push(self.replace_in_files(&replace)),
                 Request::PanelIcon { id, icon } => {
                     if let Some(p) = self.panels.iter_mut().find(|p| p.ext == ext && p.id == id) {
                         p.icon = Some(icon);
@@ -1193,6 +1194,63 @@ impl App {
         }
         tasks.push(self.text_later());
         tasks.push(self.notify(fl!("renamed", count = done)));
+        Task::batch(tasks)
+    }
+
+    // ---- Substituir no projeto ---------------------------------------------
+
+    /// Troca em cada arquivo: aberto numa aba, muda o texto da aba (um passo de desfazer, fica para
+    /// salvar); fechado, grava no disco.
+    fn replace_in_files(&mut self, replace: &tea_core::replace::Replace) -> Task<Message> {
+        let (mut count, mut files, mut failed) = (0, Vec::new(), Vec::new());
+        let re = match replace.regex() {
+            Ok(re) => re,
+            Err(e) => return self.notify(e.to_string()),
+        };
+        let mut wrote = false;
+        for target in &replace.targets {
+            let lines = target.lines.as_deref();
+            let tab = self.tabs.iter_mut().find(|t| t.editor.path() == Some(target.path.as_path()));
+            let n = match tab {
+                Some(t) if t.editor.is_image() => None,
+                Some(t) => {
+                    let (new, n) =
+                        tea_core::replace::replace_text(&t.editor.text(), &re, &replace.replacement, replace.expand, lines);
+                    if n > 0 {
+                        t.editor.replace_text(&new);
+                    }
+                    Some(n)
+                }
+                None => std::fs::read_to_string(&target.path).ok().and_then(|text| {
+                    let (new, n) =
+                        tea_core::replace::replace_text(&text, &re, &replace.replacement, replace.expand, lines);
+                    if n == 0 {
+                        return Some(0);
+                    }
+                    wrote = true;
+                    std::fs::write(&target.path, new).ok().map(|()| n)
+                }),
+            };
+            match n {
+                Some(0) => {}
+                Some(n) => {
+                    count += n;
+                    files.push(target.path.clone());
+                }
+                None => failed.push(target.path.clone()),
+            }
+        }
+        let mut tasks = vec![self.text_later()];
+        if wrote {
+            tasks.push(self.broadcast(CoreEvent::FilesChanged));
+        }
+        let note = if failed.is_empty() {
+            fl!("replaced", count = count, files = files.len())
+        } else {
+            fl!("replaced-failed", count = count, files = files.len(), failed = failed.len())
+        };
+        tasks.push(self.notify(note));
+        tasks.push(self.broadcast(CoreEvent::Replaced { count, files, failed }));
         Task::batch(tasks)
     }
 
@@ -3478,7 +3536,7 @@ mod tests {
         ids.dedup();
         assert_eq!(ids.len(), CORE_COMMANDS.len(), "ids repetidos");
 
-        let ext_commands = ["filetree.toggle", "filetree.reveal", "search.focus", "problems.focus", "problems.next", "terminal.focus", "git.focus", "outline.toggle", "preview.toggle"];
+        let ext_commands = ["filetree.toggle", "filetree.reveal", "search.focus", "search.replace", "problems.focus", "problems.next", "terminal.focus", "git.focus", "outline.toggle", "preview.toggle"];
         let cfg = Config::from_layers(&[("padrão".into(), config::DEFAULT_CONFIG.into())]);
         for (chord, cmd) in &cfg.keys {
             assert!(ids.contains(&cmd.as_str()) || ext_commands.contains(&cmd.as_str()), "{chord} -> {cmd}");

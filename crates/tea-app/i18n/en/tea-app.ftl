@@ -401,3 +401,9 @@ renamed =
     }
 
 guide-lsp-9 = Rename: { $lsp-rename } with the cursor on the name. A preview shows how many changes and in which files; once confirmed, they stay changed in their tabs (Ctrl+Z undoes in each) and { $file-save_all } saves them all.
+
+## Substituir no projeto
+replaced = { $count } replacement(s) in { $files } file(s)
+replaced-failed = { $count } replacement(s) in { $files } file(s); { $failed } could not be changed (no permission or not text)
+
+guide-bottom-3 = Replace in project: { $search-replace } (or ▸ next to the search) opens "Replace with". Each result shows how it will look; "Replace" changes the line or the file, and "Replace all" asks first. Files open in tabs stay changed, not saved (Ctrl+Z undoes); the others are written straight to disk.

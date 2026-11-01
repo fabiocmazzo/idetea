@@ -14,3 +14,4 @@ i18n-embed-fl.workspace = true
 rust-embed.workspace = true
 sys-locale.workspace = true
 fluent-syntax.workspace = true
+regex.workspace = true

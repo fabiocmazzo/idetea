@@ -401,3 +401,9 @@ renamed =
     }
 
 guide-lsp-9 = Renomear: { $lsp-rename } com o cursor no nome. Uma prévia mostra quantas mudanças e em quais arquivos; confirmando, eles ficam alterados nas abas (Ctrl+Z desfaz em cada um) e { $file-save_all } grava todos.
+
+## Substituir no projeto
+replaced = { $count } troca(s) em { $files } arquivo(s)
+replaced-failed = { $count } troca(s) em { $files } arquivo(s); { $failed } não deu para mudar (sem permissão ou não é texto)
+
+guide-bottom-3 = Substituir no projeto: { $search-replace } (ou ▸ ao lado da busca) abre "Substituir por". Cada resultado mostra como fica; "Substituir" troca a linha ou o arquivo, e "Substituir tudo" pede confirmação. Arquivos abertos em abas ficam alterados sem salvar (Ctrl+Z desfaz); os outros são gravados direto no disco.

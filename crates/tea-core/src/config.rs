@@ -79,6 +79,7 @@ preview = { enabled = true, slot = "right" }
 "ctrl+b" = "filetree.toggle"
 "ctrl+shift+e" = "filetree.reveal"
 "ctrl+shift+f" = "search.focus"
+"ctrl+shift+h" = "search.replace"
 "ctrl+shift+j" = "view.toggle_bottom"
 "ctrl+shift+m" = "problems.focus"
 "f8" = "problems.next"

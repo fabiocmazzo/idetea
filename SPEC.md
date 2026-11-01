@@ -664,7 +664,21 @@ O que mais falta no uso diário. Cada item é uma entrega com teste manual; a or
   - [x] Teste manual (aprovado, Rust): `F2` numa função usada em outro arquivo, novo nome, Enter: a prévia lista os dois
     arquivos; Renomear: as abas abrem com ●, o código compila depois de `Ctrl+Alt+S`; `Ctrl+Z` numa aba volta o
     nome. `F2` num espaço avisa; Esc na paleta ou Cancelar na prévia não muda nada.
-- [ ] **Substituir no projeto:** "substituir" e "substituir tudo" no painel Busca, com prévia.
+- [x] **Substituir no projeto:** "Busca: substituir no projeto" (`Ctrl+Shift+H`, ou ▸ ao lado da busca) abre
+  "Substituir por" no painel Busca. Cada resultado mostra a linha como fica (antes em vermelho, depois em verde);
+  "Substituir" troca a linha ou o arquivo, "Substituir tudo" (ou Enter no campo) pede confirmação. No modo regex
+  `$1`/`${nome}` valem; fora dele o texto vai como está. A troca é linha a linha, como a busca.
+  A troca é do núcleo (`tea_core::replace`, pedido `Request::Replace`, resposta `CoreEvent::Replaced`): arquivo
+  aberto numa aba muda na memória (um passo de desfazer, fica para salvar; "Arquivo: salvar todos" grava); os
+  outros são gravados direto no disco (sem desfazer — o diálogo avisa). O que foi trocado sai da lista, sem buscar
+  de novo (a busca lê o disco, e as abas ainda não foram salvas). Com a busca rodando ou a regex inválida, os
+  botões ficam desligados.
+  Limites: em aba com alterações, a linha é a do disco (se mudou de lugar, a troca daquela linha pode não achar
+  nada); com a busca cortada em 2000 resultados, "Substituir tudo" só muda os arquivos listados (o diálogo avisa).
+  - [x] Teste manual (aprovado): `Ctrl+Shift+H`, buscar um nome usado em vários arquivos (um deles aberto numa aba),
+    escrever a troca: a prévia aparece em cada linha. "Substituir" numa linha de arquivo fechado: o arquivo
+    muda no disco (Git mostra) e a linha sai da lista. "Substituir tudo": confirma, o aberto fica com ● e
+    `Ctrl+Z` volta; regex `(\w+)_(\w+)` → `$2_$1` troca a ordem.
 - [ ] **Editor e salvar:** quebra de linha, mostrar espaços e guias de recuo nas Configurações (o widget já
   tem); ao salvar, tirar espaços no fim das linhas, garantir a linha final e formatar (opcional);
   `.editorconfig` (tamanho do tab, espaços ou tabs).

@@ -401,3 +401,9 @@ renamed =
     }
 
 guide-lsp-9 = Renombrar: { $lsp-rename } con el cursor en el nombre. Una vista previa muestra cuántos cambios y en qué archivos; al confirmar, quedan cambiados en sus pestañas (Ctrl+Z deshace en cada uno) y { $file-save_all } los guarda todos.
+
+## Substituir no projeto
+replaced = { $count } reemplazo(s) en { $files } archivo(s)
+replaced-failed = { $count } reemplazo(s) en { $files } archivo(s); { $failed } no se pudieron cambiar (sin permiso o no es texto)
+
+guide-bottom-3 = Reemplazar en el proyecto: { $search-replace } (o ▸ junto a la búsqueda) abre "Reemplazar por". Cada resultado muestra cómo queda; "Reemplazar" cambia la línea o el archivo, y "Reemplazar todo" pide confirmación. Los archivos abiertos en pestañas quedan cambiados sin guardar (Ctrl+Z deshace); los demás se guardan directo en el disco.
