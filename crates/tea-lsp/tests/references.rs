@@ -106,6 +106,22 @@ fn clangd_references_and_at_definition() {
     };
     assert!(refused, "{e:?}");
 
+    // Dica de parâmetros em `soma(1, 2)`: logo depois do `(` é o `a`; depois da vírgula, o `b`.
+    assert!(client.signature_triggers().contains(&'('), "{:?}", client.signature_triggers());
+    let active = |column: u32| {
+        client.signature_help(&file, Position::new(5, column));
+        let Event::SignatureHelp { help, .. } = wait(&|e| matches!(e, Event::SignatureHelp { .. })) else { unreachable!() };
+        let help = help.expect("dica dentro da chamada");
+        let (s, e) = help.active.expect("parâmetro atual");
+        help.label.chars().skip(s).take(e - s).collect::<String>()
+    };
+    assert_eq!(active(17), "int a");
+    assert_eq!(active(20), "int b");
+    // Fora de uma chamada: nada.
+    client.signature_help(&file, Position::new(1, 4));
+    let e = wait(&|e| matches!(e, Event::SignatureHelp { .. }));
+    assert!(matches!(e, Event::SignatureHelp { help: None, .. }), "{e:?}");
+
     client.shutdown();
     let _ = std::fs::remove_dir_all(&dir);
 }

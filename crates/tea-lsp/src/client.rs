@@ -48,12 +48,15 @@ struct State {
     outbox: Vec<Value>,
     progress_titles: HashMap<String, String>,
     alive: bool,
+    /// Caracteres que abrem ou atualizam a dica de parâmetros (`(`, `,`). Vazio: o servidor não dá dica.
+    signature_triggers: Vec<char>,
 }
 
 enum Pending {
     Initialize,
     Hover(PathBuf),
     Completion(PathBuf),
+    SignatureHelp(PathBuf),
     /// De onde pediu (para saber se já estava na declaração).
     Definition { path: PathBuf, position: Position },
     Locations { lookup: Lookup, path: PathBuf, position: Position },
@@ -96,6 +99,7 @@ impl Client {
                 outbox: Vec::new(),
                 progress_titles: HashMap::new(),
                 alive: true,
+                signature_triggers: Vec::new(),
             }),
             child: Mutex::new(Some(child)),
             last_stderr: Mutex::new(Vec::new()),
@@ -176,6 +180,13 @@ impl Client {
                     "synchronization": { "didSave": true, "dynamicRegistration": false },
                     "hover": { "contentFormat": ["markdown", "plaintext"] },
                     "completion": { "completionItem": { "snippetSupport": false } },
+                    "signatureHelp": {
+                        "signatureInformation": {
+                            "documentationFormat": ["plaintext", "markdown"],
+                            "parameterInformation": { "labelOffsetSupport": true },
+                            "activeParameterSupport": true
+                        }
+                    },
                     "definition": { "linkSupport": true },
                     "references": {},
                     "implementation": { "linkSupport": true },
@@ -260,6 +271,16 @@ impl Client {
 
     pub fn hover(&self, path: &Path, position: Position) {
         self.position_request("textDocument/hover", path, position, Pending::Hover(path.to_path_buf()));
+    }
+
+    /// Dica de parâmetros na posição. Resposta em [`Event::SignatureHelp`].
+    pub fn signature_help(&self, path: &Path, position: Position) {
+        self.position_request("textDocument/signatureHelp", path, position, Pending::SignatureHelp(path.to_path_buf()));
+    }
+
+    /// Caracteres que abrem ou atualizam a dica de parâmetros. Vazio antes do handshake ou sem suporte.
+    pub fn signature_triggers(&self) -> Vec<char> {
+        self.inner.lock().signature_triggers.clone()
     }
 
     pub fn completion(&self, path: &Path, position: Position) {
@@ -608,6 +629,8 @@ impl Inner {
                 }
                 // Ex.: "não dá para renomear isto" (palavra-chave, símbolo da biblioteca padrão).
                 Pending::Rename { .. } => return vec![Event::RenameFailed { message: text }],
+                // Erro na dica (ex.: ainda carregando): só some, sem registro.
+                Pending::SignatureHelp(path) => return vec![Event::SignatureHelp { path, help: None }],
                 _ => {}
             }
             return vec![Event::Log { server, text: format!("erro na resposta: {text}") }];
@@ -628,6 +651,7 @@ impl Inner {
                     None => None,
                 };
                 st.incremental = change != Some(1);
+                st.signature_triggers = protocol::signature_triggers(caps);
                 st.ready = true;
                 st.write(notification("initialized", json!({})));
                 for queued in std::mem::take(&mut st.outbox) {
@@ -639,6 +663,7 @@ impl Inner {
                 Some(text) => vec![Event::Hover { path, text }],
                 None => Vec::new(),
             },
+            Pending::SignatureHelp(path) => vec![Event::SignatureHelp { path, help: protocol::signature_help(result) }],
             Pending::Completion(path) => {
                 let items = protocol::completion_items(result);
                 vec![Event::Completion { path, items }]

@@ -42,6 +42,8 @@ enum Msg {
     ToggleBreakpoint(usize),
     /// Aba de PDF (zoom, páginas desenhadas...).
     Pdf(pdf_file::Msg),
+    /// Esc com a dica de parâmetros aberta.
+    CloseSignature,
 }
 
 impl EditorMessage {
@@ -151,6 +153,9 @@ pub struct Editor {
     image: Option<image_file::ImageFile>,
     /// Aba de PDF: como a de imagem, só mostra.
     pdf: Option<pdf_file::PdfFile>,
+    /// Dica de parâmetros: `signature_open` = pedida (o cursor está numa chamada); `signature` = a que aparece.
+    signature_open: bool,
+    signature: Option<tea_lsp::SignatureHelp>,
 }
 
 impl Editor {
@@ -217,6 +222,8 @@ impl Editor {
             exec_line: None,
             image: None,
             pdf: None,
+            signature_open: false,
+            signature: None,
         }
     }
 
@@ -480,6 +487,12 @@ impl Editor {
                         }
                     }
                 }
+                // Dica de parâmetros: abre ao digitar `(` ou `,` (o que o servidor disser); aberta, acompanha o cursor.
+                let typed = match &msg {
+                    Inner::CharacterInput(c) => Some(*c),
+                    _ => None,
+                };
+                let cursor_before = self.inner.cursor_position();
                 // Breakpoints andam junto com o texto quando a edição muda o número de linhas.
                 let before = (!self.breakpoints.is_empty())
                     .then(|| (self.inner.cursor_position().0, marks::last_line(&self.inner)));
@@ -492,7 +505,15 @@ impl Editor {
                 if self.overlay.completion_visible {
                     self.refresh_completion_filter();
                 }
+                let trigger = typed.is_some_and(|c| self.lsp.as_ref().is_some_and(|l| l.client.signature_triggers().contains(&c)));
+                if trigger || (self.signature_open && self.inner.cursor_position() != cursor_before) {
+                    self.request_signature();
+                }
                 task
+            }
+            Msg::CloseSignature => {
+                self.close_signature();
+                Task::none()
             }
             Msg::ToggleBreakpoint(line) => {
                 self.toggle_breakpoint(line);
@@ -563,12 +584,20 @@ impl Editor {
                 self.inner.line_height(),
                 |m| EditorMessage(Msg::Overlay(m)),
             );
-            stack![editor, overlay].into()
+            match self.signature_layer() {
+                Some(signature) => stack![editor, signature, overlay].into(),
+                None => stack![editor, overlay].into(),
+            }
         } else {
             editor
         };
+        // Com o menu de autocomplete aberto, as setas, Enter, Tab e Esc são dele; senão, Esc fecha a dica.
+        let completion = self.overlay.completion_visible;
         KeyGate::new(content)
-            .intercept(self.overlay.completion_visible, |key| {
+            .intercept(completion || self.signature.is_some(), move |key| {
+                if !completion {
+                    return (key == Named::Escape).then_some(EditorMessage(Msg::CloseSignature));
+                }
                 let m = match key {
                     Named::ArrowUp => LspOverlayMessage::CompletionNavigateUp,
                     Named::ArrowDown => LspOverlayMessage::CompletionNavigateDown,
@@ -600,6 +629,81 @@ impl Editor {
         self.overlay.clear_hover();
         self.overlay.clear_completions();
         self.hover = None;
+        self.close_signature();
+    }
+
+    fn request_signature(&mut self) {
+        let (Some(link), Some(path)) = (&self.lsp, &self.path) else { return };
+        let (client, path) = (link.client.clone(), path.clone());
+        self.inner.lsp_flush_pending_changes();
+        let (line, column) = self.inner.cursor_position();
+        client.signature_help(&path, tea_lsp::Position::new(line as u32, column as u32));
+        self.signature_open = true;
+    }
+
+    /// Resposta do servidor. `None` (saiu da chamada, fechou o parêntese): esconde.
+    pub fn show_signature(&mut self, help: Option<tea_lsp::SignatureHelp>) {
+        if !self.signature_open {
+            return;
+        }
+        self.signature_open = help.is_some();
+        self.signature = help;
+    }
+
+    fn close_signature(&mut self) {
+        self.signature_open = false;
+        self.signature = None;
+    }
+
+    /// Caixa da dica, acima do cursor (ou abaixo, sem espaço em cima).
+    fn signature_layer(&self) -> Option<Element<'_, EditorMessage>> {
+        use iced::widget::text::Span;
+        use iced::widget::{column, container, pin, rich_text, span, text};
+        let help = self.signature.as_ref()?;
+        let cursor = self.inner.cursor_screen_position()?;
+        let (lh, fs, cw) = (self.inner.line_height(), self.inner.font_size(), self.inner.char_width().max(1.0));
+        let y = cursor.y - self.inner.viewport_scroll();
+        if y < 0.0 || y > self.inner.viewport_height() {
+            return None;
+        }
+        let palette = self.theme.extended_palette();
+        let chars: Vec<char> = help.label.chars().collect();
+        let (s, e) = help.active.unwrap_or((0, 0));
+        let piece = |a: usize, b: usize| chars[a.min(chars.len())..b.min(chars.len())].iter().collect::<String>();
+        let bold = iced::Font { weight: iced::font::Weight::Bold, ..iced::Font::MONOSPACE };
+        let mut spans: Vec<Span<'_, (), iced::Font>> = Vec::new();
+        if help.count > 1 {
+            spans.push(span(format!("{}/{}  ", help.index + 1, help.count)).color(palette.background.strong.text));
+        }
+        spans.push(span(piece(0, s)).font(iced::Font::MONOSPACE));
+        spans.push(span(piece(s, e)).font(bold).color(palette.primary.strong.color).underline(true));
+        spans.push(span(piece(e, chars.len())).font(iced::Font::MONOSPACE));
+        let mut body = column![rich_text(spans).size(fs)].spacing(4);
+        if let Some(doc) = &help.doc {
+            body = body.push(text(doc.as_str()).size(fs * 0.85).style(text::secondary));
+        }
+
+        // Tamanho estimado (para pôr acima do cursor sem medir): linhas quebram na largura máxima.
+        let pad = 6.0;
+        let max_w = (self.inner.viewport_width() - 16.0).max(120.0);
+        let label_w = (chars.len() + 6) as f32 * cw;
+        let doc_w = help.doc.as_ref().map_or(0.0, |d| d.chars().count() as f32 * cw * 0.85);
+        let width = label_w.max(doc_w.min(max_w)).min(max_w) + pad * 2.0;
+        let lines = |w: f32| (w / (width - pad * 2.0)).ceil().max(1.0);
+        let doc_lines = if help.doc.is_some() { lines(doc_w) * 0.85 + 0.3 } else { 0.0 };
+        let height = (lines(label_w) + doc_lines) * lh + pad * 2.0;
+        let top = if y >= height + 2.0 { y - height - 2.0 } else { y + lh + 2.0 };
+        let left = cursor.x.min(self.inner.viewport_width() - width).max(0.0);
+
+        let card = container(body).padding(pad).max_width(width).style(move |t: &Theme| {
+            let p = t.extended_palette();
+            container::Style {
+                background: Some(p.background.weak.color.into()),
+                border: iced::Border { color: p.primary.weak.color, width: 1.0, radius: 6.0.into() },
+                ..Default::default()
+            }
+        });
+        Some(pin(card).x(left).y(top).into())
     }
 
     /// Nome do servidor ligado, se houver.

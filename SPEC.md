@@ -698,7 +698,17 @@ O que mais falta no uso diário. Cada item é uma entrega com teste manual; a or
     `Ctrl+Z` volta. Um `.md` mantém os dois espaços. Criar `.editorconfig` com `[*.rs]` e `indent_size = 2`,
     salvar: Tab num `.rs` insere 2 espaços. Num Makefile, Tab insere o caractere tab. Com "Formatar ao
     salvar", `Ctrl+S` num `.rs` desarrumado formata e grava.
-- [ ] **Dica de parâmetros:** a assinatura da função aparece ao digitar `(` (signature help do LSP).
+- [x] **Dica de parâmetros:** ao digitar um caractere que o servidor anuncia (`triggerCharacters` e
+  `retriggerCharacters` do `signatureHelpProvider`; sem lista, `(` e `,`), o editor pede
+  `textDocument/signatureHelp`. A caixa aparece acima do cursor (abaixo, sem espaço em cima), com a assinatura e
+  o parâmetro atual em negrito e sublinhado, a documentação do parâmetro (primeiro parágrafo) e `1/2` quando há
+  sobrecargas. Aberta, cada movimento do cursor pede de novo: o parâmetro acompanha, e sai da chamada (ou fecha
+  o parêntese) = o servidor responde vazio e a caixa some. `Esc` fecha (com o autocomplete aberto, o `Esc` é
+  dele). Erro do servidor só esconde. Parâmetro em texto é achado no rótulo em ordem, depois do `(`; em
+  posições, conta UTF-16 (como diz o protocolo).
+  - [x] Teste manual (aprovado, Rust): digitar `soma(` numa chamada de uma função com dois parâmetros: a caixa aparece
+    acima com o primeiro destacado; `1, ` passa para o segundo; `)` fecha. `Esc` no meio fecha. Com o menu de
+    autocomplete aberto, a dica continua em cima e as setas são do menu.
 - [ ] **Git:** marcas na margem nas linhas alteradas (clique mostra o diff), trocar e criar branch, blame da
   linha atual.
 - [ ] **Tarefas:** rodar `cargo run`/`cargo test` ou um comando do config, com a saída no terminal; no Rust,

@@ -431,3 +431,5 @@ settings-format-on-save-detail = Ctrl+S formats with the language server before 
 settings-editorconfig-note = A .editorconfig in the project overrides these options (indent, tabs or spaces, cleanup on save).
 
 guide-config-5 = Editor: the Editor tab in settings ({ $settings-open }) has line wrap, visible whitespace, indent guides, indent size and what to do on save (trim trailing spaces, final newline, format). A .editorconfig in the project overrides them; without one, a file already indented with tabs keeps tabs.
+
+guide-lsp-10 = Parameter hints: typing ( in a call shows the function signature above the cursor, with the current parameter highlighted; it moves on with each comma and goes away when the parenthesis closes or with Esc.

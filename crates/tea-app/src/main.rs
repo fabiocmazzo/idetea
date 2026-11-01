@@ -1743,6 +1743,12 @@ impl App {
                 }
                 Task::none()
             }
+            E::SignatureHelp { path, help } => {
+                if let Some(i) = tab_for(self, &path) {
+                    self.tabs[i].editor.show_signature(help);
+                }
+                Task::none()
+            }
             E::Completion { path, items } => {
                 if self.active_path() == Some(path.as_path()) {
                     self.editor_mut().show_completions(items);

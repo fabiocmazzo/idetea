@@ -126,6 +126,20 @@ pub struct TextEdit {
     pub new_text: String,
 }
 
+/// Assinatura da função sendo chamada, com o parâmetro em que o cursor está.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SignatureHelp {
+    /// Ex.: `fn soma(a: i32, b: i32) -> i32`.
+    pub label: String,
+    /// Onde está o parâmetro atual no `label`, em caracteres (início, fim).
+    pub active: Option<(usize, usize)>,
+    /// Documentação do parâmetro atual (primeiro parágrafo), se houver.
+    pub doc: Option<String>,
+    /// Qual das assinaturas (sobrecargas) é esta, e quantas há.
+    pub index: usize,
+    pub count: usize,
+}
+
 /// Edições num arquivo.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FileEdits {
@@ -146,6 +160,8 @@ pub enum Event {
     Diagnostics { server: String, path: PathBuf, diagnostics: Vec<Diagnostic> },
     Hover { path: PathBuf, text: String },
     Completion { path: PathBuf, items: Vec<CompletionItem> },
+    /// Resposta da dica de parâmetros. `None`: o cursor não está numa chamada (esconder a dica).
+    SignatureHelp { path: PathBuf, help: Option<SignatureHelp> },
     Definition { path: PathBuf, position: Position },
     /// Nenhuma definição encontrada (para avisar o usuário).
     DefinitionNotFound,

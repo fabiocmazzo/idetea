@@ -431,3 +431,5 @@ settings-format-on-save-detail = Ctrl+S formatea con el servidor de lenguaje ant
 settings-editorconfig-note = Un .editorconfig en el proyecto prevalece sobre estas opciones (sangría, tabs o espacios, limpieza al guardar).
 
 guide-config-5 = Editor: la pestaña Editor de la configuración ({ $settings-open }) tiene ajuste de línea, espacios visibles, guías de sangría, tamaño de la sangría y qué hacer al guardar (quitar espacios al final, salto de línea final, formatear). Un .editorconfig en el proyecto prevalece; sin él, un archivo que ya usa tabs sigue con tabs.
+
+guide-lsp-10 = Pistas de parámetros: al escribir ( en una llamada, la firma de la función aparece encima del cursor, con el parámetro actual resaltado; avanza con cada coma y desaparece al cerrar el paréntesis o con Esc.

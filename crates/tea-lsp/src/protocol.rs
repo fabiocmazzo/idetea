@@ -4,7 +4,7 @@
 use serde_json::Value;
 
 use crate::text::{Position, Range};
-use crate::{CompletionItem, DocumentSymbol, Severity};
+use crate::{CompletionItem, DocumentSymbol, Severity, SignatureHelp};
 
 pub fn position(v: &Value) -> Option<Position> {
     Some(Position::new(v.get("line")?.as_u64()? as u32, v.get("character")?.as_u64()? as u32))
@@ -45,6 +45,94 @@ pub fn hover_text(result: &Value) -> Option<String> {
     };
     let text = text.trim().to_string();
     (!text.is_empty()).then_some(text)
+}
+
+/// Dica de parâmetros. Parâmetro em texto é achado no `label` em ordem, depois do `(`: em `fn a(a: i32)`,
+/// o `a` é o de dentro dos parênteses. Em posições `[início, fim]`, elas contam UTF-16.
+pub fn signature_help(result: &Value) -> Option<SignatureHelp> {
+    let signatures = result.get("signatures")?.as_array()?;
+    if signatures.is_empty() {
+        return None;
+    }
+    let as_index = |v: Option<&Value>| v.and_then(Value::as_u64).map(|n| n as usize);
+    let index = as_index(result.get("activeSignature")).unwrap_or(0).min(signatures.len() - 1);
+    let sig = &signatures[index];
+    let label = sig.get("label")?.as_str()?.to_string();
+    let params = sig.get("parameters").and_then(Value::as_array).cloned().unwrap_or_default();
+    let active = as_index(sig.get("activeParameter")).or(as_index(result.get("activeParameter")));
+
+    let mut from = label.find('(').map_or(0, |i| i + 1);
+    let mut spans = Vec::new();
+    for p in &params {
+        let found = match p.get("label") {
+            Some(Value::String(s)) if !s.is_empty() => label[from..].find(s.as_str()).map(|i| (from + i, from + i + s.len())),
+            Some(Value::Array(a)) => match (a.first().and_then(Value::as_u64), a.get(1).and_then(Value::as_u64)) {
+                (Some(s), Some(e)) => utf16_to_byte(&label, s as usize).zip(utf16_to_byte(&label, e as usize)),
+                _ => None,
+            },
+            _ => None,
+        };
+        if let Some((_, end)) = found {
+            from = end;
+        }
+        spans.push(found);
+    }
+    let chars = |byte: usize| label[..byte].chars().count();
+    let current = active.and_then(|i| params.get(i).zip(spans.get(i).copied().flatten()));
+    let doc = current.and_then(|(p, _)| p.get("documentation")).and_then(doc_text);
+    Some(SignatureHelp {
+        active: current.map(|(_, (s, e))| (chars(s), chars(e))),
+        label,
+        doc,
+        index,
+        count: signatures.len(),
+    })
+}
+
+/// Caracteres da dica de parâmetros que o servidor anuncia (`triggerCharacters` e `retriggerCharacters`).
+/// Servidor com a dica mas sem lista: `(` e `,`.
+pub fn signature_triggers(caps: &Value) -> Vec<char> {
+    let Some(provider) = caps.get("signatureHelpProvider").filter(|p| !p.is_null()) else { return Vec::new() };
+    let mut chars: Vec<char> = ["triggerCharacters", "retriggerCharacters"]
+        .iter()
+        .filter_map(|k| provider.get(*k).and_then(Value::as_array))
+        .flatten()
+        .filter_map(Value::as_str)
+        .filter_map(|s| s.chars().next())
+        .collect();
+    if chars.is_empty() {
+        chars = vec!['(', ','];
+    }
+    chars.sort_unstable();
+    chars.dedup();
+    chars
+}
+
+/// Posição em UTF-16 → byte do texto. `None` se passar do fim.
+fn utf16_to_byte(text: &str, units: usize) -> Option<usize> {
+    let mut count = 0;
+    for (byte, c) in text.char_indices() {
+        if count >= units {
+            return Some(byte);
+        }
+        count += c.len_utf16();
+    }
+    (count >= units).then_some(text.len())
+}
+
+/// Documentação (texto ou MarkupContent): o primeiro parágrafo numa linha, até 200 caracteres.
+fn doc_text(v: &Value) -> Option<String> {
+    let text = match v {
+        Value::String(s) => s.as_str(),
+        Value::Object(o) => o.get("value")?.as_str()?,
+        _ => return None,
+    };
+    let first = text.trim().split("\n\n").next()?.split_whitespace().collect::<Vec<_>>().join(" ");
+    if first.is_empty() {
+        return None;
+    }
+    let short: String = first.chars().take(200).collect();
+    Some(if first.chars().count() > 200 { format!("{short}…") } else { short })
 }
 
 /// Itens de autocomplete. Snippets viram texto simples (`${1:x}` → `x`).
@@ -327,6 +415,33 @@ pub fn diagnostics(params: &Value) -> Option<(String, Vec<RawDiagnostic>)> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn signature_help_shapes() {
+        use serde_json::json;
+        let active = |h: &SignatureHelp| h.active.map(|(s, e)| h.label.chars().skip(s).take(e - s).collect::<String>());
+        // Parâmetros em texto: `a` acha o de dentro dos parênteses, não o nome da função.
+        let r = json!({ "signatures": [{ "label": "fn a(a: i32, b: ç) -> i32",
+            "parameters": [{ "label": "a: i32" }, { "label": "b: ç", "documentation": { "kind": "markdown", "value": "O segundo.\n\nMais texto." } }] }],
+            "activeParameter": 1 });
+        let h = signature_help(&r).unwrap();
+        assert_eq!(active(&h).as_deref(), Some("b: ç"));
+        assert_eq!(h.doc.as_deref(), Some("O segundo."));
+        assert_eq!((h.index, h.count), (0, 1));
+        // Posições em UTF-16, `activeParameter` da assinatura vence o de fora; sobrecargas.
+        let r = json!({ "activeSignature": 1, "activeParameter": 0, "signatures": [
+            { "label": "f()" },
+            { "label": "f(ç: int, x: int)", "activeParameter": 1, "parameters": [{ "label": [2, 8] }, { "label": [10, 16] }] }] });
+        let h = signature_help(&r).unwrap();
+        assert_eq!(active(&h).as_deref(), Some("x: int"));
+        assert_eq!((h.index, h.count), (1, 2));
+        assert_eq!(signature_help(&Value::Null), None);
+        assert_eq!(signature_help(&json!({ "signatures": [] })), None);
+
+        assert_eq!(signature_triggers(&json!({ "signatureHelpProvider": { "triggerCharacters": ["(", ","], "retriggerCharacters": [")"] } })), ['(', ')', ',']);
+        assert_eq!(signature_triggers(&json!({ "signatureHelpProvider": {} })), ['(', ',']);
+        assert!(signature_triggers(&json!({})).is_empty());
+    }
 
     #[test]
     fn workspace_edit_both_shapes() {
