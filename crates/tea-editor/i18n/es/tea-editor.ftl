@@ -10,3 +10,22 @@ pdf-encrypted = PDF protegido con contraseña (aún no compatible)
 pdf-invalid = archivo no válido o dañado
 
 language-image = Imagen
+
+## Marcas do git
+hunk-added = 
+    { $count ->
+        [one] 1 línea nueva
+       *[other] { $count } líneas nuevas
+    }
+hunk-modified = 
+    { $count ->
+        [one] 1 línea cambiada; antes era:
+       *[other] { $count } líneas cambiadas; antes era:
+    }
+hunk-deleted = 
+    { $count ->
+        [one] 1 línea borrada:
+       *[other] { $count } líneas borradas:
+    }
+hunk-added-note = No están en el último commit.
+hunk-revert = Deshacer cambio

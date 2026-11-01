@@ -13,6 +13,7 @@ mod key_gate;
 mod pdf_file;
 mod lsp;
 mod marks;
+pub mod quick_diff;
 
 use std::collections::{BTreeSet, HashMap};
 use std::io;
@@ -44,6 +45,10 @@ enum Msg {
     Pdf(pdf_file::Msg),
     /// Esc com a dica de parâmetros aberta.
     CloseSignature,
+    /// Clique na marca do git (índice do trecho), fechar a caixa, desfazer o trecho.
+    OpenHunk(usize),
+    CloseHunk,
+    RevertHunk(usize),
 }
 
 impl EditorMessage {
@@ -156,6 +161,13 @@ pub struct Editor {
     /// Dica de parâmetros: `signature_open` = pedida (o cursor está numa chamada); `signature` = a que aparece.
     signature_open: bool,
     signature: Option<tea_lsp::SignatureHelp>,
+    /// Versão de referência para as marcas do git (o último commit). `None`: sem marcas.
+    diff_base: Option<std::sync::Arc<str>>,
+    hunks: Vec<quick_diff::Hunk>,
+    /// Hash do texto comparado por último (não compara de novo se nada mudou).
+    diff_hash: u64,
+    /// Trecho aberto (clique na marca).
+    hunk_open: Option<usize>,
 }
 
 impl Editor {
@@ -224,6 +236,10 @@ impl Editor {
             pdf: None,
             signature_open: false,
             signature: None,
+            diff_base: None,
+            hunks: Vec::new(),
+            diff_hash: 0,
+            hunk_open: None,
         }
     }
 
@@ -476,6 +492,7 @@ impl Editor {
                         return task;
                     }
                     Inner::MouseClick(_) | Inner::Scrolled(_) => {
+                        self.hunk_open = None;
                         self.hover = None;
                         self.overlay.clear_hover();
                         self.overlay.clear_completions();
@@ -513,6 +530,24 @@ impl Editor {
             }
             Msg::CloseSignature => {
                 self.close_signature();
+                Task::none()
+            }
+            Msg::OpenHunk(i) => {
+                self.hunk_open = (self.hunk_open != Some(i) && i < self.hunks.len()).then_some(i);
+                Task::none()
+            }
+            Msg::CloseHunk => {
+                self.hunk_open = None;
+                Task::none()
+            }
+            Msg::RevertHunk(i) => {
+                if let Some(h) = self.hunks.get(i).cloned() {
+                    let text = quick_diff::revert(&self.inner.content(), &h);
+                    self.replace_text(&text);
+                    self.hunk_open = None;
+                    self.refresh_diff();
+                }
+                self.focus();
                 Task::none()
             }
             Msg::ToggleBreakpoint(line) => {
@@ -571,10 +606,18 @@ impl Editor {
             return pdf.view().map(|m| EditorMessage(Msg::Pdf(m)));
         }
         let widget = self.inner.view().map(|m| EditorMessage(Msg::Widget(m)));
-        let marks = marks::Marks::new(&self.inner, &self.breakpoints, self.exec_line, |line| {
-            EditorMessage(Msg::ToggleBreakpoint(line))
-        });
-        let editor: Element<'_, EditorMessage> = stack![widget, marks].into();
+        let marks = marks::Marks::new(
+            &self.inner,
+            &self.breakpoints,
+            self.exec_line,
+            &self.hunks,
+            |line| EditorMessage(Msg::ToggleBreakpoint(line)),
+            |i| EditorMessage(Msg::OpenHunk(i)),
+        );
+        let editor: Element<'_, EditorMessage> = match self.hunk_layer() {
+            Some(hunk) => stack![widget, marks, hunk].into(),
+            None => stack![widget, marks].into(),
+        };
         let content: Element<'_, EditorMessage> = if self.lsp.is_some() {
             let overlay = view_lsp_overlay(
                 &self.overlay,
@@ -593,10 +636,12 @@ impl Editor {
         };
         // Com o menu de autocomplete aberto, as setas, Enter, Tab e Esc são dele; senão, Esc fecha a dica.
         let completion = self.overlay.completion_visible;
+        let hunk = self.hunk_open.is_some();
         KeyGate::new(content)
-            .intercept(completion || self.signature.is_some(), move |key| {
+            .intercept(completion || self.signature.is_some() || hunk, move |key| {
                 if !completion {
-                    return (key == Named::Escape).then_some(EditorMessage(Msg::CloseSignature));
+                    let close = if hunk { Msg::CloseHunk } else { Msg::CloseSignature };
+                    return (key == Named::Escape).then_some(EditorMessage(close));
                 }
                 let m = match key {
                     Named::ArrowUp => LspOverlayMessage::CompletionNavigateUp,
@@ -630,6 +675,108 @@ impl Editor {
         self.overlay.clear_completions();
         self.hover = None;
         self.close_signature();
+    }
+
+    // ---- Marcas do git ---------------------------------------------------------
+
+    /// Versão de referência (o último commit) para as marcas. `None` (arquivo fora do git, novo): sem marcas.
+    pub fn set_diff_base(&mut self, base: Option<std::sync::Arc<str>>) {
+        let base = base.map(|b| if b.contains("\r\n") { b.replace("\r\n", "\n").into() } else { b });
+        if self.diff_base.as_deref() == base.as_deref() {
+            return;
+        }
+        self.diff_base = base;
+        self.diff_hash = 0;
+        self.refresh_diff();
+    }
+
+    pub fn has_diff_base(&self) -> bool {
+        self.diff_base.is_some()
+    }
+
+    /// Compara de novo com a referência (o app chama um instante depois de parar de digitar).
+    pub fn refresh_diff(&mut self) {
+        let Some(base) = self.diff_base.clone().filter(|_| !self.is_image()) else {
+            self.hunks.clear();
+            self.hunk_open = None;
+            return;
+        };
+        let text = self.inner.content();
+        let hash = {
+            use std::hash::{Hash, Hasher};
+            let mut h = std::collections::hash_map::DefaultHasher::new();
+            text.hash(&mut h);
+            h.finish() | 1
+        };
+        if hash == self.diff_hash {
+            return;
+        }
+        self.diff_hash = hash;
+        let hunks = quick_diff::hunks(&base, &text);
+        if hunks != self.hunks {
+            self.hunk_open = None;
+            self.hunks = hunks;
+        }
+    }
+
+    /// Trechos mudados (para testes e para quem quiser contar).
+    pub fn hunks(&self) -> &[quick_diff::Hunk] {
+        &self.hunks
+    }
+
+    /// Caixa do trecho aberto: como era, e o botão de desfazer. Fica logo abaixo do trecho.
+    fn hunk_layer(&self) -> Option<Element<'_, EditorMessage>> {
+        use iced::widget::{button, column, container, pin, row, scrollable, space, text};
+        let i = self.hunk_open?;
+        let h = self.hunks.get(i)?;
+        let lh = self.inner.line_height();
+        let rows = marks::visible_rows(&self.inner);
+        let last = marks::last_line(&self.inner);
+        let end_line = match h.kind {
+            quick_diff::HunkKind::Deleted => h.start.min(last),
+            _ => h.start + h.len.saturating_sub(1),
+        };
+        let row_y = rows.iter().find(|r| r.line == end_line).map(|r| r.y)?;
+        let fs = self.inner.font_size();
+        let mono = iced::Font::MONOSPACE;
+        let title = match h.kind {
+            quick_diff::HunkKind::Added => fl!("hunk-added", count = h.len),
+            quick_diff::HunkKind::Modified => fl!("hunk-modified", count = h.len),
+            quick_diff::HunkKind::Deleted => fl!("hunk-deleted", count = h.old.len()),
+        };
+        let header = row![
+            text(title).size(fs * 0.85).style(text::secondary),
+            space::horizontal(),
+            button(text(fl!("hunk-revert")).size(fs * 0.85))
+                .on_press(EditorMessage(Msg::RevertHunk(i)))
+                .padding([2, 8])
+                .style(button::secondary),
+            button(text("×").size(fs * 0.9)).on_press(EditorMessage(Msg::CloseHunk)).padding([2, 8]).style(button::text),
+        ]
+        .spacing(6)
+        .align_y(iced::Center);
+        let mut old = column![];
+        for line in h.old.iter().take(200) {
+            old = old.push(text(format!("- {line}")).font(mono).size(fs * 0.9).style(text::danger));
+        }
+        if h.old.is_empty() {
+            old = old.push(text(fl!("hunk-added-note")).size(fs * 0.85).style(text::secondary));
+        }
+        let shown = h.old.len().clamp(1, 12) as f32;
+        let body = scrollable(old).height(iced::Length::Fixed(shown * lh * 0.95 + 4.0));
+        let width = (self.inner.viewport_width() - marks::GUTTER_WIDTH - 12.0).clamp(160.0, 900.0);
+        let card = container(column![header, body].spacing(4)).padding(6).width(width).style(|t: &Theme| {
+            let p = t.extended_palette();
+            container::Style {
+                background: Some(p.background.weak.color.into()),
+                border: iced::Border { color: p.primary.weak.color, width: 1.0, radius: 6.0.into() },
+                ..Default::default()
+            }
+        });
+        let height = shown * lh * 0.95 + 4.0 + fs * 2.2 + 16.0;
+        let below = row_y + lh;
+        let top = if below + height > self.inner.viewport_height() && row_y > height { row_y - height } else { below };
+        Some(pin(card).x(marks::GUTTER_WIDTH).y(top).into())
     }
 
     fn request_signature(&mut self) {
@@ -967,6 +1114,23 @@ fn lsp_position(text: &str, byte: usize) -> iced_code_editor::LspPosition {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn git_marks_and_revert() {
+        let mut ed = Editor::scratch("a\nB\nc\n");
+        assert!(ed.hunks().is_empty(), "sem referência, sem marcas");
+        ed.set_diff_base(Some("a\r\nb\r\nc\r\n".into()));
+        assert_eq!(ed.hunks().len(), 1, "CRLF da referência não conta como mudança");
+        assert_eq!(ed.hunks()[0].kind, quick_diff::HunkKind::Modified);
+        let _ = ed.update(EditorMessage(Msg::OpenHunk(0)));
+        assert_eq!(ed.hunk_open, Some(0));
+        let _ = ed.update(EditorMessage(Msg::RevertHunk(0)));
+        assert_eq!(ed.text(), "a\nb\nc\n");
+        assert!(ed.hunks().is_empty() && ed.hunk_open.is_none());
+        assert!(ed.is_modified(), "desfazer o trecho é uma edição (Ctrl+Z volta)");
+        ed.set_diff_base(None);
+        assert!(!ed.has_diff_base());
+    }
 
     #[test]
     fn tidy_before_save() {

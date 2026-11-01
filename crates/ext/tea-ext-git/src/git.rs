@@ -53,6 +53,14 @@ pub fn discover(dir: &Path) -> Option<Repo> {
     Some(Repo { root, git_dir })
 }
 
+/// O arquivo como está no último commit. `None`: fora do repositório, ainda sem commit, binário ou grande.
+pub fn head_text(repo: &Repo, path: &Path) -> Option<String> {
+    let rel = path.strip_prefix(&repo.root).ok()?.to_string_lossy().replace('\\', "/");
+    let text = run(&repo.root, &["show", &format!("HEAD:{rel}")], &[]).ok()?;
+    let binary = text.as_bytes().iter().take(8192).any(|&b| b == 0);
+    (!binary && text.len() <= 4 * 1024 * 1024).then_some(text)
+}
+
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Status {
     /// `None` = HEAD solto (detached); aí `oid` diz onde está.
@@ -626,6 +634,7 @@ u UU N... 100644 100644 100644 100644 a b c conflito.rs\0\
         run(&dir, &["config", "commit.gpgsign", "false"], &[]).unwrap();
         let repo = discover(&dir).expect("repositório");
         std::fs::write(dir.join("a.txt"), "um\n").unwrap();
+        assert_eq!(head_text(&repo, &dir.join("a.txt")), None, "ainda sem commit");
 
         let st = status(&repo).unwrap();
         assert!(st.entries[0].untracked);
@@ -638,6 +647,9 @@ u UU N... 100644 100644 100644 100644 a b c conflito.rs\0\
         assert_eq!(status(&repo).unwrap().entries[0].staged, Some('A'));
         assert!(commit(&repo, "primeiro").unwrap().ends_with("primeiro"));
         assert!(status(&repo).unwrap().entries.is_empty());
+        assert_eq!(head_text(&repo, &repo.root.join("a.txt")).as_deref(), Some("um\n"));
+        assert_eq!(head_text(&repo, &repo.root.join("novo.txt")), None, "fora do commit");
+        assert_eq!(head_text(&repo, Path::new("/etc/hosts")), None, "fora do repositório");
 
         std::fs::write(dir.join("a.txt"), "um\ndois\n").unwrap();
         let st = status(&repo).unwrap();

@@ -338,6 +338,9 @@ struct App {
     /// Ctrl+S com "formatar ao salvar": a aba espera a resposta do servidor para gravar (e a espera em curso).
     format_save: Option<u64>,
     format_save_wait: u64,
+    /// Versão de referência de cada arquivo para as marcas do git (vem do git; vale ao abrir de novo).
+    diff_bases: std::collections::HashMap<PathBuf, std::sync::Arc<str>>,
+    diff_wait: u64,
     /// Botões da barra de abas por tipo de arquivo (extensão dona, ação).
     file_actions: Vec<(usize, tea_core::FileAction)>,
     /// Quando a própria IDE salvou cada arquivo: o aviso de "mudou no disco" desse save não conta.
@@ -423,6 +426,8 @@ enum Message {
     TextDue(u64),
     /// O servidor demorou para formatar: salva assim mesmo.
     FormatSaveDue(u64),
+    /// Hora de comparar o arquivo ativo com o último commit (só a última espera vale).
+    DiffDue(u64),
     /// Passou a espera depois de digitar na busca de símbolos do projeto.
     SymbolQueryDue(u64),
     /// Botões voltar/avançar do mouse (`true` = avançar).
@@ -513,6 +518,8 @@ impl App {
             text_wait: 0,
             format_save: None,
             format_save_wait: 0,
+            diff_bases: std::collections::HashMap::new(),
+            diff_wait: 0,
             file_actions: Vec::new(),
             config,
         };
@@ -662,6 +669,15 @@ impl App {
                     self.calls.request(node, direction);
                 }
                 Request::Replace(replace) => tasks.push(self.replace_in_files(&replace)),
+                Request::DiffBase { path, text } => {
+                    for t in self.tabs.iter_mut().filter(|t| t.editor.path() == Some(path.as_path())) {
+                        t.editor.set_diff_base(text.clone());
+                    }
+                    match text {
+                        Some(text) => self.diff_bases.insert(path, text),
+                        None => self.diff_bases.remove(&path),
+                    };
+                }
                 Request::PanelIcon { id, icon } => {
                     if let Some(p) = self.panels.iter_mut().find(|p| p.ext == ext && p.id == id) {
                         p.icon = Some(icon);
@@ -710,6 +726,9 @@ impl App {
 
     /// Tema, fonte e opções do editor (config `[editor]` + `.editorconfig`).
     fn style_editor(&self, editor: &mut Editor) {
+        if let Some(base) = editor.path().and_then(|p| self.diff_bases.get(p)) {
+            editor.set_diff_base(Some(base.clone()));
+        }
         editor.set_theme(&self.theme);
         editor.set_font_size(self.config.ui.font_size);
         editor.set_options(&self.editor_options(editor));
@@ -1647,6 +1666,18 @@ impl App {
         let text: std::sync::Arc<str> = text.into();
         self.text_sent = Some((path.clone(), text.clone()));
         self.broadcast(CoreEvent::ActiveText { path, text })
+    }
+
+    /// Compara com o último commit daqui a pouco (cada edição adia; só a última espera vale).
+    fn diff_later(&mut self) -> Task<Message> {
+        self.diff_wait += 1;
+        let wait = self.diff_wait;
+        let (tx, rx) = iced::futures::channel::oneshot::channel();
+        std::thread::spawn(move || {
+            std::thread::sleep(Duration::from_millis(300));
+            let _ = tx.send(wait);
+        });
+        Task::future(async move { rx.await.ok() }).and_then(|wait| Task::done(Message::DiffDue(wait)))
     }
 
     /// Manda o texto daqui a pouco (cada edição adia; só a última espera vale).
@@ -3148,7 +3179,8 @@ impl App {
                     Task::none()
                 };
                 let text = if !hover && self.watching_active_text() { self.text_later() } else { Task::none() };
-                Task::batch([task, self.emit_status(false), outline, text])
+                let diff = if !hover && self.tabs[i].editor.has_diff_base() { self.diff_later() } else { Task::none() };
+                Task::batch([task, self.emit_status(false), outline, text, diff])
             }
             // O foco do editor sai por clique no painel (`MousePressed`) ou por comando,
             // não aqui: painéis também mandam mensagens sozinhos (ex.: terminal ao mudar de tamanho).
@@ -3261,6 +3293,12 @@ impl App {
             }
             Message::TextDue(wait) => {
                 if wait == self.text_wait { self.send_active_text() } else { Task::none() }
+            }
+            Message::DiffDue(wait) => {
+                if wait == self.diff_wait {
+                    self.editor_mut().refresh_diff();
+                }
+                Task::none()
             }
             Message::FormatSaveDue(wait) => {
                 if wait == self.format_save_wait && self.format_save.is_some() {

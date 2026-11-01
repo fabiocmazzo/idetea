@@ -433,3 +433,5 @@ settings-editorconfig-note = A .editorconfig in the project overrides these opti
 guide-config-5 = Editor: the Editor tab in settings ({ $settings-open }) has line wrap, visible whitespace, indent guides, indent size and what to do on save (trim trailing spaces, final newline, format). A .editorconfig in the project overrides them; without one, a file already indented with tabs keeps tabs.
 
 guide-lsp-10 = Parameter hints: typing ( in a call shows the function signature above the cursor, with the current parameter highlighted; it moves on with each comma and goes away when the parenthesis closes or with Esc.
+
+guide-git-5 = Gutter marks: left of the line numbers, green = new line, blue = changed, red notch = deleted lines, compared with the last commit (follows your typing, no need to save). Clicking a mark shows how it was, with "Revert change" (Ctrl+Z brings it back).

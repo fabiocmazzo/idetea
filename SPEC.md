@@ -710,7 +710,20 @@ O que mais falta no uso diário. Cada item é uma entrega com teste manual; a or
     acima com o primeiro destacado; `1, ` passa para o segundo; `)` fecha. `Esc` no meio fecha. Com o menu de
     autocomplete aberto, a dica continua em cima e as setas são do menu.
 - [ ] **Git:** marcas na margem nas linhas alteradas (clique mostra o diff), trocar e criar branch, blame da
-  linha atual.
+  linha atual. Em três entregas:
+  - [x] **Marcas na margem:** o git manda a versão do último commit (`git show HEAD:<arquivo>`) de cada
+    arquivo aberto (`Request::DiffBase`; de novo quando o HEAD muda: commit, checkout, pull). O editor compara
+    com o texto da aba (crate `similar`, linha a linha, até 50 ms; 300 ms depois de parar de digitar, sem
+    precisar salvar) e desenha uma faixa à esquerda dos números: verde = nova, azul = mudada, cunha vermelha =
+    apagadas. Clicar na faixa (8 px) abre uma caixa com as linhas antigas e "Desfazer mudança" (volta o
+    trecho na aba, um passo de desfazer); Esc ou clicar no texto fecha. O resto dos números continua sendo
+    dos breakpoints. Sem marcas: arquivo novo (fora do commit), binário, maior que 4 MB, fora do repositório.
+    Compara com o HEAD (não com o stage): pôr no stage não apaga as marcas.
+    - [x] Teste manual (aprovado): abrir um arquivo do repositório, mudar uma linha, acrescentar outra e apagar uma:
+      aparecem azul, verde e a cunha vermelha sem salvar. Clicar na azul: mostra a linha antiga; "Desfazer
+      mudança" volta e `Ctrl+Z` refaz. Commitar pelo painel: as marcas somem.
+  - [ ] Trocar e criar branch.
+  - [ ] Blame da linha atual.
 - [ ] **Tarefas:** rodar `cargo run`/`cargo test` ou um comando do config, com a saída no terminal; no Rust,
   "rodar este teste".
 - [ ] **Editor dividido:** dois arquivos lado a lado.

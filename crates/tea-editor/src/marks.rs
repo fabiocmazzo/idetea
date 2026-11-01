@@ -6,6 +6,9 @@
 //! (`lsp_position_at_point`, que já conhece dobras e quebra de linha). A rolagem vem de
 //! `viewport_scroll`. É o mesmo cálculo que o próprio widget usa para posicionar o hover do LSP.
 //!
+//! Também desenha as marcas do git (linha nova, mudada, apagada) numa faixa fina à esquerda dos números;
+//! clicar nela, numa linha marcada, abre o trecho (o resto dos números continua sendo dos breakpoints).
+//!
 //! A camada só reage ao mouse em cima dos números de linha: no resto ela é "transparente"
 //! (não pega cliques nem o cursor), senão o editor embaixo deixaria de ver o mouse.
 
@@ -17,11 +20,16 @@ use iced::advanced::{Clipboard, Shell, Widget, mouse, renderer};
 use iced::{Color, Element, Event, Length, Point, Rectangle, Size, Theme};
 use iced_code_editor::CodeEditor;
 
+use crate::quick_diff::{Hunk, HunkKind};
+
 /// Largura da coluna dos números de linha no widget (`GUTTER_WIDTH`, privado lá).
 /// Um teste confere que o widget ainda usa esses valores.
 pub(crate) const LINE_NUMBERS_WIDTH: f32 = 45.0;
 /// Números + coluna das dobras (`FOLD_MARGIN_WIDTH` = 14): onde o texto começa.
 pub(crate) const GUTTER_WIDTH: f32 = LINE_NUMBERS_WIDTH + 14.0;
+/// Largura da marca do git e da área de clique dela (um pouco mais larga, para acertar).
+const DIFF_BAR: f32 = 3.0;
+const DIFF_HIT: f32 = 8.0;
 
 /// Uma faixa visível: onde ela está na tela (y relativo ao topo do editor) e qual linha do arquivo mostra.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -88,8 +96,11 @@ pub(crate) struct Marks<'a, M> {
     rows: Vec<Row>,
     breakpoints: &'a BTreeSet<usize>,
     exec_line: Option<usize>,
+    hunks: &'a [Hunk],
+    last_line: usize,
     line_height: f32,
     on_toggle: Box<dyn Fn(usize) -> M + 'a>,
+    on_hunk: Box<dyn Fn(usize) -> M + 'a>,
 }
 
 impl<'a, M> Marks<'a, M> {
@@ -97,15 +108,29 @@ impl<'a, M> Marks<'a, M> {
         editor: &CodeEditor,
         breakpoints: &'a BTreeSet<usize>,
         exec_line: Option<usize>,
+        hunks: &'a [Hunk],
         on_toggle: impl Fn(usize) -> M + 'a,
+        on_hunk: impl Fn(usize) -> M + 'a,
     ) -> Self {
         Self {
             rows: visible_rows(editor),
             breakpoints,
             exec_line,
+            hunks,
+            last_line: if hunks.is_empty() { 0 } else { last_line(editor) },
             line_height: editor.line_height(),
             on_toggle: Box::new(on_toggle),
+            on_hunk: Box::new(on_hunk),
         }
+    }
+
+    /// Trecho do git na posição, se ela estiver na faixa da marca.
+    fn hunk_at(&self, p: Point) -> Option<usize> {
+        if p.x >= DIFF_HIT {
+            return None;
+        }
+        let line = self.line_at(p.y)?;
+        self.hunks.iter().position(|h| h.covers(line, self.last_line))
     }
 
     /// Linha do arquivo na altura `y` (relativo ao topo do editor).
@@ -152,10 +177,14 @@ impl<M, Renderer: renderer::Renderer> Widget<M, Theme, Renderer> for Marks<'_, M
     ) {
         if let Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Left)) = event
             && let Some(p) = self.in_numbers(layout.bounds(), cursor)
-            && let Some(line) = self.line_at(p.y)
         {
-            shell.publish((self.on_toggle)(line));
-            shell.capture_event();
+            if let Some(i) = self.hunk_at(p) {
+                shell.publish((self.on_hunk)(i));
+                shell.capture_event();
+            } else if let Some(line) = self.line_at(p.y) {
+                shell.publish((self.on_toggle)(line));
+                shell.capture_event();
+            }
         }
         // Passar o mouse nos números mostra a bolinha fraca: precisa redesenhar.
         if let Event::Mouse(mouse::Event::CursorMoved { .. }) = event {
@@ -192,12 +221,26 @@ impl<M, Renderer: renderer::Renderer> Widget<M, Theme, Renderer> for Marks<'_, M
         let b = layout.bounds();
         let p = theme.extended_palette();
         let lh = self.line_height;
-        let hovered = self.in_numbers(b, cursor).and_then(|pt| self.line_at(pt.y));
+        let hovered = self.in_numbers(b, cursor).filter(|pt| self.hunk_at(*pt).is_none()).and_then(|pt| self.line_at(pt.y));
         renderer.with_layer(b, |renderer| {
             for row in &self.rows {
                 let top = b.y + row.y;
                 if top + lh < b.y || top > b.y + b.height {
                     continue;
+                }
+                // Marca do git: faixa na linha nova (verde) ou mudada (azul); apagado = cunha vermelha na
+                // borda entre as linhas (em cima da linha de baixo, ou embaixo da última).
+                for h in self.hunks.iter().filter(|h| h.covers(row.line, self.last_line)) {
+                    let (bounds, color) = match h.kind {
+                        HunkKind::Added => (Rectangle { x: b.x, y: top, width: DIFF_BAR, height: lh }, p.success.base.color),
+                        HunkKind::Modified => (Rectangle { x: b.x, y: top, width: DIFF_BAR, height: lh }, p.primary.base.color),
+                        HunkKind::Deleted => {
+                            let at_end = h.start > self.last_line;
+                            let y = if at_end { top + lh - 3.0 } else { top - 2.0 };
+                            (Rectangle { x: b.x, y, width: DIFF_BAR * 2.5, height: 4.0 }, p.danger.base.color)
+                        }
+                    };
+                    renderer.fill_quad(renderer::Quad { bounds, ..renderer::Quad::default() }, color);
                 }
                 if self.exec_line == Some(row.line) {
                     // Faixa por trás do texto (translúcida) e seta na margem.

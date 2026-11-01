@@ -433,3 +433,5 @@ settings-editorconfig-note = Un .editorconfig en el proyecto prevalece sobre est
 guide-config-5 = Editor: la pestaña Editor de la configuración ({ $settings-open }) tiene ajuste de línea, espacios visibles, guías de sangría, tamaño de la sangría y qué hacer al guardar (quitar espacios al final, salto de línea final, formatear). Un .editorconfig en el proyecto prevalece; sin él, un archivo que ya usa tabs sigue con tabs.
 
 guide-lsp-10 = Pistas de parámetros: al escribir ( en una llamada, la firma de la función aparece encima del cursor, con el parámetro actual resaltado; avanza con cada coma y desaparece al cerrar el paréntesis o con Esc.
+
+guide-git-5 = Marcas en el margen: a la izquierda de los números de línea, verde = línea nueva, azul = cambiada, marca roja = líneas borradas, comparando con el último commit (sigue lo que escribe, sin guardar). Al hacer clic en la marca se ve cómo era, con "Deshacer cambio" (Ctrl+Z lo trae de vuelta).

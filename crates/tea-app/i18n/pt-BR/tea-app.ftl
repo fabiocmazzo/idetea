@@ -433,3 +433,5 @@ settings-editorconfig-note = Um .editorconfig no projeto vale mais que estas op�
 guide-config-5 = Editor: na aba Editor das configurações ({ $settings-open }) ficam quebra de linha, espaços visíveis, guias de recuo, tamanho do recuo e o que fazer ao salvar (tirar espaços no fim, quebra de linha final, formatar). Um .editorconfig no projeto vale mais; sem ele, arquivo que já recua com tabs continua com tabs.
 
 guide-lsp-10 = Dica de parâmetros: ao digitar ( numa chamada, a assinatura da função aparece acima do cursor, com o parâmetro atual destacado; muda ao digitar a vírgula e some ao fechar o parêntese ou com Esc.
+
+guide-git-5 = Marcas na margem: à esquerda dos números de linha, verde = linha nova, azul = mudada, tracinho vermelho = linhas apagadas, comparando com o último commit (acompanha a digitação, sem precisar salvar). Clicar na marca mostra como era, com "Desfazer mudança" (Ctrl+Z volta).

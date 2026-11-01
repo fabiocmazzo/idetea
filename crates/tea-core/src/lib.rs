@@ -211,6 +211,9 @@ pub enum Request {
     /// Substitui em vários arquivos: abas abertas mudam na memória (dá para desfazer), os outros são
     /// gravados no disco. A resposta chega em [`CoreEvent::Replaced`].
     Replace(replace::Replace),
+    /// Versão de referência de um arquivo para as marcas na margem (o git manda a do último commit).
+    /// `None`: sem marcas (arquivo novo, fora do repositório).
+    DiffBase { path: PathBuf, text: Option<Arc<str>> },
 }
 
 /// Botão no canto da barra de abas, que aparece só quando o arquivo ativo é de certos tipos
@@ -404,6 +407,10 @@ impl<'a> Context<'a> {
     /// Pede quem chama o nó (ou quem ele chama). A resposta chega em [`calls::Event::Children`].
     pub fn call_children(&mut self, node: u64, direction: calls::Direction) {
         self.requests.push(Request::CallChildren { node, direction });
+    }
+
+    pub fn diff_base(&mut self, path: impl Into<PathBuf>, text: Option<Arc<str>>) {
+        self.requests.push(Request::DiffBase { path: path.into(), text });
     }
 
     pub fn replace(&mut self, replace: replace::Replace) {

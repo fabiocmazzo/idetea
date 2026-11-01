@@ -8,7 +8,7 @@ macro_rules! fl {
 
 mod git;
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::{Duration, SystemTime};
@@ -71,6 +71,8 @@ pub enum Message {
     PushConfirmed { remote: String, branch: String },
     /// Fetch/pull/push terminou. `bool`: era um pull (arquivos podem ter mudado no disco).
     RemoteDone(bool, Arc<Result<Option<String>, String>>),
+    /// Versões do último commit dos arquivos abertos, para as marcas na margem.
+    Bases(Arc<Vec<(PathBuf, Option<String>)>>),
 }
 
 /// Arquivo cujo diff está na tela.
@@ -98,6 +100,10 @@ pub struct GitExtension {
     remote: Option<String>,
     /// Último status enviado à árvore (só reenvia se mudar).
     published: Option<Arc<HashMap<PathBuf, tea_core::FileStatus>>>,
+    /// Arquivos abertos alguma vez (para mandar a versão do último commit de novo quando o HEAD mudar).
+    opened: HashSet<PathBuf>,
+    /// Commit do HEAD na última atualização.
+    head_oid: Option<String>,
 }
 
 /// Roda `f` numa thread e entrega o resultado como mensagem.
@@ -131,6 +137,18 @@ impl GitExtension {
         });
         Task::future(async move { rx.await.ok() })
             .and_then(move |r| Task::done(Message::Refreshed(generation, Arc::new(r))))
+    }
+
+    /// Busca a versão do último commit dos arquivos (numa thread) para as marcas na margem.
+    fn load_bases(&self, paths: Vec<PathBuf>) -> Task<Message> {
+        let Some(repo) = self.repo.clone() else { return Task::none() };
+        if paths.is_empty() {
+            return Task::none();
+        }
+        spawn(
+            move || paths.into_iter().map(|p| { let t = git::head_text(&repo, &p); (p, t) }).collect(),
+            |bases| Message::Bases(Arc::new(bases)),
+        )
     }
 
     fn entry(&self, path: &str) -> Option<&Entry> {
@@ -217,6 +235,9 @@ impl Extension for GitExtension {
             CoreEvent::FileSaved(path) if self.repo.as_ref().is_some_and(|r| path.starts_with(&r.root)) => {
                 self.refresh()
             }
+            CoreEvent::FileOpened(path) | CoreEvent::ActiveFileChanged(Some(path)) => {
+                if self.opened.insert(path.clone()) { self.load_bases(vec![path.clone()]) } else { Task::none() }
+            }
             _ => Task::none(),
         }
     }
@@ -256,6 +277,14 @@ impl Extension for GitExtension {
                 if generation != self.generation {
                     return Task::none();
                 }
+                // HEAD mudou (commit, checkout, pull) ou é a primeira vez: as marcas comparam com outra versão.
+                let mut bases = Task::none();
+                if let Ok(st) = &*result
+                    && (st.oid != self.head_oid || self.status.is_none())
+                {
+                    self.head_oid = st.oid.clone();
+                    bases = self.load_bases(self.opened.iter().cloned().collect());
+                }
                 match &*result {
                     Ok(st) => {
                         self.status = Some(st.clone());
@@ -277,9 +306,15 @@ impl Extension for GitExtension {
                         if sel.staged { e.staged.is_some() } else { e.unstaged.is_some() }
                     });
                     if still {
-                        return self.load_diff(sel.path.clone(), sel.staged);
+                        return Task::batch([bases, self.load_diff(sel.path.clone(), sel.staged)]);
                     }
                     self.selected = None;
+                }
+                return bases;
+            }
+            Message::Bases(bases) => {
+                for (path, text) in bases.iter() {
+                    ctx.diff_base(path.clone(), text.as_deref().map(Arc::from));
                 }
             }
             Message::Select { path, staged } => return self.load_diff(path, staged),
