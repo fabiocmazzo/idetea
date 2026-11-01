@@ -356,3 +356,19 @@ cmd-file-open-recent = Archivo: abrir reciente…
 palette-recent = Proyecto o archivo abierto antes
 palette-no-recent = Nada abierto antes todavía
 guide-files-12 = Abrir reciente: { $file-open_recent } lista los proyectos (se abren en una ventana nueva) y los archivos abiertos por última vez, de todas las ventanas.
+
+## Recuperar não salvos
+untitled-tab = sin título
+recover-title = 
+    { $count ->
+        [one] El IDE se cerró sin guardar 1 archivo
+       *[other] El IDE se cerró sin guardar { $count } archivos
+    }
+recover-detail = Recuperar abre los cambios en pestañas, aún sin guardar (deshacer vuelve a lo que está en el disco). Después pregunta de nuevo la próxima vez.
+recover = Recuperar
+recover-later = Después
+recovered = 
+    { $count ->
+        [one] 1 archivo recuperado (aún sin guardar)
+       *[other] { $count } archivos recuperados (aún sin guardar)
+    }

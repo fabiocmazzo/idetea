@@ -227,6 +227,24 @@ impl Editor {
         self.inner.content()
     }
 
+    /// Troca o texto todo como uma edição (desfazer volta ao anterior): a aba fica com alterações.
+    /// Só o trecho do meio que mudou é trocado (o começo e o fim iguais ficam).
+    pub fn replace_text(&mut self, text: &str) {
+        if self.is_image() {
+            return;
+        }
+        let new = text.replace("\r\n", "\n");
+        let old = self.inner.content();
+        let prefix = common_prefix(&old, &new);
+        let suffix = common_suffix(&old[prefix..], &new[prefix..]);
+        let (old_end, new_end) = (old.len() - suffix, new.len() - suffix);
+        if prefix == old_end && prefix == new_end {
+            return;
+        }
+        let range = iced_code_editor::LspRange { start: lsp_position(&old, prefix), end: lsp_position(&old, old_end) };
+        self.inner.apply_lsp_text_edits(&[LspTextChange { range, text: new[prefix..new_end].to_string() }]);
+    }
+
     /// Linha e coluna do cursor, começando em 1.
     pub fn cursor(&self) -> (usize, usize) {
         let (l, c) = self.inner.cursor_position();
@@ -694,9 +712,43 @@ fn syntax_for(path: Option<&Path>) -> String {
         .unwrap_or_else(|| "txt".into())
 }
 
+/// Bytes iguais no começo (em fronteira de caractere).
+fn common_prefix(a: &str, b: &str) -> usize {
+    a.char_indices().zip(b.chars()).find(|((_, x), y)| x != y).map_or(a.len().min(b.len()), |((i, _), _)| i)
+}
+
+/// Bytes iguais no fim (em fronteira de caractere).
+fn common_suffix(a: &str, b: &str) -> usize {
+    a.chars().rev().zip(b.chars().rev()).take_while(|(x, y)| x == y).map(|(x, _)| x.len_utf8()).sum()
+}
+
+/// Posição (linha, coluna em UTF-16, como no LSP) de um byte do texto.
+fn lsp_position(text: &str, byte: usize) -> iced_code_editor::LspPosition {
+    let before = &text[..byte];
+    let line_start = before.rfind('\n').map_or(0, |i| i + 1);
+    iced_code_editor::LspPosition {
+        line: u32::try_from(before.matches('\n').count()).unwrap_or(u32::MAX),
+        character: u32::try_from(before[line_start..].encode_utf16().count()).unwrap_or(u32::MAX),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn replace_text_counts_as_a_change() {
+        let mut ed = Editor::from_text(Path::new("/p/a.rs"), "fn velho() {}\nlinha 2\n");
+        assert!(!ed.is_modified());
+        ed.replace_text("fn novo() {}\r\n");
+        assert_eq!(ed.text(), "fn novo() {}\n");
+        assert!(ed.is_modified(), "recuperado: fica como alteração não salva");
+        for (from, to) in [("abc", "xyz\n"), ("ação\nb\n", "ação\nção\nb\n"), ("", "novo"), ("um\ndois", "um")] {
+            let mut e = Editor::from_text(Path::new("/p/b.rs"), from);
+            e.replace_text(to);
+            assert_eq!(e.text(), to, "{from:?} → {to:?}");
+        }
+    }
 
     /// Ctrl+clique no texto chega ao widget como "ir para definição", com as camadas da tela
     /// (marcas de debug e overlay do LSP) por cima dele.

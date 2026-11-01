@@ -8,6 +8,7 @@ macro_rules! fl {
     ($($t:tt)*) => { tea_core::i18n::fl!(crate::LOADER, $($t)*) };
 }
 
+mod backup;
 mod calls;
 mod cli;
 mod context_menu;
@@ -90,6 +91,20 @@ fn main() -> iced::Result {
                 .run()
         }
     }
+}
+
+/// Um tique a cada 3 s, para as cópias de recuperação.
+fn backup_ticks() -> iced::futures::channel::mpsc::UnboundedReceiver<Message> {
+    let (tx, rx) = iced::futures::channel::mpsc::unbounded();
+    std::thread::spawn(move || {
+        loop {
+            std::thread::sleep(std::time::Duration::from_secs(3));
+            if tx.unbounded_send(Message::BackupTick).is_err() {
+                return;
+            }
+        }
+    });
+    rx
 }
 
 /// Modo da paleta que um comando abre (para o atalho fechar ou trocar de modo com ela aberta).
@@ -235,6 +250,9 @@ enum CoreDialog {
     CloseMany { ids: Vec<u64>, save: bool },
     /// Depurar este executável (havia mais de um).
     DebugProgram(PathBuf),
+    /// Cópias de alterações deixadas por uma janela que travou: abrir de volta ou apagar.
+    Recover,
+    DiscardRecovery,
 }
 
 /// Itens dos menus de contexto do próprio app (abas).
@@ -339,6 +357,11 @@ struct App {
     session_saved: Option<session::Session>,
     /// Lista de recentes (`None`: sem pasta de estado).
     recent_path: Option<PathBuf>,
+    /// Cópias das abas alteradas: pasta do projeto e, por aba, a chave e o hash do texto copiado.
+    backup_dir: Option<PathBuf>,
+    backed_up: std::collections::HashMap<u64, (String, u64)>,
+    /// Cópias de uma janela que travou, esperando a resposta do diálogo.
+    pending_recovery: Vec<backup::Orphan>,
 }
 
 #[derive(Debug, Clone)]
@@ -380,6 +403,8 @@ enum Message {
     Frame(Instant),
     PointerOverPanel(bool),
     MousePressed,
+    /// Hora de copiar as abas com alterações (recuperação depois de um travamento).
+    BackupTick,
     /// Passou a espera depois de digitar: pede a estrutura de novo (se for a última espera).
     OutlineDue(u64),
     /// Hora de mandar o texto do arquivo ativo (só a última espera vale).
@@ -457,6 +482,9 @@ impl App {
             session_path,
             session_saved: None,
             recent_path: recent::path(),
+            backup_dir: backup::dir_for(&launch.root),
+            backed_up: Default::default(),
+            pending_recovery: Vec::new(),
             last_status: EditorStatus::default(),
             nav: nav::History::default(),
             outline_seen: (u64::MAX, 0),
@@ -488,6 +516,12 @@ impl App {
             tasks.push(app.restore_session(s));
         }
         app.session_saved = Some(app.session_snapshot());
+        if let Some(dir) = &app.backup_dir {
+            app.pending_recovery = backup::orphans(dir);
+        }
+        if !app.pending_recovery.is_empty() {
+            tasks.push(app.offer_recovery());
+        }
         tasks.push(app.emit_status(true));
 
         let mut problems: Vec<String> = launch.warnings.iter().map(ToString::to_string).collect();
@@ -1071,6 +1105,91 @@ impl App {
         if let Some(path) = active.filter(|p| p.is_file()) {
             tasks.push(self.open_file(path));
         }
+        Task::batch(tasks)
+    }
+
+    // ---- Recuperar alterações não salvas -----------------------------------
+
+    /// Copia as abas com alterações que mudaram desde a última cópia; apaga as que não servem mais
+    /// (aba salva, sem alterações ou fechada).
+    fn backup_tick(&mut self) {
+        let Some(dir) = self.backup_dir.clone() else { return };
+        let mut alive = std::collections::HashSet::new();
+        for t in &self.tabs {
+            if !t.editor.is_modified() || t.editor.is_image() {
+                continue;
+            }
+            alive.insert(t.id);
+            let text = t.editor.text();
+            let hash = session::fnv1a(text.as_bytes());
+            let key = backup::key(t.editor.path(), t.id);
+            match self.backed_up.get(&t.id) {
+                Some((k, h)) if *k == key && *h == hash => {}
+                old => {
+                    // Salvou com outro nome: a cópia antiga sai.
+                    if let Some((k, _)) = old.filter(|(k, _)| *k != key) {
+                        backup::remove(&dir, k);
+                    }
+                    backup::write(&dir, &key, t.editor.path(), &text);
+                    self.backed_up.insert(t.id, (key, hash));
+                }
+            }
+        }
+        self.backed_up.retain(|id, (key, _)| {
+            let keep = alive.contains(id);
+            if !keep {
+                backup::remove(&dir, key);
+            }
+            keep
+        });
+    }
+
+    fn offer_recovery(&mut self) -> Task<Message> {
+        let names: Vec<String> = self
+            .pending_recovery
+            .iter()
+            .map(|o| match &o.meta.path {
+                Some(p) => format!("• {}", display_rel(p, &self.root)),
+                None => format!("• {}", fl!("untitled-tab")),
+            })
+            .collect();
+        let mut body = names.iter().take(8).cloned().collect::<Vec<_>>().join("\n");
+        if names.len() > 8 {
+            body.push_str(&format!("\n{}", fl!("and-more", count = (names.len() - 8))));
+        }
+        let dialog = Dialog::new(fl!("recover-title", count = names.len()), format!("{body}\n\n{}", fl!("recover-detail")))
+            .button(fl!("recover"), ButtonKind::Primary, CoreDialog::Recover)
+            .button(fl!("discard"), ButtonKind::Danger, CoreDialog::DiscardRecovery)
+            .cancel(fl!("recover-later"));
+        self.open_dialog(dialog, dialog::Owner::Core)
+    }
+
+    /// Abre cada arquivo (ou uma aba sem nome) com o texto da cópia, como alteração não salva.
+    fn recover(&mut self) -> Task<Message> {
+        let mut tasks = Vec::new();
+        let mut last = None;
+        let pending = std::mem::take(&mut self.pending_recovery);
+        let count = pending.len();
+        for o in pending {
+            let i = match &o.meta.path {
+                Some(p) => {
+                    tasks.push(self.open_file(p.clone()));
+                    match self.tabs.iter().position(|t| t.editor.path() == Some(p.as_path())) {
+                        Some(i) => i,
+                        // Não abriu (o erro já apareceu): a cópia fica para a próxima.
+                        None => continue,
+                    }
+                }
+                None => self.push_tab(Editor::scratch("")),
+            };
+            self.tabs[i].editor.replace_text(&o.text);
+            o.remove();
+            last = Some(i);
+        }
+        if let Some(i) = last {
+            tasks.push(self.set_active(i));
+        }
+        tasks.push(self.notify(fl!("recovered", count = count)));
         Task::batch(tasks)
     }
 
@@ -1990,6 +2109,10 @@ impl App {
 
     fn quit(&mut self) -> Task<Message> {
         self.save_session(true);
+        // Saiu pelo caminho normal (salvou ou escolheu descartar): as cópias não servem mais.
+        if let Some(dir) = &self.backup_dir {
+            backup::remove_mine(dir);
+        }
         if let Some(size) = self.window_size {
             self.ui_state.set_window(size);
             self.ui_state.save(self.state_path.as_deref());
@@ -2490,6 +2613,13 @@ impl App {
                 self.debug.program = Some(program);
                 self.debug_start()
             }
+            CoreDialog::Recover => self.recover(),
+            CoreDialog::DiscardRecovery => {
+                for o in std::mem::take(&mut self.pending_recovery) {
+                    o.remove();
+                }
+                Task::none()
+            }
             CoreDialog::CloseMany { ids, save } => {
                 let mut tasks = Vec::new();
                 let mut ids = ids;
@@ -2840,6 +2970,10 @@ impl App {
                 self.pointer_over_panel = over;
                 Task::none()
             }
+            Message::BackupTick => {
+                self.backup_tick();
+                Task::none()
+            }
             Message::MousePressed => {
                 if self.pointer_over_panel {
                     self.editor_mut().lose_focus();
@@ -2890,7 +3024,15 @@ impl App {
                 .map(|(i, e)| e.subscription().with(i).map(|(i, m)| Message::ExtSub(i, m))),
         );
         let disk = Subscription::run_with(self.root.clone(), watcher::watch).map(Message::Disk);
-        Subscription::batch([input, close, frames, extensions, resized, disk])
+        // Cópias só enquanto há alterações (ou cópias para apagar).
+        let backups = if self.backup_dir.is_some()
+            && (!self.backed_up.is_empty() || self.tabs.iter().any(|t| t.editor.is_modified()))
+        {
+            Subscription::run(backup_ticks)
+        } else {
+            Subscription::none()
+        };
+        Subscription::batch([input, close, frames, extensions, resized, disk, backups])
     }
 
     fn view(&self) -> Element<'_, Message> {

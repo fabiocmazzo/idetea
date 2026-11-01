@@ -356,3 +356,19 @@ cmd-file-open-recent = File: open recent…
 palette-recent = Project or file opened before
 palette-no-recent = Nothing opened before yet
 guide-files-12 = Open recent: { $file-open_recent } lists the projects (they open in a new window) and files opened last, from every window.
+
+## Recuperar não salvos
+untitled-tab = untitled
+recover-title = 
+    { $count ->
+        [one] The IDE closed without saving 1 file
+       *[other] The IDE closed without saving { $count } files
+    }
+recover-detail = Recover opens the changes in tabs, still unsaved (undo goes back to what is on disk). Later asks again next time.
+recover = Recover
+recover-later = Later
+recovered = 
+    { $count ->
+        [one] 1 file recovered (not saved yet)
+       *[other] { $count } files recovered (not saved yet)
+    }

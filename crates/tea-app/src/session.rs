@@ -69,7 +69,7 @@ pub fn path_for(root: &Path) -> Option<PathBuf> {
 }
 
 /// FNV-1a de 64 bits: estável entre versões do Rust (o `DefaultHasher` não promete isso).
-fn fnv1a(bytes: &[u8]) -> u64 {
+pub(crate) fn fnv1a(bytes: &[u8]) -> u64 {
     bytes.iter().fold(0xcbf2_9ce4_8422_2325, |h, b| (h ^ u64::from(*b)).wrapping_mul(0x0000_0100_0000_01b3))
 }
 

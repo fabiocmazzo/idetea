@@ -638,8 +638,21 @@ O que mais falta no uso diário. Cada item é uma entrega com teste manual; a or
   - [x] Teste manual (aprovado): abrir a IDE em duas pastas diferentes e alguns arquivos; `Ctrl+R` lista a outra pasta e os
     arquivos; digitar parte de um nome filtra; Enter num projeto abre outra janela, num arquivo abre a aba;
     `Ctrl+R` de novo fecha a paleta. Ajuda → Guia cita o atalho.
-- [ ] **Recuperar não salvos:** cópia das abas alteradas enquanto se digita; depois de um travamento, a IDE
-  oferece recuperar.
+- [x] **Recuperar não salvos:** a cada 3 s, as abas com alterações que mudaram são copiadas; depois de um
+  travamento, a IDE oferece recuperar.
+  - Cópias em `$XDG_STATE_HOME/idetea/backups/<projeto>/`: `<pid>-<chave>.txt` (o texto) e `.toml` (de que
+    arquivo é). Abas sem nome também. A cópia sai quando a aba é salva, fica sem alterações ou fecha; sair
+    normalmente apaga todas as da janela.
+  - Ao abrir: cópias de uma janela que não está mais rodando (no Linux, `/proc/<pid>` com o mesmo executável)
+    geram o diálogo "A IDE fechou sem salvar N arquivos" com Recuperar, Descartar e Depois (pergunta de novo
+    na próxima vez). Cópia igual ao disco sai calada; duas do mesmo arquivo: fica a mais nova.
+  - Recuperar abre cada arquivo com o texto da cópia como alteração não salva (`Editor::replace_text`: troca
+    só o trecho que mudou, e desfazer volta ao do disco).
+  - O tique de 3 s só roda enquanto há alterações (é uma thread; o iced daqui não tem `time::every`).
+  - [x] Teste manual (aprovado): alterar dois arquivos e uma aba sem nome, esperar uns 5 s e matar a IDE
+    (`pkill -9 idetea`); abrir de novo: o diálogo lista os três; Recuperar: as abas voltam com ● e o texto
+    alterado, `Ctrl+Z` volta ao do disco. Repetir e escolher Descartar: abre limpo e não pergunta mais. Sair
+    normalmente com alterações descartadas: não pergunta na próxima.
 - [ ] **Renomear símbolo (F2):** o LSP renomeia no projeto inteiro, com prévia.
 - [ ] **Substituir no projeto:** "substituir" e "substituir tudo" no painel Busca, com prévia.
 - [ ] **Editor e salvar:** quebra de linha, mostrar espaços e guias de recuo nas Configurações (o widget já
