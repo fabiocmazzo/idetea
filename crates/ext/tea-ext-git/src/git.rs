@@ -402,6 +402,79 @@ pub fn switch(repo: &Repo, name: &str, create: bool, remote: bool) -> Result<Str
     run_net(&repo.root, &args, Duration::from_secs(60)).map_err(|e| explain(&e))
 }
 
+// ---- Blame -------------------------------------------------------------------
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct BlameCommit {
+    pub hash: String,
+    pub author: String,
+    /// Segundos desde 1970.
+    pub time: i64,
+    pub summary: String,
+    /// Linha ainda não commitada (o git usa o hash `0000…`).
+    pub uncommitted: bool,
+}
+
+/// Quem mudou cada linha por último (do arquivo no disco).
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct Blame {
+    pub commits: Vec<BlameCommit>,
+    /// Para cada linha (começando em 0), o índice em `commits`.
+    pub lines: Vec<usize>,
+}
+
+impl Blame {
+    /// Linha começando em 1.
+    pub fn at(&self, line: usize) -> Option<&BlameCommit> {
+        self.commits.get(*self.lines.get(line.checked_sub(1)?)?)
+    }
+}
+
+pub fn blame(repo: &Repo, path: &Path) -> Result<Blame, String> {
+    let rel = path.strip_prefix(&repo.root).map_err(|_| fl!("git-unknown-error"))?.to_string_lossy().into_owned();
+    let out = run(&repo.root, &["blame", "--porcelain", "--", &rel], &[])?;
+    Ok(parse_blame(&out))
+}
+
+/// Lê `git blame --porcelain`: cada linha começa com `<hash> <linha antiga> <linha final> [quantas]`; os dados
+/// do commit (author, author-time, summary) só vêm na primeira vez que ele aparece; o texto vem depois de um tab.
+pub fn parse_blame(out: &str) -> Blame {
+    let mut b = Blame::default();
+    let mut index: HashMap<String, usize> = HashMap::new();
+    let mut current: Option<usize> = None;
+    for line in out.lines() {
+        if line.starts_with('\t') {
+            if let Some(c) = current {
+                b.lines.push(c);
+            }
+            continue;
+        }
+        let (key, value) = line.split_once(' ').unwrap_or((line, ""));
+        if key.len() == 40 && key.bytes().all(|c| c.is_ascii_hexdigit()) {
+            let i = *index.entry(key.to_string()).or_insert_with(|| {
+                b.commits.push(BlameCommit {
+                    hash: key.to_string(),
+                    author: String::new(),
+                    time: 0,
+                    summary: String::new(),
+                    uncommitted: key.bytes().all(|c| c == b'0'),
+                });
+                b.commits.len() - 1
+            });
+            current = Some(i);
+            continue;
+        }
+        let Some(c) = current.and_then(|i| b.commits.get_mut(i)) else { continue };
+        match key {
+            "author" => c.author = value.to_string(),
+            "author-time" => c.time = value.parse().unwrap_or(0),
+            "summary" => c.summary = value.to_string(),
+            _ => {}
+        }
+    }
+    b
+}
+
 // ---- Remoto ------------------------------------------------------------------
 
 /// Roda um comando que fala com o remoto. Diferenças para [`run`]:
@@ -687,6 +760,22 @@ u UU N... 100644 100644 100644 100644 a b c conflito.rs\0\
     }
 
     #[test]
+    fn blame_porcelain() {
+        let a = "a".repeat(40);
+        let z = "0".repeat(40);
+        let out = format!(
+            "{a} 1 1 2\nauthor Ana\nauthor-time 1700000000\nsummary Primeiro\nfilename x\n\tum\n{a} 2 2\n\tdois\n\
+             {z} 3 3 1\nauthor Not Committed Yet\nauthor-time 1800000000\nsummary Version of x from x\n\ttrês\n"
+        );
+        let b = parse_blame(&out);
+        assert_eq!(b.lines, [0, 0, 1]);
+        let first = b.at(2).unwrap();
+        assert_eq!((first.author.as_str(), first.time, first.summary.as_str(), first.uncommitted), ("Ana", 1_700_000_000, "Primeiro", false));
+        assert!(b.at(3).unwrap().uncommitted);
+        assert!(b.at(0).is_none() && b.at(4).is_none());
+    }
+
+    #[test]
     fn branch_list() {
         let out = "*\0refs/heads/main\0main\x002026-10-31\n \0refs/heads/dev\0dev\x002026-10-01\n \0refs/remotes/origin/HEAD\0origin\x002026-10-31\n \0refs/remotes/origin/main\0origin/main\x002026-10-31\n \0refs/remotes/origin/nova\0origin/nova\x002026-09-01\n";
         let b = parse_branches(out);
@@ -747,6 +836,14 @@ u UU N... 100644 100644 100644 100644 a b c conflito.rs\0\
         let err = switch(&repo, "nova", false, false).unwrap_err();
         assert!(err.contains("commit"), "explica o que fazer: {err}");
         assert!(switch(&repo, "nova", true, false).is_err(), "já existe");
+
+        // Blame: a linha commitada mostra o autor; a mexida no disco é "não commitada".
+        let b = blame(&repo, &dir.join("a.txt")).unwrap();
+        assert_eq!(b.lines.len(), 1);
+        assert!(b.at(1).unwrap().uncommitted);
+        run(&dir, &["checkout", "-q", "--", "a.txt"], &[]).unwrap();
+        let b = blame(&repo, &dir.join("a.txt")).unwrap();
+        assert_eq!((b.at(1).unwrap().author.as_str(), b.at(1).unwrap().summary.as_str()), ("t", "primeiro"));
         let _ = std::fs::remove_dir_all(&dir);
     }
 }

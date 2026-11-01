@@ -80,6 +80,10 @@ pub enum Message {
     CreateBranch(String),
     /// Troca terminou: nome da branch e o resultado.
     Switched(String, Arc<Result<String, String>>),
+    /// Blame de um arquivo chegou.
+    Blamed(PathBuf, Arc<Result<git::Blame, String>>),
+    /// Clique no autor da linha, na barra de status.
+    BlameDetails,
 }
 
 /// Arquivo cujo diff está na tela.
@@ -111,6 +115,33 @@ pub struct GitExtension {
     opened: HashSet<PathBuf>,
     /// Commit do HEAD na última atualização.
     head_oid: Option<String>,
+    /// Arquivo, linha (começa em 1) e se a aba tem alterações, do editor ativo.
+    cursor: Option<(PathBuf, usize, bool)>,
+    /// Blame do arquivo ativo (do disco), e o que está sendo carregado.
+    blame: Option<(PathBuf, Arc<git::Blame>)>,
+    blame_loading: Option<PathBuf>,
+}
+
+/// "há 3 dias": quanto tempo desde `time` (segundos desde 1970).
+fn ago(time: i64) -> String {
+    let now = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).map_or(0, |d| d.as_secs() as i64);
+    let s = (now - time).max(0);
+    let (m, h, d) = (s / 60, s / 3600, s / 86_400);
+    if m < 1 {
+        fl!("git-ago-now")
+    } else if h < 1 {
+        fl!("git-ago-minutes", count = m)
+    } else if d < 1 {
+        fl!("git-ago-hours", count = h)
+    } else if d < 30 {
+        fl!("git-ago-days", count = d)
+    } else if d < 365 {
+        let months: i64 = d / 30;
+        fl!("git-ago-months", count = months)
+    } else {
+        let years: i64 = d / 365;
+        fl!("git-ago-years", count = years)
+    }
 }
 
 /// Roda `f` numa thread e entrega o resultado como mensagem.
@@ -156,6 +187,30 @@ impl GitExtension {
             move || paths.into_iter().map(|p| { let t = git::head_text(&repo, &p); (p, t) }).collect(),
             |bases| Message::Bases(Arc::new(bases)),
         )
+    }
+
+    /// Carrega o blame do arquivo ativo (numa thread). `force`: de novo mesmo se já tem (salvou, HEAD mudou).
+    fn load_blame(&mut self, force: bool) -> Task<Message> {
+        let (Some(repo), Some((path, _, _))) = (self.repo.clone(), self.cursor.clone()) else { return Task::none() };
+        if !path.starts_with(&repo.root) || self.blame_loading.as_ref() == Some(&path) {
+            return Task::none();
+        }
+        if !force && self.blame.as_ref().is_some_and(|(p, _)| *p == path) {
+            return Task::none();
+        }
+        self.blame_loading = Some(path.clone());
+        let p = path.clone();
+        spawn(move || git::blame(&repo, &p), move |r| Message::Blamed(path.clone(), Arc::new(r)))
+    }
+
+    /// Commit da linha do cursor (só com a aba sem alterações: senão as linhas podem não bater com o disco).
+    fn line_commit(&self) -> Option<&git::BlameCommit> {
+        let (path, line, modified) = self.cursor.as_ref()?;
+        let (bpath, blame) = self.blame.as_ref()?;
+        if *modified || bpath != path {
+            return None;
+        }
+        blame.at(*line)
     }
 
     fn entry(&self, path: &str) -> Option<&Entry> {
@@ -239,9 +294,16 @@ impl Extension for GitExtension {
 
     fn on_event(&mut self, event: &CoreEvent, _ctx: &mut Context) -> Task<Message> {
         match event {
-            CoreEvent::PanelShown(_) | CoreEvent::FilesChanged => self.refresh(),
+            CoreEvent::PanelShown(_) => self.refresh(),
+            // Arquivos mudaram por fora (pull, checkout, outro programa): o blame do disco também.
+            CoreEvent::FilesChanged => Task::batch([self.refresh(), self.load_blame(true)]),
             CoreEvent::FileSaved(path) if self.repo.as_ref().is_some_and(|r| path.starts_with(&r.root)) => {
-                self.refresh()
+                let blame = if self.cursor.as_ref().is_some_and(|(p, _, _)| p == path) { self.load_blame(true) } else { Task::none() };
+                Task::batch([self.refresh(), blame])
+            }
+            CoreEvent::EditorStatus(st) => {
+                self.cursor = st.path.clone().map(|p| (p, st.line, st.modified));
+                self.load_blame(false)
             }
             CoreEvent::FileOpened(path) | CoreEvent::ActiveFileChanged(Some(path)) => {
                 if self.opened.insert(path.clone()) { self.load_bases(vec![path.clone()]) } else { Task::none() }
@@ -292,7 +354,7 @@ impl Extension for GitExtension {
                     && (st.oid != self.head_oid || self.status.is_none())
                 {
                     self.head_oid = st.oid.clone();
-                    bases = self.load_bases(self.opened.iter().cloned().collect());
+                    bases = Task::batch([self.load_bases(self.opened.iter().cloned().collect()), self.load_blame(true)]);
                 }
                 match &*result {
                     Ok(st) => {
@@ -362,6 +424,30 @@ impl Extension for GitExtension {
                     Err(e) => ctx.notify(fl!("git-switch-failed", branch = name.as_str(), error = e.as_str())),
                 }
                 return self.refresh();
+            }
+            Message::Blamed(path, result) => {
+                if self.blame_loading.as_ref() == Some(&path) {
+                    self.blame_loading = None;
+                }
+                // Erro (arquivo novo, fora do commit): guarda vazio para não pedir de novo a cada tecla.
+                let blame = match &*result {
+                    Ok(b) => b.clone(),
+                    Err(_) => git::Blame::default(),
+                };
+                self.blame = Some((path, Arc::new(blame)));
+            }
+            Message::BlameDetails => {
+                let Some(c) = self.line_commit().cloned() else { return Task::none() };
+                if c.uncommitted {
+                    return Task::none();
+                }
+                let short: String = c.hash.chars().take(10).collect();
+                let message = fl!("git-blame-detail", author = c.author.as_str(), ago = ago(c.time), hash = short.as_str());
+                ctx.show_dialog(
+                    Dialog::new(c.summary.clone(), message)
+                        .button(fl!("git-blame-copy"), ButtonKind::Primary, Message::CopyPath(c.hash.clone()))
+                        .cancel(fl!("git-close")),
+                );
             }
             Message::Bases(bases) => {
                 for (path, text) in bases.iter() {
@@ -549,7 +635,20 @@ impl GitExtension {
         if !st.entries.is_empty() {
             label = label.push(text(format!("●{}", st.entries.len())).size(12));
         }
-        button(label.align_y(iced::Center)).on_press(Message::Checkout).style(button::text).padding([0, 4]).into()
+        let branch = button(label.align_y(iced::Center)).on_press(Message::Checkout).style(button::text).padding([0, 4]);
+        let Some(c) = self.line_commit() else { return branch.into() };
+        let who = if c.uncommitted {
+            fl!("git-blame-uncommitted")
+        } else {
+            let line = format!("{}, {} · {}", c.author, ago(c.time), c.summary);
+            let short: String = line.chars().take(70).collect();
+            if line.chars().count() > 70 { format!("{short}…") } else { short }
+        };
+        let blame = button(row![icon(Icon::GitCommit).size(12), text(who).size(12).style(text::secondary)].spacing(4).align_y(iced::Center))
+            .on_press_maybe((!c.uncommitted).then_some(Message::BlameDetails))
+            .style(button::text)
+            .padding([0, 4]);
+        row![branch, blame].spacing(4).align_y(iced::Center).into()
     }
 
     fn changes_view(&self) -> Element<'_, Message> {

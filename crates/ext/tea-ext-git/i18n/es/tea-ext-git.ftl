@@ -78,3 +78,37 @@ git-branch-current = actual · { $date }
 git-switched = Ahora en la rama { $branch }
 git-switch-failed = No se pudo cambiar a { $branch }: { $error }
 git-explain-switch-overwritten = los cambios sin commit chocan con la otra rama: haga commit o descártelos antes
+
+## Blame
+git-blame-uncommitted = Usted · aún sin commit
+git-blame-detail = 
+    { $author }, { $ago }
+    Commit { $hash }
+git-blame-copy = Copiar hash
+git-close = Cerrar
+git-ago-now = ahora
+git-ago-minutes = 
+    { $count ->
+        [one] hace 1 minuto
+       *[other] hace { $count } minutos
+    }
+git-ago-hours = 
+    { $count ->
+        [one] hace 1 hora
+       *[other] hace { $count } horas
+    }
+git-ago-days = 
+    { $count ->
+        [one] ayer
+       *[other] hace { $count } días
+    }
+git-ago-months = 
+    { $count ->
+        [one] hace 1 mes
+       *[other] hace { $count } meses
+    }
+git-ago-years = 
+    { $count ->
+        [one] hace 1 año
+       *[other] hace { $count } años
+    }

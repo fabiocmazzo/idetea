@@ -439,3 +439,5 @@ guide-git-5 = Gutter marks: left of the line numbers, green = new line, blue = c
 palette-no-items = Nothing matches the search
 
 guide-git-6 = Branches: { $git-checkout } (or click the branch name, in the status bar or the Git panel) lists branches, most recent first; remote ones that do not exist here come after and become local when chosen. Type a new name to create a branch from where you are. Uncommitted changes come along; if they clash with the other branch, git refuses and explains.
+
+guide-git-7 = Line author: in the status bar, next to the branch, you see who last changed the cursor line, when, and the commit message (click to see the hash and copy it). While the tab has unsaved changes it hides until you save (disk lines may not match).

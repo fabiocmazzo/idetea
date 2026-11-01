@@ -78,3 +78,37 @@ git-branch-current = current · { $date }
 git-switched = Now on branch { $branch }
 git-switch-failed = Could not switch to { $branch }: { $error }
 git-explain-switch-overwritten = uncommitted changes clash with the other branch: commit or discard them first
+
+## Blame
+git-blame-uncommitted = You · not committed yet
+git-blame-detail = 
+    { $author }, { $ago }
+    Commit { $hash }
+git-blame-copy = Copy hash
+git-close = Close
+git-ago-now = just now
+git-ago-minutes = 
+    { $count ->
+        [one] 1 minute ago
+       *[other] { $count } minutes ago
+    }
+git-ago-hours = 
+    { $count ->
+        [one] 1 hour ago
+       *[other] { $count } hours ago
+    }
+git-ago-days = 
+    { $count ->
+        [one] yesterday
+       *[other] { $count } days ago
+    }
+git-ago-months = 
+    { $count ->
+        [one] 1 month ago
+       *[other] { $count } months ago
+    }
+git-ago-years = 
+    { $count ->
+        [one] 1 year ago
+       *[other] { $count } years ago
+    }

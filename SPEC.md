@@ -709,7 +709,7 @@ O que mais falta no uso diário. Cada item é uma entrega com teste manual; a or
   - [x] Teste manual (aprovado, Rust): digitar `soma(` numa chamada de uma função com dois parâmetros: a caixa aparece
     acima com o primeiro destacado; `1, ` passa para o segundo; `)` fecha. `Esc` no meio fecha. Com o menu de
     autocomplete aberto, a dica continua em cima e as setas são do menu.
-- [ ] **Git:** marcas na margem nas linhas alteradas (clique mostra o diff), trocar e criar branch, blame da
+- [x] **Git:** marcas na margem nas linhas alteradas (clique mostra o diff), trocar e criar branch, blame da
   linha atual. Em três entregas:
   - [x] **Marcas na margem:** o git manda a versão do último commit (`git show HEAD:<arquivo>`) de cada
     arquivo aberto (`Request::DiffBase`; de novo quando o HEAD muda: commit, checkout, pull). O editor compara
@@ -734,7 +734,14 @@ O que mais falta no uso diário. Cada item é uma entrega com teste manual; a or
     - [x] Teste manual (aprovado): clicar na branch na barra de status: a lista aparece com a atual marcada. Digitar um
       nome novo + Enter: cria e troca (a barra mostra). Voltar para a main pela lista. Com um arquivo mudado
       que existe diferente na outra branch, trocar: o aviso explica que precisa commitar ou descartar.
-  - [ ] Blame da linha atual.
+  - [x] **Blame da linha atual:** na barra de status, ao lado da branch: "autor, há 3 dias · mensagem" da linha do
+    cursor (até 70 caracteres); linha mexida e salva mas não commitada: "Você · ainda não commitado". Clique abre
+    o commit (mensagem, autor, quando, hash) com "Copiar hash". `git blame --porcelain` do arquivo inteiro numa
+    thread, guardado por arquivo; de novo ao salvar, quando o HEAD muda ou arquivos mudam por fora. É do arquivo
+    no disco: com a aba alterada e não salva, some (as linhas podem não bater). Arquivo fora do commit: nada.
+    - [x] Teste manual (aprovado): andar com o cursor por um arquivo antigo do repositório: autor e mensagem mudam por linha.
+      Clicar: aparece o commit; "Copiar hash" copia. Digitar algo: some; salvar: a linha mostra "ainda não
+      commitado".
 - [ ] **Tarefas:** rodar `cargo run`/`cargo test` ou um comando do config, com a saída no terminal; no Rust,
   "rodar este teste".
 - [ ] **Editor dividido:** dois arquivos lado a lado.

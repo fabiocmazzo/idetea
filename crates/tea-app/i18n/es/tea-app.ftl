@@ -439,3 +439,5 @@ guide-git-5 = Marcas en el margen: a la izquierda de los números de línea, ver
 palette-no-items = Nada coincide con la búsqueda
 
 guide-git-6 = Ramas: { $git-checkout } (o haga clic en el nombre de la rama, en la barra de estado o en el panel Git) lista las ramas, la más reciente primero; las remotas que aún no existen aquí van después y, al elegirlas, se vuelven locales. Escriba un nombre nuevo para crear la rama desde donde está. Los cambios sin commit van con usted; si chocan con la otra rama, git se niega y lo explica.
+
+guide-git-7 = Autor de la línea: en la barra de estado, junto a la rama, aparece quién cambió por última vez la línea del cursor, cuándo y el mensaje del commit (haga clic para ver el hash y copiarlo). Con la pestaña cambiada y sin guardar, desaparece hasta guardar (las líneas del disco pueden no coincidir).

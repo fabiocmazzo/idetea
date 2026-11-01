@@ -439,3 +439,5 @@ guide-git-5 = Marcas na margem: à esquerda dos números de linha, verde = linha
 palette-no-items = Nada combina com a busca
 
 guide-git-6 = Branches: { $git-checkout } (ou clique no nome da branch, na barra de status ou no painel Git) lista as branches, da mais recente; as remotas que ainda não existem aqui vêm depois e, escolhidas, viram locais. Digite um nome novo para criar a branch a partir de onde você está. Alterações não commitadas vão junto; se colidirem com a outra branch, o git recusa e explica.
+
+guide-git-7 = Autor da linha: na barra de status, ao lado da branch, aparece quem mudou a linha do cursor por último, quando e a mensagem do commit (clique para ver o hash e copiar). Com a aba alterada e sem salvar, some até salvar (as linhas do disco podem não bater).
