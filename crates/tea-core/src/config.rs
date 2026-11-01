@@ -67,6 +67,7 @@ preview = { enabled = true, slot = "right" }
 "ctrl+s" = "file.save"
 "ctrl+shift+s" = "file.save_as"
 "ctrl+o" = "file.open"
+"ctrl+r" = "file.open_recent"
 "ctrl+p" = "file.quick_open"
 "ctrl+shift+o" = "nav.file_symbol"
 "ctrl+t" = "nav.project_symbol"

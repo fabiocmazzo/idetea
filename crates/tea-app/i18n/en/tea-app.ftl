@@ -350,3 +350,9 @@ guide-config-4 = Language: Settings → Appearance → Language (Automatic follo
 ## Sessão
 settings-restore-session = Reopen as it was
 settings-restore-session-detail = When a project opens, its tabs, cursor and panels come back. idetea file... opens just the file.
+
+## Recentes
+cmd-file-open-recent = File: open recent…
+palette-recent = Project or file opened before
+palette-no-recent = Nothing opened before yet
+guide-files-12 = Open recent: { $file-open_recent } lists the projects (they open in a new window) and files opened last, from every window.

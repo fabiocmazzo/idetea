@@ -628,7 +628,16 @@ O que mais falta no uso diário. Cada item é uma entrega com teste manual; a or
   - [x] Teste manual (aprovado): abrir 3 arquivos, mover o cursor, deixar outro ativo, abrir Git e Estrutura, mudar o
     tamanho da janela; sair e abrir de novo: tudo volta. `idetea Cargo.toml` abre só ele. Desligar em
     Configurações e reabrir: abre vazio.
-- [ ] **Recentes:** "Abrir recente" na paleta, com projetos e arquivos.
+- [x] **Recentes:** "Arquivo: abrir recente…" (`Ctrl+R`, como no VS Code) abre a paleta com os projetos e os
+  arquivos abertos por último.
+  - Uma lista para todas as janelas em `$XDG_STATE_HOME/idetea/recent.toml` (20 projetos, 50 arquivos). Cada
+    mudança relê o arquivo antes de gravar: duas janelas não apagam o que a outra acrescentou.
+  - Sem busca: projetos primeiro, depois arquivos, do mais novo para o mais velho. Com busca: pelo nome (o lugar
+    vale um pouco). Fora da lista: o projeto atual, o arquivo ativo e o que não existe mais.
+  - Projeto abre numa nova janela (como "abrir pasta"); arquivo abre numa aba (`Alt+←` volta).
+  - [x] Teste manual (aprovado): abrir a IDE em duas pastas diferentes e alguns arquivos; `Ctrl+R` lista a outra pasta e os
+    arquivos; digitar parte de um nome filtra; Enter num projeto abre outra janela, num arquivo abre a aba;
+    `Ctrl+R` de novo fecha a paleta. Ajuda → Guia cita o atalho.
 - [ ] **Recuperar não salvos:** cópia das abas alteradas enquanto se digita; depois de um travamento, a IDE
   oferece recuperar.
 - [ ] **Renomear símbolo (F2):** o LSP renomeia no projeto inteiro, com prévia.

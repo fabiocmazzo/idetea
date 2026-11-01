@@ -350,3 +350,9 @@ guide-config-4 = Idioma: Configurações → Aparência → Idioma (Automático 
 ## Sessão
 settings-restore-session = Reabrir como estava
 settings-restore-session-detail = Ao abrir um projeto, voltam as abas, o cursor e os painéis. idetea arquivo... abre só o arquivo.
+
+## Recentes
+cmd-file-open-recent = Arquivo: abrir recente…
+palette-recent = Projeto ou arquivo aberto antes
+palette-no-recent = Nada aberto antes ainda
+guide-files-12 = Abrir recente: { $file-open_recent } lista os projetos (abrem numa nova janela) e os arquivos abertos por último, de todas as janelas.

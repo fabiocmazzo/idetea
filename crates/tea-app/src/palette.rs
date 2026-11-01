@@ -45,6 +45,19 @@ pub enum Mode {
     FileSymbols,
     /// Vai para um símbolo do projeto (o servidor de linguagem busca a cada mudança no texto).
     ProjectSymbols,
+    /// Projetos e arquivos abertos por último (`Ctrl+R`).
+    Recent,
+}
+
+/// Um item de "Abrir recente".
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RecentItem {
+    /// Projeto (abre numa nova janela) ou arquivo (abre numa aba).
+    pub project: bool,
+    pub path: PathBuf,
+    pub name: String,
+    /// Onde fica, para mostrar (`~/...`).
+    pub place: String,
 }
 
 /// Um símbolo na lista da paleta.
@@ -73,6 +86,8 @@ pub enum Msg {
     PickFile(usize),
     /// Clique num símbolo (índice em `symbols`).
     PickSymbol(usize),
+    /// Clique num recente (índice em `recent_items`).
+    PickRecent(usize),
     Close,
 }
 
@@ -94,6 +109,8 @@ pub struct Palette {
     pub note: Option<String>,
     /// Modo `ProjectSymbols`: para mostrar o caminho relativo.
     root: PathBuf,
+    /// Modo `Recent`: projetos primeiro, depois arquivos, do mais novo para o mais velho.
+    pub recent_items: Vec<RecentItem>,
 }
 
 impl Palette {
@@ -109,7 +126,20 @@ impl Palette {
             symbols: Vec::new(),
             note: None,
             root: PathBuf::new(),
+            recent_items: Vec::new(),
         }
+    }
+
+    pub fn recent(items: Vec<RecentItem>) -> Self {
+        let mut p = Self { recent_items: items, ..Self::new(Mode::Recent, String::new()) };
+        p.found = match_recent(&p.query, &p.recent_items);
+        p
+    }
+
+    /// O recente escolhido (`index` em `recent_items`) ou o selecionado.
+    pub fn chosen_recent(&self, index: Option<usize>) -> Option<&RecentItem> {
+        let i = index.or_else(|| self.found.get(self.selected).copied())?;
+        self.recent_items.get(i)
     }
 
     pub fn commands() -> Self {
@@ -168,6 +198,7 @@ impl Palette {
         match self.mode {
             Mode::Files => self.found = match_files(&self.query, &self.files, &self.recent),
             Mode::FileSymbols | Mode::ProjectSymbols => self.found = match_symbols(&self.query, &self.symbols),
+            Mode::Recent => self.found = match_recent(&self.query, &self.recent_items),
             Mode::Commands | Mode::SaveAs => {}
         }
     }
@@ -176,7 +207,7 @@ impl Palette {
     pub fn total(&self, commands: &[CommandInfo]) -> usize {
         match self.mode {
             Mode::Commands => self.matches(commands).len(),
-            Mode::Files | Mode::FileSymbols | Mode::ProjectSymbols => self.found.len(),
+            Mode::Files | Mode::FileSymbols | Mode::ProjectSymbols | Mode::Recent => self.found.len(),
             Mode::SaveAs => 0,
         }
     }
@@ -226,6 +257,7 @@ impl Palette {
             Mode::Files => fl!("palette-files"),
             Mode::FileSymbols => fl!("palette-file-symbols"),
             Mode::ProjectSymbols => fl!("palette-project-symbols"),
+            Mode::Recent => fl!("palette-recent"),
         };
         let input = text_input(&placeholder, &self.query)
             .id(input_id())
@@ -295,6 +327,35 @@ impl Palette {
                         .height(ROW_HEIGHT)
                         .padding([4, 8])
                         .on_press(Msg::PickFile(i))
+                        .style(style),
+                    );
+                }
+                let rows = self.found.len().min(MAX_ROWS) as f32;
+                body = body.push(scrollable(list).id(list_id()).height(Length::Fixed(rows * ROW_HEIGHT)));
+            }
+            Mode::Recent => {
+                if self.found.is_empty() {
+                    let msg = if self.recent_items.is_empty() { fl!("palette-no-recent") } else { fl!("palette-no-files") };
+                    body = body.push(text(msg).size(13).style(text::secondary));
+                }
+                let mut list = column![];
+                for (pos, &i) in self.found.iter().enumerate() {
+                    let item = &self.recent_items[i];
+                    let style = if pos == self.selected { button::primary } else { button::text };
+                    list = list.push(
+                        button(
+                            row![
+                                icon(if item.project { Icon::Folder } else { Icon::File }).size(14),
+                                text(&item.name).size(14),
+                                text(&item.place).size(12).style(text::secondary),
+                            ]
+                            .spacing(8)
+                            .align_y(iced::Center),
+                        )
+                        .width(Fill)
+                        .height(ROW_HEIGHT)
+                        .padding([4, 8])
+                        .on_press(Msg::PickRecent(i))
                         .style(style),
                     );
                 }
@@ -434,6 +495,25 @@ fn match_files(query: &str, files: &[String], recent: &[String]) -> Vec<usize> {
         .collect();
     scored.sort_by(|a, b| b.0.cmp(&a.0).then_with(|| files[a.1].len().cmp(&files[b.1].len())).then(a.1.cmp(&b.1)));
     scored.truncate(MAX_FILE_RESULTS);
+    scored.into_iter().map(|(_, i)| i).collect()
+}
+
+/// Recentes que combinam com a busca: sem busca, na ordem (projetos primeiro); com busca, pelo nome
+/// (o lugar vale um pouco), do melhor para o pior.
+fn match_recent(query: &str, items: &[RecentItem]) -> Vec<usize> {
+    let q = query_chars(query);
+    if q.is_empty() {
+        return (0..items.len()).collect();
+    }
+    let mut scored: Vec<(i32, usize)> = items
+        .iter()
+        .enumerate()
+        .filter_map(|(i, it)| {
+            let by_name = fuzzy_score_chars(&q, &it.name).map(|s| s + 20);
+            by_name.max(fuzzy_score_chars(&q, &it.place)).map(|s| (s, i))
+        })
+        .collect();
+    scored.sort_by(|a, b| b.0.cmp(&a.0).then(a.1.cmp(&b.1)));
     scored.into_iter().map(|(_, i)| i).collect()
 }
 

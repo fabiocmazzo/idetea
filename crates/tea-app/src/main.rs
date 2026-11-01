@@ -25,6 +25,7 @@ mod picker;
 mod settings;
 mod pass_keys;
 mod splash;
+mod recent;
 mod session;
 mod ui_state;
 mod watcher;
@@ -98,6 +99,7 @@ fn palette_mode_of(command: &str) -> Option<palette::Mode> {
         "file.quick_open" => palette::Mode::Files,
         "nav.file_symbol" => palette::Mode::FileSymbols,
         "nav.project_symbol" => palette::Mode::ProjectSymbols,
+        "file.open_recent" => palette::Mode::Recent,
         _ => return None,
     })
 }
@@ -181,6 +183,7 @@ const CORE_COMMANDS: &[(&str, &str)] = &[
     ("debug.toggle_breakpoint", "cmd-debug-toggle-breakpoint"),
     ("debug.choose_program", "cmd-debug-choose-program"),
     ("file.open_folder", "cmd-file-open-folder"),
+    ("file.open_recent", "cmd-file-open-recent"),
     ("file.save_as", "cmd-file-save-as"),
     ("file.save_as_path", "cmd-file-save-as-path"),
     ("file.close", "cmd-file-close"),
@@ -334,6 +337,8 @@ struct App {
     /// Onde gravar a sessão do projeto (`None`: desligada ou `idetea arquivo...`) e a última gravada.
     session_path: Option<PathBuf>,
     session_saved: Option<session::Session>,
+    /// Lista de recentes (`None`: sem pasta de estado).
+    recent_path: Option<PathBuf>,
 }
 
 #[derive(Debug, Clone)]
@@ -451,6 +456,7 @@ impl App {
             window_size: None,
             session_path,
             session_saved: None,
+            recent_path: recent::path(),
             last_status: EditorStatus::default(),
             nav: nav::History::default(),
             outline_seen: (u64::MAX, 0),
@@ -465,6 +471,9 @@ impl App {
             config,
         };
         app.push_tab(Editor::scratch(""));
+        if let Some(path) = &app.recent_path {
+            recent::Recent::add_project(path, &app.root);
+        }
 
         let mut tasks = vec![Task::run(lsp_rx, Message::Lsp), Task::run(dap_rx, |(g, e)| Message::Dap(g, e))];
         // Extensões primeiro: assim elas recebem os eventos dos arquivos abertos abaixo.
@@ -679,6 +688,11 @@ impl App {
                     Task::none()
                 };
                 let lsp = self.ensure_lsp(i);
+                if let Some(list) = &self.recent_path
+                    && path.is_file()
+                {
+                    recent::Recent::add_file(list, &path);
+                }
                 let opened = self.broadcast(CoreEvent::FileOpened(path));
                 Task::batch([opened, note, lsp, self.set_active(i)])
             }
@@ -1785,6 +1799,7 @@ impl App {
         match id {
             "palette.open" => self.open_palette(Palette::commands()),
             "file.quick_open" => self.open_quick_open(),
+            "file.open_recent" => self.open_recent(),
             "debug.toggle_breakpoint" => {
                 let line = self.editor().cursor().0 - 1;
                 self.editor_mut().toggle_breakpoint(line);
@@ -2533,6 +2548,7 @@ impl App {
                 if p.mode == palette::Mode::ProjectSymbols { self.project_symbols_later() } else { Task::none() }
             }
             palette::Msg::PickSymbol(i) => self.open_chosen_symbol(Some(i)),
+            palette::Msg::PickRecent(i) => self.open_chosen_recent(Some(i)),
             palette::Msg::Close => {
                 self.close_palette();
                 Task::none()
@@ -2555,7 +2571,43 @@ impl App {
                 }
                 palette::Mode::Files => self.open_chosen_file(None),
                 palette::Mode::FileSymbols | palette::Mode::ProjectSymbols => self.open_chosen_symbol(None),
+                palette::Mode::Recent => self.open_chosen_recent(None),
             },
+        }
+    }
+
+    /// `Ctrl+R`: projetos (menos este) e arquivos (menos o ativo) que ainda existem.
+    fn open_recent(&mut self) -> Task<Message> {
+        let list = self.recent_path.as_deref().map(recent::Recent::load).unwrap_or_default();
+        let active = self.active_path().map(Path::to_path_buf);
+        let name = |p: &Path| p.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_else(|| p.display().to_string());
+        let place = |p: &Path| p.parent().map(recent::display).unwrap_or_default();
+        let projects = list.projects.into_iter().filter(|p| *p != self.root && p.is_dir()).map(|p| palette::RecentItem {
+            project: true,
+            name: name(&p),
+            place: place(&p),
+            path: p,
+        });
+        let files = list.files.into_iter().filter(|p| Some(p) != active.as_ref() && p.is_file()).map(|p| palette::RecentItem {
+            project: false,
+            name: name(&p),
+            place: place(&p),
+            path: p,
+        });
+        self.open_palette(Palette::recent(projects.chain(files).collect()))
+    }
+
+    /// Recente escolhido: projeto abre numa nova janela, arquivo numa aba.
+    fn open_chosen_recent(&mut self, index: Option<usize>) -> Task<Message> {
+        let Some(item) = self.palette.as_ref().and_then(|p| p.chosen_recent(index)).cloned() else { return Task::none() };
+        self.close_palette();
+        if !item.project {
+            self.remember_spot(&item.path, None);
+            return self.open_file(item.path);
+        }
+        match picker::open_window(&item.path) {
+            Ok(()) => self.notify(fl!("folder-opening", path = item.path.display().to_string())),
+            Err(e) => self.notify(fl!("folder-open-error", error = e.to_string())),
         }
     }
 
