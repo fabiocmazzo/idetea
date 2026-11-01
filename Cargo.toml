@@ -45,3 +45,8 @@ tea-ext-preview = { path = "crates/ext/tea-ext-preview" }
 
 [profile.release]
 lto = "thin"
+
+# Executável para distribuir (`just dist`): o release sem os símbolos de depuração.
+[profile.dist]
+inherits = "release"
+strip = true

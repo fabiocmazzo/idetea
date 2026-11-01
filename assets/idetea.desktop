@@ -2,13 +2,14 @@
 Type=Application
 Name=IDE TEA
 GenericName=Editor de código
+GenericName[en]=Code editor
+GenericName[es]=Editor de código
 Comment=Just code. Add ice.
-Exec=@EXEC@ %F
+Exec=@EXEC@ --menu %F
 Icon=idetea
 Terminal=false
 Categories=Development;IDE;TextEditor;
+Keywords=rust;editor;ide;code;
 StartupWMClass=idetea
 StartupNotify=true
-# Fora do menu de aplicativos: serve para o painel achar o ícone da janela (app id "idetea").
-NoDisplay=true
-MimeType=text/plain;text/x-rust;
+MimeType=text/plain;text/x-rust;text/x-csrc;text/x-c++src;text/x-python;text/markdown;application/json;

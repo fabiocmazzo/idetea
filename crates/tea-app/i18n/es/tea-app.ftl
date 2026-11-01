@@ -290,6 +290,9 @@ cli-usage =
       ruta           archivo a abrir (puede no existir: se crea al guardar)
                      o carpeta a usar como raíz del proyecto
       --no-splash    no muestra la pantalla de inicio (también: IDETEA_NO_SPLASH=1)
+      --menu         abierta desde el menú: sin carpeta, abre el proyecto del archivo o el último proyecto
+      --install-desktop    añade el IDE al menú de aplicaciones (con el icono)
+      --uninstall-desktop  lo quita del menú de aplicaciones
       -h, --help     muestra esta ayuda
       -V, --version  muestra la versión
 cli-unknown-option = opción desconocida ignorada: { $option }
@@ -464,3 +467,11 @@ split-one-tab = Abra otro archivo para dividir el editor: cada lado muestra una 
 tab-move-right = Mover a la derecha (dividir)
 tab-move-left = Mover a la izquierda
 guide-files-13 = Editor dividido: { $editor-split } (o "Mover a la derecha" en el menú de la pestaña) pone la pestaña al lado, con sus propias pestañas; abrir un archivo va al lado con foco. Haga clic en un lado (o { $editor-focus_left } / { $editor-focus_right }) para trabajar en él; arrastre la división para cambiar el ancho (doble clic la centra). Mover la última pestaña de un lado de vuelta lo junta todo.
+
+## Menu de aplicativos (--install-desktop)
+desktop-no-home = No encontré la carpeta personal (HOME).
+desktop-error = No se pudo instalar el acceso directo: { $error }
+desktop-installed = 
+    IDE TEA en el menú de aplicaciones: { $desktop }
+    Abre: { $exe }
+desktop-removed = IDE TEA quitado del menú de aplicaciones.

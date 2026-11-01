@@ -88,20 +88,35 @@ O nome é um trocadilho com *Iced Tea*: a IDE é feita com o iced.
 - Percebe sozinha arquivos mudados por fora (terminal, `cargo fmt`, outro editor, `git checkout`): a árvore e o git
   atualizam, abas sem alterações recarregam e abas com alterações são mantidas, com um aviso.
 
+## Instalando
+
+Linux x86_64. Escolha um:
+
+- **AppImage:** baixe o `IDE_TEA-<versão>-x86_64.AppImage` em [Releases](https://github.com/fabiocmazzo/idetea/releases),
+  `chmod +x` e rode. Para pôr no menu de aplicativos: `./IDE_TEA-*.AppImage --install-desktop`.
+- **.tar.gz:** baixe o `idetea-<versão>-x86_64-linux.tar.gz`, extraia e rode `./install.sh` (põe o `idetea` em
+  `~/.local/bin` e a IDE no menu de aplicativos).
+- **Com o Rust** ([rustup](https://rustup.rs), estável):
+  ```sh
+  cargo install --locked --git https://github.com/fabiocmazzo/idetea tea-app
+  idetea --install-desktop   # menu de aplicativos e ícone
+  ```
+
+Para tirar do menu: `idetea --uninstall-desktop`.
+
 ## Começando
 
-Ainda não há binários prontos. Para compilar, você precisa do [Rust](https://rustup.rs) estável (edition 2024).
-
 ```sh
-git clone https://github.com/fabiocmazzo/idetea.git
-cd idetea
-cargo build --release
-./target/release/idetea            # abre a pasta atual
-./target/release/idetea src/main.rs   # pasta atual + este arquivo
-./target/release/idetea ~/projeto     # outra pasta
+idetea                # abre a pasta atual como projeto
+idetea src/main.rs    # pasta atual + este arquivo
+idetea ~/projeto      # outra pasta
 ```
 
-Com o [`just`](https://github.com/casey/just), `just run` também instala o ícone para o painel do seu desktop.
+Aberta pelo menu de aplicativos, abre o último projeto (ou, ao abrir um arquivo pelo gerenciador de arquivos, o
+repositório dele).
+
+Para compilar daqui: `cargo build --release` (executável em `target/release/idetea`). Com o
+[`just`](https://github.com/casey/just), `just run` também instala o ícone para o painel do seu desktop.
 
 Opcionais: `git` (para a integração com git) e os servidores LSP das linguagens que você usa.
 
@@ -139,8 +154,7 @@ Todos podem ser trocados nas configurações ou em `~/.config/idetea/config.toml
 **Mais para frente:**
 - sublinhado de erros e marcas do git dentro do editor (dependem do widget de edição);
 - formatar ao salvar;
-- outros encodings além de UTF-8;
-- pacotes prontos para instalar.
+- outros encodings além de UTF-8.
 
 ## Documentação
 

@@ -290,6 +290,9 @@ cli-usage =
       path           file to open (may not exist yet: it is created on save)
                      or folder to use as the project root
       --no-splash    don't show the splash screen (also: IDETEA_NO_SPLASH=1)
+      --menu         opened from the menu: without a folder, opens the file's project or the last project
+      --install-desktop    adds the IDE to the applications menu (with the icon)
+      --uninstall-desktop  removes it from the applications menu
       -h, --help     show this help
       -V, --version  show the version
 cli-unknown-option = unknown option ignored: { $option }
@@ -464,3 +467,11 @@ split-one-tab = Open another file to split the editor: each side shows a differe
 tab-move-right = Move to the right (split)
 tab-move-left = Move to the left
 guide-files-13 = Split editor: { $editor-split } (or "Move to the right" in the tab menu) puts the tab beside, with its own tabs; opening a file goes to the focused side. Click a side (or { $editor-focus_left } / { $editor-focus_right }) to work there; drag the divider to change the width (double click centers it). Moving the last tab of a side back joins everything again.
+
+## Menu de aplicativos (--install-desktop)
+desktop-no-home = Could not find the home folder (HOME).
+desktop-error = Could not install the shortcut: { $error }
+desktop-installed = 
+    IDE TEA in the applications menu: { $desktop }
+    Runs: { $exe }
+desktop-removed = IDE TEA removed from the applications menu.

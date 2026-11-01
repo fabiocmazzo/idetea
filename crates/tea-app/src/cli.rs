@@ -1,7 +1,10 @@
-//! Linha de comando: `idetea [--no-splash] [caminho...]`
+//! Linha de comando: `idetea [--no-splash] [--menu] [caminho...]`
 //!
 //! - Raiz do projeto = pasta atual, a menos que um argumento seja uma pasta.
 //! - Todo arquivo passado é aberto (mesmo fora da raiz ou ainda inexistente).
+//! - `--menu` (o `.desktop` usa): aberta pelo menu, a pasta atual é a home, que não é um projeto. Sem pasta
+//!   nos argumentos, a raiz vira o projeto do arquivo aberto (a pasta com `.git` acima dele) ou o último projeto.
+//! - `--install-desktop` / `--uninstall-desktop`: atalho no menu de aplicativos e ícone (ver `desktop.rs`).
 
 use std::ffi::OsString;
 use std::path::{Path, PathBuf};
@@ -32,6 +35,8 @@ pub enum Cli {
     Run(Launch),
     Help,
     Version,
+    InstallDesktop,
+    UninstallDesktop,
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -39,12 +44,22 @@ pub struct Launch {
     pub root: PathBuf,
     pub files: Vec<PathBuf>,
     pub no_splash: bool,
+    /// Aberta pelo menu de aplicativos (`--menu`).
+    pub menu: bool,
+    /// Uma pasta veio nos argumentos (ela é a raiz, com ou sem `--menu`).
+    pub root_given: bool,
     pub warnings: Vec<Warning>,
 }
 
 pub fn parse(args: impl IntoIterator<Item = OsString>, cwd: &Path, env_no_splash: bool) -> Cli {
-    let mut launch = Launch { root: cwd.to_path_buf(), files: Vec::new(), no_splash: env_no_splash, warnings: Vec::new() };
-    let mut root_set = false;
+    let mut launch = Launch {
+        root: cwd.to_path_buf(),
+        files: Vec::new(),
+        no_splash: env_no_splash,
+        menu: false,
+        root_given: false,
+        warnings: Vec::new(),
+    };
     let mut flags_done = false;
 
     for arg in args {
@@ -52,6 +67,9 @@ pub fn parse(args: impl IntoIterator<Item = OsString>, cwd: &Path, env_no_splash
             match flag {
                 "--" => flags_done = true,
                 "--no-splash" => launch.no_splash = true,
+                "--menu" => launch.menu = true,
+                "--install-desktop" => return Cli::InstallDesktop,
+                "--uninstall-desktop" => return Cli::UninstallDesktop,
                 "-h" | "--help" => return Cli::Help,
                 "-V" | "--version" => return Cli::Version,
                 other => launch.warnings.push(Warning::UnknownOption(other.to_string())),
@@ -60,17 +78,27 @@ pub fn parse(args: impl IntoIterator<Item = OsString>, cwd: &Path, env_no_splash
         }
         let path = absolute(cwd, Path::new(&arg));
         if path.is_dir() {
-            if root_set {
+            if launch.root_given {
                 launch.warnings.push(Warning::ExtraRoot(path));
             } else {
                 launch.root = path;
-                root_set = true;
+                launch.root_given = true;
             }
         } else if !launch.files.contains(&path) {
             launch.files.push(path);
         }
     }
     Cli::Run(launch)
+}
+
+/// Aberta pelo menu sem pasta nos argumentos: o projeto do primeiro arquivo (a pasta acima dele com `.git`,
+/// senão a do arquivo) ou o projeto mais recente que ainda existe. `None`: fica a pasta atual.
+pub fn menu_root(files: &[PathBuf], recent_projects: &[PathBuf]) -> Option<PathBuf> {
+    if let Some(dir) = files.first().and_then(|f| f.parent()) {
+        let repo = dir.ancestors().find(|d| d.join(".git").exists());
+        return Some(repo.unwrap_or(dir).to_path_buf());
+    }
+    recent_projects.iter().find(|p| p.is_dir()).cloned()
 }
 
 /// `IDETEA_NO_SPLASH` ligado = qualquer valor que não seja vazio, `0` ou `false`.
@@ -162,6 +190,22 @@ mod tests {
         assert_eq!(l.warnings.len(), 1);
         assert!(!l.no_splash, "depois de -- é caminho, não opção");
         assert_eq!(l.files, [cwd.join("--no-splash")]);
+    }
+
+    #[test]
+    fn menu_launch() {
+        let cwd = setup("menu");
+        std::fs::create_dir_all(cwd.join(".git")).unwrap();
+        let l = run(&cwd, &["--menu"]);
+        assert!(l.menu && !l.root_given);
+        assert!(run(&cwd, &["--menu", "outro"]).root_given);
+        assert_eq!(menu_root(&[cwd.join("src/main.rs")], &[]), Some(cwd.clone()), "arquivo: a pasta com .git");
+        let solto = std::env::temp_dir().join("sem-repo-idetea.txt");
+        assert_eq!(menu_root(&[solto], &[]), Some(std::env::temp_dir()), "fora de repositório: a pasta do arquivo");
+        let recent = [cwd.join("sumiu"), cwd.join("outro")];
+        assert_eq!(menu_root(&[], &recent), Some(cwd.join("outro")), "o recente que ainda existe");
+        assert_eq!(menu_root(&[], &[]), None);
+        assert_eq!(parse([OsString::from("--install-desktop")], &cwd, false), Cli::InstallDesktop);
     }
 
     #[test]

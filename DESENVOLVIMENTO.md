@@ -21,6 +21,10 @@ Linha de comando:
 | `idetea src/main.rs` | pasta atual | `src/main.rs` |
 | `idetea ~/outro/projeto` | `~/outro/projeto` | nenhuma |
 | `idetea a.rs b.rs` | pasta atual | `a.rs`, `b.rs` (ativa) |
+| `idetea --menu [arquivo]` (o `.desktop`) | o repositório do arquivo, senão o último projeto | o arquivo |
+
+`idetea --install-desktop` / `--uninstall-desktop` põe/tira a IDE do menu de aplicativos (`~/.local/share`), apontando
+para o executável que rodou o comando (ou para o AppImage).
 
 Um arquivo que não existe abre numa aba nova e é criado ao salvar.
 
@@ -32,11 +36,21 @@ Um arquivo que não existe abre numa aba nova e é criado ao salvar.
 | `just run-release [args]` | o mesmo, em release |
 | `just desktop` / `just undesktop` | instala/remove o `idetea.desktop` e o ícone em `~/.local/share` |
 | `just check` | clippy + testes |
+| `just dist [--no-appimage]` | `.tar.gz` e AppImage em `dist/` (perfil `dist`: release sem símbolos) |
 
 **Por que o `just desktop`:** no Wayland, o painel do desktop (COSMIC, GNOME, KDE) acha o ícone de uma janela pelo
 app id dela (`idetea`), procurando um `idetea.desktop` com o mesmo nome. Depois de instalado uma vez, até o
-`cargo run` direto mostra o ícone. O `.desktop` fica fora do menu de aplicativos (`NoDisplay`): aberto pelo menu,
-a raiz do projeto seria a pasta home.
+`cargo run` direto mostra o ícone. Se já houver um `idetea.desktop` (de uma versão instalada), ele é mantido.
+
+## Lançar uma versão
+
+1. Suba a versão em `[workspace.package]` no `Cargo.toml` (e rode `cargo build` para o `Cargo.lock` acompanhar).
+2. Commit, `git tag v<versão>` e `git push origin main v<versão>`.
+3. O workflow "Versão" (`.github/workflows/release.yml`) testa, roda `packaging/dist.sh` no Ubuntu 22.04 (glibc mais
+   antiga, para rodar em mais distros) e publica a versão com o `.tar.gz` e o AppImage. Tag diferente da versão do
+   `Cargo.toml` falha.
+
+O CI (`ci.yml`) roda clippy (avisos viram erro) e os testes a cada push na main e em cada pull request.
 
 ## Testes e checagens
 

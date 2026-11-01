@@ -1,0 +1,4 @@
+#!/bin/sh
+# Entrada do AppImage. A pasta atual é mantida: `./IDE_TEA.AppImage .` abre a pasta como projeto.
+here=$(dirname "$(readlink -f "$0")")
+exec "$here/usr/bin/idetea" "$@"

@@ -1,0 +1,39 @@
+# A cada tag `v*` (ex.: `git tag v0.1.0 && git push origin v0.1.0`): testa, gera o .tar.gz e o AppImage e
+# publica uma versão no GitHub com os dois. A tag precisa bater com a versão do Cargo.toml.
+name: Versão
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  release:
+    # Ubuntu mais antigo = glibc mais antiga: o executável roda em mais distros.
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Tag igual à versão
+        run: |
+          version=$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -n 1)
+          if [ "v$version" != "$GITHUB_REF_NAME" ]; then
+            echo "A tag $GITHUB_REF_NAME não bate com a versão $version do Cargo.toml" >&2
+            exit 1
+          fi
+      - name: Testes
+        run: cargo test --locked --workspace
+      - name: Pacotes
+        run: packaging/dist.sh
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/*.tar.gz
+            dist/*.AppImage
+          generate_release_notes: true

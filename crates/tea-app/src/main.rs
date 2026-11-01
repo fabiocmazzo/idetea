@@ -14,6 +14,7 @@ mod cli;
 mod context_menu;
 mod debug;
 mod debug_build;
+mod desktop;
 mod dialog;
 mod editorconfig;
 mod divider;
@@ -56,7 +57,7 @@ static LAUNCH: OnceLock<cli::Launch> = OnceLock::new();
 static STARTED: OnceLock<Instant> = OnceLock::new();
 
 /// Id da janela no Wayland/X11. O painel do desktop acha o ícone pelo arquivo
-/// `idetea.desktop` com este mesmo nome (`just desktop` instala).
+/// `idetea.desktop` com este mesmo nome (`idetea --install-desktop` ou `just desktop` instalam).
 const APP_ID: &str = "idetea";
 
 fn main() -> iced::Result {
@@ -73,7 +74,15 @@ fn main() -> iced::Result {
             println!("idetea {}", env!("CARGO_PKG_VERSION"));
             Ok(())
         }
-        cli::Cli::Run(launch) => {
+        cli::Cli::InstallDesktop => desktop::run(true),
+        cli::Cli::UninstallDesktop => desktop::run(false),
+        cli::Cli::Run(mut launch) => {
+            if launch.menu && !launch.root_given {
+                let recent = recent::path().map(|p| recent::Recent::load(&p)).unwrap_or_default();
+                if let Some(root) = cli::menu_root(&launch.files, &recent.projects) {
+                    launch.root = root;
+                }
+            }
             let _ = LAUNCH.set(launch);
             let saved = ui_state::UiState::load(ui_state::state_path().as_deref());
             iced::application(App::boot, App::update, App::view)

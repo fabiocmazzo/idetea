@@ -290,6 +290,9 @@ cli-usage =
       caminho        arquivo para abrir (pode não existir: é criado ao salvar)
                      ou pasta para usar como raiz do projeto
       --no-splash    não mostra a splash screen (também: IDETEA_NO_SPLASH=1)
+      --menu         aberta pelo menu: sem pasta, abre o projeto do arquivo ou o último projeto
+      --install-desktop    põe a IDE no menu de aplicativos (com o ícone)
+      --uninstall-desktop  tira do menu de aplicativos
       -h, --help     mostra esta ajuda
       -V, --version  mostra a versão
 cli-unknown-option = opção desconhecida ignorada: { $option }
@@ -464,3 +467,11 @@ split-one-tab = Abra outro arquivo para dividir o editor: cada lado mostra uma a
 tab-move-right = Mandar para a direita (dividir)
 tab-move-left = Mandar para a esquerda
 guide-files-13 = Editor dividido: { $editor-split } (ou "Mandar para a direita" no menu da aba) põe a aba ao lado, com as suas próprias abas; abrir um arquivo vai para o lado com foco. Clique num lado (ou { $editor-focus_left } / { $editor-focus_right }) para trabalhar nele; arraste a divisa para mudar a largura (duplo clique volta ao meio). Mandar a última aba de um lado de volta junta tudo.
+
+## Menu de aplicativos (--install-desktop)
+desktop-no-home = Não achei a pasta pessoal (HOME).
+desktop-error = Não foi possível instalar o atalho: { $error }
+desktop-installed = 
+    IDE TEA no menu de aplicativos: { $desktop }
+    Abre: { $exe }
+desktop-removed = IDE TEA saiu do menu de aplicativos.

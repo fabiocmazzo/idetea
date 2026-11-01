@@ -773,8 +773,28 @@ O que mais falta no uso diário. Cada item é uma entrega com teste manual; a or
     esquerda. Abrir um arquivo pela árvore: vai para o lado com foco. Clicar no texto do outro lado e digitar:
     digita lá (a barra de status acompanha). `Ctrl+1`/`Ctrl+2` trocam. Arrastar a divisa; duplo clique centraliza.
     Fechar todas as abas da direita: volta a um editor só. Fechar a IDE dividida e abrir: volta dividida.
-- [ ] **Distribuição:** `.desktop` com ícone, `cargo install`, AppImage ou Flatpak; CI no GitHub (testes,
+- [x] **Distribuição:** `.desktop` com ícone, `cargo install`, AppImage ou Flatpak; CI no GitHub (testes,
   clippy e o executável a cada versão).
+  O executável só depende da libc (Wayland, X11, Vulkan e xkbcommon são abertos na hora), então um `.tar.gz` e um
+  AppImage sem bibliotecas dentro rodam em qualquer distro com glibc igual ou mais nova que a do build (Ubuntu
+  22.04). Flatpak fica de fora: a sandbox atrapalha uma IDE (git, LSP, cargo e o shell do terminal são os do
+  sistema).
+  - `idetea --install-desktop` grava `~/.local/share/applications/idetea.desktop` (no menu, `Exec` = este
+    executável, ou `$APPIMAGE`) e o ícone em `icons/hicolor/scalable/apps`; `--uninstall-desktop` tira. O
+    `.desktop` e o SVG vão dentro do executável (`include_str!`), então funciona depois de `cargo install`.
+  - Aberta pelo menu (`--menu %F`): sem pasta nos argumentos, a raiz é o repositório do arquivo aberto (pasta com
+    `.git` acima dele, senão a do arquivo) ou o projeto mais recente que ainda existe (senão, a home).
+  - `cargo install --locked --git https://github.com/fabiocmazzo/idetea tea-app`.
+  - `packaging/dist.sh` (`just dist`): perfil `dist` (release + `strip`), `idetea-<v>-<arch>-linux.tar.gz` (com
+    `install.sh`: `~/.local/bin` + `--install-desktop`) e `IDE_TEA-<v>-<arch>.AppImage` (`appimagetool` baixado
+    em `target/`; `--no-appimage` pula).
+  - CI: `ci.yml` (push na main e PRs: clippy `-D warnings` e testes) e `release.yml` (tag `v*`: confere a tag com a
+    versão do `Cargo.toml`, testa, gera os pacotes no Ubuntu 22.04 e publica a versão no GitHub).
+  - `just desktop` (desenvolvimento) não sobrescreve um atalho já instalado.
+  - [x] Teste manual (aprovado): `cargo install --path crates/tea-app --locked` e `idetea --install-desktop`: a IDE aparece no
+    menu com o ícone e abre o último projeto. Abrir um arquivo de um repositório pelo gerenciador de arquivos
+    ("Abrir com IDE TEA"): a raiz é o repositório. `just dist`: gera o `.tar.gz` e o AppImage; o AppImage abre com
+    `./IDE_TEA-*.AppImage .`. Depois do push: o CI passa no GitHub.
 - [ ] **Arquivos grandes:** medir com um arquivo de 50 MB e com uma linha gigante (objetivo "não trava").
 
 ### Fase 4 — Plugins externos (melhoria futura)
