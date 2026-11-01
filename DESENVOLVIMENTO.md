@@ -161,8 +161,20 @@ references = { $count ->
 }
 ```
 
+Cuidados:
+
+- Nada de `fl!` antes de `tea_core::i18n::init` (no `boot`): o primeiro uso fixa o idioma do crate.
+  Texto criado antes disso (ex.: avisos da linha de comando) guarda os dados e vira texto depois.
+- Não compare textos traduzidos no código (`msg.starts_with("Commit")`): use um tipo.
+- Títulos registrados por id (comandos do núcleo, da árvore) usam `LOADER.get(id)`, que a compilação não
+  confere; há testes para isso.
+- Guia da ajuda: o comando entra como valor com hífens, `{ $palette-open }`, e vira o atalho atual do
+  usuário (`get_with_markers`).
+- Linha de continuação num `.ftl` não pode começar com `[`, `*` ou `.` (o Fluent lê como variante).
+
 ## Convenções
 
-- Textos da interface, mensagens e documentação em português.
+- Textos da interface em português nos `.ftl` (com inglês e espanhol ao lado); mensagens de log, comentários e
+  documentação em português.
 - Trabalho pesado ou que espera (git, busca, rede) roda fora da thread da interface.
 - Cada item do roadmap só é marcado como feito no [SPEC.md](SPEC.md) depois do teste manual na tela.

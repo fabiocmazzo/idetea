@@ -294,3 +294,55 @@ cli-usage =
       -V, --version  show the version
 cli-unknown-option = unknown option ignored: { $option }
 cli-extra-root = only one root folder at a time, ignoring { $path }
+
+## Ajuda → Guia (`{ $comando-com-hifens }` vira o atalho do comando)
+guide-start = Getting started
+guide-start-1 = Open the IDE with `idetea` in a folder (it becomes the root of the tree) or with `idetea file...` (the files open in tabs; the root stays the current folder).
+guide-start-2 = Every command is in the palette: { $palette-open }. Type part of the name; the shortcut shows next to it.
+guide-start-3 = This help opens with { $help-open }.
+guide-start-4 = The icon bar on the left edge shows and hides the panels with one click (the open one is highlighted). Drag the border between a panel and the editor to resize it; double-click restores the default.
+guide-files = Files and tabs
+guide-files-1 = Open by name: { $file-quick_open } (type parts of the name; `main.rs:42` goes to the line; `>` switches to commands).
+guide-files-2 = Go to a symbol (function, type, method…): { $nav-file_symbol } in the file, { $nav-project_symbol } in the whole project. Needs the language server.
+guide-files-3 = New: { $file-new } · Open: { $file-open } · Save: { $file-save } · Save as: { $file-save_as } · Close tab: { $file-close }.
+guide-files-4 = Open and Save as use the system file dialog. To type the path: { $file-save_as_path }. Opening another folder ({ $file-open_folder }) opens a new IDE window.
+guide-files-5 = Markdown and SVG preview: { $preview-toggle } (or the button at the end of the tab bar) opens a side panel that follows the active file and updates as you type. Web links open in the browser; links to files open in a tab.
+guide-files-6 = Images (png, jpg, gif, webp...) open in their own tab: the mouse wheel zooms and dragging moves.
+guide-files-7 = PDFs also open in a tab: scroll through the pages; − and + change the zoom and "Fit" follows the width.
+guide-files-8 = Switch tabs: { $tab-next } and { $tab-prev } (Ctrl+Tab inserts a tab in the editor).
+guide-files-9 = Closing a tab or quitting with unsaved changes asks first: Save, Discard or Cancel.
+guide-files-10 = File changed outside (terminal, another editor): the tab reloads by itself if it has no unsaved changes; if it does, it stays as it is and a notice appears.
+guide-files-11 = Right-click a tab: close others, to the right, saved or all, copy path, reveal in the tree and open in the file manager. Middle-click closes the tab.
+guide-tree = File tree
+guide-tree-1 = Show/hide: { $filetree-toggle } · Reveal the current file: { $filetree-reveal }.
+guide-tree-2 = Right-click an item: new file, new folder, rename, delete, copy path and open in the file manager. Delete sends it to the system trash.
+guide-tree-3 = Git colors: yellow = modified, green = new, red = conflict, dimmed = ignored. A folder with changes inside shows a dot.
+guide-bottom = Bottom panel
+guide-bottom-1 = Project search ({ $search-focus }), Problems ({ $problems-focus }), Terminal ({ $terminal-focus }) and Git ({ $git-focus }) are tabs in the bottom panel. { $view-toggle_bottom } shows/hides the panel.
+guide-bottom-2 = Next problem: { $problems-next }.
+guide-terminal = Terminal
+guide-terminal-1 = With the focus on the terminal, Ctrl+letter, F-keys and arrows go to the shell (Ctrl+C, Ctrl+W...). IDE shortcuts with Ctrl+Shift keep working, so the palette always opens.
+guide-terminal-2 = Copy and paste in the terminal: Ctrl+Shift+C and Ctrl+Shift+V. Typing `exit` closes the panel.
+guide-debug = Debug
+guide-debug-1 = Breakpoint: click the line number or { $debug-toggle_breakpoint }. Start/continue: { $debug-continue }. In Rust projects it builds with cargo build and finds the executable by itself; for others, use [debug] in the config (program, args, cwd, build) or pick the executable. Change the program: { $debug-choose_program }.
+guide-debug-2 = Stopped: { $debug-next } next line, { $debug-step_in } steps into the function, { $debug-step_out } steps out, { $debug-pause } pauses, { $debug-stop } stops. The yellow arrow shows where the program is. Uses gdb 14+.
+guide-debug-3 = Debug panel ({ $debug-focus }): buttons, call stack (click goes to the frame and shows its variables), variables (click expands structs and vectors) and the program and build output.
+guide-git = Git
+guide-git-1 = The branch shows in the status bar. The Git panel ({ $git-focus }) shows what changed: + and − stage and unstage, clicking a file shows the diff, Enter in the message commits.
+guide-git-2 = Right-click a file in Git: open, view diff, stage, discard changes (asks for confirmation) and copy path.
+guide-git-3 = Fetch ({ $git-fetch }), pull ({ $git-pull }) and push ({ $git-push }) are the buttons at the top of the panel. The password is not asked here: use the ssh agent (ssh-add) or a credential helper. A new branch asks before being published on the remote.
+guide-git-4 = The panel updates on save and when the repository changes (commit or checkout done in the terminal).
+guide-lsp = Languages (LSP)
+guide-lsp-1 = Language servers start by themselves when you open a file: rust-analyzer, clangd, pyright, typescript-language-server, gopls and lua-language-server (they must be installed).
+guide-lsp-2 = Go to definition: { $lsp-definition } or Ctrl+Click · Documentation: { $lsp-hover } or rest the mouse on the code · Format: { $lsp-format }.
+guide-lsp-3 = Where it is used: { $lsp-references }, or Ctrl+Click on the declaration itself. The list shows in the References panel; click goes to the use.
+guide-lsp-4 = Implementations: { $lsp-implementation } (on a trait or interface, or on one of its methods). Type of what is under the cursor: "LSP: go to type definition" in the palette. With more than one result (including for definition), the list goes to the References panel; with only one, it jumps straight there.
+guide-lsp-5 = Who calls a function: { $lsp-incoming_calls } with the cursor on it. The Calls panel shows the tree (open a level to see who calls the callers); "Callees" switches to the calls it makes. Click goes to the call.
+guide-lsp-6 = Back and forward after a jump (definition, reference, open by name, clicks in the panels): { $nav-back } and { $nav-forward }, or the mouse side buttons.
+guide-lsp-7 = File outline ({ $outline-toggle }): functions, structs, methods and fields in a tree. The open padlock is public, the closed one is private and the key is visible only in part of the code (pub(crate), protected, package). The symbol under the cursor is highlighted; click goes to it.
+guide-lsp-8 = If a server fails, the status bar shows why; "LSP: restart servers" tries again.
+guide-config = Settings
+guide-config-1 = The settings screen ({ $settings-open }) changes theme, font, extensions, shortcuts and LSP, writing to the global or the project config. Changes apply right away.
+guide-config-2 = There is a global config and one per project (`.idetea/config.toml`); the project one wins. To edit the file directly: "Config: open global config" or "Config: open project config". On save, everything reloads.
+guide-config-3 = Shortcuts live in [keys]: "ctrl+alt+t" = "terminal.focus". Empty text turns off a default shortcut. Command ids show in the Shortcuts tab.
+guide-config-4 = Language: Settings → Appearance → Language (Automatic follows the system). Takes effect after restarting the IDE.

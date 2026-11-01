@@ -61,128 +61,17 @@ fn editor_keys() -> Vec<(String, String)> {
     .into()
 }
 
-/// Guia: (título, parágrafos). `{comando}` vira o atalho atual.
+/// Guia: (título, parágrafos), ids no `.ftl`. `{ $palette-open }` no texto vira o atalho atual.
 const GUIDE: &[(&str, &[&str])] = &[
-    (
-        "Primeiros passos",
-        &[
-            "Abra a IDE com `idetea` numa pasta (ela vira a raiz da árvore) ou com `idetea arquivo...` \
-             (os arquivos abrem em abas; a raiz continua sendo a pasta atual).",
-            "Todos os comandos estão na paleta: {palette.open}. Digite parte do nome; o atalho aparece ao lado.",
-            "Esta ajuda abre com {help.open}.",
-            "A barra de ícones na borda esquerda mostra e oculta os painéis com um clique (o aberto fica destacado). \
-             Arraste a borda entre um painel e o editor para mudar o tamanho; duplo clique volta ao padrão.",
-        ],
-    ),
-    (
-        "Arquivos e abas",
-        &[
-            "Abrir pelo nome: {file.quick_open} (digite partes do nome; `main.rs:42` vai para a linha; \
-             `>` troca para os comandos).",
-            "Ir para um símbolo (função, tipo, método…): {nav.file_symbol} no arquivo, {nav.project_symbol} no \
-             projeto inteiro. Precisa do servidor de linguagem.",
-            "Novo: {file.new} · Abrir: {file.open} · Salvar: {file.save} · Salvar como: {file.save_as} · \
-             Fechar aba: {file.close}.",
-            "Abrir e Salvar como usam a janela de arquivos do sistema. Para digitar o caminho: \
-             {file.save_as_path}. Abrir outra pasta ({file.open_folder}) abre uma nova janela da IDE.",
-            "Prévia de Markdown e SVG: {preview.toggle} (ou o botão no fim da barra de abas) abre um painel ao lado que acompanha o arquivo ativo e \
-             se atualiza enquanto você digita. Links da web abrem no navegador; links para arquivos abrem numa aba.",
-            "Imagens (png, jpg, gif, webp...) abrem numa aba própria: a roda do mouse aproxima e arrastar move.",
-            "PDF também abre numa aba: role pelas páginas; − e + mudam o zoom e \"Ajustar\" acompanha a largura.",
-            "Trocar de aba: {tab.next} e {tab.prev} (Ctrl+Tab insere tabulação no editor).",
-            "Fechar uma aba ou sair com alterações pergunta antes: Salvar, Descartar ou Cancelar.",
-            "Arquivo mudado por fora (terminal, outro editor): a aba recarrega sozinha se não tiver alterações; \
-             se tiver, fica como está e aparece um aviso.",
-            "Botão direito numa aba: fechar outras, à direita, salvas ou todas, copiar caminho, revelar na \
-             árvore e abrir no gerenciador de arquivos. Clique do meio fecha a aba.",
-        ],
-    ),
-    (
-        "Árvore de arquivos",
-        &[
-            "Mostrar/ocultar: {filetree.toggle} · Revelar o arquivo atual: {filetree.reveal}.",
-            "Botão direito num item: novo arquivo, nova pasta, renomear, apagar, copiar caminho e abrir no \
-             gerenciador de arquivos. Apagar manda para a lixeira do sistema.",
-            "Cores do git: amarelo = modificado, verde = novo, vermelho = conflito, apagado = ignorado. \
-             Uma pasta com mudanças dentro mostra um ponto.",
-        ],
-    ),
-    (
-        "Painel inferior",
-        &[
-            "Busca no projeto ({search.focus}), Problemas ({problems.focus}), Terminal ({terminal.focus}) e Git \
-             ({git.focus}) ficam em abas no painel de baixo. {view.toggle_bottom} mostra/esconde o painel.",
-            "Próximo problema: {problems.next}.",
-        ],
-    ),
-    (
-        "Terminal",
-        &[
-            "Com o foco no terminal, Ctrl+letra, F-teclas e setas vão para o shell (Ctrl+C, Ctrl+W...). \
-             Os atalhos da IDE com Ctrl+Shift continuam valendo, então a paleta sempre abre.",
-            "Copiar e colar no terminal: Ctrl+Shift+C e Ctrl+Shift+V. Digitar `exit` fecha o painel.",
-        ],
-    ),
-    (
-        "Debug",
-        &[
-            "Breakpoint: clique no número da linha ou {debug.toggle_breakpoint}. Iniciar/continuar: {debug.continue}. \
-             Em projetos Rust compila com cargo build e acha o executável sozinho; nos outros, use [debug] no \
-             config (program, args, cwd, build) ou escolha o executável. Trocar o programa: {debug.choose_program}.",
-            "Parado: {debug.next} próxima linha, {debug.step_in} entra na função, {debug.step_out} sai, \
-             {debug.pause} pausa, {debug.stop} para. A seta amarela mostra onde o programa está. Usa o gdb 14+.",
-            "Painel Debug ({debug.focus}): botões, pilha de chamadas (clique vai para o quadro e mostra as variáveis \
-             dele), variáveis (clique abre structs e vetores) e a saída do programa e da compilação.",
-        ],
-    ),
-    (
-        "Git",
-        &[
-            "A branch aparece na barra de status. O painel Git ({git.focus}) mostra o que mudou: + e − colocam e \
-             tiram do stage, clicar num arquivo mostra o diff, Enter na mensagem faz o commit.",
-            "Botão direito num arquivo do Git: abrir, ver diff, stage, descartar alterações (pede confirmação) \
-             e copiar caminho.",
-            "Fetch ({git.fetch}), pull ({git.pull}) e push ({git.push}) ficam nos botões do topo do painel. \
-             A senha não é pedida aqui: use o agente ssh (ssh-add) ou um credential helper. \
-             Uma branch nova pergunta antes de ser publicada no remoto.",
-            "O painel se atualiza ao salvar e quando o repositório muda (commit ou checkout feitos no terminal). \
-             Push e pull: use o terminal.",
-        ],
-    ),
-    (
-        "Linguagens (LSP)",
-        &[
-            "Servidores de linguagem iniciam sozinhos ao abrir um arquivo: rust-analyzer, clangd, pyright, \
-             typescript-language-server, gopls e lua-language-server (precisam estar instalados).",
-            "Ir para definição: {lsp.definition} ou Ctrl+Clique · Documentação: {lsp.hover} ou mouse parado \
-             sobre o código · Formatar: {lsp.format}.",
-            "Onde é usado: {lsp.references}, ou Ctrl+Clique na própria declaração. A lista aparece no painel \
-             Referências; clique leva ao uso.",
-            "Implementações: {lsp.implementation} (num trait ou interface, ou num método dele). Tipo do que está \
-             no cursor: \"LSP: ir para o tipo\" na paleta. Com mais de um resultado (inclusive na definição), \
-             a lista vai para o painel Referências; com um só, salta direto.",
-            "Quem chama uma função: {lsp.incoming_calls} com o cursor nela. O painel Chamadas mostra a árvore (abra \
-             um nível para ver quem chama quem chama); \"O que chama\" troca para as chamadas feitas por ela. \
-             Clique leva até a chamada.",
-            "Voltar e avançar depois de um salto (definição, referência, Ctrl+P, cliques nos painéis): \
-             {nav.back} e {nav.forward}, ou os botões laterais do mouse.",
-            "Estrutura do arquivo ({outline.toggle}): funções, structs, métodos e campos em árvore. O cadeado \
-             aberto é público, o fechado é privado e a chave é visível só em parte (pub(crate), protected, \
-             pacote). O símbolo onde o cursor está fica destacado; clique leva até ele.",
-            "Se um servidor falhar, a barra de status mostra o motivo; \"LSP: reiniciar servidores\" tenta de novo.",
-        ],
-    ),
-    (
-        "Configuração",
-        &[
-            "A tela de configurações ({settings.open}) muda tema, fonte, extensões, atalhos e LSP, gravando no config \
-             global ou no do projeto. As mudanças valem na hora.",
-            "Há um config global e um por projeto (`.idetea/config.toml`); o do projeto vence. Para editar o arquivo \
-             direto: \"Config: abrir config global\" ou \"...do projeto\". Ao salvar, tudo recarrega.",
-            "Atalhos ficam em [keys]: \"ctrl+alt+t\" = \"terminal.focus\". Texto vazio desliga um atalho padrão. \
-             Os ids dos comandos aparecem na aba Atalhos.",
-        ],
-    ),
+    ("guide-start", &["guide-start-1", "guide-start-2", "guide-start-3", "guide-start-4"]),
+    ("guide-files", &["guide-files-1", "guide-files-2", "guide-files-3", "guide-files-4", "guide-files-5", "guide-files-6", "guide-files-7", "guide-files-8", "guide-files-9", "guide-files-10", "guide-files-11"]),
+    ("guide-tree", &["guide-tree-1", "guide-tree-2", "guide-tree-3"]),
+    ("guide-bottom", &["guide-bottom-1", "guide-bottom-2"]),
+    ("guide-terminal", &["guide-terminal-1", "guide-terminal-2"]),
+    ("guide-debug", &["guide-debug-1", "guide-debug-2", "guide-debug-3"]),
+    ("guide-git", &["guide-git-1", "guide-git-2", "guide-git-3", "guide-git-4"]),
+    ("guide-lsp", &["guide-lsp-1", "guide-lsp-2", "guide-lsp-3", "guide-lsp-4", "guide-lsp-5", "guide-lsp-6", "guide-lsp-7", "guide-lsp-8"]),
+    ("guide-config", &["guide-config-1", "guide-config-2", "guide-config-3", "guide-config-4"]),
 ];
 
 impl Help {
@@ -348,12 +237,17 @@ pub enum Chunk {
     Code,
 }
 
+/// Parágrafo do guia no idioma da interface, com os comandos como `{palette.open}`.
+fn paragraph(id: &str) -> String {
+    tea_core::i18n::get_with_markers(&crate::LOADER, id)
+}
+
 fn guide<'a>(keymap: &Keymap) -> Element<'a, Msg> {
     let mut col = column![].spacing(6).padding([0, 12]);
     for (title, paragraphs) in GUIDE {
-        col = col.push(container(text(*title).size(15)).padding([10, 0]));
+        col = col.push(container(text(crate::LOADER.get(title)).size(15)).padding([10, 0]));
         for p in *paragraphs {
-            let spans: Vec<iced::widget::text::Span<'a, ()>> = render_paragraph(p, keymap)
+            let spans: Vec<iced::widget::text::Span<'a, ()>> = render_paragraph(&paragraph(p), keymap)
                 .into_iter()
                 .map(|(t, kind)| match kind {
                     Chunk::Text => span(t),
@@ -418,6 +312,21 @@ mod tests {
     }
 
     #[test]
+    fn guide_in_each_language() {
+        use tea_core::i18n::{Language, get_with_markers, load_in};
+        for lang in [Language::English, Language::Spanish] {
+            let loader = load_in("tea-app", &crate::Localizations, lang);
+            let text = get_with_markers(&loader, "guide-start-2");
+            assert!(text.contains("{palette.open}"), "{lang:?}: {text}");
+            assert!(!text.contains('$'), "{lang:?}: {text}");
+        }
+        assert_eq!(
+            get_with_markers(&load_in("tea-app", &crate::Localizations, Language::English), "guide-start"),
+            "Getting started"
+        );
+    }
+
+    #[test]
     fn guide_commands_exist() {
         // Todo `{comando}` do guia precisa existir (núcleo ou extensões embutidas).
         let known: Vec<&str> = crate::CORE_COMMANDS.iter().map(|(id, _)| *id).collect();
@@ -440,7 +349,9 @@ mod tests {
         ];
         for (_, paragraphs) in GUIDE {
             for p in *paragraphs {
-                let mut rest = *p;
+                let text = paragraph(p);
+                assert!(!text.is_empty() && !text.contains('$'), "parágrafo sem texto: {p} = {text:?}");
+                let mut rest = text.as_str();
                 while let Some(i) = rest.find('{') {
                     let end = rest[i..].find('}').unwrap() + i;
                     let id = &rest[i + 1..end];

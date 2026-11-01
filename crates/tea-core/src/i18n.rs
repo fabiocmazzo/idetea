@@ -132,45 +132,66 @@ macro_rules! i18n_loader {
     };
 }
 
+use std::collections::BTreeSet;
+use fluent_syntax::ast::{Expression, InlineExpression, Pattern, PatternElement};
+
+/// Valores (`$nome`) usados num texto, inclusive dentro de plurais.
+fn vars(pattern: &Pattern<&str>, out: &mut BTreeSet<String>) {
+    for element in &pattern.elements {
+        if let PatternElement::Placeable { expression } = element {
+            expr(expression, out);
+        }
+    }
+}
+fn expr(e: &Expression<&str>, out: &mut BTreeSet<String>) {
+    match e {
+        Expression::Select { selector, variants } => {
+            inline(selector, out);
+            for v in variants {
+                vars(&v.value, out);
+            }
+        }
+        Expression::Inline(i) => inline(i, out),
+    }
+}
+fn inline(i: &InlineExpression<&str>, out: &mut BTreeSet<String>) {
+    match i {
+        InlineExpression::VariableReference { id } => {
+            out.insert(id.name.to_string());
+        }
+        InlineExpression::Placeable { expression } => expr(expression, out),
+        InlineExpression::FunctionReference { arguments, .. } => {
+            for a in &arguments.positional {
+                inline(a, out);
+            }
+        }
+        _ => {}
+    }
+}
+
+/// Texto em que cada valor `{ $a-b }` vira o marcador `{a.b}`. É o jeito do guia da ajuda citar
+/// comandos: o marcador depois vira o atalho atual do usuário.
+pub fn get_with_markers(loader: &FluentLanguageLoader, id: &str) -> String {
+    let names: Vec<String> = loader
+        .with_fluent_message(id, |m| {
+            let mut out = BTreeSet::new();
+            if let Some(p) = m.value() {
+                vars(p, &mut out);
+            }
+            out.into_iter().collect()
+        })
+        .unwrap_or_default();
+    let markers: Vec<String> = names.iter().map(|n| format!("{{{}}}", n.replace('-', "."))).collect();
+    let args = names.iter().map(String::as_str).zip(markers.iter().map(|m| m.as_str().into())).collect();
+    loader.get_args_concrete(id, args)
+}
+
 /// Confere que todos os idiomas de uma pasta `i18n/` têm as mesmas mensagens e os mesmos valores
 /// (`{ $name }`) que o português. Devolve a lista de problemas (vazia = tudo certo).
 pub fn check_translations(i18n_dir: &std::path::Path) -> Vec<String> {
     use std::collections::{BTreeMap, BTreeSet};
-    use fluent_syntax::ast::{Entry, Expression, InlineExpression, Pattern, PatternElement};
+    use fluent_syntax::ast::Entry;
 
-    /// Valores (`$nome`) usados num texto, inclusive dentro de plurais.
-    fn vars(pattern: &Pattern<&str>, out: &mut BTreeSet<String>) {
-        for element in &pattern.elements {
-            if let PatternElement::Placeable { expression } = element {
-                expr(expression, out);
-            }
-        }
-    }
-    fn expr(e: &Expression<&str>, out: &mut BTreeSet<String>) {
-        match e {
-            Expression::Select { selector, variants } => {
-                inline(selector, out);
-                for v in variants {
-                    vars(&v.value, out);
-                }
-            }
-            Expression::Inline(i) => inline(i, out),
-        }
-    }
-    fn inline(i: &InlineExpression<&str>, out: &mut BTreeSet<String>) {
-        match i {
-            InlineExpression::VariableReference { id } => {
-                out.insert(id.name.to_string());
-            }
-            InlineExpression::Placeable { expression } => expr(expression, out),
-            InlineExpression::FunctionReference { arguments, .. } => {
-                for a in &arguments.positional {
-                    inline(a, out);
-                }
-            }
-            _ => {}
-        }
-    }
     /// Mensagem → valores que ela usa.
     fn messages(path: &std::path::Path) -> Result<BTreeMap<String, BTreeSet<String>>, String> {
         let text = std::fs::read_to_string(path).map_err(|e| format!("{}: {e}", path.display()))?;

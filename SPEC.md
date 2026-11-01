@@ -597,6 +597,16 @@ Entregas: (1) base → (2) núcleo e app → (3) extensões → (4) traduções 
     Referências, Chamadas, Estrutura, Prévia, Debug) e ver os textos em inglês; na árvore, botão direito → menu e
     Apagar… (diálogo, cancelar); no git, stage de um arquivo, Descartar alterações… (cancelar) e um commit (a
     caixa da mensagem limpa); barra de status ("Ln, Col", "● unsaved"); voltar para Automático.
+- [x] **Entrega 4 — guia da ajuda e revisão:**
+  - O guia (9 seções, 41 parágrafos) em `.ftl`. Os comandos citados viram valores (`{ $palette-open }`): o teste de
+    traduções confere que cada idioma cita os mesmos, e `get_with_markers` troca pelo atalho do usuário.
+  - Revisão: no Git saiu "Push e pull: use o terminal" (o painel já tem os botões); "Ctrl+P" fixo virou "abrir
+    pelo nome"; novo parágrafo sobre o idioma em Configuração. Nenhum resto de português em en/es; os textos
+    iguais nas duas línguas (Cancelar, Terminal...) foram conferidos.
+  - DESENVOLVIMENTO: cuidados com `fl!` antes do `init`, textos comparados no código, ids e o guia.
+  - [x] Teste manual (aprovado): Idioma = English; reiniciar; F1 → Guia: textos em inglês, atalhos em negrito no lugar
+    certo (ex.: Ctrl+Shift+P em "Getting started"); repetir com Español; voltar para Automático e ver o guia
+    em português.
 
 ### Fase 4 — Plugins externos (melhoria futura)
 
