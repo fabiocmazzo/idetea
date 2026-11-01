@@ -650,6 +650,7 @@ impl App {
                     tasks.push(self.broadcast(CoreEvent::FilesChanged));
                 }
                 Request::Menu(menu) => tasks.push(self.open_menu(menu, dialog::Owner::Ext(ext))),
+                Request::Pick(pick) => tasks.push(self.open_palette(Palette::pick(ext, pick))),
                 Request::DebugSelectFrame(i) => tasks.push(self.debug_select_frame(i)),
                 Request::DebugVariables(reference) => {
                     if let Some(session) = self.debug.session() {
@@ -2979,6 +2980,7 @@ impl App {
             }
             palette::Msg::PickSymbol(i) => self.open_chosen_symbol(Some(i)),
             palette::Msg::PickRecent(i) => self.open_chosen_recent(Some(i)),
+            palette::Msg::PickItem(_) | palette::Msg::PickCreate => self.choose_pick(Some(&msg)),
             palette::Msg::Close => {
                 self.close_palette();
                 Task::none()
@@ -3007,8 +3009,18 @@ impl App {
                 palette::Mode::Files => self.open_chosen_file(None),
                 palette::Mode::FileSymbols | palette::Mode::ProjectSymbols => self.open_chosen_symbol(None),
                 palette::Mode::Recent => self.open_chosen_recent(None),
+                palette::Mode::Pick => self.choose_pick(None),
             },
         }
+    }
+
+    /// Item da lista de uma extensão: fecha a paleta e manda a mensagem dele para a extensão.
+    fn choose_pick(&mut self, msg: Option<&palette::Msg>) -> Task<Message> {
+        let Some(p) = &self.palette else { return Task::none() };
+        let Some(chosen) = p.chosen_pick(msg) else { return Task::none() };
+        let owner = p.pick_owner;
+        self.close_palette();
+        self.call_ext(owner, |e, ctx| e.update(chosen, ctx))
     }
 
     /// `Ctrl+R`: projetos (menos este) e arquivos (menos o ativo) que ainda existem.

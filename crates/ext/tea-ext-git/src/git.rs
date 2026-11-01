@@ -339,6 +339,69 @@ pub fn commit(repo: &Repo, message: &str) -> Result<String, String> {
     Ok(if head.trim().is_empty() { out } else { head.trim().to_string() })
 }
 
+// ---- Branches ----------------------------------------------------------------
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Branch {
+    /// `main`, ou `origin/feature` para uma remota.
+    pub name: String,
+    pub remote: bool,
+    pub current: bool,
+    /// Data do último commit (`2026-10-31`).
+    pub date: String,
+}
+
+/// Branches locais (da mais recente para a mais antiga) e depois as remotas que ainda não têm uma local
+/// com o mesmo nome (escolher uma cria a local, seguindo a remota).
+pub fn branches(repo: &Repo) -> Result<Vec<Branch>, String> {
+    let out = run(
+        &repo.root,
+        &[
+            "for-each-ref",
+            "--sort=-committerdate",
+            "--format=%(HEAD)%00%(refname)%00%(refname:short)%00%(committerdate:short)",
+            "refs/heads",
+            "refs/remotes",
+        ],
+        &[],
+    )?;
+    Ok(parse_branches(&out))
+}
+
+pub fn parse_branches(out: &str) -> Vec<Branch> {
+    let mut local = Vec::new();
+    let mut remote = Vec::new();
+    for line in out.lines() {
+        let mut f = line.split('\0');
+        let (Some(head), Some(full), Some(short), Some(date)) = (f.next(), f.next(), f.next(), f.next()) else {
+            continue;
+        };
+        let b = Branch { name: short.to_string(), remote: false, current: head == "*", date: date.to_string() };
+        if full.starts_with("refs/heads/") {
+            local.push(b);
+        } else if full.starts_with("refs/remotes/") && !full.ends_with("/HEAD") && short.contains('/') {
+            remote.push(Branch { remote: true, ..b });
+        }
+    }
+    remote.retain(|r| {
+        let name = r.name.split_once('/').map_or(r.name.as_str(), |(_, n)| n);
+        !local.iter().any(|l| l.name == name)
+    });
+    local.extend(remote);
+    local
+}
+
+/// Troca de branch. `create`: cria a partir de onde está. Remota (`origin/x`): cria a local `x` seguindo ela.
+/// Alterações não commitadas vão junto (se não colidirem com a outra branch; senão o git recusa).
+pub fn switch(repo: &Repo, name: &str, create: bool, remote: bool) -> Result<String, String> {
+    let args: Vec<&str> = match (create, remote) {
+        (true, _) => vec!["switch", "-c", name],
+        (false, true) => vec!["switch", "--track", name],
+        (false, false) => vec!["switch", name],
+    };
+    run_net(&repo.root, &args, Duration::from_secs(60)).map_err(|e| explain(&e))
+}
+
 // ---- Remoto ------------------------------------------------------------------
 
 /// Roda um comando que fala com o remoto. Diferenças para [`run`]:
@@ -423,6 +486,8 @@ pub fn explain(stderr: &str) -> String {
         fl!("git-explain-diverged")
     } else if has("CONFLICT") || has("Automatic merge failed") {
         fl!("git-explain-conflict")
+    } else if has("would be overwritten by checkout") {
+        fl!("git-explain-switch-overwritten")
     } else if has("would be overwritten") {
         fl!("git-explain-overwritten")
     } else if has("Authentication failed") || has("could not read Username") || has("could not read Password") {
@@ -622,6 +687,14 @@ u UU N... 100644 100644 100644 100644 a b c conflito.rs\0\
     }
 
     #[test]
+    fn branch_list() {
+        let out = "*\0refs/heads/main\0main\x002026-10-31\n \0refs/heads/dev\0dev\x002026-10-01\n \0refs/remotes/origin/HEAD\0origin\x002026-10-31\n \0refs/remotes/origin/main\0origin/main\x002026-10-31\n \0refs/remotes/origin/nova\0origin/nova\x002026-09-01\n";
+        let b = parse_branches(out);
+        let names: Vec<_> = b.iter().map(|b| (b.name.as_str(), b.remote, b.current)).collect();
+        assert_eq!(names, [("main", false, true), ("dev", false, false), ("origin/nova", true, false)], "origin/main já tem local; HEAD sai");
+    }
+
+    #[test]
     fn real_repo_flow() {
         let dir = std::env::temp_dir().join(format!("idetea-git-test-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
@@ -659,6 +732,21 @@ u UU N... 100644 100644 100644 100644 a b c conflito.rs\0\
         discard(&repo, &st.entries[0]).unwrap();
         assert_eq!(std::fs::read_to_string(dir.join("a.txt")).unwrap(), "um\n", "volta ao commit");
         assert!(status(&repo).unwrap().entries.is_empty());
+
+        // Branches: criar, voltar, e a recusa quando a alteração colidiria com a outra branch.
+        switch(&repo, "nova", true, false).unwrap();
+        assert_eq!(status(&repo).unwrap().branch.as_deref(), Some("nova"));
+        std::fs::write(dir.join("a.txt"), "na nova\n").unwrap();
+        stage_all(&repo).unwrap();
+        commit(&repo, "na nova").unwrap();
+        switch(&repo, "main", false, false).unwrap();
+        let list = branches(&repo).unwrap();
+        assert_eq!(list.iter().filter(|b| b.current).map(|b| b.name.as_str()).collect::<Vec<_>>(), ["main"]);
+        assert_eq!(list.len(), 2);
+        std::fs::write(dir.join("a.txt"), "mexido\n").unwrap();
+        let err = switch(&repo, "nova", false, false).unwrap_err();
+        assert!(err.contains("commit"), "explica o que fazer: {err}");
+        assert!(switch(&repo, "nova", true, false).is_err(), "já existe");
         let _ = std::fs::remove_dir_all(&dir);
     }
 }

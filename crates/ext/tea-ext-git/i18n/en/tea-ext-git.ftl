@@ -69,3 +69,12 @@ git-pull-done = pull done
 git-published = branch { $branch } published on { $remote }
 git-nothing-to-push = nothing to push
 git-push-done = push done
+
+## Branches
+cmd-git-checkout = Git: switch branch
+git-checkout-placeholder = Switch to branch… (or type a new name)
+git-create-branch = Create branch
+git-branch-current = current · { $date }
+git-switched = Now on branch { $branch }
+git-switch-failed = Could not switch to { $branch }: { $error }
+git-explain-switch-overwritten = uncommitted changes clash with the other branch: commit or discard them first

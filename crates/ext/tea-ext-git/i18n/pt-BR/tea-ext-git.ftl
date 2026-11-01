@@ -69,3 +69,12 @@ git-pull-done = pull feito
 git-published = branch { $branch } publicada em { $remote }
 git-nothing-to-push = nada para enviar
 git-push-done = push feito
+
+## Branches
+cmd-git-checkout = Git: trocar de branch
+git-checkout-placeholder = Trocar para a branch… (ou digite um nome novo)
+git-create-branch = Criar branch
+git-branch-current = atual · { $date }
+git-switched = Agora na branch { $branch }
+git-switch-failed = Não deu para trocar para { $branch }: { $error }
+git-explain-switch-overwritten = alterações não commitadas colidem com a outra branch: faça commit ou descarte antes

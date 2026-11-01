@@ -722,7 +722,18 @@ O que mais falta no uso diário. Cada item é uma entrega com teste manual; a or
     - [x] Teste manual (aprovado): abrir um arquivo do repositório, mudar uma linha, acrescentar outra e apagar uma:
       aparecem azul, verde e a cunha vermelha sem salvar. Clicar na azul: mostra a linha antiga; "Desfazer
       mudança" volta e `Ctrl+Z` refaz. Commitar pelo painel: as marcas somem.
-  - [ ] Trocar e criar branch.
+  - [x] **Trocar e criar branch:** "Git: trocar de branch" (`git.checkout`; também clicando no nome da branch
+    na barra de status ou no painel) abre a lista na paleta: locais da mais recente para a mais antiga
+    (`for-each-ref --sort=-committerdate`), com a data e "atual"; depois as remotas sem local de mesmo nome
+    (escolher = `git switch --track`). Texto que não é uma branch vira "Criar branch “nome”" (`git switch -c`, a
+    partir de onde está; vem primeiro se nada combina, senão por último, para o Enter não criar sem querer).
+    Alterações não commitadas vão junto; se colidirem, o git recusa e a mensagem explica (commit ou descarte).
+    Depois de trocar: aviso, abas sem alterações recarregam, a árvore e as marcas atualizam.
+    A lista é genérica: `tea_core::pick` (`Request::Pick`) deixa qualquer extensão mostrar itens na paleta,
+    com a linha opcional de "criar" para o texto digitado; o escolhido volta como mensagem da extensão.
+    - [x] Teste manual (aprovado): clicar na branch na barra de status: a lista aparece com a atual marcada. Digitar um
+      nome novo + Enter: cria e troca (a barra mostra). Voltar para a main pela lista. Com um arquivo mudado
+      que existe diferente na outra branch, trocar: o aviso explica que precisa commitar ou descartar.
   - [ ] Blame da linha atual.
 - [ ] **Tarefas:** rodar `cargo run`/`cargo test` ou um comando do config, com a saída no terminal; no Rust,
   "rodar este teste".

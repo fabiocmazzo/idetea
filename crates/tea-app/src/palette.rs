@@ -49,6 +49,8 @@ pub enum Mode {
     Recent,
     /// Novo nome para o símbolo no cursor (`F2`). `note` guarda o nome atual.
     Rename,
+    /// Lista de uma extensão ([`tea_core::pick`]).
+    Pick,
 }
 
 /// Um item de "Abrir recente".
@@ -90,6 +92,9 @@ pub enum Msg {
     PickSymbol(usize),
     /// Clique num recente (índice em `recent_items`).
     PickRecent(usize),
+    /// Clique num item da lista de uma extensão (índice em `pick.items`), ou na linha "criar".
+    PickItem(usize),
+    PickCreate,
     Close,
 }
 
@@ -113,6 +118,9 @@ pub struct Palette {
     root: PathBuf,
     /// Modo `Recent`: projetos primeiro, depois arquivos, do mais novo para o mais velho.
     pub recent_items: Vec<RecentItem>,
+    /// Modo `Pick`: a lista e a extensão que pediu.
+    pick: Option<tea_core::pick::Pick>,
+    pub pick_owner: usize,
 }
 
 impl Palette {
@@ -129,6 +137,37 @@ impl Palette {
             note: None,
             root: PathBuf::new(),
             recent_items: Vec::new(),
+            pick: None,
+            pick_owner: 0,
+        }
+    }
+
+    pub fn pick(owner: usize, pick: tea_core::pick::Pick) -> Self {
+        let mut p = Self { pick_owner: owner, ..Self::new(Mode::Pick, String::new()) };
+        p.found = match_pick(&p.query, &pick.items);
+        p.pick = Some(pick);
+        p
+    }
+
+    /// Modo `Pick`: mostra a linha "criar" (texto digitado que não é o nome de um item).
+    fn create_row(&self) -> bool {
+        let Some(pick) = &self.pick else { return false };
+        let q = self.query.trim();
+        pick.create.is_some() && !q.is_empty() && !pick.items.iter().any(|i| i.label == q)
+    }
+
+    /// Modo `Pick`: a mensagem do escolhido (`msg` = clique; `None` = o selecionado, com Enter).
+    /// Sem nada que combine, a linha "criar" vem primeiro; senão, por último.
+    pub fn chosen_pick(&self, msg: Option<&Msg>) -> Option<tea_core::ExtMessage> {
+        let pick = self.pick.as_ref()?;
+        let create = || pick.create.as_ref().map(|c| c.message(self.query.trim().to_string()));
+        match msg {
+            Some(Msg::PickItem(i)) => pick.items.get(*i).map(|it| it.action.clone()),
+            Some(Msg::PickCreate) => create().filter(|_| self.create_row()),
+            _ => match self.found.get(self.selected) {
+                Some(&i) => pick.items.get(i).map(|it| it.action.clone()),
+                None => create().filter(|_| self.create_row()),
+            },
         }
     }
 
@@ -205,6 +244,7 @@ impl Palette {
             Mode::Files => self.found = match_files(&self.query, &self.files, &self.recent),
             Mode::FileSymbols | Mode::ProjectSymbols => self.found = match_symbols(&self.query, &self.symbols),
             Mode::Recent => self.found = match_recent(&self.query, &self.recent_items),
+            Mode::Pick => self.found = self.pick.as_ref().map(|p| match_pick(&self.query, &p.items)).unwrap_or_default(),
             Mode::Commands | Mode::SaveAs | Mode::Rename => {}
         }
     }
@@ -214,6 +254,7 @@ impl Palette {
         match self.mode {
             Mode::Commands => self.matches(commands).len(),
             Mode::Files | Mode::FileSymbols | Mode::ProjectSymbols | Mode::Recent => self.found.len(),
+            Mode::Pick => self.found.len() + usize::from(self.create_row()),
             Mode::SaveAs | Mode::Rename => 0,
         }
     }
@@ -265,6 +306,7 @@ impl Palette {
             Mode::FileSymbols => fl!("palette-file-symbols"),
             Mode::ProjectSymbols => fl!("palette-project-symbols"),
             Mode::Recent => fl!("palette-recent"),
+            Mode::Pick => self.pick.as_ref().map(|p| p.placeholder.clone()).unwrap_or_default(),
         };
         let input = text_input(&placeholder, &self.query)
             .id(input_id())
@@ -371,6 +413,50 @@ impl Palette {
                     );
                 }
                 let rows = self.found.len().min(MAX_ROWS) as f32;
+                body = body.push(scrollable(list).id(list_id()).height(Length::Fixed(rows * ROW_HEIGHT)));
+            }
+            Mode::Pick => {
+                let Some(pick) = &self.pick else { return column![].into() };
+                let create = self.create_row();
+                if self.found.is_empty() && !create {
+                    body = body.push(text(fl!("palette-no-items")).size(13).style(text::secondary));
+                }
+                let row_style = |pos: usize| if pos == self.selected { button::primary } else { button::text };
+                let create_button = |pos: usize| {
+                    let label = pick.create.as_ref().map(|c| c.label.clone()).unwrap_or_default();
+                    button(
+                        row![icon(Icon::Add).size(14), text(format!("{label} “{}”", self.query.trim())).size(14)]
+                            .spacing(8)
+                            .align_y(iced::Center),
+                    )
+                    .width(Fill)
+                    .height(ROW_HEIGHT)
+                    .padding([4, 8])
+                    .on_press(Msg::PickCreate)
+                    .style(row_style(pos))
+                };
+                let mut list = column![];
+                if create && self.found.is_empty() {
+                    list = list.push(create_button(0));
+                }
+                for (pos, &i) in self.found.iter().enumerate() {
+                    let item = &pick.items[i];
+                    let mut line = row![].spacing(8).align_y(iced::Center);
+                    if let Some(ic) = item.icon {
+                        line = line.push(icon(ic).size(14));
+                    }
+                    line = line
+                        .push(text(&item.label).size(14))
+                        .push(space::horizontal())
+                        .push(text(&item.detail).size(12).style(text::secondary));
+                    list = list.push(
+                        button(line).width(Fill).height(ROW_HEIGHT).padding([4, 8]).on_press(Msg::PickItem(i)).style(row_style(pos)),
+                    );
+                }
+                if create && !self.found.is_empty() {
+                    list = list.push(create_button(self.found.len()));
+                }
+                let rows = (self.found.len() + usize::from(create)).min(MAX_ROWS) as f32;
                 body = body.push(scrollable(list).id(list_id()).height(Length::Fixed(rows * ROW_HEIGHT)));
             }
             Mode::FileSymbols | Mode::ProjectSymbols => {
@@ -528,6 +614,25 @@ fn match_recent(query: &str, items: &[RecentItem]) -> Vec<usize> {
     scored.into_iter().map(|(_, i)| i).collect()
 }
 
+/// Itens de uma extensão que combinam com a busca: sem busca, na ordem dela; com busca, pelo nome (o
+/// detalhe vale um pouco), do melhor para o pior.
+fn match_pick(query: &str, items: &[tea_core::pick::PickItem]) -> Vec<usize> {
+    let q = query_chars(query);
+    if q.is_empty() {
+        return (0..items.len()).collect();
+    }
+    let mut scored: Vec<(i32, usize)> = items
+        .iter()
+        .enumerate()
+        .filter_map(|(i, it)| {
+            let by_label = fuzzy_score_chars(&q, &it.label).map(|s| s + 20);
+            by_label.max(fuzzy_score_chars(&q, &it.detail)).map(|s| (s, i))
+        })
+        .collect();
+    scored.sort_by(|a, b| b.0.cmp(&a.0).then(a.1.cmp(&b.1)));
+    scored.into_iter().map(|(_, i)| i).collect()
+}
+
 /// Símbolos que combinam com a busca: sem busca, todos na ordem que vieram (a do arquivo); com
 /// busca, pelo nome (o lugar vale um pouco), do melhor para o pior.
 fn match_symbols(query: &str, symbols: &[SymbolItem]) -> Vec<usize> {
@@ -581,6 +686,33 @@ pub fn list_files(root: &Path) -> Vec<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn pick_list_and_create_row() {
+        #[derive(Debug, PartialEq)]
+        enum M {
+            Go(&'static str),
+            New(String),
+        }
+        let pick = tea_core::pick::Pick::new("x")
+            .item(None, "main", "atual", M::Go("main"))
+            .item(None, "feature", "", M::Go("feature"))
+            .create("Criar", M::New);
+        let mut p = Palette::pick(3, pick);
+        let got = |p: &Palette, msg: Option<&Msg>| p.chosen_pick(msg).and_then(|m| m.downcast_ref::<M>().map(|m| format!("{m:?}")));
+        assert_eq!(p.total(&[]), 2, "sem texto, sem a linha de criar");
+        assert_eq!(got(&p, None).as_deref(), Some("Go(\"main\")"));
+        p.set_query("feat".into());
+        assert_eq!(p.total(&[]), 2, "combina com feature, e a linha de criar vem no fim");
+        assert_eq!(got(&p, None).as_deref(), Some("Go(\"feature\")"), "Enter fica com a que existe");
+        p.move_selection(1, p.total(&[]));
+        assert_eq!(got(&p, None).as_deref(), Some("New(\"feat\")"));
+        p.set_query("zzz".into());
+        assert_eq!(got(&p, None).as_deref(), Some("New(\"zzz\")"), "nada combina: criar vem primeiro");
+        p.set_query("main".into());
+        assert_eq!(p.total(&[]), 1, "nome igual a um item: sem criar");
+        assert_eq!(p.pick_owner, 3);
+    }
 
     fn cmds(titles: &[(&str, &str)]) -> Vec<CommandInfo> {
         titles.iter().map(|(id, t)| CommandInfo { id: id.to_string(), title: t.to_string() }).collect()

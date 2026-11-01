@@ -435,3 +435,7 @@ guide-config-5 = Editor: na aba Editor das configurações ({ $settings-open }) 
 guide-lsp-10 = Dica de parâmetros: ao digitar ( numa chamada, a assinatura da função aparece acima do cursor, com o parâmetro atual destacado; muda ao digitar a vírgula e some ao fechar o parêntese ou com Esc.
 
 guide-git-5 = Marcas na margem: à esquerda dos números de linha, verde = linha nova, azul = mudada, tracinho vermelho = linhas apagadas, comparando com o último commit (acompanha a digitação, sem precisar salvar). Clicar na marca mostra como era, com "Desfazer mudança" (Ctrl+Z volta).
+
+palette-no-items = Nada combina com a busca
+
+guide-git-6 = Branches: { $git-checkout } (ou clique no nome da branch, na barra de status ou no painel Git) lista as branches, da mais recente; as remotas que ainda não existem aqui vêm depois e, escolhidas, viram locais. Digite um nome novo para criar a branch a partir de onde você está. Alterações não commitadas vão junto; se colidirem com a outra branch, o git recusa e explica.

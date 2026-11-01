@@ -69,3 +69,12 @@ git-pull-done = pull hecho
 git-published = rama { $branch } publicada en { $remote }
 git-nothing-to-push = nada que enviar
 git-push-done = push hecho
+
+## Branches
+cmd-git-checkout = Git: cambiar de rama
+git-checkout-placeholder = Cambiar a la rama… (o escriba un nombre nuevo)
+git-create-branch = Crear rama
+git-branch-current = actual · { $date }
+git-switched = Ahora en la rama { $branch }
+git-switch-failed = No se pudo cambiar a { $branch }: { $error }
+git-explain-switch-overwritten = los cambios sin commit chocan con la otra rama: haga commit o descártelos antes

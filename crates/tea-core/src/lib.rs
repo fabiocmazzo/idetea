@@ -28,6 +28,7 @@ pub mod icons;
 pub mod menu;
 pub mod outline;
 pub mod os;
+pub mod pick;
 pub mod replace;
 pub mod keymap;
 
@@ -214,6 +215,8 @@ pub enum Request {
     /// Versão de referência de um arquivo para as marcas na margem (o git manda a do último commit).
     /// `None`: sem marcas (arquivo novo, fora do repositório).
     DiffBase { path: PathBuf, text: Option<Arc<str>> },
+    /// Mostra uma lista para escolher na paleta (ver [`pick`]).
+    Pick(pick::Pick),
 }
 
 /// Botão no canto da barra de abas, que aparece só quando o arquivo ativo é de certos tipos
@@ -407,6 +410,10 @@ impl<'a> Context<'a> {
     /// Pede quem chama o nó (ou quem ele chama). A resposta chega em [`calls::Event::Children`].
     pub fn call_children(&mut self, node: u64, direction: calls::Direction) {
         self.requests.push(Request::CallChildren { node, direction });
+    }
+
+    pub fn pick(&mut self, pick: pick::Pick) {
+        self.requests.push(Request::Pick(pick));
     }
 
     pub fn diff_base(&mut self, path: impl Into<PathBuf>, text: Option<Arc<str>>) {

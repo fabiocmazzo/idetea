@@ -435,3 +435,7 @@ guide-config-5 = Editor: la pestaña Editor de la configuración ({ $settings-op
 guide-lsp-10 = Pistas de parámetros: al escribir ( en una llamada, la firma de la función aparece encima del cursor, con el parámetro actual resaltado; avanza con cada coma y desaparece al cerrar el paréntesis o con Esc.
 
 guide-git-5 = Marcas en el margen: a la izquierda de los números de línea, verde = línea nueva, azul = cambiada, marca roja = líneas borradas, comparando con el último commit (sigue lo que escribe, sin guardar). Al hacer clic en la marca se ve cómo era, con "Deshacer cambio" (Ctrl+Z lo trae de vuelta).
+
+palette-no-items = Nada coincide con la búsqueda
+
+guide-git-6 = Ramas: { $git-checkout } (o haga clic en el nombre de la rama, en la barra de estado o en el panel Git) lista las ramas, la más reciente primero; las remotas que aún no existen aquí van después y, al elegirlas, se vuelven locales. Escriba un nombre nuevo para crear la rama desde donde está. Los cambios sin commit van con usted; si chocan con la otra rama, git se niega y lo explica.

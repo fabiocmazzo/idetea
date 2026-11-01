@@ -73,6 +73,13 @@ pub enum Message {
     RemoteDone(bool, Arc<Result<Option<String>, String>>),
     /// Versões do último commit dos arquivos abertos, para as marcas na margem.
     Bases(Arc<Vec<(PathBuf, Option<String>)>>),
+    /// Abre a lista de branches (carrega e mostra na paleta).
+    Checkout,
+    Branches(Arc<Result<Vec<git::Branch>, String>>),
+    SwitchTo { name: String, remote: bool },
+    CreateBranch(String),
+    /// Troca terminou: nome da branch e o resultado.
+    Switched(String, Arc<Result<String, String>>),
 }
 
 /// Arquivo cujo diff está na tela.
@@ -225,6 +232,7 @@ impl Extension for GitExtension {
         ctx.register_command("git.pull", fl!("cmd-git-pull"));
         ctx.register_command("git.push", fl!("cmd-git-push"));
         ctx.register_command("git.fetch", fl!("cmd-git-fetch"));
+        ctx.register_command("git.checkout", fl!("cmd-git-checkout"));
         let root = self.root.clone();
         spawn(move || git::discover(&root), Message::Discovered)
     }
@@ -258,6 +266,7 @@ impl Extension for GitExtension {
             "git.pull" => self.update(Message::Pull, ctx),
             "git.push" => self.update(Message::Push, ctx),
             "git.fetch" => self.update(Message::Fetch, ctx),
+            "git.checkout" => self.update(Message::Checkout, ctx),
             "git.commit" => {
                 ctx.show_panel(PANEL);
                 operation::focus(commit_input_id())
@@ -311,6 +320,48 @@ impl Extension for GitExtension {
                     self.selected = None;
                 }
                 return bases;
+            }
+            Message::Checkout => {
+                let Some(repo) = self.repo.clone() else { return Task::none() };
+                return spawn(move || git::branches(&repo), |r| Message::Branches(Arc::new(r)));
+            }
+            Message::Branches(result) => match &*result {
+                Ok(list) => {
+                    let mut pick = tea_core::pick::Pick::new(fl!("git-checkout-placeholder"))
+                        .create(fl!("git-create-branch"), Message::CreateBranch);
+                    for b in list {
+                        let detail = if b.current { fl!("git-branch-current", date = b.date.as_str()) } else { b.date.clone() };
+                        let icon = if b.remote { Icon::RepoFetch } else { Icon::SourceControl };
+                        let msg = Message::SwitchTo { name: b.name.clone(), remote: b.remote };
+                        pick = pick.item(Some(icon), b.name.clone(), detail, msg);
+                    }
+                    ctx.pick(pick);
+                }
+                Err(e) => ctx.notify(fl!("git-notice", message = e.as_str())),
+            },
+            Message::SwitchTo { name, remote } => {
+                if self.status.as_ref().and_then(|s| s.branch.as_deref()) == Some(name.as_str()) {
+                    return Task::none();
+                }
+                let Some(repo) = self.repo.clone() else { return Task::none() };
+                let shown = if remote { name.split_once('/').map_or(name.clone(), |(_, n)| n.to_string()) } else { name.clone() };
+                return spawn(move || git::switch(&repo, &name, false, remote), move |r| Message::Switched(shown.clone(), Arc::new(r)));
+            }
+            Message::CreateBranch(name) => {
+                let Some(repo) = self.repo.clone() else { return Task::none() };
+                let shown = name.clone();
+                return spawn(move || git::switch(&repo, &name, true, false), move |r| Message::Switched(shown.clone(), Arc::new(r)));
+            }
+            Message::Switched(name, result) => {
+                match &*result {
+                    Ok(_) => {
+                        ctx.notify(fl!("git-switched", branch = name.as_str()));
+                        // Os arquivos no disco mudaram: abas sem alterações recarregam, a árvore relê.
+                        ctx.files_changed();
+                    }
+                    Err(e) => ctx.notify(fl!("git-switch-failed", branch = name.as_str(), error = e.as_str())),
+                }
+                return self.refresh();
             }
             Message::Bases(bases) => {
                 for (path, text) in bases.iter() {
@@ -498,7 +549,7 @@ impl GitExtension {
         if !st.entries.is_empty() {
             label = label.push(text(format!("●{}", st.entries.len())).size(12));
         }
-        button(label.align_y(iced::Center)).on_press(Message::Refresh).style(button::text).padding([0, 4]).into()
+        button(label.align_y(iced::Center)).on_press(Message::Checkout).style(button::text).padding([0, 4]).into()
     }
 
     fn changes_view(&self) -> Element<'_, Message> {
@@ -506,9 +557,12 @@ impl GitExtension {
         let (ahead, behind) = self.status.as_ref().map_or((0, 0), |s| (s.ahead, s.behind));
         let idle = self.remote.is_none();
         let count = |n: u32, arrow: &str| if n > 0 { format!(" ({arrow}{n})") } else { String::new() };
+        let branch = button(row![icon(Icon::SourceControl).size(14), text(head).size(13)].spacing(4).align_y(iced::Center))
+            .on_press(Message::Checkout)
+            .style(button::text)
+            .padding([1, 4]);
         let header = row![
-            icon(Icon::SourceControl).size(14),
-            text(head).size(13),
+            branch,
             text(self.remote.clone().unwrap_or_default()).size(12).style(text::secondary),
             space::horizontal(),
             icon_button(Icon::RepoFetch, fl!("git-fetch-tip"), idle.then_some(Message::Fetch)),

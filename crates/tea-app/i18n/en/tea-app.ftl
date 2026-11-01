@@ -435,3 +435,7 @@ guide-config-5 = Editor: the Editor tab in settings ({ $settings-open }) has lin
 guide-lsp-10 = Parameter hints: typing ( in a call shows the function signature above the cursor, with the current parameter highlighted; it moves on with each comma and goes away when the parenthesis closes or with Esc.
 
 guide-git-5 = Gutter marks: left of the line numbers, green = new line, blue = changed, red notch = deleted lines, compared with the last commit (follows your typing, no need to save). Clicking a mark shows how it was, with "Revert change" (Ctrl+Z brings it back).
+
+palette-no-items = Nothing matches the search
+
+guide-git-6 = Branches: { $git-checkout } (or click the branch name, in the status bar or the Git panel) lists branches, most recent first; remote ones that do not exist here come after and become local when chosen. Type a new name to create a branch from where you are. Uncommitted changes come along; if they clash with the other branch, git refuses and explains.
