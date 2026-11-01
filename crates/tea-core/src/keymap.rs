@@ -167,6 +167,22 @@ impl Keymap {
         self.bindings.get(chord).map(String::as_str)
     }
 
+    /// Comando de uma tecla apertada. `key` é a tecla sem modificadores; sem atalho para ela, vale o caractere
+    /// que a tecla produziu (`modified`, com Shift e AltGr aplicados), sem o Shift/Alt que o produziram: um `\`
+    /// que sai com AltGr (ou Shift, em alguns layouts) casa com "ctrl+\\".
+    pub fn command_for_event(&self, key: &Key, modified: &Key, modifiers: Modifiers) -> Option<&str> {
+        if let Some(command) = Chord::from_event(key, modifiers).and_then(|c| self.command_for(&c)) {
+            return Some(command);
+        }
+        let Key::Character(produced) = modified else { return None };
+        if matches!(key, Key::Character(k) if k.to_lowercase() == produced.to_lowercase()) {
+            return None;
+        }
+        let mut chord = Chord::from_event(modified, modifiers)?;
+        (chord.shift, chord.alt) = (false, false);
+        self.command_for(&chord)
+    }
+
     /// Primeiro atalho de um comando, para mostrar na palette.
     pub fn chord_for(&self, command: &str) -> Option<&Chord> {
         self.chords_for(command).into_iter().next()
@@ -242,6 +258,18 @@ mod tests {
         assert_eq!(Chord::parse("ctrl++").unwrap().key, "+");
         assert!(Chord::parse("hyper+x").is_err());
         assert!(Chord::parse("ctrl+").is_err());
+    }
+
+    #[test]
+    fn produced_character_matches() {
+        let (map, _) = Keymap::from_pairs([("ctrl+\\", "editor.split"), ("ctrl+q", "app.quit")]);
+        let ch = |s: &str| Key::Character(s.into());
+        // Teclado com `\` direto.
+        assert_eq!(map.command_for_event(&ch("\\"), &ch("\\"), Modifiers::CTRL), Some("editor.split"));
+        // `\` no AltGr+Q: a tecla pura (q) tem atalho próprio e vence; sem ele, vale o caractere.
+        assert_eq!(map.command_for_event(&ch("q"), &ch("\\"), Modifiers::CTRL), Some("app.quit"));
+        assert_eq!(map.command_for_event(&ch("w"), &ch("\\"), Modifiers::CTRL | Modifiers::ALT), Some("editor.split"));
+        assert_eq!(map.command_for_event(&ch("w"), &ch("w"), Modifiers::CTRL), None);
     }
 
     #[test]

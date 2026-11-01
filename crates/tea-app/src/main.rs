@@ -207,6 +207,9 @@ const CORE_COMMANDS: &[(&str, &str)] = &[
     ("file.close", "cmd-file-close"),
     ("tab.next", "cmd-tab-next"),
     ("tab.prev", "cmd-tab-prev"),
+    ("editor.split", "cmd-editor-split"),
+    ("editor.focus_left", "cmd-editor-focus-left"),
+    ("editor.focus_right", "cmd-editor-focus-right"),
     ("editor.find", "cmd-editor-find"),
     ("editor.replace", "cmd-editor-replace"),
     ("editor.goto_line", "cmd-editor-goto-line"),
@@ -275,11 +278,15 @@ enum CoreMenu {
     CopyPath(String),
     Reveal(u64),
     OpenInFileManager(PathBuf),
+    /// Editor dividido: mandar a aba para o outro lado.
+    OtherSide(u64),
 }
 
 struct Tab {
     id: u64,
     editor: Editor,
+    /// Editor dividido: a aba fica no lado direito.
+    right: bool,
 }
 
 struct Panel {
@@ -300,6 +307,8 @@ enum Edge {
     Left,
     Right,
     Bottom,
+    /// Entre os dois lados do editor dividido.
+    Split,
 }
 
 struct App {
@@ -310,7 +319,10 @@ struct App {
     theme: Theme,
 
     tabs: Vec<Tab>,
+    /// A aba com foco (no editor dividido, a do lado com foco).
     active: usize,
+    /// Editor dividido: a aba mostrada no lado sem foco (`None`: um lado só).
+    other_tab: Option<u64>,
     next_tab_id: u64,
 
     extensions: Vec<Box<dyn AnyExtension>>,
@@ -399,7 +411,8 @@ enum Message {
     TabMenu(u64, iced::Point),
     CloseTab(u64),
     SelectBottom(usize),
-    Key { key: keyboard::Key, modifiers: keyboard::Modifiers, captured: bool },
+    /// `modified`: o caractere que a tecla produziu (com Shift/AltGr), para atalhos como `ctrl+\\`.
+    Key { key: keyboard::Key, modified: keyboard::Key, modifiers: keyboard::Modifiers, captured: bool },
     Palette(palette::Msg),
     /// Arquivos mudaram no disco (observador do projeto).
     Disk(watcher::Change),
@@ -482,6 +495,7 @@ impl App {
             theme,
             tabs: Vec::new(),
             active: 0,
+            other_tab: None,
             next_tab_id: 0,
             extensions,
             panels: Vec::new(),
@@ -785,7 +799,9 @@ impl App {
 
     fn push_tab(&mut self, mut editor: Editor) -> usize {
         self.style_editor(&mut editor);
-        self.tabs.push(Tab { id: self.next_tab_id, editor });
+        // Abre no lado com foco.
+        let right = self.tabs.get(self.active).is_some_and(|t| t.right);
+        self.tabs.push(Tab { id: self.next_tab_id, editor, right });
         self.next_tab_id += 1;
         self.tabs.len() - 1
     }
@@ -1150,16 +1166,18 @@ impl App {
             .filter_map(|t| {
                 let path = t.editor.path()?.to_path_buf();
                 let (line, column) = t.editor.cursor();
-                Some(session::SessionTab { path, line, column })
+                Some(session::SessionTab { path, line, column, right: t.right })
             })
             .collect();
         let active = self.active_path().and_then(|p| tabs.iter().position(|t| t.path == p)).unwrap_or(0);
+        let other = self.other_index().and_then(|i| self.tabs[i].editor.path()).and_then(|p| tabs.iter().position(|t| t.path == p));
         session::Session {
             root: self.root.clone(),
             active,
             bottom: self.active_bottom.and_then(|i| self.panels.get(i)).map(|p| p.id.0.to_string()),
             panels: self.panels.iter().filter(|p| p.slot != Slot::Status).map(|p| (p.id.0.to_string(), p.visible)).collect(),
             tabs,
+            other,
         }
     }
 
@@ -1189,13 +1207,21 @@ impl App {
             None => self.apply_panel_slots(),
         }
         let active = s.tabs.get(s.active).map(|t| t.path.clone());
+        let other = s.other.and_then(|i| s.tabs.get(i)).map(|t| t.path.clone());
+        let right: std::collections::HashMap<PathBuf, bool> = s.tabs.iter().map(|t| (t.path.clone(), t.right)).collect();
         let mut tasks = Vec::new();
         for t in s.tabs.into_iter().filter(|t| t.path.is_file()) {
             tasks.push(self.open_file_at(t.path, t.line, t.column));
         }
+        // Editor dividido: cada aba no seu lado, a do outro lado aparecendo.
+        for t in &mut self.tabs {
+            t.right = t.editor.path().and_then(|p| right.get(p)).copied().unwrap_or(false);
+        }
         if let Some(path) = active.filter(|p| p.is_file()) {
             tasks.push(self.open_file(path));
         }
+        self.other_tab = other.and_then(|p| self.tabs.iter().find(|t| t.editor.path() == Some(p.as_path()))).map(|t| t.id);
+        self.normalize_split();
         Task::batch(tasks)
     }
 
@@ -1893,7 +1919,16 @@ impl App {
     }
 
     fn set_active(&mut self, i: usize) -> Task<Message> {
-        self.active = i.min(self.tabs.len() - 1);
+        let i = i.min(self.tabs.len() - 1);
+        // Trocou de lado: a aba de antes continua aparecendo no outro.
+        let right = self.tabs[i].right;
+        if let Some(old) = self.tabs.get_mut(self.active)
+            && old.right != right
+        {
+            self.other_tab = Some(old.id);
+            old.editor.lose_focus();
+        }
+        self.active = i;
         if self.palette.is_none() && self.splash.is_none() {
             self.editor_mut().focus();
         }
@@ -1915,16 +1950,89 @@ impl App {
                 .cancel(fl!("cancel"));
             return self.open_dialog(dialog, dialog::Owner::Core);
         }
-        self.tabs.remove(i);
+        let right = self.tabs[i].right;
+        let active_id = self.tabs[self.active].id;
+        let removed = self.tabs.remove(i).id;
         if self.tabs.is_empty() {
+            (self.active, self.other_tab) = (0, None);
             self.push_tab(Editor::scratch(""));
-        }
-        let next = if i < self.active || self.active >= self.tabs.len() {
-            self.active.saturating_sub(1)
+        } else if removed == active_id {
+            // A vizinha do mesmo lado; lado vazio: o foco vai para o outro.
+            match self.side_neighbor(i, right, None) {
+                Some(j) => self.active = j,
+                // (`other_index` compara com a ativa, que acabou de sair.)
+                None => self.active = self.other_tab.and_then(|id| self.tab_index(id)).unwrap_or(0),
+            }
         } else {
-            self.active
-        };
-        self.set_active(next)
+            if self.other_tab == Some(removed) {
+                self.other_tab = self.side_neighbor(i, right, None).map(|j| self.tabs[j].id);
+            }
+            self.active = self.tab_index(active_id).unwrap_or(0);
+        }
+        self.normalize_split();
+        self.set_active(self.active)
+    }
+
+    /// Editor dividido: índice da aba mostrada no lado sem foco.
+    fn other_index(&self) -> Option<usize> {
+        let i = self.tab_index(self.other_tab?)?;
+        (self.tabs[i].right != self.tabs.get(self.active)?.right).then_some(i)
+    }
+
+    /// Aba do lado `right` mais perto da posição `i` (a seguinte, senão a anterior), sem contar `skip`.
+    fn side_neighbor(&self, i: usize, right: bool, skip: Option<usize>) -> Option<usize> {
+        let ok = |j: &usize| self.tabs[*j].right == right && Some(*j) != skip;
+        (i..self.tabs.len()).find(ok).or_else(|| (0..i.min(self.tabs.len())).rev().find(ok))
+    }
+
+    /// Um lado ficou vazio: volta a ser um editor só, tudo do lado esquerdo.
+    fn normalize_split(&mut self) {
+        if self.other_index().is_none() {
+            self.other_tab = None;
+            self.tabs.iter_mut().for_each(|t| t.right = false);
+        }
+    }
+
+    /// `Ctrl+\`: manda a aba para o outro lado (sem divisão, divide). Era a única do lado: junta tudo de novo.
+    fn move_to_other_side(&mut self, id: u64) -> Task<Message> {
+        let Some(i) = self.tab_index(id) else { return Task::none() };
+        if self.tabs.len() < 2 {
+            return self.notify(fl!("split-one-tab"));
+        }
+        let focus = self.set_active(i);
+        let from = self.tabs[i].right;
+        match self.side_neighbor(i, from, Some(i)) {
+            Some(stay) => {
+                self.other_tab = Some(self.tabs[stay].id);
+                self.tabs[i].right = !from;
+            }
+            None => {
+                self.other_tab = None;
+                self.normalize_split();
+            }
+        }
+        Task::batch([focus, self.emit_status(true)])
+    }
+
+    /// `Ctrl+1` / `Ctrl+2`: foco no lado esquerdo / direito.
+    fn focus_side(&mut self, right: bool) -> Task<Message> {
+        if self.tabs[self.active].right == right {
+            self.editor_mut().focus();
+            return Task::none();
+        }
+        match self.other_index() {
+            Some(j) => self.set_active(j),
+            None => Task::none(),
+        }
+    }
+
+    /// `Ctrl+PageDown` / `PageUp`: próxima aba do mesmo lado.
+    fn cycle_tab(&mut self, forward: bool) -> Task<Message> {
+        let right = self.tabs[self.active].right;
+        let side: Vec<usize> = (0..self.tabs.len()).filter(|&j| self.tabs[j].right == right).collect();
+        let pos = side.iter().position(|&j| j == self.active).unwrap_or(0);
+        let next = if forward { (pos + 1) % side.len() } else { (pos + side.len() - 1) % side.len() };
+        self.set_active(side[next])
     }
 
     fn save_active(&mut self) -> Task<Message> {
@@ -2276,8 +2384,11 @@ impl App {
                 self.pick(picker::open_folder(dir))
             }
             "file.close" => self.close_tab(self.tabs[self.active].id, false),
-            "tab.next" => self.set_active((self.active + 1) % self.tabs.len()),
-            "tab.prev" => self.set_active((self.active + self.tabs.len() - 1) % self.tabs.len()),
+            "tab.next" => self.cycle_tab(true),
+            "tab.prev" => self.cycle_tab(false),
+            "editor.split" => self.move_to_other_side(self.tabs[self.active].id),
+            "editor.focus_left" => self.focus_side(false),
+            "editor.focus_right" => self.focus_side(true),
             "theme.toggle" => {
                 let next = if self.theme.extended_palette().is_dark { LIGHT_THEME } else { DARK_THEME };
                 self.set_theme(next);
@@ -2496,18 +2607,33 @@ impl App {
         self.open_dialog(dialog, dialog::Owner::Core)
     }
 
+    /// Abas do mesmo lado que `id`, na ordem da barra.
+    fn side_ids(&self, id: u64) -> Vec<u64> {
+        let right = self.tab_index(id).is_some_and(|i| self.tabs[i].right);
+        self.tabs.iter().filter(|t| t.right == right).map(|t| t.id).collect()
+    }
+
     fn tab_menu(&self, id: u64, at: iced::Point) -> tea_core::menu::Menu {
         use tea_core::icons::Icon;
         let i = self.tab_index(id).unwrap_or(0);
-        let n = self.tabs.len();
+        // "Outras" e "à direita": do mesmo lado.
+        let side = self.side_ids(id);
+        let n = side.len();
+        let at_side = side.iter().position(|&t| t == id).unwrap_or(0);
         let mut menu = tea_core::menu::Menu::new(at).item(Some(Icon::Close), fl!("tab-close"), CoreMenu::Close(id));
         menu = if n > 1 { menu.item(None, fl!("tab-close-others"), CoreMenu::CloseOthers(id)) } else { menu.disabled(None, fl!("tab-close-others")) };
-        menu = if i + 1 < n {
+        menu = if at_side + 1 < n {
             menu.item(None, fl!("tab-close-right"), CoreMenu::CloseRight(id))
         } else {
             menu.disabled(None, fl!("tab-close-right"))
         };
         menu = menu.item(None, fl!("tab-close-saved"), CoreMenu::CloseSaved).item(None, fl!("tab-close-all"), CoreMenu::CloseAll);
+        let other = if self.tabs.get(i).is_some_and(|t| t.right) { fl!("tab-move-left") } else { fl!("tab-move-right") };
+        menu = if self.tabs.len() > 1 {
+            menu.separator().item(None, other, CoreMenu::OtherSide(id))
+        } else {
+            menu.separator().disabled(None, other)
+        };
         if let Some(path) = self.tabs.get(i).and_then(|t| t.editor.path()) {
             let rel = display_rel(path, &self.root);
             let dir = path.parent().unwrap_or(&self.root).to_path_buf();
@@ -2528,11 +2654,12 @@ impl App {
         match action {
             CoreMenu::Close(id) => self.close_tab(id, false),
             CoreMenu::CloseOthers(id) => {
-                let others = ids(self).into_iter().filter(|&t| t != id).collect();
+                let others = self.side_ids(id).into_iter().filter(|&t| t != id).collect();
                 self.close_many(others)
             }
+            CoreMenu::OtherSide(id) => self.move_to_other_side(id),
             CoreMenu::CloseRight(id) => {
-                let all = ids(self);
+                let all = self.side_ids(id);
                 let right = all.iter().position(|&t| t == id).map_or_else(Vec::new, |i| all[i + 1..].to_vec());
                 self.close_many(right)
             }
@@ -2592,6 +2719,13 @@ impl App {
 
     fn resize_panel(&mut self, edge: Edge, delta: f32) {
         use ui_state::{MIN_BOTTOM, MIN_SIDE, resize};
+        // Largura do meio (sem os painéis dos lados), para o arraste da divisão do editor.
+        let shown = |slot: Slot| self.panels.iter().any(|p| p.slot == slot && p.visible);
+        let center = self.window_size.map_or(1000.0, |z| {
+            z.width - if shown(Slot::Left) { self.ui_state.left_width } else { 0.0 }
+                - if shown(Slot::Right) { self.ui_state.right_width } else { 0.0 }
+                - 60.0
+        });
         let s = &mut self.ui_state;
         let w = self.window_size.map(|z| z.width);
         let h = self.window_size.map(|z| z.height);
@@ -2600,6 +2734,10 @@ impl App {
             Edge::Right => s.right_width = resize(s.right_width, -delta, MIN_SIDE, w.map(|w| w - s.left_width)),
             // Abas e barra de status também precisam caber.
             Edge::Bottom => s.bottom_height = resize(s.bottom_height, -delta, MIN_BOTTOM, h.map(|h| h - 60.0)),
+            Edge::Split => {
+                let lim = ui_state::MIN_SPLIT;
+                s.split = (s.split + delta / center.max(1.0)).clamp(lim, 1.0 - lim);
+            }
         }
     }
 
@@ -3132,10 +3270,15 @@ impl App {
         }
     }
 
-    fn on_key(&mut self, key: keyboard::Key, modifiers: keyboard::Modifiers, captured: bool) -> Task<Message> {
+    fn on_key(
+        &mut self,
+        key: keyboard::Key,
+        modified: &keyboard::Key,
+        modifiers: keyboard::Modifiers,
+        captured: bool,
+    ) -> Task<Message> {
         use keyboard::key::Named;
-        let chord = Chord::from_event(&key, modifiers);
-        let command = chord.as_ref().and_then(|c| self.keymap.command_for(c)).map(str::to_string);
+        let command = self.keymap.command_for_event(&key, modified, modifiers).map(str::to_string);
 
         // Menu de contexto aberto: só ele responde ao teclado.
         if let Some(m) = &mut self.menu {
@@ -3237,11 +3380,16 @@ impl App {
                 }
                 let hover = msg.is_mouse_hover();
                 let toggled = msg.is_breakpoint_toggle();
+                let press = msg.is_press();
                 let task = self.tabs[i].editor.update(msg).map(move |m| Message::Editor(id, m));
                 if toggled {
                     self.sync_breakpoints(i);
                 }
                 if i != self.active {
+                    // Clique no editor do outro lado: o foco vai para lá.
+                    if press && self.other_tab == Some(id) {
+                        return Task::batch([task, self.set_active(i)]);
+                    }
                     return task;
                 }
                 // O texto mudou: a estrutura é pedida de novo quando parar de digitar.
@@ -3277,7 +3425,7 @@ impl App {
                 self.active_bottom = Some(i);
                 Task::none()
             }
-            Message::Key { key, modifiers, captured } => self.on_key(key, modifiers, captured),
+            Message::Key { key, modified, modifiers, captured } => self.on_key(key, &modified, modifiers, captured),
             Message::Palette(msg) => self.palette_update(msg),
             Message::Disk(watcher::Change::Paths(paths)) => self.disk_changed(&paths),
             Message::Dap(generation, event) => self.on_dap(generation, event),
@@ -3312,6 +3460,7 @@ impl App {
                     Edge::Left => self.ui_state.left_width = d.left_width,
                     Edge::Right => self.ui_state.right_width = d.right_width,
                     Edge::Bottom => self.ui_state.bottom_height = d.bottom_height,
+                    Edge::Split => self.ui_state.split = d.split,
                 }
                 self.ui_state.save(self.state_path.as_deref());
                 Task::none()
@@ -3392,8 +3541,9 @@ impl App {
     fn subscription(&self) -> Subscription<Message> {
         // `listen_with` vê também as teclas que um widget consumiu (`captured`).
         let input = iced::event::listen_with(|event, status, _window| match event {
-            iced::Event::Keyboard(keyboard::Event::KeyPressed { key, modifiers, .. }) => Some(Message::Key {
+            iced::Event::Keyboard(keyboard::Event::KeyPressed { key, modified_key, modifiers, .. }) => Some(Message::Key {
                 key,
+                modified: modified_key,
                 modifiers,
                 captured: status == iced::event::Status::Captured,
             }),
@@ -3465,10 +3615,19 @@ impl App {
         layers.into()
     }
 
-    fn workspace_view(&self) -> Element<'_, Message> {
+    /// Um lado do editor (o único, sem divisão): as abas dele e o editor da aba mostrada.
+    fn side_view(&self, right: bool) -> Element<'_, Message> {
+        let focused = self.tabs[self.active].right == right;
+        let shown = if focused { Some(self.active) } else { self.other_index() };
         let tabs = scrollable(
-            row(self.tabs.iter().enumerate().map(|(i, t)| {
-                let style = if i == self.active { button::primary } else { button::text };
+            row(self.tabs.iter().enumerate().filter(|(_, t)| t.right == right).map(|(i, t)| {
+                let style = if i == self.active {
+                    button::primary
+                } else if Some(i) == shown {
+                    button::secondary
+                } else {
+                    button::text
+                };
                 let close =
                     button(text("×").size(13)).on_press(Message::CloseTab(t.id)).style(button::text).padding([0, 4]);
                 let id = t.id;
@@ -3484,13 +3643,41 @@ impl App {
         )
         .direction(scrollable::Direction::Horizontal(scrollable::Scrollbar::new().width(2).scroller_width(2)))
         .width(Fill);
-        let tabs = row![tabs].extend(self.file_action_buttons()).spacing(4).align_y(iced::Center);
+        let mut tabs = row![tabs].spacing(4).align_y(iced::Center);
+        if focused {
+            tabs = tabs.extend(self.file_action_buttons());
+        }
+        let editor: Element<'_, Message> = match shown {
+            Some(i) => {
+                let tab_id = self.tabs[i].id;
+                self.tabs[i].editor.view().map(move |m| Message::Editor(tab_id, m))
+            }
+            None => iced::widget::space().into(),
+        };
+        column![tabs, editor].spacing(4).width(Fill).height(Fill).into()
+    }
 
-        let tab = &self.tabs[self.active];
-        let tab_id = tab.id;
-        let editor = tab.editor.view().map(move |m| Message::Editor(tab_id, m));
+    fn workspace_view(&self) -> Element<'_, Message> {
+        let editors: Element<'_, Message> = if self.other_index().is_some() {
+            let left = (self.ui_state.split * 1000.0).round() as u16;
+            let handle = divider::divider(
+                divider::Axis::Vertical,
+                |d| Message::Resize(Edge::Split, d),
+                Message::ResizeDone,
+                Message::ResizeReset(Edge::Split),
+            );
+            row![
+                container(self.side_view(false)).width(iced::FillPortion(left)),
+                handle,
+                container(self.side_view(true)).width(iced::FillPortion(1000 - left)),
+            ]
+            .height(Fill)
+            .into()
+        } else {
+            self.side_view(false)
+        };
 
-        let mut center = column![tabs, editor].spacing(4).width(Fill).height(Fill);
+        let mut center = column![editors].spacing(4).width(Fill).height(Fill);
         if let Some(bottom) = self.bottom_view() {
             let handle = divider::divider(
                 divider::Axis::Horizontal,

@@ -760,7 +760,19 @@ O que mais falta no uso diário. Cada item é uma entrega com teste manual; a or
     novo. Rodar "cargo run" e `Ctrl+C`: para e mostra o código. Criar `[tasks] oi = "echo oi && exit 2"` no config
     do projeto: aparece primeiro e termina com código 2. Num `#[test] fn` (ex. `tasks.rs`), "Rust: rodar o teste no
     cursor" roda só ele.
-- [ ] **Editor dividido:** dois arquivos lado a lado.
+- [x] **Editor dividido:** dois arquivos lado a lado.
+  Cada aba fica num lado (esquerdo ou direito), e cada lado tem a sua barra de abas e mostra uma aba; um mesmo
+  arquivo fica num lado só (abrir de novo leva o foco até ele). `Ctrl+\` (`editor.split`, ou "Mandar para a
+  direita/esquerda" no menu da aba) manda a aba para o outro lado: sem divisão, divide (com uma aba só, avisa que
+  precisa de outra); era a última do lado, junta tudo de novo. Abrir arquivo vai para o lado com foco. O foco
+  troca clicando no editor ou numa aba do outro lado, ou com `Ctrl+1`/`Ctrl+2` (`editor.focus_left/right`). A
+  aba ativa do lado com foco fica em destaque; a do outro lado, mais apagada. `Ctrl+PageDown/PageUp` e "fechar
+  outras/à direita" valem dentro do lado. A divisa arrasta (duplo clique volta ao meio) e a largura fica no
+  `state.toml`; a sessão lembra o lado de cada aba e a aba mostrada no outro lado.
+  - [x] Teste manual (aprovado): com dois arquivos abertos, `Ctrl+\`: o atual vai para a direita e o outro fica à
+    esquerda. Abrir um arquivo pela árvore: vai para o lado com foco. Clicar no texto do outro lado e digitar:
+    digita lá (a barra de status acompanha). `Ctrl+1`/`Ctrl+2` trocam. Arrastar a divisa; duplo clique centraliza.
+    Fechar todas as abas da direita: volta a um editor só. Fechar a IDE dividida e abrir: volta dividida.
 - [ ] **Distribuição:** `.desktop` com ícone, `cargo install`, AppImage ou Flatpak; CI no GitHub (testes,
   clippy e o executável a cada versão).
 - [ ] **Arquivos grandes:** medir com um arquivo de 50 MB e com uma linha gigante (objetivo "não trava").

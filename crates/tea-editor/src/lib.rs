@@ -71,6 +71,22 @@ impl EditorMessage {
     pub fn is_jump_click(&self) -> bool {
         matches!(self.0, Msg::Widget(Inner::JumpClick(_)))
     }
+
+    /// Clique no editor (texto, margem ou marca do git): com o editor dividido, o lado clicado ganha o foco.
+    pub fn is_press(&self) -> bool {
+        matches!(
+            self.0,
+            Msg::Widget(
+                Inner::MouseClick(_)
+                    | Inner::DoubleClick(_)
+                    | Inner::TripleClick(_)
+                    | Inner::AltClick(_)
+                    | Inner::JumpClick(_)
+                    | Inner::ContextMenuRequested(_)
+            ) | Msg::ToggleBreakpoint(_)
+                | Msg::OpenHunk(_)
+        )
+    }
 }
 
 /// LSP ligado neste editor.

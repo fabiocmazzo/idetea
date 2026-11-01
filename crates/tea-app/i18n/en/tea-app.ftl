@@ -455,3 +455,12 @@ tasks-done = [{ $name } finished: code { $code } · Enter closes]
 
 guide-terminal-3 = Tasks: { $tasks-run } lists the project commands ([tasks] in the config, cargo build/run/test/clippy, package.json scripts, Makefile targets) and runs the chosen one in a "Task" tab of the terminal, without touching the shell. At the end the exit code shows up; Enter closes it. Ctrl+C stops only the command. { $tasks-rerun } runs the last one again.
 guide-terminal-4 = Test at the cursor (Rust): with the cursor inside a #[test] fn, { $tasks-test_here } runs just that test (cargo test -p package name). No default key: add one under [keys] if you use it a lot.
+
+## Editor dividido
+cmd-editor-split = Editor: move the tab to the other side (split)
+cmd-editor-focus-left = Editor: go to the left side
+cmd-editor-focus-right = Editor: go to the right side
+split-one-tab = Open another file to split the editor: each side shows a different tab.
+tab-move-right = Move to the right (split)
+tab-move-left = Move to the left
+guide-files-13 = Split editor: { $editor-split } (or "Move to the right" in the tab menu) puts the tab beside, with its own tabs; opening a file goes to the focused side. Click a side (or { $editor-focus_left } / { $editor-focus_right }) to work there; drag the divider to change the width (double click centers it). Moving the last tab of a side back joins everything again.

@@ -455,3 +455,12 @@ tasks-done = [{ $name } terminó: código { $code } · Enter cierra]
 
 guide-terminal-3 = Tareas: { $tasks-run } lista los comandos del proyecto ([tasks] en la configuración, cargo build/run/test/clippy, scripts de package.json, objetivos del Makefile) y ejecuta el elegido en una pestaña "Tarea" del terminal, sin tocar el shell. Al final aparece el código de salida; Enter la cierra. Ctrl+C detiene solo el comando. { $tasks-rerun } ejecuta la última otra vez.
 guide-terminal-4 = Prueba en el cursor (Rust): con el cursor dentro de un #[test] fn, { $tasks-test_here } ejecuta solo esa prueba (cargo test -p paquete nombre). Sin atajo por defecto: cree uno en [keys] si la usa mucho.
+
+## Editor dividido
+cmd-editor-split = Editor: mover la pestaña al otro lado (dividir)
+cmd-editor-focus-left = Editor: ir al lado izquierdo
+cmd-editor-focus-right = Editor: ir al lado derecho
+split-one-tab = Abra otro archivo para dividir el editor: cada lado muestra una pestaña distinta.
+tab-move-right = Mover a la derecha (dividir)
+tab-move-left = Mover a la izquierda
+guide-files-13 = Editor dividido: { $editor-split } (o "Mover a la derecha" en el menú de la pestaña) pone la pestaña al lado, con sus propias pestañas; abrir un archivo va al lado con foco. Haga clic en un lado (o { $editor-focus_left } / { $editor-focus_right }) para trabajar en él; arrastre la división para cambiar el ancho (doble clic la centra). Mover la última pestaña de un lado de vuelta lo junta todo.

@@ -64,7 +64,7 @@ fn editor_keys() -> Vec<(String, String)> {
 /// Guia: (título, parágrafos), ids no `.ftl`. `{ $palette-open }` no texto vira o atalho atual.
 const GUIDE: &[(&str, &[&str])] = &[
     ("guide-start", &["guide-start-1", "guide-start-2", "guide-start-3", "guide-start-4"]),
-    ("guide-files", &["guide-files-1", "guide-files-2", "guide-files-3", "guide-files-4", "guide-files-5", "guide-files-6", "guide-files-7", "guide-files-8", "guide-files-9", "guide-files-10", "guide-files-11", "guide-files-12"]),
+    ("guide-files", &["guide-files-1", "guide-files-2", "guide-files-3", "guide-files-4", "guide-files-5", "guide-files-6", "guide-files-7", "guide-files-8", "guide-files-9", "guide-files-10", "guide-files-11", "guide-files-12", "guide-files-13"]),
     ("guide-tree", &["guide-tree-1", "guide-tree-2", "guide-tree-3"]),
     ("guide-bottom", &["guide-bottom-1", "guide-bottom-2", "guide-bottom-3"]),
     ("guide-terminal", &["guide-terminal-1", "guide-terminal-2", "guide-terminal-3", "guide-terminal-4"]),

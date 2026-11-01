@@ -12,6 +12,8 @@ pub const MIN_SIDE: f32 = 140.0;
 pub const MIN_BOTTOM: f32 = 80.0;
 /// Espaço que sempre sobra para o editor.
 pub const MIN_EDITOR: f32 = 240.0;
+/// Editor dividido: cada lado fica com pelo menos isso da largura.
+pub const MIN_SPLIT: f32 = 0.15;
 
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
@@ -19,6 +21,8 @@ pub struct UiState {
     pub left_width: f32,
     pub right_width: f32,
     pub bottom_height: f32,
+    /// Editor dividido: parte da largura que fica com o lado esquerdo.
+    pub split: f32,
     /// Tamanho da janela ao sair (0 = ainda não salvo: fica o padrão).
     pub window_width: f32,
     pub window_height: f32,
@@ -33,6 +37,7 @@ impl Default for UiState {
             left_width: DEFAULT_SIDE,
             right_width: DEFAULT_SIDE,
             bottom_height: DEFAULT_BOTTOM,
+            split: 0.5,
             window_width: 0.0,
             window_height: 0.0,
         }
@@ -75,6 +80,7 @@ impl UiState {
             left_width: ok(self.left_width, MIN_SIDE, DEFAULT_SIDE),
             right_width: ok(self.right_width, MIN_SIDE, DEFAULT_SIDE),
             bottom_height: ok(self.bottom_height, MIN_BOTTOM, DEFAULT_BOTTOM),
+            split: if (MIN_SPLIT..=1.0 - MIN_SPLIT).contains(&self.split) { self.split } else { 0.5 },
             window_width: ok(self.window_width, MIN_WINDOW.0, 0.0),
             window_height: ok(self.window_height, MIN_WINDOW.1, 0.0),
         }
@@ -102,7 +108,7 @@ mod tests {
     #[test]
     fn roundtrip_and_bad_values() {
         let path = std::env::temp_dir().join(format!("idetea-state-{}", std::process::id())).join("state.toml");
-        let s = UiState { left_width: 300.0, right_width: 200.0, bottom_height: 400.0, window_width: 1200.0, window_height: 800.0 };
+        let s = UiState { left_width: 300.0, right_width: 200.0, bottom_height: 400.0, split: 0.3, window_width: 1200.0, window_height: 800.0 };
         s.save(Some(&path));
         assert_eq!(UiState::load(Some(&path)), s);
         std::fs::write(&path, "left_width = 5\nbottom_height = \"x\"").unwrap();

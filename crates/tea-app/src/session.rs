@@ -17,6 +17,8 @@ pub struct Session {
     /// Painel → visível. Painel que não está aqui (extensão nova) fica como a extensão quer.
     pub panels: BTreeMap<String, bool>,
     pub tabs: Vec<SessionTab>,
+    /// Editor dividido: a aba mostrada no lado sem foco.
+    pub other: Option<usize>,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
@@ -26,6 +28,8 @@ pub struct SessionTab {
     /// Começam em 1.
     pub line: usize,
     pub column: usize,
+    /// Editor dividido: a aba está no lado direito.
+    pub right: bool,
 }
 
 impl Session {
@@ -49,8 +53,9 @@ impl Session {
 
     /// O que muda a "forma" da sessão (abas, aba ativa, painéis), sem o cursor. Mudou: vale gravar.
     pub fn same_shape(&self, other: &Session) -> bool {
-        let paths = |s: &Session| s.tabs.iter().map(|t| t.path.clone()).collect::<Vec<_>>();
+        let paths = |s: &Session| s.tabs.iter().map(|t| (t.path.clone(), t.right)).collect::<Vec<_>>();
         self.active == other.active
+            && self.other == other.other
             && self.bottom == other.bottom
             && self.panels == other.panels
             && paths(self) == paths(other)
@@ -88,9 +93,10 @@ mod tests {
             bottom: Some("git".into()),
             panels: [("git".to_string(), true), ("outline".to_string(), false)].into(),
             tabs: vec![
-                SessionTab { path: root.join("a.rs"), line: 10, column: 3 },
-                SessionTab { path: root.join("b.rs"), line: 1, column: 1 },
+                SessionTab { path: root.join("a.rs"), line: 10, column: 3, right: false },
+                SessionTab { path: root.join("b.rs"), line: 1, column: 1, right: true },
             ],
+            other: Some(0),
         };
         s.save(&path);
         assert_eq!(Session::load(&path, &root), Some(s.clone()));
@@ -101,6 +107,9 @@ mod tests {
         let mut moved = s.clone();
         moved.tabs[0].line = 99;
         assert!(s.same_shape(&moved), "só o cursor mudou");
+        moved.tabs[1].right = false;
+        assert!(!s.same_shape(&moved), "aba mudou de lado");
+        moved = s.clone();
         moved.active = 0;
         assert!(!s.same_shape(&moved));
         let _ = std::fs::remove_dir_all(&dir);
