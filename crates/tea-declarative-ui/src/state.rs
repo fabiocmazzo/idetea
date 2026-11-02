@@ -23,6 +23,8 @@ pub struct State {
     local: BTreeMap<String, Value>,
     /// Revisão já respondida (com `submit: "once"`, os botões ficam desligados nela).
     answered: Option<u64>,
+    /// O "comentário para o agente" sendo escrito (vai na próxima resposta e some).
+    pub comment: String,
 }
 
 impl State {
@@ -41,7 +43,7 @@ impl State {
 
     /// Há algo digitado ou escolhido que o agente ainda não viu.
     pub fn has_changes(&self) -> bool {
-        !self.local.is_empty()
+        !self.local.is_empty() || !self.comment.is_empty()
     }
 
     /// Passa para uma versão nova do documento (ou a mesma, relida). Valores do usuário em caminhos que o

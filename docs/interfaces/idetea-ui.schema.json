@@ -15,6 +15,7 @@
     "source": { "type": "string", "maxLength": 16384 },
     "data": { "type": "object" },
     "submit": { "enum": ["once", "many"] },
+    "comment": { "type": "boolean" },
     "components": { "type": "array", "maxItems": 200, "items": { "$ref": "#/$defs/component" } }
   },
   "$defs": {

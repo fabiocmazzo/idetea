@@ -21,3 +21,5 @@ ui-unknown-value = "{ $field }": valor desconocido "{ $value }", se usa el prede
 ui-unknown-component = El componente "{ $component }" no es compatible en esta versión.
 ui-link-error = No se pudo abrir { $url }: { $error }
 ui-link-ignored = Enlace ignorado (solo web, archivos del proyecto e idetea:config): { $url }
+ui-comment-label = Comentario para el agente (opcional)
+ui-comment-placeholder = va junto con el botón que pulses

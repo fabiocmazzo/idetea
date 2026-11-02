@@ -27,6 +27,9 @@ pub struct Response {
     pub time: String,
     /// Caminho → valor, para os caminhos do `action.context`.
     pub values: BTreeMap<String, Value>,
+    /// O "comentário para o agente", se o usuário escreveu um.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub comment: Option<String>,
 }
 
 impl Response {
@@ -52,6 +55,7 @@ impl Response {
             source: source.to_string(),
             time,
             values,
+            comment: None,
         }
     }
 }
@@ -94,5 +98,9 @@ mod tests {
         assert_eq!(timestamp(UNIX_EPOCH + Duration::from_secs(1_793_565_667)), "2026-11-01T20:41:07Z");
         assert_eq!(timestamp(UNIX_EPOCH + Duration::from_secs(951_782_400)), "2000-02-29T00:00:00Z");
         assert_eq!(file_name(7, "abc"), "000007-abc.json");
+        let mut r = Response::new("s", 1, 1, "e".into(), "ok".into(), "ok", "t".into(), BTreeMap::new());
+        assert!(!serde_json::to_string(&r).unwrap().contains("comment"), "sem comentário, sem o campo");
+        r.comment = Some("pense de novo".into());
+        assert!(serde_json::to_string(&r).unwrap().contains(r#""comment":"pense de novo""#));
     }
 }

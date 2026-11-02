@@ -180,11 +180,14 @@ impl UiExtension {
         self.counter += 1;
         let millis = SystemTime::now().duration_since(UNIX_EPOCH).map_or(0, |d| d.as_millis());
         let event = format!("{millis:x}-{:x}-{}", std::process::id(), self.counter);
-        let response =
+        let mut response =
             Response::new(name, doc.revision, seq, event.clone(), action, source, timestamp(SystemTime::now()), values);
+        let comment = saved.state.comment.trim();
+        response.comment = (!comment.is_empty()).then(|| comment.to_string());
         match store::write_response(&self.root, &response) {
             Ok(_) => {
                 saved.seq = seq;
+                saved.state.comment.clear(); // foi junto com esta resposta
                 // Já conta como pendente, sem esperar a próxima leitura da pasta.
                 if let Some(f) = Arc::make_mut(&mut self.files).iter_mut().find(|f| f.name == name) {
                     f.pending.push((seq, event));
@@ -274,7 +277,7 @@ impl UiExtension {
         let theme = self.theme.clone().unwrap_or(Theme::Dark);
         let rendered = self.rendered.get(&f.name).unwrap_or(&self.no_markdown);
         out = out.push(
-            tea_declarative_ui::view(doc, &saved.state, rendered, &theme).map(move |m| Message::Ui(name.clone(), m)),
+            tea_declarative_ui::view(doc, &saved.state, rendered, &theme, true).map(move |m| Message::Ui(name.clone(), m)),
         );
         let status = if !f.pending.is_empty() {
             Some(fl!("ui-waiting", count = f.pending.len()))
@@ -363,6 +366,12 @@ impl Extension for UiExtension {
                 }
             }
             Message::Ui(name, UiMessage::Press(source)) => self.press(&name, &source, ctx),
+            Message::Ui(name, UiMessage::Comment(text)) => {
+                if let Some(saved) = self.saved.get_mut(&name) {
+                    saved.state.comment = text;
+                    self.save();
+                }
+            }
             Message::Ui(_, UiMessage::Open { path, line, column }) => {
                 tea_declarative_ui::open_file(&self.root, &path, line, column, ctx);
             }
@@ -569,8 +578,15 @@ mod tests {
             .expect("pede para salvar");
         assert!(store::pending(&store::ui_dir(&root), "commit").is_empty(), "ainda sem resposta");
         let then = then.downcast_ref::<Message>().unwrap().clone();
+        // Comentário escrito antes de a IDE salvar e gravar: vai junto com a resposta e o campo esvazia.
+        let _ = ext.update(Message::Ui("commit".into(), UiMessage::Comment("  troque o título ".into())), &mut Context::new(&root, None));
         let _ = ext.update(then, &mut Context::new(&root, None));
-        assert_eq!(store::pending(&store::ui_dir(&root), "commit").len(), 1, "resposta gravada depois de salvar");
+        let pending = store::pending(&store::ui_dir(&root), "commit");
+        assert_eq!(pending.len(), 1, "resposta gravada depois de salvar");
+        let file = store::ui_dir(&root).join("responses/commit").join(tea_declarative_ui::file_name(pending[0].0, &pending[0].1));
+        let response: Response = serde_json::from_str(&std::fs::read_to_string(file).unwrap()).unwrap();
+        assert_eq!(response.comment.as_deref(), Some("troque o título"));
+        assert!(ext.saved["commit"].state.comment.is_empty());
         let _ = std::fs::remove_dir_all(&root);
     }
 

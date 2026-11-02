@@ -48,7 +48,9 @@ the panel, put every question that needs my answer there, not only in the chat: 
    Each file is one response:
    `{"action": "ok", "values": {"/option": "b", "/tests": true, "/name": null}, "revision": 1, "seq": 1, ...}`.
    `action` is the button's `action.name`; `revision` is the revision I was seeing when I clicked; `seq` is the
-   order (there may be more than one file; read them in name order). Read it and **delete the response file**:
+   order (there may be more than one file; read them in name order). If I wrote a comment, it comes as
+   `"comment": "…"`: it may be a question back or a caveat, so answer it (new revision or chat). The IDE adds the
+   comment field by itself; don't add your own "notes" input. Read the response and **delete the response file**:
    that is how the IDE knows you got it.
 3. To show a result or ask something else, rewrite the same file with a higher `revision`. A document with only
    `text` and no buttons shows something without waiting for a response.

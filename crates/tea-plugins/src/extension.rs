@@ -236,6 +236,7 @@ impl Extension for PluginExtension {
                 tea_declarative_ui::open_file(&self.root, &path, line, column, ctx);
             }
             Message::Ui(UiMessage::Link(url)) => tea_declarative_ui::follow(&url, &self.root, ctx),
+            Message::Ui(UiMessage::Comment(_)) => {} // o painel de plugin não mostra o comentário
             Message::Ui(UiMessage::Press(source)) => {
                 let Some(Ok(doc)) = &self.doc else { return Task::none() };
                 let Some((name, values)) = self.state.press(doc, &source) else { return Task::none() };
@@ -269,7 +270,7 @@ impl Extension for PluginExtension {
                     out = out.push(text(w).size(12).style(text::warning).width(Fill));
                 }
                 let theme = self.theme.clone().unwrap_or(Theme::Dark);
-                out = out.push(tea_declarative_ui::view(doc, &self.state, &self.rendered, &theme).map(Message::Ui));
+                out = out.push(tea_declarative_ui::view(doc, &self.state, &self.rendered, &theme, false).map(Message::Ui));
             }
             Some(Err(e)) => {
                 out = out.push(text(fl!("plugin-bad-panel", error = e.clone())).size(13).style(text::danger).width(Fill));

@@ -80,6 +80,7 @@ Para o agente saber usar o painel, rode **Interfaces: ensinar os agentes deste p
 | `source` | não | Quem criou, mostrado ao lado do caminho. |
 | `data` | não | Objeto com os valores iniciais dos campos (até 64 KB, 16 níveis). |
 | `submit` | não | `"once"` (padrão): depois de um clique, os botões ficam desligados até a próxima revisão. `"many"`: aceita vários cliques. |
+| `comment` | não | `true` (padrão): a IDE põe um campo "comentário para o agente" logo antes dos botões do fim; o texto vai na resposta. `false` tira o campo. |
 | `$schema` | não | Ignorado. |
 
 Campos desconhecidos viram um aviso no painel, não um erro. Um componente desconhecido aparece como aviso no lugar
@@ -168,7 +169,8 @@ Um clique grava `.idetea/ui/responses/<nome>/<seq>-<event>.json`:
   "action": "aplicar",
   "source": "aplicar",
   "time": "2026-11-01T20:41:07Z",
-  "values": { "/ambiente": "prod", "/backup": true, "/nota": null }
+  "values": { "/ambiente": "prod", "/backup": true, "/nota": null },
+  "comment": "faça o backup antes, mesmo em staging"
 }
 ```
 
@@ -179,6 +181,9 @@ Um clique grava `.idetea/ui/responses/<nome>/<seq>-<event>.json`:
   antiga.
 - `values`: um valor nunca preenchido vem `null`.
 - `time` é só informativo.
+- `comment`: o que o usuário escreveu no campo de comentário, se escreveu (sem o campo quando vazio). Pode ser uma
+  pergunta de volta ou uma ressalva: responda numa revisão nova ou no chat. Não ponha um campo "observação"
+  próprio no documento; o comentário já faz isso.
 
 Depois de ler, **apague o arquivo da resposta**. Enquanto ele existir, o painel mostra "aguardando o agente ler".
 

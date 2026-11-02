@@ -884,7 +884,8 @@ e grava a resposta do usuário em `.idetea/ui/responses/<nome>/`. Estudo, decis�
     2. Não há texto formatado (Markdown) no painel: uma explicação mais longa do agente fica no terminal, e o painel
        só aponta para lá. (resolvida: componente `markdown`)
     3. O usuário quis fazer perguntas de volta ao agente e usou o campo "Observação" para isso. Não há um jeito
-       padrão de comentar uma resposta; avaliar um comentário opcional em toda resposta.
+       padrão de comentar uma resposta; avaliar um comentário opcional em toda resposta. (resolvida: campo de
+       comentário da IDE)
     4. Na entrega de um teste, o passo "edite o config global" não teve link: o `file` só aceita caminhos do
        projeto (por segurança). Opção: alguns destinos conhecidos fora do projeto (`config:global`), sem caminho
        livre. Também faltou lista numerada: cada passo virou um `text` (lacuna 2). (resolvida: links
@@ -916,6 +917,14 @@ e grava a resposta do usuário em `.idetea/ui/responses/<nome>/`. Estudo, decis�
     formatados, com `código`; o link do config abre o config global; o link de arquivo abre na linha; o link da
     web abre o navegador; o link `../fora` só mostra o aviso. Rodar "Ensinar os agentes": o `CLAUDE.md` ganha as
     linhas sobre `markdown`. (aprovado, pelo painel)
+- [x] **Comentário em toda resposta** (lacuna 3): a IDE põe um campo "comentário para o agente" logo antes dos
+  botões do fim (ou no fim, se o documento não termina em botões), em toda interface com botões; o texto vai na
+  resposta como `comment` (sem o campo quando vazio) e o campo esvazia depois de gravar. O documento tira com
+  `"comment": false`; os painéis dos plugins não mostram. O que foi escrito sobrevive a reiniciar a IDE, como os
+  outros campos. Formato, schema e instruções dos agentes (não criar um campo "observação" próprio).
+  - [x] Teste manual: a entrega deste item não tem campo "Observação": escrever no campo de comentário e
+    clicar num botão; o agente mostra o comentário recebido. Rodar "Ensinar os agentes": o `CLAUDE.md` ganha a
+    linha sobre `comment`. (aprovado, pelo painel)
 - Depois, só se o uso pedir: `Row`/`Column`, progresso, Markdown sem links, vários painéis (`PanelId` dinâmico no
   núcleo), adaptador A2UI v1.0, e a mesma crate nos painéis dos plugins WASM (Fase 4).
 

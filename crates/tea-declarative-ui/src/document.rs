@@ -56,6 +56,8 @@ pub struct Document {
     pub data: Value,
     pub components: Vec<Component>,
     pub submit: Submit,
+    /// Mostra o campo "comentário para o agente" antes dos botões (padrão: sim).
+    pub comment: bool,
     /// Coisas ignoradas (campo desconhecido, estilo que não existe...), para mostrar ao agente.
     pub warnings: Vec<String>,
 }
@@ -150,7 +152,7 @@ pub fn parse(bytes: &[u8], limits: &Limits) -> Result<Document, String> {
     let mut r = Reader { limits: *limits, warnings: Vec::new() };
     r.known_fields(
         &obj,
-        &["$schema", "format", "version", "surface", "revision", "title", "source", "data", "components", "submit"],
+        &["$schema", "format", "version", "surface", "revision", "title", "source", "data", "components", "submit", "comment"],
         "",
     );
 
@@ -188,6 +190,12 @@ pub fn parse(bytes: &[u8], limits: &Limits) -> Result<Document, String> {
         }
     };
 
+    let comment = match obj.get("comment") {
+        None | Some(Value::Null) => true,
+        Some(Value::Bool(b)) => *b,
+        Some(_) => return Err(fl!("ui-wrong-type", field = "comment", expected = "boolean")),
+    };
+
     let list = match obj.get("components") {
         Some(Value::Array(list)) => list,
         Some(_) => return Err(fl!("ui-wrong-type", field = "components", expected = "array")),
@@ -214,6 +222,7 @@ pub fn parse(bytes: &[u8], limits: &Limits) -> Result<Document, String> {
         data,
         components,
         submit,
+        comment,
         warnings: r.warnings,
     })
 }

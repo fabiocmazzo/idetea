@@ -19,6 +19,8 @@ pub enum UiMessage {
     Open { path: String, line: u64, column: u64 },
     /// Clique num link do Markdown (ver [`crate::follow`]).
     Link(String),
+    /// O "comentário para o agente" mudou.
+    Comment(String),
 }
 
 /// O Markdown de um documento já lido, por id do componente. Fica com quem desenha (as peças do iced não podem
@@ -57,12 +59,34 @@ impl<'a> markdown::Viewer<'a, UiMessage> for Viewer {
 }
 
 /// A interface. Quem chama põe título, rolagem e o status em volta. `theme`: as cores do Markdown.
-pub fn view<'a>(doc: &'a Document, state: &'a State, rendered: &'a Rendered, theme: &Theme) -> Element<'a, UiMessage> {
+/// `comment`: quem chama grava o comentário na resposta (o painel Interfaces sim; o dos plugins, não).
+pub fn view<'a>(
+    doc: &'a Document,
+    state: &'a State,
+    rendered: &'a Rendered,
+    theme: &Theme,
+    comment: bool,
+) -> Element<'a, UiMessage> {
     let settings = markdown::Settings::with_style(theme);
     let locked = state.locked(doc);
     let mut out: Column<'a, UiMessage> = column![].spacing(12).width(Fill);
+    // O comentário fica logo antes dos botões do fim (ou no fim, se o documento não termina em botões).
+    let has_buttons = doc.components.iter().any(|c| matches!(c.kind, Kind::Button { .. }));
+    let comment_at = (comment && doc.comment && has_buttons).then(|| {
+        doc.components.iter().rposition(|c| !matches!(c.kind, Kind::Button { .. })).map_or(0, |p| p + 1)
+    });
+    let comment_field = || -> Element<'a, UiMessage> {
+        let input = text_input(&fl!("ui-comment-placeholder"), &state.comment)
+            .id("ui-comment")
+            .on_input_maybe((!locked).then_some(UiMessage::Comment as fn(String) -> UiMessage))
+            .width(Fill);
+        column![text(fl!("ui-comment-label")).size(13).style(text::secondary), input].spacing(4).into()
+    };
     let mut i = 0;
     while i < doc.components.len() {
+        if comment_at == Some(i) {
+            out = out.push(comment_field());
+        }
         // Botões seguidos: uma linha só (quebra se não couber).
         let buttons: Vec<&Component> =
             doc.components[i..].iter().take_while(|c| matches!(c.kind, Kind::Button { .. })).collect();
@@ -74,6 +98,9 @@ pub fn view<'a>(doc: &'a Document, state: &'a State, rendered: &'a Rendered, the
         }
         out = out.push(component_view(doc, state, rendered, &doc.components[i], settings));
         i += 1;
+    }
+    if comment_at == Some(doc.components.len()) {
+        out = out.push(comment_field());
     }
     out.into()
 }
@@ -193,12 +220,14 @@ mod tests {
         let d = doc();
         let rendered = Rendered::new(&d);
         let mut state = State::new(&d);
-        let mut ui = simulator(view(&d, &state, &rendered, &Theme::Dark));
+        let mut ui = simulator(view(&d, &state, &rendered, &Theme::Dark, true));
         assert!(ui.find("Confirme os dados").is_ok());
         let unknown = fl!("ui-unknown-component", component = "grafico");
         assert!(ui.find(unknown.as_str()).is_ok(), "aviso no lugar do componente desconhecido");
         assert!(ui.find("notas/rascunho.md:4").is_ok(), "o caminho embaixo do rótulo");
         assert_eq!(rendered.0["md"].len(), 1, "o Markdown foi lido (um parágrafo)");
+        let comment = fl!("ui-comment-label");
+        assert!(ui.find(comment.as_str()).is_ok(), "campo de comentário antes dos botões");
         ui.click("Escreva aqui").unwrap();
         ui.click("Concordo").unwrap();
         ui.click("Enviar").unwrap();
@@ -217,8 +246,25 @@ mod tests {
         assert_eq!(values["/nome"], json!("Ana"));
 
         // Respondida (submit once): clicar de novo não gera nada.
-        let mut ui = simulator(view(&d, &state, &rendered, &Theme::Dark));
+        let mut ui = simulator(view(&d, &state, &rendered, &Theme::Dark, true));
         let _ = ui.click("Cancelar");
         assert_eq!(ui.into_messages().count(), 0, "botões desligados depois de responder");
+    }
+
+    #[test]
+    fn comment_field_only_where_it_makes_sense() {
+        let d = doc();
+        let rendered = Rendered::new(&d);
+        let state = State::new(&d);
+        let comment = fl!("ui-comment-label");
+        let shows = |d: &Document, host: bool| simulator(view(d, &state, &rendered, &Theme::Dark, host)).find(comment.as_str()).is_ok();
+        assert!(shows(&d, true));
+        assert!(!shows(&d, false), "painel de plugin: sem comentário");
+        let mut off = d.clone();
+        off.comment = false;
+        assert!(!shows(&off, true), "\"comment\": false");
+        let mut no_buttons = d.clone();
+        no_buttons.components.retain(|c| !matches!(c.kind, Kind::Button { .. }));
+        assert!(!shows(&no_buttons, true), "sem botões não há o que mandar");
     }
 }
