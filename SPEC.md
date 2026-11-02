@@ -907,6 +907,8 @@ e grava a resposta do usuário em `.idetea/ui/responses/<nome>/`. Estudo, decis�
        contrato. (RFC 0003, etapa A)
     12. Um aviso fixo do agente sobre a IDE ("esta é a antiga") continuou na tela depois que deixou de ser verdade,
        e o teste falhou por isso. (RFC 0003, etapas A e C)
+    13. No segundo projeto (o jogo), o agente novo foi ler o código da IDE para saber se o painel mostra imagem e
+       áudio: nem o formato nem as instruções diziam o que o `file` faz com mídia. (resolvida: item abaixo)
     9. Os comandos que o agente sugere no painel (`cargo run -p tea-app -- .`) não são fáceis de copiar: o texto
        do painel não seleciona. Opção: botão de copiar nos blocos de código do `markdown`. (resolvida: item
        abaixo)
@@ -979,6 +981,11 @@ e grava a resposta do usuário em `.idetea/ui/responses/<nome>/`. Estudo, decis�
   Escolhido (pelo painel): "Correio de balão", jogo 2D original em JS com canvas, sem framework, em
   `~/NewProjects/tea-jogo`, feito por uma sessão nova do agente que só conhece o que "Ensinar os agentes" ensina.
   Ela anota as lacunas num `lacunas.md` de lá; as que forem da IDE entram aqui.
+- [x] **O que o `file` faz com mídia** (lacuna 13): formato e instruções dos agentes dizem como cada tipo abre
+  (imagem na aba com zoom, PDF, SVG como texto com prévia; áudio, vídeo e outros binários não abrem; imagem no
+  `markdown` só mostra o texto alternativo) e como pedir revisão de áudio (o comando num bloco de código).
+  - [x] Teste manual: "Ensinar os agentes" aqui e no `tea-jogo`: o `CLAUDE.md` daqui e o `AGENTS.md` do jogo
+    ganham o parágrafo "Media". (aprovado, pelo painel)
 - Depois, só se o uso pedir: `Row`/`Column`, progresso, Markdown sem links, vários painéis (`PanelId` dinâmico no
   núcleo), adaptador A2UI v1.0, e a mesma crate nos painéis dos plugins WASM (Fase 4).
 

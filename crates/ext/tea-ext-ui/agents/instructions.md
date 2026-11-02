@@ -36,6 +36,10 @@ the panel, put every question that needs my answer there, not only in the chat: 
      position, and `open: true` opens it by itself when the revision arrives. Create the file first (drafts in
      `.idetea/ui/rascunhos/`, outside git). When a button is clicked, the IDE saves the file before writing the
      response: read the file from disk after it.
+   - Media: a `file` (or a `markdown` link) to an image (png, jpg, gif, webp…) opens it in an image tab with zoom;
+     a PDF opens in a PDF tab; SVG opens as text with a preview. Audio, video and other binary files do not open,
+     and images inside `markdown` show only their alt text. To have me review audio, give me the command to play
+     it in a fenced code block (e.g. `paplay sound.wav`).
    - Links in `markdown` open the web (`https://…`), project files (`src/main.rs:42`) or the IDE config
      (`idetea:config`, `idetea:config-project`). Use a `markdown` for step lists and commands instead of one
      `text` per step. Put every command I should run in a fenced code block: the panel shows a Copy button on it.

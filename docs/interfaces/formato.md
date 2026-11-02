@@ -149,6 +149,19 @@ configuração para ajustar.
   quando o usuário salvar). Para rascunhos, use `.idetea/ui/rascunhos/`: fica fora do git (o `.gitignore` da
   pasta) e a IDE não mexe nele. Apague-os ao terminar.
 
+**Mídia.** O que acontece ao abrir cada tipo de arquivo (pelo `file` ou por um link do `markdown`):
+
+| Arquivo | Abre como |
+|---|---|
+| Imagem (`png`, `jpg`, `gif`, `webp`, `bmp`, `ico`, `tif`, `tga`, `qoi`) | aba de imagem: zoom com a roda do mouse, arrastar para mover, tamanho em pixels |
+| `pdf` | aba de PDF |
+| `svg` | texto, com prévia |
+| Áudio, vídeo e outros binários | não abrem: aparece o erro "arquivo não é UTF-8" |
+
+Dentro do painel não há imagem nem áudio: uma imagem no `markdown` aparece só como o texto alternativo. Para
+revisar imagens, ponha um `file` (ou um link) por imagem; para áudio, peça ao usuário para tocar o arquivo fora da
+IDE (um bloco de código com o comando, ex. `paplay som.wav`, tem o botão Copiar).
+
 ## Markdown
 
 O componente `markdown` serve para o que um `text` faz mal: passos numerados, comandos, explicações mais longas.
