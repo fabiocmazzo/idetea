@@ -101,6 +101,9 @@ pub enum Kind {
     Image { path: String, label: Option<String>, look: Look },
     /// Imagens lado a lado. Com `pick` `One` ou `Many`, o usuário escolhe; `value`: o id escolhido (ou a lista).
     Gallery { items: Vec<GalleryItem>, pick: Pick, value: Option<String>, look: Look },
+    /// Os quadros de um spritesheet, animados. Sem `frame` (largura e altura do quadro), a folha é uma fila de
+    /// `frames` quadros da mesma largura; com ele, uma grade lida da esquerda para a direita e de cima para baixo.
+    Sprite { path: String, label: Option<String>, frames: u32, frame: Option<(u32, u32)>, fps: u32, look: Look },
     /// Um som do projeto: Tocar/Parar pelo tocador do sistema; de WAV, também duração, taxa, pico e forma de onda
     /// (já lidos em [`crate::Media`]). `looped`: toca de novo quando termina.
     Audio { path: String, label: Option<String>, looped: bool },
@@ -186,7 +189,7 @@ impl Document {
         let mut out: Vec<&str> = Vec::new();
         for c in &self.components {
             let paths: Vec<&str> = match &c.kind {
-                Kind::Image { path, .. } => vec![path],
+                Kind::Image { path, .. } | Kind::Sprite { path, .. } => vec![path],
                 Kind::Gallery { items, .. } => items.iter().map(|i| i.path.as_str()).collect(),
                 _ => Vec::new(),
             };
@@ -302,7 +305,7 @@ pub fn parse(bytes: &[u8], limits: &Limits) -> Result<Document, String> {
     let images: usize = components
         .iter()
         .map(|c| match &c.kind {
-            Kind::Image { .. } => 1,
+            Kind::Image { .. } | Kind::Sprite { .. } => 1,
             Kind::Gallery { items, .. } => items.len(),
             _ => 0,
         })
@@ -487,6 +490,21 @@ impl Reader {
             "image" => (
                 &["path", "label", "pixelated", "background", "height"],
                 Kind::Image { path: self.file_path(obj, field)?, label: self.string(obj, "label", field)?, look: self.look(obj, field)? },
+            ),
+            "sprite" => (
+                &["path", "label", "frames", "frame_width", "frame_height", "fps", "pixelated", "background", "height"],
+                Kind::Sprite {
+                    path: self.file_path(obj, field)?,
+                    label: self.string(obj, "label", field)?,
+                    frames: self.number(obj, "frames", field)?.ok_or_else(|| fl!("ui-missing", field = at(field, "frames")))?.clamp(1, 256) as u32,
+                    frame: match (self.number(obj, "frame_width", field)?, self.number(obj, "frame_height", field)?) {
+                        (Some(w), Some(h)) if w > 0 && h > 0 => Some((w.min(4096) as u32, h.min(4096) as u32)),
+                        (None, None) => None,
+                        _ => return Err(fl!("ui-sprite-frame", field = field)),
+                    },
+                    fps: self.number(obj, "fps", field)?.unwrap_or(8).clamp(1, 60) as u32,
+                    look: self.look(obj, field)?,
+                },
             ),
             "audio" => (
                 &["path", "label", "loop"],

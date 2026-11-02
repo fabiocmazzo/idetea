@@ -107,6 +107,7 @@ Todo componente tem `id` (`[A-Za-z0-9_-]`, até 64, único no documento) e `comp
 | `markdown` | `text` | Texto formatado: listas, `código`, ênfase, títulos, links. Ver [Markdown](#markdown). |
 | `image` | `path`, `label`, `pixelated`, `background`, `height` | Uma imagem do projeto dentro do painel. Ver [Imagens](#imagens). |
 | `gallery` | `items`, `select`, `value`, `pixelated`, `background`, `height` | Imagens lado a lado, para comparar ou escolher. Ver [Imagens](#imagens). |
+| `sprite` | `path`, `frames`, `fps`, `frame_width`, `frame_height`, `label`, `pixelated`, `background`, `height` | Os quadros de um spritesheet, animados. Ver [Sprites](#sprites). |
 | `audio` | `path`, `label`, `loop` | Um som do projeto: Tocar/Parar; de WAV, também formato, pico e forma de onda. Ver [Sons](#sons). |
 | `steps` | `items`, `value` | Passos numerados que o usuário marca. `items`: até 500, cada um `{"id": "x", "text": "…", "optional": true}` (`text` em Markdown de uma linha; `optional` não conta para o `requires`). Valor: a lista dos ids marcados, na ordem dos passos. |
 
@@ -199,6 +200,27 @@ quando o arquivo muda no disco: dá para regerar e olhar de novo.
 - Formatos: os da aba de imagem (`png`, `jpg`, `gif`, `webp`, `bmp`, `ico`, `tif`, `tga`, `qoi`). Um GIF mostra o
   primeiro quadro.
 - Nos painéis de plugins as imagens ainda não aparecem (só o aviso).
+
+## Sprites
+
+```json
+{"id": "voo", "component": "sprite", "path": "assets/sprites/passaro.png", "frames": 2, "fps": 8,
+ "pixelated": true, "background": "checker", "height": 64}
+
+{"id": "explosao", "component": "sprite", "path": "assets/fx/explosao.png", "frames": 12,
+ "frame_width": 32, "frame_height": 32, "fps": 12}
+```
+
+- `frames` (1 a 256, obrigatório): sem `frame_width` e `frame_height`, a folha é uma fila de `frames` quadros da
+  mesma largura (largura da folha ÷ `frames`). Com os dois (vão juntos), uma grade lida da esquerda para a direita
+  e de cima para baixo, até `frames` quadros ou até acabar a folha.
+- `fps`: quadros por segundo (1 a 60, padrão 8).
+- `path`, `pixelated`, `background` e `height` como na `image`; `height` é a altura de um quadro na tela.
+- Botões **Pausar**/**Animar** e, pausado, **Próximo quadro**; ao lado, o número do quadro. Um clique no quadro
+  abre a folha inteira na aba de imagem. Uma revisão nova volta a animar.
+- A folha é relida quando o arquivo muda, e conta nos limites das imagens (os quadros recortados contam de novo
+  nos pixels somados).
+- Anima só a interface selecionada no painel. Nos painéis de plugins, o sprite não aparece (só o aviso).
 
 ## Sons
 

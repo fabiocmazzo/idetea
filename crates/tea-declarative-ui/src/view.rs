@@ -9,7 +9,7 @@ use iced::{Element, Fill, Theme};
 use serde_json::Value;
 
 use crate::document::{ButtonStyle, Choice, Component, Document, Kind, Look, Pick, TextStyle};
-use crate::media::{Media, WAVE_HEIGHT, WAVE_WIDTH, display_size};
+use crate::media::{Media, WAVE_HEIGHT, WAVE_WIDTH, display_size, fit};
 use crate::state::State;
 
 #[derive(Debug, Clone, PartialEq)]
@@ -30,26 +30,46 @@ pub enum UiMessage {
     Play(String),
     /// Parar o som que está tocando.
     Stop,
+    /// Pausar o `sprite` com este id (ou voltar a animar).
+    SpritePause(String),
+    /// Com o `sprite` pausado: o quadro seguinte.
+    SpriteStep(String),
 }
 
-/// O som tocando agora, de quem chama (o painel Interfaces toca; o dos plugins, não).
+/// O que anda, de quem chama: o som tocando (o painel Interfaces toca; o dos plugins, não) e o relógio dos
+/// `sprite`.
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct Playback {
     /// Id do componente `audio` tocando.
     pub playing: Option<String>,
     /// Por que não dá para tocar (sem tocador no sistema). `None`: dá.
     pub unavailable: Option<String>,
+    /// Milissegundos do relógio das animações (o quadro de cada `sprite` sai daqui e do `fps`).
+    pub clock_ms: u64,
+    /// `sprite` pausados: id → quadro mostrado.
+    pub paused: HashMap<String, u32>,
+}
+
+impl Playback {
+    /// O quadro do `sprite` `id` agora: o pausado, senão o do relógio.
+    pub fn frame(&self, id: &str, fps: u32, count: usize) -> usize {
+        let count = count.max(1);
+        match self.paused.get(id) {
+            Some(f) => *f as usize % count,
+            None => (self.clock_ms * u64::from(fps) / 1000) as usize % count,
+        }
+    }
 }
 
 impl Playback {
     /// Nenhum tocador de som no sistema.
     pub fn no_player() -> Self {
-        Self { playing: None, unavailable: Some(fl!("ui-audio-no-player")) }
+        Self { unavailable: Some(fl!("ui-audio-no-player")), ..Self::default() }
     }
 
     /// Quem desenha não toca som (painel de plugin).
     pub fn unsupported() -> Self {
-        Self { playing: None, unavailable: Some(fl!("ui-audio-plugin")) }
+        Self { unavailable: Some(fl!("ui-audio-plugin")), ..Self::default() }
     }
 }
 
@@ -207,6 +227,54 @@ fn picture_view<'a>(media: &'a Media, path: &'a str, look: Look) -> Element<'a, 
         .into()
 }
 
+/// Um `sprite`: o quadro de agora (clique abre a folha na aba de imagem), Pausar/Animar e, pausado, o quadro
+/// seguinte.
+fn sprite_view<'a>(
+    media: &'a Media,
+    playback: &Playback,
+    id: &str,
+    path: &'a str,
+    label: Option<&'a str>,
+    fps: u32,
+    look: Look,
+) -> Element<'a, UiMessage> {
+    let caption = text(label.unwrap_or(path)).size(12).style(text::secondary);
+    let frames = match media.sprite(id) {
+        Some(Ok(f)) => f,
+        Some(Err(e)) => return column![caption, text(format!("{path}: {e}")).size(12).style(text::warning)].spacing(4).into(),
+        None => return text(fl!("ui-image-loading", path = path)).size(12).style(text::secondary).into(),
+    };
+    let n = playback.frame(id, fps, frames.handles.len());
+    let (w, h) = fit(frames.width, frames.height, look.height);
+    let filter = if look.pixelated { image::FilterMethod::Nearest } else { image::FilterMethod::Linear };
+    let img = image(frames.handles[n].clone()).width(w as f32).height(h as f32).filter_method(filter);
+    let shown: Element<'a, UiMessage> = match media.checker((w, h)) {
+        Some(bg) if look.checker => stack![image(bg.clone()).width(w as f32).height(h as f32), img].into(),
+        _ => img.into(),
+    };
+    let shown = button(shown)
+        .padding(0)
+        .style(button::text)
+        .on_press(UiMessage::Open { path: path.to_string(), line: 0, column: 0 });
+    let paused = playback.paused.contains_key(id);
+    let toggle = button(text(if paused { fl!("ui-sprite-play") } else { fl!("ui-sprite-pause") }).size(12))
+        .padding([2, 10])
+        .style(button::secondary)
+        .on_press(UiMessage::SpritePause(id.to_string()));
+    let mut controls = row![toggle].spacing(8).align_y(iced::Alignment::Center);
+    if paused {
+        controls = controls.push(
+            button(text(fl!("ui-sprite-step")).size(12))
+                .padding([2, 10])
+                .style(button::secondary)
+                .on_press(UiMessage::SpriteStep(id.to_string())),
+        );
+    }
+    let info = fl!("ui-sprite-info", frame = (n + 1), count = frames.handles.len(), fps = fps);
+    controls = controls.push(text(info).size(12).style(text::secondary));
+    column![shown, controls, caption].spacing(4).into()
+}
+
 /// Um som: Tocar/Parar, o nome, o formato (WAV) e a forma de onda.
 fn audio_view<'a>(
     media: &'a Media,
@@ -330,6 +398,7 @@ fn component_view<'a>(
             let caption = text(label.clone().unwrap_or_else(|| path.clone())).size(12).style(text::secondary);
             column![pic, caption].spacing(4).into()
         }
+        Kind::Sprite { path, label, fps, look, .. } => sprite_view(media, playback, &c.id, path, label.as_deref(), *fps, *look),
         Kind::Audio { path, label, looped } => audio_view(media, playback, &c.id, path, label.as_deref(), *looped),
         Kind::Gallery { items, pick, value, look } => {
             let chosen: Vec<String> = match (pick, value) {
@@ -594,7 +663,7 @@ mod tests {
         ui.click(play.as_str()).unwrap();
         assert_eq!(ui.into_messages().collect::<Vec<_>>(), vec![UiMessage::Play("v".into())]);
 
-        let playing = Playback { playing: Some("v".into()), unavailable: None };
+        let playing = Playback { playing: Some("v".into()), unavailable: None, ..Playback::default() };
         let mut ui = simulator(view(&d, &state, &rendered, &media, &playing, &Theme::Dark, true));
         ui.click(stop.as_str()).unwrap();
         assert_eq!(ui.into_messages().collect::<Vec<_>>(), vec![UiMessage::Stop]);
@@ -604,6 +673,39 @@ mod tests {
         assert!(ui.find(fl!("ui-audio-no-player").as_str()).is_ok());
         let _ = ui.click(play.as_str());
         assert_eq!(ui.into_messages().count(), 0, "sem tocador o botão fica desligado");
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn sprite_animates_pauses_and_steps() {
+        let root = std::env::temp_dir().join(format!("idetea-view-sprite-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        std::fs::create_dir_all(&root).unwrap();
+        ::image::RgbaImage::from_pixel(6, 2, ::image::Rgba([255, 0, 0, 255])).save(root.join("f.png")).unwrap();
+        let v = json!({
+            "format": "idetea-ui", "version": 1, "revision": 1,
+            "components": [ { "id": "voo", "component": "sprite", "path": "f.png", "frames": 3, "fps": 6, "label": "Voo" } ]
+        });
+        let d = parse(v.to_string().as_bytes(), &Limits::default()).unwrap();
+        let media = Media::load(&root, &d, &crate::MediaLimits::default());
+        let rendered = Rendered::new(&d);
+        let state = State::new(&d);
+        let info = |frame: usize| fl!("ui-sprite-info", frame = frame, count = 3, fps = 6);
+
+        // 6 fps: o quadro muda a cada 166 ms e volta ao primeiro depois do terceiro.
+        let at = |ms: u64| Playback { clock_ms: ms, ..Playback::default() };
+        assert_eq!([0, 170, 340, 500].map(|ms| at(ms).frame("voo", 6, 3)), [0, 1, 2, 0]);
+        let mut ui = simulator(view(&d, &state, &rendered, &media, &at(340), &Theme::Dark, true));
+        assert!(ui.find(info(3).as_str()).is_ok());
+        ui.click(fl!("ui-sprite-pause").as_str()).unwrap();
+        assert_eq!(ui.into_messages().collect::<Vec<_>>(), vec![UiMessage::SpritePause("voo".into())]);
+
+        let mut paused = at(0);
+        paused.paused.insert("voo".into(), 1);
+        let mut ui = simulator(view(&d, &state, &rendered, &media, &paused, &Theme::Dark, true));
+        assert!(ui.find(info(2).as_str()).is_ok(), "pausado: o quadro guardado, não o do relógio");
+        ui.click(fl!("ui-sprite-step").as_str()).unwrap();
+        assert_eq!(ui.into_messages().collect::<Vec<_>>(), vec![UiMessage::SpriteStep("voo".into())]);
         let _ = std::fs::remove_dir_all(&root);
     }
 }

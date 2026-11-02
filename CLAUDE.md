@@ -45,6 +45,9 @@ the panel, put every question that needs my answer there, not only in the chat: 
      "select": "one", "value": "/pick", "items": [{"id": "a", "path": "a.png", "label": "A"}, …]}` (`select`:
      `none`, `one` or `many`). The panel rereads an image when the file changes, so regenerate it and I see the
      new one. A click opens it in the image tab (zoom). Images inside `markdown` show only their alt text.
+   - Animated spritesheet: `{"id": "fly", "component": "sprite", "path": "art/bird.png", "frames": 2, "fps": 8,
+     "pixelated": true, "background": "checker", "height": 64}` (frames in a row of equal width; for a grid add
+     `frame_width` and `frame_height`). I get Pause, Next frame and the frame number.
    - Sound in the panel: `{"id": "v", "component": "audio", "path": "sfx/wind.wav", "label": "Wind", "loop": true}`
      (`wav`, `ogg`, `oga`, `opus`, `flac`, `mp3`). I get Play/Stop (one sound at a time, through the system
      player); for WAV the panel also shows duration, rate, channels, bits, peak in dBFS (with a warning at 0 dBFS)
@@ -93,5 +96,5 @@ did not find.
 Do not put secrets in the document. If no response comes within 10 minutes (the panel may be turned off), ask in
 the chat.
 
-Instructions version: `0babddda`
+Instructions version: `ea2ada9d`
 <!-- idetea-ui:end -->

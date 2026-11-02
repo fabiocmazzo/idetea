@@ -1033,7 +1033,12 @@ e grava a resposta do usuário em `.idetea/ui/responses/<nome>/`. Estudo, decis�
   as extensões lerem o config.
   - [x] Teste manual (aprovado, pelo painel): no painel, tocar e parar três sons do jogo, um em `loop`; trocar de som para o anterior; o
     `batida.wav` mostra o aviso de 0 dBFS.
-- [ ] **Mídia M3: `sprite`** (lacuna 6): quadros de um spritesheet animados no painel, com pausa e quadro a quadro.
+- [x] **Mídia M3: `sprite`** (lacuna 6): quadros de um spritesheet animados no painel, com pausa e quadro a quadro.
+  Fila de `frames` quadros ou grade (`frame_width` e `frame_height`), `fps` de 1 a 60; quadros recortados na
+  thread de leitura, contando nos limites. Relógio numa thread só enquanto a interface selecionada tem um sprite
+  animando (o núcleo não avisa quando o painel fecha); uma revisão nova volta a animar.
+  - [x] Teste manual (aprovado, pelo painel): o voo do pássaro a 8 fps como no jogo; pausar, passar quadro a quadro os 3 do balão;
+    regerar a folha atualiza os quadros.
 - [ ] **Mídia M4: o que foi visto e ouvido** (lacuna 14): `media` na resposta.
 - [ ] **Mídia M5: `idetea:open`** (lacuna 13): link que abre um arquivo do projeto no app do sistema, só com as
   extensões da lista.

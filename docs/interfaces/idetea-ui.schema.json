@@ -107,6 +107,24 @@
           }
         },
         {
+          "if": { "properties": { "component": { "const": "sprite" } } },
+          "then": {
+            "required": ["path", "frames"],
+            "properties": {
+              "path": { "type": "string", "minLength": 1, "maxLength": 16384, "not": { "pattern": "(^[/\\\\])|(^.:)|(^|[/\\\\])\\.\\.([/\\\\]|$)" } },
+              "label": { "$ref": "#/$defs/text" },
+              "frames": { "type": "integer", "minimum": 1, "maximum": 256 },
+              "frame_width": { "type": "integer", "minimum": 1, "maximum": 4096 },
+              "frame_height": { "type": "integer", "minimum": 1, "maximum": 4096 },
+              "fps": { "type": "integer", "minimum": 1, "maximum": 60 },
+              "pixelated": { "type": "boolean" },
+              "background": { "enum": ["none", "checker"] },
+              "height": { "type": "integer", "minimum": 8, "maximum": 1024 }
+            },
+            "dependentRequired": { "frame_width": ["frame_height"], "frame_height": ["frame_width"] }
+          }
+        },
+        {
           "if": { "properties": { "component": { "const": "audio" } } },
           "then": {
             "required": ["path"],

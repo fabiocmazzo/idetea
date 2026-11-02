@@ -39,6 +39,14 @@ pub struct Picture {
     pub height: u32,
 }
 
+/// Os quadros de um `sprite`, já recortados (todos do mesmo tamanho).
+#[derive(Debug, Clone)]
+pub struct Frames {
+    pub handles: Vec<Handle>,
+    pub width: u32,
+    pub height: u32,
+}
+
 /// Um som lido. `info` e `wave` só existem para WAV; outros formatos só tocam.
 #[derive(Debug, Clone)]
 pub struct Sound {
@@ -61,6 +69,8 @@ pub const WAVE_HEIGHT: u32 = 36;
 pub struct Media {
     pictures: HashMap<String, Result<Picture, String>>,
     sounds: HashMap<String, Result<Sound, String>>,
+    /// Pelo id do componente: dois `sprite` da mesma folha podem recortar diferente.
+    sprites: HashMap<String, Result<Frames, String>>,
     /// Fundos quadriculados, pelo tamanho na tela.
     checkers: HashMap<(u32, u32), Handle>,
 }
@@ -88,12 +98,37 @@ impl Media {
             });
             media.pictures.insert(path.to_string(), picture);
         }
+        for c in &doc.components {
+            if let crate::Kind::Sprite { path, frames, frame, .. } = &c.kind {
+                let cut = match media.pictures.get(path.as_str()) {
+                    Some(Ok(p)) => cut(p, *frames, *frame).and_then(|f| {
+                        // Os quadros ocupam outra cópia da folha: contam no limite de pixels.
+                        pixels += u64::from(f.width) * u64::from(f.height) * f.handles.len() as u64;
+                        if pixels > limits.max_pixels {
+                            Err(fl!("ui-image-total", max = (limits.max_pixels / 1_000_000)))
+                        } else {
+                            Ok(f)
+                        }
+                    }),
+                    Some(Err(e)) => Err(e.clone()),
+                    None => Err(fl!("ui-image-not-file")),
+                };
+                media.sprites.insert(c.id.clone(), cut);
+            }
+        }
         for path in doc.audio_paths() {
             media.sounds.insert(path.to_string(), sound(&root.join(path)));
         }
         for c in &doc.components {
             let (paths, look): (Vec<&str>, Look) = match &c.kind {
                 crate::Kind::Image { path, look, .. } => (vec![path.as_str()], *look),
+                crate::Kind::Sprite { look, .. } => {
+                    if let (true, Some(Ok(f))) = (look.checker, media.sprites.get(&c.id)) {
+                        let size = fit(f.width, f.height, look.height);
+                        media.checkers.entry(size).or_insert_with(|| checker(size));
+                    }
+                    continue;
+                }
                 crate::Kind::Gallery { items, look, .. } => (items.iter().map(|i| i.path.as_str()).collect(), *look),
                 _ => continue,
             };
@@ -114,6 +149,11 @@ impl Media {
         self.pictures.get(path)
     }
 
+    /// Os quadros do `sprite` com este id.
+    pub fn sprite(&self, id: &str) -> Option<&Result<Frames, String>> {
+        self.sprites.get(id)
+    }
+
     pub fn sound(&self, path: &str) -> Option<&Result<Sound, String>> {
         self.sounds.get(path)
     }
@@ -126,7 +166,12 @@ impl Media {
 /// Tamanho na tela: a altura pedida (ou a da imagem, até [`DEFAULT_HEIGHT`]), a largura na proporção, até
 /// [`MAX_WIDTH`].
 pub fn display_size(p: &Picture, height: Option<u32>) -> (u32, u32) {
-    let (w, h) = (p.width.max(1), p.height.max(1));
+    fit(p.width, p.height, height)
+}
+
+/// [`display_size`] para uma largura e altura quaisquer (um quadro de `sprite`).
+pub fn fit(w: u32, h: u32, height: Option<u32>) -> (u32, u32) {
+    let (w, h) = (w.max(1), h.max(1));
     let mut dh = height.unwrap_or_else(|| h.min(DEFAULT_HEIGHT)).max(1);
     let mut dw = (u64::from(w) * u64::from(dh) / u64::from(h)).max(1) as u32;
     if dw > MAX_WIDTH {
@@ -172,6 +217,35 @@ fn read(path: &Path, limits: &MediaLimits) -> Result<Picture, String> {
     let rgba = decoded.into_rgba8();
     let (width, height) = rgba.dimensions();
     Ok(Picture { handle: Handle::from_rgba(width, height, rgba.into_raw()), width, height })
+}
+
+/// Recorta os quadros da folha: uma fila de `frames` quadros, ou uma grade de `frame` (largura, altura).
+fn cut(sheet: &Picture, frames: u32, frame: Option<(u32, u32)>) -> Result<Frames, String> {
+    let Handle::Rgba { width, height, pixels, .. } = &sheet.handle else { return Err(fl!("ui-image-not-file")) };
+    let (sw, sh) = (*width, *height);
+    let (fw, fh, cols, count) = match frame {
+        Some((fw, fh)) => {
+            let (cols, rows) = (sw / fw, sh / fh);
+            (fw, fh, cols, frames.min(cols * rows))
+        }
+        None => (sw / frames, sh, frames, frames),
+    };
+    if count == 0 || fw == 0 || fh == 0 {
+        return Err(fl!("ui-sprite-too-small", width = sw, height = sh));
+    }
+    let row_bytes = sw as usize * 4;
+    let handles = (0..count)
+        .map(|i| {
+            let (x0, y0) = ((i % cols) * fw, (i / cols) * fh);
+            let mut out = Vec::with_capacity((fw * fh * 4) as usize);
+            for y in y0..y0 + fh {
+                let start = y as usize * row_bytes + x0 as usize * 4;
+                out.extend_from_slice(&pixels[start..start + fw as usize * 4]);
+            }
+            Handle::from_rgba(fw, fh, out)
+        })
+        .collect();
+    Ok(Frames { handles, width: fw, height: fh })
 }
 
 /// Confere o arquivo (sem symlink, extensão de som) e, se for WAV, lê formato e forma de onda.
@@ -281,6 +355,52 @@ mod tests {
         for bad in ["grande.png", "nao.png", "falta.png"] {
             assert!(media.picture(bad).unwrap().is_err(), "{bad}");
         }
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn cuts_sprite_frames() {
+        let root = tmp("quadros");
+        // Folha 6×2 com três quadros de 2×2: vermelho, verde, azul.
+        let mut sheet = ::image::RgbaImage::new(6, 2);
+        for (x, _, px) in sheet.enumerate_pixels_mut() {
+            *px = ::image::Rgba(match x / 2 {
+                0 => [255, 0, 0, 255],
+                1 => [0, 255, 0, 255],
+                _ => [0, 0, 255, 255],
+            });
+        }
+        sheet.save(root.join("fila.png")).unwrap();
+        let doc = parse(
+            json!({
+                "format": "idetea-ui", "version": 1,
+                "components": [
+                    { "id": "fila", "component": "sprite", "path": "fila.png", "frames": 3, "background": "checker", "height": 20 },
+                    { "id": "grade", "component": "sprite", "path": "fila.png", "frames": 9, "frame_width": 2, "frame_height": 1 },
+                    { "id": "grande", "component": "sprite", "path": "fila.png", "frames": 2, "frame_width": 8, "frame_height": 8 },
+                    { "id": "falta", "component": "sprite", "path": "falta.png", "frames": 2 }
+                ]
+            })
+            .to_string()
+            .as_bytes(),
+            &Limits::default(),
+        )
+        .unwrap();
+        let media = Media::load(&root, &doc, &MediaLimits::default());
+        let rgba = |h: &Handle| match h {
+            Handle::Rgba { pixels, .. } => pixels.to_vec(),
+            _ => unreachable!(),
+        };
+        let fila = media.sprite("fila").unwrap().as_ref().unwrap();
+        assert_eq!((fila.handles.len(), fila.width, fila.height), (3, 2, 2));
+        assert_eq!(&rgba(&fila.handles[1])[..4], &[0, 255, 0, 255], "segundo quadro: verde");
+        assert_eq!(&rgba(&fila.handles[2])[12..16], &[0, 0, 255, 255]);
+        assert!(media.checker(fit(2, 2, Some(20))).is_some());
+        let grade = media.sprite("grade").unwrap().as_ref().unwrap();
+        assert_eq!(grade.handles.len(), 6, "a grade 3×2 só tem 6 quadros");
+        assert_eq!(&rgba(&grade.handles[3])[..4], &[255, 0, 0, 255], "quarto quadro: começo da segunda linha");
+        assert!(media.sprite("grande").unwrap().is_err(), "quadro maior que a folha");
+        assert!(media.sprite("falta").unwrap().is_err());
         let _ = std::fs::remove_dir_all(&root);
     }
 

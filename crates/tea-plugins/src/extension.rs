@@ -240,7 +240,8 @@ impl Extension for PluginExtension {
             Message::Ui(UiMessage::Link(url)) => tea_declarative_ui::follow(&url, &self.root, ctx),
             Message::Ui(UiMessage::Copy(code)) => return tea_declarative_ui::copy(code, ctx),
             Message::Ui(UiMessage::Comment(_)) => {} // o painel de plugin não mostra o comentário
-            Message::Ui(UiMessage::Play(_) | UiMessage::Stop) => {} // nem toca som
+            // Nem toca som, nem anima (o sprite fica no primeiro quadro).
+            Message::Ui(UiMessage::Play(_) | UiMessage::Stop | UiMessage::SpritePause(_) | UiMessage::SpriteStep(_)) => {}
             Message::Ui(UiMessage::Press(source)) => {
                 let Some(Ok(doc)) = &self.doc else { return Task::none() };
                 let Some((name, values)) = self.state.press(doc, &source) else { return Task::none() };

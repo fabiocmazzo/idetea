@@ -13,10 +13,10 @@ mod player;
 pub mod store;
 pub mod teach;
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use iced::futures::channel::mpsc;
 use iced::widget::{Column, button, column, row, scrollable, text};
@@ -46,6 +46,8 @@ pub enum Message {
     Teach,
     /// Olhar o tocador (enquanto um som toca).
     AudioTick,
+    /// Relógio dos `sprite` (enquanto um deles anima na interface aberta).
+    Frame,
 }
 
 /// O que a IDE guarda de uma interface (sobrevive a reiniciar a IDE).
@@ -80,6 +82,11 @@ pub struct UiExtension {
     no_markdown: Rendered,
     /// O som do componente `audio` tocando agora.
     player: Player,
+    /// Começo do relógio dos `sprite`, e o tempo dele na última batida.
+    clock: Option<Instant>,
+    clock_ms: u64,
+    /// `sprite` pausados, por interface: id → quadro mostrado. Uma revisão nova volta a animar.
+    paused: BTreeMap<String, HashMap<String, u32>>,
 }
 
 impl UiExtension {
@@ -165,6 +172,12 @@ impl UiExtension {
                 self.player.stop();
             }
         }
+        // Revisão nova (ou interface que sumiu): os `sprite` voltam a animar.
+        self.paused.retain(|name, _| {
+            let old = self.files.iter().find(|f| &f.name == name).and_then(|f| f.doc.as_ref().ok()).map(|d| d.revision);
+            let new = files.iter().find(|f| &f.name == name).and_then(|f| f.doc.as_ref().ok()).map(|d| d.revision);
+            new.is_some() && old == new
+        });
         // Interface apagada pelo agente: acabou; o estado dela não serve mais.
         self.saved.retain(|name, _| files.iter().any(|f| &f.name == name));
         self.rendered = files.iter().filter_map(|f| Some((f.name.clone(), Rendered::new(f.doc.as_ref().ok()?)))).collect();
@@ -259,11 +272,60 @@ impl UiExtension {
     }
 
     fn playback(&self, name: &str) -> Playback {
-        if !self.player.available() {
-            return Playback::no_player();
+        let mut out = if self.player.available() { Playback::default() } else { Playback::no_player() };
+        out.playing = self.player.playing().filter(|p| p.name == name).map(|p| p.id.clone());
+        out.clock_ms = self.clock_ms;
+        out.paused = self.paused.get(name).cloned().unwrap_or_default();
+        out
+    }
+
+    /// Pausar (no quadro de agora) ou voltar a animar; `step`: pausado, o quadro seguinte.
+    fn sprite(&mut self, name: &str, id: &str, step: bool) {
+        let Some(f) = self.file(name) else { return };
+        let Ok(doc) = &f.doc else { return };
+        let Some(fps) = doc.components.iter().find(|c| c.id == id).and_then(|c| match &c.kind {
+            Kind::Sprite { fps, .. } => Some(*fps),
+            _ => None,
+        }) else {
+            return;
+        };
+        let Some(Ok(frames)) = f.media.sprite(id) else { return };
+        let count = frames.handles.len();
+        let now = self.playback(name).frame(id, fps, count) as u32;
+        let paused = self.paused.entry(name.to_string()).or_default();
+        match (step, paused.contains_key(id)) {
+            (true, true) => {
+                paused.insert(id.to_string(), (now + 1) % count as u32);
+            }
+            (true, false) => {}
+            (false, true) => {
+                paused.remove(id);
+            }
+            (false, false) => {
+                paused.insert(id.to_string(), now);
+            }
         }
-        let playing = self.player.playing().filter(|p| p.name == name).map(|p| p.id.clone());
-        Playback { playing, unavailable: None }
+    }
+
+    /// Intervalo do relógio dos `sprite`, se algum anima na interface aberta: o do maior `fps`.
+    fn sprite_interval(&self) -> Option<Duration> {
+        let f = self.selected.as_deref().and_then(|s| self.file(s))?;
+        let doc = f.doc.as_ref().ok()?;
+        let paused = self.paused.get(&f.name);
+        let fps = doc
+            .components
+            .iter()
+            .filter_map(|c| match &c.kind {
+                Kind::Sprite { fps, .. }
+                    if paused.is_none_or(|p| !p.contains_key(&c.id))
+                        && f.media.sprite(&c.id).is_some_and(|r| r.as_ref().is_ok_and(|fr| fr.handles.len() > 1)) =>
+                {
+                    Some(*fps)
+                }
+                _ => None,
+            })
+            .max()?;
+        Some(Duration::from_millis(u64::from(1000 / fps.max(1)).max(16)))
     }
 
     fn teach_text() -> &'static str {
@@ -448,6 +510,12 @@ impl Extension for UiExtension {
             Message::Ui(_, UiMessage::Copy(code)) => return tea_declarative_ui::copy(code, ctx),
             Message::Ui(name, UiMessage::Play(id)) => self.play(&name, &id, ctx),
             Message::Ui(_, UiMessage::Stop) => self.player.stop(),
+            Message::Ui(name, UiMessage::SpritePause(id)) => self.sprite(&name, &id, false),
+            Message::Ui(name, UiMessage::SpriteStep(id)) => self.sprite(&name, &id, true),
+            Message::Frame => {
+                let start = *self.clock.get_or_insert_with(Instant::now);
+                self.clock_ms = start.elapsed().as_millis() as u64;
+            }
             Message::AudioTick => {
                 if let player::Tick::Failed(e) = self.player.tick() {
                     ctx.notify(fl!("ui-audio-failed", error = e));
@@ -495,13 +563,30 @@ impl Extension for UiExtension {
         if self.root.as_os_str().is_empty() {
             return Subscription::none();
         }
-        let folder = Subscription::run_with(self.root.clone(), watch);
+        let mut subs = vec![Subscription::run_with(self.root.clone(), watch)];
         if self.player.playing().is_some() {
-            Subscription::batch([folder, Subscription::run_with(AUDIO_TICK, audio_ticks)])
-        } else {
-            folder
+            subs.push(Subscription::run_with(AUDIO_TICK, audio_ticks));
         }
+        if let Some(every) = self.sprite_interval() {
+            subs.push(Subscription::run_with(SpriteClock(every), sprite_ticks));
+        }
+        Subscription::batch(subs)
     }
+}
+
+/// O relógio dos `sprite` (tipo próprio: não se confunde com o do tocador na mesma duração).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+struct SpriteClock(Duration);
+
+fn sprite_ticks(clock: &SpriteClock) -> mpsc::UnboundedReceiver<Message> {
+    let (tx, rx) = mpsc::unbounded();
+    let every = clock.0;
+    std::thread::spawn(move || {
+        while tx.unbounded_send(Message::Frame).is_ok() {
+            std::thread::sleep(every);
+        }
+    });
+    rx
 }
 
 /// De quanto em quanto tempo olhar o tocador (fim do som, `loop`).
@@ -730,4 +815,39 @@ mod tests {
         let _ = std::fs::remove_dir_all(&root);
     }
 
+
+    #[test]
+    fn sprite_clock_pause_and_step() {
+        let root = tmp_root("sprite");
+        test_state();
+        let mut ext = UiExtension::new();
+        let _ = ext.activate(&mut Context::new(&root, None));
+        let sheet = root.join("folha.png");
+        // Folha 6×2 (o crate não depende de `image` para gerar uma).
+        std::fs::write(&sheet, include_bytes!("../testdata/folha-6x2.png")).unwrap();
+        let doc = r#"{"format": "idetea-ui", "version": 1, "revision": 1, "components": [
+            {"id": "voo", "component": "sprite", "path": "folha.png", "frames": 3, "fps": 10}]}"#;
+        std::fs::write(store::ui_dir(&root).join("anim.json"), doc).unwrap();
+        let _ = ext.update(Message::Snapshot(Arc::new(store::scan(&root, &Limits::default()))), &mut Context::new(&root, None));
+        assert_eq!(ext.sprite_interval(), Some(Duration::from_millis(100)), "anima: o relógio roda no fps");
+
+        let ui = |ext: &mut UiExtension, m: UiMessage| {
+            let _ = ext.update(Message::Ui("anim".into(), m), &mut Context::new(&root, None));
+        };
+        ext.clock_ms = 250; // quadro 3 (índice 2)
+        ui(&mut ext, UiMessage::SpritePause("voo".into()));
+        assert_eq!(ext.paused["anim"]["voo"], 2, "pausa no quadro de agora");
+        assert_eq!(ext.sprite_interval(), None, "pausado: sem relógio");
+        ui(&mut ext, UiMessage::SpriteStep("voo".into()));
+        assert_eq!(ext.paused["anim"]["voo"], 0, "depois do último, o primeiro");
+        ui(&mut ext, UiMessage::SpritePause("voo".into()));
+        assert!(ext.paused["anim"].is_empty(), "volta a animar");
+
+        // Revisão nova: o que estava pausado volta a animar.
+        ui(&mut ext, UiMessage::SpritePause("voo".into()));
+        std::fs::write(store::ui_dir(&root).join("anim.json"), doc.replace(r#""revision": 1"#, r#""revision": 2"#)).unwrap();
+        let _ = ext.update(Message::Snapshot(Arc::new(store::scan(&root, &Limits::default()))), &mut Context::new(&root, None));
+        assert!(!ext.paused.contains_key("anim"));
+        let _ = std::fs::remove_dir_all(&root);
+    }
 }

@@ -23,7 +23,7 @@ pub use document::{
     Action, ButtonStyle, Choice, Component, Document, FORMAT, GalleryItem, Kind, Limits, Look, Pick, Submit,
     TextStyle, VERSION, parse,
 };
-pub use media::{AUDIO_EXTENSIONS, Media, MediaLimits, Picture, Sound, display_size, stamps as media_stamps};
+pub use media::{AUDIO_EXTENSIONS, Frames, Media, MediaLimits, Picture, Sound, display_size, fit, stamps as media_stamps};
 pub use links::{Link, copy, follow, link, open_file};
 pub use response::{Ide, RESPONSE_FORMAT, Response, file_name, timestamp};
 pub use state::State;
