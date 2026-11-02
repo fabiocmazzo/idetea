@@ -873,6 +873,18 @@ e grava a resposta do usuário em `.idetea/ui/responses/<nome>/`. Estudo, decis�
     passos): o rascunho abre sozinho na linha 3; editar sem salvar e clicar "Commitar": o arquivo é salvo e a
     resposta aparece. A revisão 2 chega enquanto digita noutro arquivo: não abre, aparece o aviso; os links do
     painel abrem. Um `path` com `..` mostra o erro no painel. (aprovado)
+- [ ] **Desenvolver a IDE TEA com a IDE TEA (dogfooding):** o agente de código deste repositório pergunta e entrega os
+  testes manuais pelo painel Interfaces (instruções no `CLAUDE.md`). Cada lacuna encontrada entra na lista abaixo,
+  com o que aconteceu; a lista é a base da RFC 0003 (evolução das interfaces: decisões, artefatos para revisão,
+  simulações), em vez de planejar tudo antes do uso.
+  - Lacunas encontradas:
+    1. "Ensinar os agentes" num projeto sem `AGENTS.md` nem `CLAUDE.md` cria só o `AGENTS.md`; o Claude Code lê o
+       `CLAUDE.md` (a confirmar se ele também lê o `AGENTS.md`). Opção: criar o `AGENTS.md` e um `CLAUDE.md` com
+       `@AGENTS.md`.
+    2. Não há texto formatado (Markdown) no painel: uma explicação mais longa do agente fica no terminal, e o painel
+       só aponta para lá.
+    3. O usuário quis fazer perguntas de volta ao agente e usou o campo "Observação" para isso. Não há um jeito
+       padrão de comentar uma resposta; avaliar um comentário opcional em toda resposta.
 - Depois, só se o uso pedir: `Row`/`Column`, progresso, Markdown sem links, vários painéis (`PanelId` dinâmico no
   núcleo), adaptador A2UI v1.0, e a mesma crate nos painéis dos plugins WASM (Fase 4).
 
