@@ -38,13 +38,24 @@ impl ImageFile {
             Ok((w, h)) => fl!("image-info", width = w, height = h, size = human_size(self.bytes)),
             Err(e) => fl!("image-error", error = e.as_str()),
         };
-        let viewer = image::viewer(self.handle.clone()).width(Fill).height(Fill).min_scale(0.05).max_scale(40.0);
+        // Imagem pequena (sprite, ícone): vizinho mais próximo, para a pixel art não borrar no zoom.
+        let small = self.size.as_ref().is_ok_and(|(w, h)| *w <= SMALL && *h <= SMALL);
+        let filter = if small { image::FilterMethod::Nearest } else { image::FilterMethod::Linear };
+        let viewer = image::viewer(self.handle.clone())
+            .width(Fill)
+            .height(Fill)
+            .min_scale(0.05)
+            .max_scale(40.0)
+            .filter_method(filter);
         let canvas = container(viewer).width(Fill).height(Fill).style(|t: &Theme| {
             container::Style::default().background(t.extended_palette().background.weak.color)
         });
         column![row![text(info).size(12).style(text::secondary)].padding([2, 6]), canvas].spacing(2).into()
     }
 }
+
+/// Até este lado (em pixels), a imagem é desenhada com o vizinho mais próximo.
+const SMALL: u32 = 256;
 
 fn human_size(bytes: usize) -> String {
     let b = bytes as f64;

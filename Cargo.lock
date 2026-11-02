@@ -5681,6 +5681,7 @@ version = "0.0.1"
 dependencies = [
  "iced",
  "iced_test",
+ "image",
  "serde",
  "serde_json",
  "tea-core",

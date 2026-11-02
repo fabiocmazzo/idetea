@@ -55,9 +55,13 @@ the panel, put every question that needs my answer there, not only in the chat: 
      the last one in front; use it on one file). Create the file first (drafts in
      `.idetea/ui/rascunhos/`, outside git). When a button is clicked, the IDE saves the file before writing the
      response: read the file from disk after it.
-   - Media: a `file` (or a `markdown` link) to an image (png, jpg, gif, webp…) opens it in an image tab with zoom;
-     a PDF opens in a PDF tab; SVG opens as text with a preview. Audio, video and other binary files do not open,
-     and images inside `markdown` show only their alt text. To have me review audio, give me the command to play
+   - Images in the panel: `{"id": "s", "component": "image", "path": "art/ship.png", "pixelated": true,
+     "background": "checker", "height": 96}`; to compare or let me choose, `{"id": "g", "component": "gallery",
+     "select": "one", "value": "/pick", "items": [{"id": "a", "path": "a.png", "label": "A"}, …]}` (`select`:
+     `none`, `one` or `many`). The panel rereads an image when the file changes, so regenerate it and I see the
+     new one. A click opens it in the image tab (zoom). Images inside `markdown` show only their alt text.
+   - Other media: a `file` (or a `markdown` link) to a PDF opens a PDF tab; SVG opens as text with a preview. Audio,
+     video and other binary files do not open. To have me review audio, give me the command to play
      it in a fenced code block, with a player that exists here (`paplay`, `pw-play` or `aplay` on Linux, `afplay`
      on macOS; check with `command -v`).
    - Links in `markdown` open the web (`https://…`), project files (`src/main.rs:42`) or the IDE config

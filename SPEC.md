@@ -1008,10 +1008,15 @@ e grava a resposta do usuário em `.idetea/ui/responses/<nome>/`. Estudo, decis�
     script e a aba mostra a imagem nova; "Ensinar os agentes" põe a linha "Instructions version"; o agente do jogo
     confere que a versão bate com a da resposta e manda uma revisão com caminho de objeto no `context`.
     (aprovado, pelo painel)
-- [ ] **Mídia M1: `image` e `gallery`** ([RFC 0004](docs/rfc/0004-midia-no-painel.md); lacunas 4, 5 e 12 do
-  jogo): imagem dentro do painel (`pixelated`, `background: checker`, `height`), lida fora da thread da interface,
-  com limites; `gallery` lado a lado com `select` `none`/`one`/`many`; um clique abre a aba de imagem, que passa a
-  usar o vizinho mais próximo no zoom.
+- [x] **Mídia M1: `image` e `gallery`** ([RFC 0004](docs/rfc/0004-midia-no-painel.md); lacunas 4, 5 e 12 do
+  jogo): imagem dentro do painel (`pixelated`, `background: checker`, `height`); `gallery` lado a lado com `select`
+  `none`/`one`/`many` (uma caixa de marcar embaixo de cada imagem). A thread que observa a pasta lê e decodifica as
+  imagens (`tea_declarative_ui::Media`), com limites conferidos pelo cabeçalho antes de decodificar (8 MB, 4096 px,
+  32 imagens, 64 Mpx), e relê quando um arquivo de imagem muda. Um clique abre a aba de imagem, que usa o vizinho
+  mais próximo em imagens de até 256 px. Nos plugins, só o aviso por enquanto. Formato, schema e instruções.
+  - [x] Teste manual: o agente do jogo revisa os sprites com `image` e `gallery`, sem gerar a `previa-sprites.png`;
+    os sprites aparecem nítidos e com o quadriculado; escolher numa `gallery` volta na resposta; regerar um sprite
+    pelo script atualiza o painel sozinho; um clique abre a aba, sem borrar no zoom. (aprovado, pelo painel)
 - [ ] **Mídia M2: `audio`** (lacunas 9 a 11): Tocar/Parar pelo tocador do sistema (ou `[ui] audio_player`), um
   de cada vez, `loop`; metadados e forma de onda de WAV com leitor próprio.
 - [ ] **Mídia M3: `sprite`** (lacuna 6): quadros de um spritesheet animados no painel, com pausa e quadro a quadro.

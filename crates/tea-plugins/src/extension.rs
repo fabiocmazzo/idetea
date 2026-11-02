@@ -37,6 +37,7 @@ pub struct PluginExtension {
     theme: Option<Theme>,
     /// O Markdown do painel, já lido.
     rendered: Rendered,
+    media: tea_declarative_ui::Media,
 }
 
 fn leak(s: String) -> &'static str {
@@ -65,6 +66,7 @@ impl PluginExtension {
             running: 0,
             theme: None,
             rendered: Rendered::default(),
+            media: Default::default(),
         }
     }
 
@@ -271,7 +273,10 @@ impl Extension for PluginExtension {
                     out = out.push(text(w).size(12).style(text::warning).width(Fill));
                 }
                 let theme = self.theme.clone().unwrap_or(Theme::Dark);
-                out = out.push(tea_declarative_ui::view(doc, &self.state, &self.rendered, &theme, false).map(Message::Ui));
+                // Imagens nos painéis de plugins ainda não são lidas: aparece o aviso no lugar.
+                out = out.push(
+                    tea_declarative_ui::view(doc, &self.state, &self.rendered, &self.media, &theme, false).map(Message::Ui),
+                );
             }
             Some(Err(e)) => {
                 out = out.push(text(fl!("plugin-bad-panel", error = e.clone())).size(13).style(text::danger).width(Fill));

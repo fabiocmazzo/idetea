@@ -100,6 +100,8 @@ Todo componente tem `id` (`[A-Za-z0-9_-]`, até 64, único no documento) e `comp
 | `input` | `value`, `label`, `placeholder` | Texto de uma linha. |
 | `file` | `path`, `line`, `column`, `label`, `open` | Um arquivo do projeto. Ver [Arquivos](#arquivos). |
 | `markdown` | `text` | Texto formatado: listas, `código`, ênfase, títulos, links. Ver [Markdown](#markdown). |
+| `image` | `path`, `label`, `pixelated`, `background`, `height` | Uma imagem do projeto dentro do painel. Ver [Imagens](#imagens). |
+| `gallery` | `items`, `select`, `value`, `pixelated`, `background`, `height` | Imagens lado a lado, para comparar ou escolher. Ver [Imagens](#imagens). |
 | `steps` | `items`, `value` | Passos numerados que o usuário marca. `items`: até 500, cada um `{"id": "x", "text": "…", "optional": true}` (`text` em Markdown de uma linha; `optional` não conta para o `requires`). Valor: a lista dos ids marcados, na ordem dos passos. |
 
 `value` é o lugar do valor em `data`: um ponteiro JSON (RFC 6901) como `"/usuario/nome"`, ou
@@ -123,7 +125,7 @@ Uma entrega de teste: os passos se marcam, e "Aprovado" espera todos (o "Falhou"
 
 ### Limites
 
-256 KB por arquivo, 200 componentes, 16 KB por texto, 500 opções, 64 KB e 16 níveis em `data`. Acima disso o
+256 KB por arquivo, 200 componentes, 16 KB por texto, 500 opções, 32 imagens, 64 KB e 16 níveis em `data`. Acima disso o
 documento é recusado e o erro aparece no painel com o campo (ex.: `components[3].value`).
 
 ## Arquivos
@@ -155,16 +157,44 @@ configuração para ajustar.
 
 | Arquivo | Abre como |
 |---|---|
-| Imagem (`png`, `jpg`, `gif`, `webp`, `bmp`, `ico`, `tif`, `tga`, `qoi`) | aba de imagem: zoom com a roda do mouse, arrastar para mover, tamanho em pixels |
+| Imagem (`png`, `jpg`, `gif`, `webp`, `bmp`, `ico`, `tif`, `tga`, `qoi`) | aba de imagem: zoom com a roda do mouse, arrastar para mover, tamanho em pixels; até 256 px de lado, sem borrar (pixel art) |
 | `pdf` | aba de PDF |
 | `svg` | texto, com prévia |
 | Áudio, vídeo e outros binários | não abrem: aparece o erro "arquivo não é UTF-8" |
 
-Dentro do painel não há imagem nem áudio: uma imagem no `markdown` aparece só como o texto alternativo. Para
-revisar imagens, ponha um `file` (ou um link) por imagem; para áudio, peça ao usuário para tocar o arquivo fora da
+Para mostrar imagens dentro do painel, use `image` e `gallery` ([Imagens](#imagens)); uma imagem no `markdown`
+aparece só como o texto alternativo. Áudio ainda não toca no painel: peça ao usuário para tocar o arquivo fora da
 IDE (um bloco de código com o comando tem o botão Copiar). Use um tocador que exista na máquina: `paplay`,
 `pw-play` ou `aplay` no Linux, `afplay` no macOS (`command -v` diz qual). Uma aba de imagem aberta recarrega
 quando o arquivo muda no disco: dá para regerar e olhar de novo.
+
+## Imagens
+
+```json
+{"id": "balao", "component": "image", "path": "assets/sprites/balao.png", "label": "Balão (3 quadros)",
+ "pixelated": true, "background": "checker", "height": 96}
+
+{"id": "passaro", "component": "gallery", "select": "one", "value": "/passaro",
+ "pixelated": true, "background": "checker", "height": 64, "items": [
+   {"id": "a", "path": "assets/sprites/passaro-a.png", "label": "A"},
+   {"id": "b", "path": "assets/sprites/passaro-b.png", "label": "B"}]}
+```
+
+- `path`: como no `file`, relativo à raiz e sem `..`. Symlinks não são seguidos.
+- `pixelated: true`: amplia com o vizinho mais próximo (pixel art sem borrar).
+- `background`: `checker` (quadriculado, mostra a transparência) ou `none` (padrão).
+- `height`: altura na tela, em pixels (8 a 1024); a largura segue a proporção, até 640. Sem ele, a imagem fica no
+  tamanho dela, até 160 de altura.
+- Um clique na imagem abre a aba de imagem (zoom e arrastar).
+- **A imagem é relida quando o arquivo muda:** regere e o painel mostra a nova, sem revisão nova do documento.
+- `gallery`: as imagens lado a lado, com o rótulo (`label`, senão o `id`) embaixo de cada uma, quebrando a linha
+  quando não cabem. `select`: `none` (padrão, só para olhar, ex. antes e depois), `one` (o valor em `value` é o
+  `id` escolhido, ou `null`) ou `many` (o valor é a lista dos `id` marcados, na ordem dos itens).
+- Limites: 8 MB por arquivo, 4096 px de lado, 32 imagens e 64 milhões de pixels somados por documento. Acima disso
+  (ou se não der para ler), o motivo aparece no lugar da imagem; o resto do documento continua.
+- Formatos: os da aba de imagem (`png`, `jpg`, `gif`, `webp`, `bmp`, `ico`, `tif`, `tga`, `qoi`). Um GIF mostra o
+  primeiro quadro.
+- Nos painéis de plugins as imagens ainda não aparecem (só o aviso).
 
 ## Markdown
 

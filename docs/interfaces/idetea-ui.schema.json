@@ -94,6 +94,42 @@
           }
         },
         {
+          "if": { "properties": { "component": { "const": "image" } } },
+          "then": {
+            "required": ["path"],
+            "properties": {
+              "path": { "type": "string", "minLength": 1, "maxLength": 16384, "not": { "pattern": "(^[/\\\\])|(^.:)|(^|[/\\\\])\\.\\.([/\\\\]|$)" } },
+              "label": { "$ref": "#/$defs/text" },
+              "pixelated": { "type": "boolean" },
+              "background": { "enum": ["none", "checker"] },
+              "height": { "type": "integer", "minimum": 8, "maximum": 1024 }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "component": { "const": "gallery" } } },
+          "then": {
+            "required": ["items"],
+            "properties": {
+              "select": { "enum": ["none", "one", "many"] },
+              "value": { "$ref": "#/$defs/binding" },
+              "pixelated": { "type": "boolean" },
+              "background": { "enum": ["none", "checker"] },
+              "height": { "type": "integer", "minimum": 8, "maximum": 1024 },
+              "items": {
+                "type": "array",
+                "maxItems": 32,
+                "items": {
+                  "type": "object",
+                  "required": ["id", "path"],
+                  "properties": { "id": { "$ref": "#/$defs/id" }, "path": { "type": "string", "minLength": 1 }, "label": { "$ref": "#/$defs/text" } },
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        {
           "if": { "properties": { "component": { "const": "steps" } } },
           "then": {
             "required": ["items", "value"],

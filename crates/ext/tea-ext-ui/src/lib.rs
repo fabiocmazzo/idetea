@@ -286,7 +286,8 @@ impl UiExtension {
         let theme = self.theme.clone().unwrap_or(Theme::Dark);
         let rendered = self.rendered.get(&f.name).unwrap_or(&self.no_markdown);
         out = out.push(
-            tea_declarative_ui::view(doc, &saved.state, rendered, &theme, true).map(move |m| Message::Ui(name.clone(), m)),
+            tea_declarative_ui::view(doc, &saved.state, rendered, &f.media, &theme, true)
+                .map(move |m| Message::Ui(name.clone(), m)),
         );
         let status = if !f.pending.is_empty() {
             Some(fl!("ui-waiting", count = f.pending.len()))
@@ -443,14 +444,17 @@ fn watch(root: &PathBuf) -> mpsc::UnboundedReceiver<Message> {
     std::thread::spawn(move || {
         let limits = Limits::default();
         let mut last = None;
+        let mut files: Arc<Vec<store::SurfaceFile>> = Arc::new(Vec::new());
         loop {
             if tx.is_closed() {
                 return;
             }
-            let now = store::signature(&root);
+            let now = store::signature_with_media(&root, &files);
             if last.as_ref() != Some(&now) {
-                last = Some(now);
-                if tx.unbounded_send(Message::Snapshot(Arc::new(store::scan(&root, &limits)))).is_err() {
+                files = Arc::new(store::scan(&root, &limits));
+                // A assinatura depois da leitura: já com as imagens dos documentos novos.
+                last = Some(store::signature_with_media(&root, &files));
+                if tx.unbounded_send(Message::Snapshot(files.clone())).is_err() {
                     return;
                 }
             }

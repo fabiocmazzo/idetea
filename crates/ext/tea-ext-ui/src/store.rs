@@ -10,7 +10,7 @@ use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::time::{Duration, SystemTime};
 
-use tea_declarative_ui::{Document, Limits, Response, parse};
+use tea_declarative_ui::{Document, Limits, Media, MediaLimits, Response, media_stamps, parse};
 
 /// `.idetea/ui` dentro do projeto.
 pub fn ui_dir(root: &Path) -> PathBuf {
@@ -72,6 +72,8 @@ pub struct SurfaceFile {
     pub tracked: bool,
     /// Respostas ainda não apagadas pelo agente: (`seq`, `event`).
     pub pending: Vec<(u64, String)>,
+    /// As imagens do documento (`image`, `gallery`), já lidas.
+    pub media: Media,
 }
 
 /// Lê a pasta inteira. Roda fora da thread da interface.
@@ -86,12 +88,14 @@ pub fn scan(root: &Path, limits: &Limits) -> Vec<SurfaceFile> {
         .into_iter()
         .map(|(name, path)| {
             let rel = format!(".idetea/ui/{name}.json");
-            SurfaceFile {
-                tracked: tracked.contains(&rel),
-                doc: read_document(&path, &name, limits),
-                pending: pending(&ui, &name),
-                name,
-            }
+            let tracked = tracked.contains(&rel);
+            let doc = read_document(&path, &name, limits);
+            // Um documento versionado é ignorado: nem as imagens dele são lidas.
+            let media = match &doc {
+                Ok(d) if !tracked => Media::load(root, d, &MediaLimits::default()),
+                _ => Media::default(),
+            };
+            SurfaceFile { tracked, doc, pending: pending(&ui, &name), media, name }
         })
         .collect();
     out.sort_by(|a, b| a.name.cmp(&b.name));
@@ -241,6 +245,18 @@ fn tracked_files(root: &Path) -> BTreeSet<String> {
 }
 
 /// Assinatura barata da pasta (nomes, tamanhos e datas): se não mudou, não precisa ler de novo.
+/// O que muda quando é preciso ler a pasta de novo: a pasta e as respostas ([`signature`]) e as imagens que os
+/// documentos da última leitura usam (regerar um sprite atualiza o painel).
+pub fn signature_with_media(root: &Path, last: &[SurfaceFile]) -> Vec<(PathBuf, u64, Option<SystemTime>)> {
+    let mut out = signature(root);
+    for f in last {
+        if let Ok(doc) = &f.doc {
+            out.extend(media_stamps(root, doc));
+        }
+    }
+    out
+}
+
 pub fn signature(root: &Path) -> Vec<(PathBuf, u64, Option<SystemTime>)> {
     let ui = ui_dir(root);
     let mut dirs = vec![ui.clone()];
@@ -351,6 +367,22 @@ mod tests {
         std::fs::write(ui_dir(&root).join("local.json"), DOC).unwrap();
         let files = scan(&root, &Limits::default());
         assert_eq!(files.iter().map(|f| (f.name.as_str(), f.tracked)).collect::<Vec<_>>(), [("clonada", true), ("local", false)]);
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn image_changes_are_noticed() {
+        let root = tmp_root("imagens");
+        prepare(&root).unwrap();
+        std::fs::write(root.join("sprite.png"), b"um").unwrap();
+        let doc = r#"{"format":"idetea-ui","version":1,"components":[{"id":"i","component":"image","path":"sprite.png"}]}"#;
+        std::fs::write(ui_dir(&root).join("ver.json"), doc).unwrap();
+        let files = scan(&root, &Limits::default());
+        assert!(files[0].media.picture("sprite.png").is_some(), "a imagem foi lida (aqui, com erro: não é PNG)");
+        let before = signature_with_media(&root, &files);
+        std::fs::write(root.join("sprite.png"), b"outro maior").unwrap();
+        assert_ne!(signature_with_media(&root, &files), before, "regerar a imagem pede uma leitura nova");
+        assert_eq!(signature(&root), signature(&root), "a pasta em si não mudou");
         let _ = std::fs::remove_dir_all(&root);
     }
 }

@@ -31,3 +31,10 @@ ui-steps-missing = { $count ->
 }
 ui-step-optional = (opcional)
 ui-requires-not-steps = "{ $field }" debe apuntar al "value" de un "steps"; ignorado.
+ui-too-many-images = El documento tiene más de { $max } imágenes.
+ui-image-loading = { $path }: cargando…
+ui-image-error = no se pudo leer: { $error }
+ui-image-not-file = no es un archivo (los symlinks no se siguen)
+ui-image-too-big = supera { $max } MB
+ui-image-too-large = { $width }×{ $height } px; el máximo es { $max } por lado
+ui-image-total = las imágenes del documento superan { $max } millones de píxeles

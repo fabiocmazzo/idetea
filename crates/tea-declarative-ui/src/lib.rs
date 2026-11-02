@@ -12,15 +12,17 @@ macro_rules! fl {
 
 mod document;
 mod links;
+mod media;
 pub mod pointer;
 mod response;
 mod state;
 mod view;
 
 pub use document::{
-    Action, ButtonStyle, Choice, Component, Document, FORMAT, Kind, Limits, Submit, TextStyle, VERSION,
-    parse,
+    Action, ButtonStyle, Choice, Component, Document, FORMAT, GalleryItem, Kind, Limits, Look, Pick, Submit,
+    TextStyle, VERSION, parse,
 };
+pub use media::{Media, MediaLimits, Picture, display_size, stamps as media_stamps};
 pub use links::{Link, copy, follow, link, open_file};
 pub use response::{Ide, RESPONSE_FORMAT, Response, file_name, timestamp};
 pub use state::State;

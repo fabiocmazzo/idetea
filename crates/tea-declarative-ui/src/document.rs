@@ -25,6 +25,8 @@ pub struct Limits {
     pub max_options: usize,
     /// `data` inteiro, em bytes (como JSON compacto).
     pub max_data_bytes: usize,
+    /// Imagens de um documento (`image` + itens de `gallery`).
+    pub max_images: usize,
     /// Profundidade de `data`.
     pub max_depth: usize,
 }
@@ -37,6 +39,7 @@ impl Default for Limits {
             max_text: 16 * 1024,
             max_options: 500,
             max_data_bytes: 64 * 1024,
+            max_images: 32,
             max_depth: 16,
         }
     }
@@ -94,6 +97,10 @@ pub enum Kind {
     /// Texto em Markdown (listas, código, ênfase, links). Imagens não são carregadas. O texto já lido para
     /// desenhar fica em [`crate::Rendered`].
     Markdown { text: String },
+    /// Uma imagem do projeto dentro do painel. Quem desenha recebe a imagem já lida ([`crate::Media`]).
+    Image { path: String, label: Option<String>, look: Look },
+    /// Imagens lado a lado. Com `pick` `One` ou `Many`, o usuário escolhe; `value`: o id escolhido (ou a lista).
+    Gallery { items: Vec<GalleryItem>, pick: Pick, value: Option<String>, look: Look },
     /// Componente que esta versão não conhece: um aviso aparece no lugar dele.
     Unknown { component: String },
 }
@@ -106,6 +113,7 @@ impl Kind {
             | Kind::Select { value, .. }
             | Kind::Input { value, .. }
             | Kind::Steps { value, .. } => Some(value),
+            Kind::Gallery { value, .. } => value.as_deref(),
             _ => None,
         }
     }
@@ -126,6 +134,54 @@ pub enum ButtonStyle {
     Primary,
     Secondary,
     Danger,
+}
+
+/// Como uma imagem aparece.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct Look {
+    /// Vizinho mais próximo ao ampliar (pixel art sem borrar).
+    pub pixelated: bool,
+    /// Fundo quadriculado (mostra a transparência).
+    pub checker: bool,
+    /// Altura na tela, em pixels (a largura segue a proporção). `None`: a da imagem, até um máximo.
+    pub height: Option<u32>,
+}
+
+/// Quantas imagens de uma `gallery` dá para escolher.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum Pick {
+    #[default]
+    None,
+    One,
+    Many,
+}
+
+/// Uma imagem de uma `gallery`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct GalleryItem {
+    pub id: String,
+    pub path: String,
+    pub label: Option<String>,
+}
+
+impl Document {
+    /// Os caminhos das imagens do documento, na ordem, sem repetir.
+    pub fn image_paths(&self) -> Vec<&str> {
+        let mut out: Vec<&str> = Vec::new();
+        for c in &self.components {
+            let paths: Vec<&str> = match &c.kind {
+                Kind::Image { path, .. } => vec![path],
+                Kind::Gallery { items, .. } => items.iter().map(|i| i.path.as_str()).collect(),
+                _ => Vec::new(),
+            };
+            for p in paths {
+                if !out.contains(&p) {
+                    out.push(p);
+                }
+            }
+        }
+        out
+    }
 }
 
 /// Um passo de um `steps`. `text`: Markdown de uma linha. `optional`: não conta para o `requires`.
@@ -226,6 +282,17 @@ pub fn parse(bytes: &[u8], limits: &Limits) -> Result<Document, String> {
             return Err(fl!("ui-duplicate-id", id = component.id));
         }
         components.push(component);
+    }
+    let images: usize = components
+        .iter()
+        .map(|c| match &c.kind {
+            Kind::Image { .. } => 1,
+            Kind::Gallery { items, .. } => items.len(),
+            _ => 0,
+        })
+        .sum();
+    if images > limits.max_images {
+        return Err(fl!("ui-too-many-images", max = limits.max_images));
     }
     // `requires` só vale para o caminho de um `steps`; outro caminho vira aviso e o botão não espera nada.
     let steps: Vec<String> = components
@@ -397,6 +464,29 @@ impl Reader {
                     },
                 },
             ),
+            "image" => (
+                &["path", "label", "pixelated", "background", "height"],
+                Kind::Image { path: self.file_path(obj, field)?, label: self.string(obj, "label", field)?, look: self.look(obj, field)? },
+            ),
+            "gallery" => {
+                let pick = match self.string(obj, "select", field)?.as_deref() {
+                    None | Some("none") => Pick::None,
+                    Some("one") => Pick::One,
+                    Some("many") => Pick::Many,
+                    Some(other) => {
+                        self.warnings.push(fl!("ui-unknown-value", field = at(field, "select"), value = other));
+                        Pick::None
+                    }
+                };
+                let value = match pick {
+                    Pick::None => None,
+                    _ => Some(self.path(obj, "value", field)?),
+                };
+                (
+                    &["items", "select", "value", "pixelated", "background", "height"],
+                    Kind::Gallery { items: self.gallery(obj, field)?, pick, value, look: self.look(obj, field)? },
+                )
+            }
             "steps" => (&["items", "value"], Kind::Steps { items: self.steps(obj, field)?, value: self.path(obj, "value", field)? }),
             "checkbox" => (
                 &["label", "value"],
@@ -478,6 +568,46 @@ impl Reader {
             Some(_) => return Err(fl!("ui-wrong-type", field = at(&field, "context"), expected = "array")),
         };
         Ok(Action { name, context })
+    }
+
+    fn look(&mut self, obj: &Map<String, Value>, field: &str) -> Result<Look, String> {
+        let checker = match self.string(obj, "background", field)?.as_deref() {
+            None | Some("none") => false,
+            Some("checker") => true,
+            Some(other) => {
+                self.warnings.push(fl!("ui-unknown-value", field = at(field, "background"), value = other));
+                false
+            }
+        };
+        let height = self.number(obj, "height", field)?.map(|h| h.clamp(8, 1024) as u32);
+        Ok(Look { pixelated: self.boolean(obj, "pixelated", field)?, checker, height })
+    }
+
+    /// Itens de uma `gallery`: `{"id": "a", "path": "…", "label": "…"}`; ids únicos no componente.
+    fn gallery(&mut self, obj: &Map<String, Value>, field: &str) -> Result<Vec<GalleryItem>, String> {
+        let field = at(field, "items");
+        let list = match obj.get("items") {
+            Some(Value::Array(list)) => list,
+            Some(_) => return Err(fl!("ui-wrong-type", field = field, expected = "array")),
+            None => return Err(fl!("ui-missing", field = field)),
+        };
+        let mut out: Vec<GalleryItem> = Vec::with_capacity(list.len());
+        for (i, item) in list.iter().enumerate() {
+            let item_field = format!("{field}[{i}]");
+            let Value::Object(o) = item else {
+                return Err(fl!("ui-wrong-type", field = item_field, expected = "object"));
+            };
+            self.known_fields(o, &["id", "path", "label"], &item_field);
+            let id = self.required(o, "id", &item_field)?;
+            if !valid_id(&id) {
+                return Err(fl!("ui-bad-id", field = at(&item_field, "id"), id = id));
+            }
+            if out.iter().any(|g| g.id == id) {
+                return Err(fl!("ui-duplicate-id", id = id));
+            }
+            out.push(GalleryItem { id, path: self.file_path(o, &item_field)?, label: self.string(o, "label", &item_field)? });
+        }
+        Ok(out)
     }
 
     /// Passos: `{"id": "a", "text": "…", "optional": true}`; ids únicos no componente.

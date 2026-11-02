@@ -1,14 +1,15 @@
 //! Desenho de uma interface em iced: os componentes um embaixo do outro; botões seguidos ficam na mesma linha.
 
 use iced::widget::{
-    Column, button, checkbox, column, container, markdown, pick_list, row, stack, text, text_input,
+    Column, button, checkbox, column, container, image, markdown, pick_list, row, stack, text, text_input,
 };
 use std::collections::HashMap;
 
 use iced::{Element, Fill, Theme};
 use serde_json::Value;
 
-use crate::document::{ButtonStyle, Choice, Component, Document, Kind, TextStyle};
+use crate::document::{ButtonStyle, Choice, Component, Document, Kind, Look, Pick, TextStyle};
+use crate::media::{Media, display_size};
 use crate::state::State;
 
 #[derive(Debug, Clone, PartialEq)]
@@ -87,10 +88,12 @@ impl<'a> markdown::Viewer<'a, UiMessage> for Viewer {
 
 /// A interface. Quem chama põe título, rolagem e o status em volta. `theme`: as cores do Markdown.
 /// `comment`: quem chama grava o comentário na resposta (o painel Interfaces sim; o dos plugins, não).
+/// `media`: as imagens do documento, já lidas por quem chama ([`Media::load`]).
 pub fn view<'a>(
     doc: &'a Document,
     state: &'a State,
     rendered: &'a Rendered,
+    media: &'a Media,
     theme: &Theme,
     comment: bool,
 ) -> Element<'a, UiMessage> {
@@ -130,7 +133,7 @@ pub fn view<'a>(
             }
             continue;
         }
-        out = out.push(component_view(doc, state, rendered, &doc.components[i], settings));
+        out = out.push(component_view(doc, state, rendered, media, &doc.components[i], settings));
         i += 1;
     }
     if comment_at == Some(doc.components.len()) {
@@ -157,10 +160,32 @@ fn labeled<'a>(label: Option<&'a str>, field: impl Into<Element<'a, UiMessage>>)
     }
 }
 
+/// Uma imagem do documento: clique abre na aba de imagem. Sem a imagem lida, o motivo no lugar.
+fn picture_view<'a>(media: &'a Media, path: &'a str, look: Look) -> Element<'a, UiMessage> {
+    let p = match media.picture(path) {
+        Some(Ok(p)) => p,
+        Some(Err(e)) => return text(format!("{path}: {e}")).size(12).style(text::warning).into(),
+        None => return text(fl!("ui-image-loading", path = path)).size(12).style(text::secondary).into(),
+    };
+    let (w, h) = display_size(p, look.height);
+    let filter = if look.pixelated { image::FilterMethod::Nearest } else { image::FilterMethod::Linear };
+    let img = image(p.handle.clone()).width(w as f32).height(h as f32).filter_method(filter);
+    let shown: Element<'a, UiMessage> = match media.checker((w, h)) {
+        Some(bg) if look.checker => stack![image(bg.clone()).width(w as f32).height(h as f32), img].into(),
+        _ => img.into(),
+    };
+    button(shown)
+        .padding(0)
+        .style(button::text)
+        .on_press(UiMessage::Open { path: path.to_string(), line: 0, column: 0 })
+        .into()
+}
+
 fn component_view<'a>(
     doc: &'a Document,
     state: &'a State,
     rendered: &'a Rendered,
+    media: &'a Media,
     c: &'a Component,
     settings: markdown::Settings,
 ) -> Element<'a, UiMessage> {
@@ -217,6 +242,43 @@ fn component_view<'a>(
             Some(items) => markdown::view_with(items, settings, &Viewer),
             None => text(plain).width(Fill).into(),
         },
+        Kind::Image { path, label, look } => {
+            let pic = picture_view(media, path, *look);
+            let caption = text(label.clone().unwrap_or_else(|| path.clone())).size(12).style(text::secondary);
+            column![pic, caption].spacing(4).into()
+        }
+        Kind::Gallery { items, pick, value, look } => {
+            let chosen: Vec<String> = match (pick, value) {
+                (Pick::One, Some(v)) => state.value(doc, v).and_then(Value::as_str).map(|s| vec![s.to_string()]).unwrap_or_default(),
+                (Pick::Many, Some(v)) => state.checked(doc, v).into_iter().map(str::to_string).collect(),
+                _ => Vec::new(),
+            };
+            let cells = items.iter().map(|item| {
+                let label = item.label.clone().unwrap_or_else(|| item.id.clone());
+                let on = chosen.contains(&item.id);
+                let choose: Element<'a, UiMessage> = match (pick, value) {
+                    (Pick::One, Some(path)) => {
+                        // Uma escolha só: marcar troca a escolha; desmarcar a atual deixa sem nenhuma.
+                        let value = if on { Value::Null } else { Value::String(item.id.clone()) };
+                        let msg = UiMessage::Set { path: path.clone(), value };
+                        checkbox(on).label(label).size(14).text_size(12).on_toggle(move |_| msg.clone()).into()
+                    }
+                    (Pick::Many, Some(path)) => {
+                        // A lista inteira, na ordem dos itens.
+                        let list: Vec<Value> = items
+                            .iter()
+                            .filter(|i| if i.id == item.id { !on } else { chosen.contains(&i.id) })
+                            .map(|i| Value::String(i.id.clone()))
+                            .collect();
+                        let msg = UiMessage::Set { path: path.clone(), value: Value::Array(list) };
+                        checkbox(on).label(label).size(14).text_size(12).on_toggle(move |_| msg.clone()).into()
+                    }
+                    _ => text(label).size(12).style(text::secondary).into(),
+                };
+                column![picture_view(media, &item.path, *look), choose].spacing(4).into()
+            });
+            row(cells).spacing(12).wrap().vertical_spacing(12).into()
+        }
         Kind::Steps { items, value } => {
             let checked = state.checked(doc, value);
             let list = items.iter().enumerate().map(|(n, step)| {
@@ -257,6 +319,11 @@ mod tests {
     use iced_test::simulator;
     use serde_json::json;
 
+    /// Um `Media` vazio que vive o teste inteiro.
+    fn no_media() -> &'static Media {
+        Box::leak(Box::new(Media::default()))
+    }
+
     fn doc() -> Document {
         let v = json!({
             "format": "idetea-ui", "version": 1, "revision": 1,
@@ -281,7 +348,7 @@ mod tests {
         let d = doc();
         let rendered = Rendered::new(&d);
         let mut state = State::new(&d);
-        let mut ui = simulator(view(&d, &state, &rendered, &Theme::Dark, true));
+        let mut ui = simulator(view(&d, &state, &rendered, no_media(), &Theme::Dark, true));
         assert!(ui.find("Confirme os dados").is_ok());
         let unknown = fl!("ui-unknown-component", component = "grafico");
         assert!(ui.find(unknown.as_str()).is_ok(), "aviso no lugar do componente desconhecido");
@@ -309,7 +376,7 @@ mod tests {
         assert_eq!(values["/nome"], json!("Ana"));
 
         // Respondida (submit once): clicar de novo não gera nada.
-        let mut ui = simulator(view(&d, &state, &rendered, &Theme::Dark, true));
+        let mut ui = simulator(view(&d, &state, &rendered, no_media(), &Theme::Dark, true));
         let _ = ui.click("Cancelar");
         assert_eq!(ui.into_messages().count(), 0, "botões desligados depois de responder");
     }
@@ -320,7 +387,7 @@ mod tests {
         let rendered = Rendered::new(&d);
         let state = State::new(&d);
         let comment = fl!("ui-comment-label");
-        let shows = |d: &Document, host: bool| simulator(view(d, &state, &rendered, &Theme::Dark, host)).find(comment.as_str()).is_ok();
+        let shows = |d: &Document, host: bool| simulator(view(d, &state, &rendered, no_media(), &Theme::Dark, host)).find(comment.as_str()).is_ok();
         assert!(shows(&d, true));
         assert!(!shows(&d, false), "painel de plugin: sem comentário");
         let mut off = d.clone();
@@ -351,7 +418,7 @@ mod tests {
         let mut state = State::new(&d);
         assert_eq!(state.missing(&d, "/feitos"), 2, "o opcional não conta");
 
-        let mut ui = simulator(view(&d, &state, &rendered, &Theme::Dark, true));
+        let mut ui = simulator(view(&d, &state, &rendered, no_media(), &Theme::Dark, true));
         let missing = fl!("ui-steps-missing", count = 2);
         assert!(ui.find(missing.as_str()).is_ok());
         let _ = ui.click("Aprovado");
@@ -361,7 +428,7 @@ mod tests {
 
         // Marcar: a lista vai na ordem dos passos.
         state.set("/feitos", json!(["ensinar"]));
-        let mut ui = simulator(view(&d, &state, &rendered, &Theme::Dark, true));
+        let mut ui = simulator(view(&d, &state, &rendered, no_media(), &Theme::Dark, true));
         ui.click("1.").unwrap();
         let set = UiMessage::Set { path: "/feitos".into(), value: json!(["copiar", "ensinar"]) };
         assert_eq!(ui.into_messages().collect::<Vec<_>>(), vec![set]);
@@ -376,5 +443,42 @@ mod tests {
         let d = parse(bad.to_string().as_bytes(), &Limits::default()).unwrap();
         assert_eq!(d.warnings.len(), 1, "{:?}", d.warnings);
         assert!(State::new(&d).press(&d, "ok").is_some());
+    }
+
+    #[test]
+    fn gallery_picks_and_images_open() {
+        let root = std::env::temp_dir().join(format!("idetea-view-gallery-{}", std::process::id()));
+        std::fs::create_dir_all(&root).unwrap();
+        for name in ["a.png", "b.png"] {
+            ::image::RgbaImage::new(4, 4).save(root.join(name)).unwrap();
+        }
+        let v = json!({
+            "format": "idetea-ui", "version": 1,
+            "components": [
+                { "id": "um", "component": "gallery", "select": "one", "value": "/um", "pixelated": true, "items": [
+                    { "id": "a", "path": "a.png", "label": "Opção A" }, { "id": "b", "path": "b.png", "label": "Opção B" } ] },
+                { "id": "varios", "component": "gallery", "select": "many", "value": "/varios", "items": [
+                    { "id": "a", "path": "a.png", "label": "Ajustar A" }, { "id": "b", "path": "b.png", "label": "Ajustar B" } ] },
+                { "id": "so", "component": "image", "path": "a.png", "label": "Só olhar", "background": "checker" },
+                { "id": "falta", "component": "image", "path": "falta.png" }
+            ]
+        });
+        let d = parse(v.to_string().as_bytes(), &Limits::default()).unwrap();
+        assert!(d.warnings.is_empty(), "{:?}", d.warnings);
+        let media: &'static Media =
+            Box::leak(Box::new(Media::load(&root, &d, &crate::media::MediaLimits::default())));
+        let mut state = State::new(&d);
+        state.set("/varios", json!(["b"]));
+        let rendered = Rendered::new(&d);
+        let mut ui = simulator(view(&d, &state, &rendered, media, &Theme::Dark, true));
+        assert!(ui.find("Só olhar").is_ok());
+        assert!(ui.find("falta.png").is_ok(), "o caminho e o erro no lugar da imagem que falta");
+        ui.click("Opção B").unwrap();
+        ui.click("Ajustar A").unwrap();
+        assert_eq!(ui.into_messages().collect::<Vec<_>>(), vec![
+            UiMessage::Set { path: "/um".into(), value: json!("b") },
+            UiMessage::Set { path: "/varios".into(), value: json!(["a", "b"]) },
+        ]);
+        let _ = std::fs::remove_dir_all(&root);
     }
 }
