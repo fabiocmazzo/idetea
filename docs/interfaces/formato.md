@@ -218,6 +218,18 @@ Para mudar a interface, reescreva o arquivo com `revision` maior. A IDE avisa o 
 
 O que o usuário digitou sobrevive a reiniciar a IDE (fica em `~/.local/state/idetea/ui/`, fora do projeto).
 
+## Entregas de teste
+
+O que o uso mostrou ([RFC 0003](../rfc/0003-interfaces-pelo-uso.md)) sobre pedir um teste manual ao usuário:
+
+- Uma interface só: o que mudou num `markdown`, o que fazer num `steps`, e três botões: "Aprovado, pode
+  commitar", "Aprovado, sem commitar" e "Falhou". Os dois primeiros com `requires`; o "Falhou" leva o valor do
+  `steps` no `context`, para o agente ver até onde o usuário chegou.
+- O "Aprovado" é o julgamento do usuário, não a prova: antes de commitar, o agente confere o que o teste devia
+  deixar (arquivos no disco, `ide.outdated: false` na resposta). Faltou algo: uma revisão nova dizendo o que não
+  encontrou.
+- Nada de avisos sobre qual IDE está aberta: o painel mostra isso (e a resposta traz `ide`).
+
 ## Um ciclo completo em shell
 
 Veja [`examples/interfaces/pergunta.sh`](../../examples/interfaces/pergunta.sh): escreve uma pergunta, espera a

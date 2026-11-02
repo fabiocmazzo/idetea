@@ -970,8 +970,11 @@ e grava a resposta do usuário em `.idetea/ui/responses/<nome>/`. Estudo, decis�
   - [x] Teste manual: a entrega deste item usa `steps`: "Aprovado" fica desligado até marcar os passos
     obrigatórios (o opcional não conta), "Falhou" funciona sempre; a resposta traz a lista marcada. Rodar "Ensinar
     os agentes": o `CLAUDE.md` ganha o parágrafo sobre `steps`. (aprovado, pelo painel)
-- [ ] **Convenções de entrega nas instruções** (RFC 0003, etapa C): entrega de teste com os três botões, conferir
-  no disco antes de commitar, não afirmar o estado da IDE, ler o `ide` da resposta.
+- [x] **Convenções de entrega nas instruções** (RFC 0003, etapa C): entrega de teste com os três botões, conferir
+  no disco antes de commitar, não afirmar o estado da IDE, ler o `ide` da resposta. Nas instruções dos agentes e
+  numa seção "Entregas de teste" do formato.
+  - [x] Teste manual: rodar "Ensinar os agentes": o `CLAUDE.md` ganha o parágrafo "Handing me a manual test".
+    (aprovado, pelo painel)
 - [ ] **Segundo projeto de dogfooding** (RFC 0003, decisão 3): depois de A, B e C; decide imagem e mídia.
 - Depois, só se o uso pedir: `Row`/`Column`, progresso, Markdown sem links, vários painéis (`PanelId` dinâmico no
   núcleo), adaptador A2UI v1.0, e a mesma crate nos painéis dos plugins WASM (Fase 4).

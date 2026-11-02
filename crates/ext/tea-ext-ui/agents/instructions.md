@@ -64,5 +64,11 @@ the panel, put every question that needs my answer there, not only in the chat: 
 4. When you are done, delete `.idetea/ui/<name>.json`. The rest of the folder (`.gitignore`, `responses/`)
    belongs to the IDE; leave it.
 
+Handing me a manual test, do it in one interface: what changed in a `markdown`, what to do in a `steps`, and three
+buttons: "Approved, you can commit", "Approved, don't commit" and "Failed" (the first two with `requires`). An
+approval is my judgement, not proof: before committing, check what the test should have left behind (files on
+disk, `ide.outdated` false in the response). If something is missing, ask again in a new revision saying what you
+did not find.
+
 Do not put secrets in the document. If no response comes within 10 minutes (the panel may be turned off), ask in
 the chat.
