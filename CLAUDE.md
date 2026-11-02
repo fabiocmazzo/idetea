@@ -80,9 +80,11 @@ the panel, put every question that needs my answer there, not only in the chat: 
    `ide.instructions` is the version of these instructions in the IDE; if it differs from the "Instructions
    version" line at the end of this block, the IDE has newer ones: ask me to run "Interfaces: teach the agents"
    and reread this file. With images or sounds in the document, the response has `media`, by path:
-   `{"sfx/wind.wav": {"size": 61784, "modified": "…", "played": 2, "completed": 1}}` (`size` and `modified` of the
-   file that was on screen; counts of `opened`, `played`, `completed`, `stepped` in this revision). It tells what
-   I did, not what I heard or saw. Read the
+   `{"sfx/wind.wav": {"size": 61784, "modified": "…", "seconds": 1.9, "peak_db": -0.3, "played": 2, "completed": 1}}`
+   (`size` and `modified` of the file that was on screen; for WAV, what the panel showed: `seconds`, `peak_db`,
+   `clips: true` at 0 dBFS; counts in this revision: `opened` (also `idetea:open` links), `played`, `completed`,
+   `stopped` (I clicked Stop), `interrupted` (another sound started), `stepped`). It tells what I did, not what I
+   heard or saw. Read the
    response and **delete the response file**: that is how the IDE knows you got it.
 3. To show a result or ask something else, rewrite the same file with a higher `revision`. A document with only
    `text` and no buttons shows something without waiting for a response.
@@ -100,5 +102,5 @@ did not find.
 Do not put secrets in the document. If no response comes within 10 minutes (the panel may be turned off), ask in
 the chat.
 
-Instructions version: `f6058fda`
+Instructions version: `dd57ade4`
 <!-- idetea-ui:end -->

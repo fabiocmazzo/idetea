@@ -55,9 +55,45 @@ pub fn prepare(root: &Path) -> std::io::Result<()> {
     if !ignore.exists() && !is_link(&ui) {
         std::fs::write(ignore, "# Criado pela IDE TEA: interfaces e respostas não vão para o git.\n*\n")?;
     }
-    write_if_changed(&ui.join("FORMAT.md"), &format!("{FORMAT_HEADER}{FORMAT_DOC}"))?;
+    write_if_changed(&ui.join("FORMAT.md"), &format!("{FORMAT_HEADER}{}", format_for_project(FORMAT_DOC)))?;
     write_if_changed(&ui.join("idetea-ui.schema.json"), SCHEMA)?;
     Ok(())
+}
+
+/// O formato como fica em `.idetea/ui/`: os links para o repositório da IDE (`../rfc/…`, `../../examples/…`) não
+/// existem no projeto e viram texto com o caminho no repositório; `agentes.md` aponta para o `AGENTS.md` do
+/// projeto (onde o "ensinar" grava as instruções). O schema está ao lado, e as âncoras continuam.
+pub fn format_for_project(doc: &str) -> String {
+    let mut out = String::with_capacity(doc.len());
+    let mut rest = doc;
+    while let Some(i) = rest.find("](") {
+        let open = rest[..i].rfind('[');
+        let close = rest[i + 2..].find(')').map(|c| i + 2 + c);
+        let link = open.zip(close).filter(|&(o, c)| !rest[o..c].contains('\n'));
+        // Não é link (um `](` no meio de código, por exemplo): segue adiante.
+        let Some((open, close)) = link else {
+            out.push_str(&rest[..i + 2]);
+            rest = &rest[i + 2..];
+            continue;
+        };
+        let (label, target) = (&rest[open + 1..i], &rest[i + 2..close]);
+        out.push_str(&rest[..open]);
+        if target == "agentes.md" {
+            out.push_str(&format!("[{label}](../../AGENTS.md)"));
+        } else if let Some(repo) = target.strip_prefix("../../").or_else(|| target.strip_prefix("../").map(|_| "")) {
+            let path = if repo.is_empty() { format!("docs/{}", &target[3..]) } else { repo.to_string() };
+            if label.trim_matches('`') == path {
+                out.push_str(&format!("{label} (no repositório da IDE TEA)"));
+            } else {
+                out.push_str(&format!("{label} (`{path}`, no repositório da IDE TEA)"));
+            }
+        } else {
+            out.push_str(&rest[open..=close]);
+        }
+        rest = &rest[close + 1..];
+    }
+    out.push_str(rest);
+    out
 }
 
 /// Grava só se o conteúdo mudou. Um symlink no lugar não é seguido (poderia apontar para fora do projeto).
@@ -318,7 +354,7 @@ mod tests {
         let ui = ui_dir(&root);
         assert!(std::fs::read_to_string(ui.join(".gitignore")).unwrap().contains('*'));
         let format = std::fs::read_to_string(ui.join("FORMAT.md")).unwrap();
-        assert!(format.ends_with(FORMAT_DOC) && format.contains("## A resposta"), "o formato da versão desta IDE");
+        assert!(format.ends_with(&format_for_project(FORMAT_DOC)) && format.contains("## A resposta"), "o formato da versão desta IDE");
         assert_eq!(std::fs::read_to_string(ui.join("idetea-ui.schema.json")).unwrap(), SCHEMA);
         std::fs::write(ui.join("boa.json"), DOC).unwrap();
         std::fs::write(ui.join("quebrada.json"), "{ nada").unwrap();
@@ -401,5 +437,19 @@ mod tests {
         assert_ne!(signature_with_media(&root, &files), before, "regerar a imagem pede uma leitura nova");
         assert_eq!(signature(&root), signature(&root), "a pasta em si não mudou");
         let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn format_links_work_in_the_project() {
+        let doc = format_for_project(FORMAT_DOC);
+        assert!(doc.contains("`docs/rfc/0001-interfaces-declarativas.md` (no repositório da IDE TEA)"));
+        assert!(doc.contains("RFC 0003 (`docs/rfc/0003-interfaces-pelo-uso.md`, no repositório da IDE TEA)"));
+        assert!(doc.contains("`examples/interfaces/pergunta.sh` (no repositório da IDE TEA)"));
+        assert!(doc.contains("[`agentes.md`](../../AGENTS.md)"));
+        assert!(doc.contains("[`idetea-ui.schema.json`](idetea-ui.schema.json)"), "o schema fica ao lado");
+        assert!(doc.contains("](#imagens)"), "âncoras continuam");
+        let left: Vec<&str> = doc.lines().filter(|l| l.replace("](../../AGENTS.md)", "").contains("](../")).collect();
+        assert!(left.is_empty(), "nenhum link para fora do projeto: {left:?}");
+        assert_eq!(format_for_project("a [b](c) d"), "a [b](c) d");
     }
 }

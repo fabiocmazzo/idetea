@@ -40,7 +40,7 @@ pub struct Response {
 }
 
 /// Uma imagem ou um som, na resposta.
-#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Seen {
     /// Tamanho do arquivo lido para a tela, em bytes (`None`: não deu para ler).
@@ -49,7 +49,15 @@ pub struct Seen {
     /// Data do arquivo lido para a tela (RFC 3339, UTC): compare com a do disco.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub modified: Option<String>,
-    /// Cliques que abriram a imagem na aba.
+    /// De um WAV, o que o painel mostrou: duração em segundos, pico em dBFS (`None` também no silêncio) e se
+    /// chega a 0 dBFS (o aviso de estouro; só aparece quando chega).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub seconds: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub peak_db: Option<f64>,
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    pub clips: bool,
+    /// Cliques que abriram o arquivo: a imagem na aba, ou um link `idetea:open/` no app do sistema.
     #[serde(skip_serializing_if = "is_zero")]
     pub opened: u32,
     /// Vezes que o som começou a tocar (cada volta de um `loop` conta).
@@ -58,6 +66,12 @@ pub struct Seen {
     /// Vezes que o som tocou até o fim (sem Parar).
     #[serde(skip_serializing_if = "is_zero")]
     pub completed: u32,
+    /// Vezes que o usuário clicou em Parar.
+    #[serde(skip_serializing_if = "is_zero")]
+    pub stopped: u32,
+    /// Vezes que outro som começou por cima (um de cada vez).
+    #[serde(skip_serializing_if = "is_zero")]
+    pub interrupted: u32,
     /// Quadros passados à mão num `sprite` pausado.
     #[serde(skip_serializing_if = "is_zero")]
     pub stepped: u32,

@@ -287,7 +287,9 @@ Um clique grava `.idetea/ui/responses/<nome>/<seq>-<event>.json`:
   "ide": { "pid": 48213, "version": "0.0.1", "outdated": false, "instructions": "4f2a9c1e" },
   "media": {
     "assets/sprites/balao.png": { "size": 515, "modified": "2026-11-01T20:39:52Z", "opened": 1, "stepped": 3 },
-    "assets/sons/vento.wav": { "size": 61784, "modified": "2026-11-01T20:30:10Z", "played": 2, "completed": 1 }
+    "assets/sons/vento.wav": { "size": 61784, "modified": "2026-11-01T20:30:10Z", "seconds": 1.932, "peak_db": 0.0,
+      "clips": true, "played": 3, "completed": 1, "stopped": 1, "interrupted": 1 },
+    "index.html": { "size": 2048, "modified": "2026-11-01T19:02:44Z", "opened": 1 }
   }
 }
 ```
@@ -312,10 +314,14 @@ Um clique grava `.idetea/ui/responses/<nome>/<seq>-<event>.json`:
   tem instruções mais novas, e falta rodar "Interfaces: ensinar os agentes".
 - `media` (só com `image`, `gallery`, `sprite` ou `audio` no documento): cada arquivo de mídia, pelo caminho.
   `size` e `modified` são do arquivo que estava na tela (lido pela última vez); compare com o disco para saber se o
-  usuário viu a versão nova. As contagens são desta revisão, e só aparecem quando passam de zero: `opened` (cliques
-  que abriram a imagem na aba), `played` (vezes que o som começou; cada volta do `loop` conta), `completed` (tocou
-  até o fim, sem Parar) e `stepped` (quadros passados à mão num `sprite`). É o que o usuário fez, não prova do que
-  ele viu ou ouviu.
+  usuário viu a versão nova. De um WAV, também o que o painel mostrou: `seconds` (duração), `peak_db` (pico em
+  dBFS) e `clips: true` quando chega a 0 dBFS (o aviso de estouro). As contagens são desta revisão, e só aparecem
+  quando passam de zero: `opened` (cliques que abriram a imagem na aba, ou o arquivo de um link `idetea:open/`; esse
+  arquivo entra no `media` com a versão do disco na hora do clique), `played` (vezes que o som começou; cada volta
+  do `loop` conta), `completed` (tocou até o fim), `stopped` (o usuário clicou em Parar), `interrupted` (outro som
+  começou por cima) e `stepped` (quadros passados à mão num `sprite`). Um som que não completou, não parou e não foi
+  interrompido estava tocando no clique (ou a revisão mudou). É o que o usuário fez, não prova do que ele viu ou
+  ouviu.
 
 Depois de ler, **apague o arquivo da resposta**. Enquanto ele existir, o painel mostra "aguardando o agente ler".
 

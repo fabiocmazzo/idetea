@@ -274,6 +274,9 @@ impl UiExtension {
         }
         let what = Playing { name: name.to_string(), id: id.to_string(), revision: doc.revision, path: path.clone() };
         let path = path.clone();
+        if let Some(before) = self.player.playing().cloned() {
+            self.count(&before.name, &before.path, |s| s.interrupted += 1);
+        }
         match self.player.play(what, self.root.join(&path), looped) {
             Ok(()) => self.count(name, &path, |s| s.played += 1),
             Err(e) => ctx.notify(fl!("ui-audio-failed", error = e.to_string())),
@@ -293,18 +296,36 @@ impl UiExtension {
     /// O `media` da resposta: cada imagem e som do documento, com a versão lida para a tela e as contagens.
     fn media_seen(&self, f: &SurfaceFile, doc: &Document) -> BTreeMap<String, Seen> {
         let counts = self.seen.get(&f.name).filter(|(r, _)| *r == doc.revision).map(|(_, c)| c);
-        doc.image_paths()
-            .into_iter()
-            .chain(doc.audio_paths())
-            .map(|path| {
+        let media: Vec<&str> = doc.image_paths().into_iter().chain(doc.audio_paths()).collect();
+        let mut out: BTreeMap<String, Seen> = media
+            .iter()
+            .map(|&path| {
                 let mut seen = counts.and_then(|c| c.get(path)).cloned().unwrap_or_default();
                 if let Some((size, modified)) = f.media.file(path) {
                     seen.size = Some(size);
                     seen.modified = modified.map(timestamp);
                 }
+                if let Some(Ok(sound)) = f.media.sound(path)
+                    && let Some(info) = sound.info
+                {
+                    seen.seconds = Some((info.seconds() * 1000.0).round() / 1000.0);
+                    // `+ 0.0` tira o `-0.0` (pico no máximo arredondado).
+                    seen.peak_db = info.peak_db().map(|db| (f64::from(db) * 10.0).round() / 10.0 + 0.0);
+                    seen.clips = info.clips();
+                }
                 (path.to_string(), seen)
             })
-            .collect()
+            .collect();
+        // Arquivos abertos por um link `idetea:open/`: não são mídia do documento; a versão é a do disco agora.
+        for (path, seen) in counts.into_iter().flatten().filter(|(p, _)| !media.contains(&p.as_str())) {
+            let mut seen = seen.clone();
+            if let Ok(m) = std::fs::symlink_metadata(self.root.join(path)) {
+                seen.size = Some(m.len());
+                seen.modified = m.modified().ok().map(timestamp);
+            }
+            out.insert(path.clone(), seen);
+        }
+        out
     }
 
     fn playback(&self, name: &str) -> Playback {
@@ -547,10 +568,20 @@ impl Extension for UiExtension {
                 }
                 tea_declarative_ui::open_file(&self.root, &path, line, column, ctx);
             }
-            Message::Ui(_, UiMessage::Link(url)) => tea_declarative_ui::follow(&url, &self.root, ctx),
+            Message::Ui(name, UiMessage::Link(url)) => {
+                if let tea_declarative_ui::Link::System(path) = tea_declarative_ui::link(&url) {
+                    self.count(&name, &path, |s| s.opened += 1);
+                }
+                tea_declarative_ui::follow(&url, &self.root, ctx);
+            }
             Message::Ui(_, UiMessage::Copy(code)) => return tea_declarative_ui::copy(code, ctx),
             Message::Ui(name, UiMessage::Play(id)) => self.play(&name, &id, ctx),
-            Message::Ui(_, UiMessage::Stop) => self.player.stop(),
+            Message::Ui(_, UiMessage::Stop) => {
+                if let Some(p) = self.player.playing().cloned() {
+                    self.count(&p.name, &p.path, |s| s.stopped += 1);
+                }
+                self.player.stop();
+            }
             Message::Ui(name, UiMessage::SpritePause(id)) => self.sprite(&name, &id, false),
             Message::Ui(name, UiMessage::SpriteStep(id)) => self.sprite(&name, &id, true),
             Message::Frame => {
@@ -909,7 +940,9 @@ mod tests {
             {"id": "img", "component": "image", "path": "folha.png"},
             {"id": "voo", "component": "sprite", "path": "folha.png", "frames": 3},
             {"id": "som", "component": "audio", "path": "falta.wav"},
+            {"id": "estouro", "component": "audio", "path": "estouro.wav"},
             {"id": "ok", "component": "button", "label": "Ok", "action": {"name": "ok"}}]}"#;
+        std::fs::write(root.join("estouro.wav"), include_bytes!("../testdata/estouro.wav")).unwrap();
         std::fs::write(store::ui_dir(&root).join("ver.json"), doc).unwrap();
         let _ = ext.update(Message::Snapshot(Arc::new(store::scan(&root, &Limits::default()))), &mut Context::new(&root, None));
         let ui = |ext: &mut UiExtension, m: UiMessage| {
@@ -919,6 +952,16 @@ mod tests {
         ui(&mut ext, UiMessage::SpritePause("voo".into()));
         ui(&mut ext, UiMessage::SpriteStep("voo".into()));
         ui(&mut ext, UiMessage::SpriteStep("voo".into()));
+        // Um "tocador" que fica tocando (os testes não tocam som de verdade).
+        let program = root.join("tocador");
+        std::fs::write(&program, "#!/bin/sh\nsleep 5\n").unwrap();
+        std::fs::set_permissions(&program, std::os::unix::fs::PermissionsExt::from_mode(0o755)).unwrap();
+        ext.player = Player::new(Some(program));
+        ui(&mut ext, UiMessage::Play("estouro".into()));
+        ui(&mut ext, UiMessage::Play("estouro".into())); // de novo, por cima
+        ui(&mut ext, UiMessage::Stop);
+        // Um clique num link `idetea:open/` (de um arquivo que falta: o `follow` só avisa, não abre o navegador).
+        ui(&mut ext, UiMessage::Link("idetea:open/falta.html".into()));
         ui(&mut ext, UiMessage::Press("ok".into()));
 
         let (seq, event) = store::pending(&store::ui_dir(&root), "ver")[0].clone();
@@ -931,7 +974,14 @@ mod tests {
         assert_eq!(folha.modified, Some(timestamp(meta.modified().unwrap())), "a versão lida para a tela");
         assert_eq!((folha.opened, folha.stepped, folha.played), (1, 2, 0));
         assert_eq!(response.media["falta.wav"], Seen::default(), "som que não existe: sem tamanho nem contagem");
-        assert!(!text.contains("\"played\""), "contagens zeradas não aparecem: {text}");
+        let wav = &response.media["estouro.wav"];
+        assert_eq!((wav.played, wav.interrupted, wav.stopped, wav.completed), (2, 1, 1, 0));
+        assert_eq!((wav.seconds, wav.peak_db, wav.clips), (Some(0.1), Some(0.0), true), "o que o painel mostrou");
+        assert!(text.contains("\"peak_db\": 0.0"), "sem -0.0: {text}");
+        let html = response.media.get("falta.html").unwrap_or_else(|| panic!("o link entra no media: {text}"));
+        assert_eq!((html.opened, html.size), (1, None), "aberto por idetea:open: entra com a versão do disco");
+        assert!(!text.contains("\"stepped\": 0"), "contagens zeradas não aparecem: {text}");
+        assert!(!text.contains("\"clips\": false"), "{text}");
         let _ = std::fs::remove_dir_all(&root);
     }
 }

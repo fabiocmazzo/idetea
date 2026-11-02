@@ -924,6 +924,14 @@ e grava a resposta do usuário em `.idetea/ui/responses/<nome>/`. Estudo, decis�
        observador de arquivos vê os três jeitos de regravar (no lugar, apagar e criar, renomear), e a causa não
        apareceu. E o `FORMAT.md` citava o JSON Schema por um link que não existe no projeto. (resolvidas: item
        abaixo)
+    17. Do jogo, depois da RFC 0004 (instruções `f6058fda`): 8 lacunas resolvidas pela mídia nova; abertas: (1) um
+       botão não pode esperar uma escolha (`gallery`, `select`) nem outro campo; (2) sem status entre o clique e a
+       revisão; (3) ajuste por item vai num comentário só; (4) o `FORMAT.md` copiado tem links que não existem no
+       projeto; (5) validar contra o schema pede ferramenta de fora; (6) as instruções mudam no meio de uma
+       revisão; (7) uma IDE mais velha regravou instruções mais novas (sem a linha de versão); (8) `idetea:open`
+       fora do `media`; (9) o agente não vê duração, pico e aviso de 0 dBFS; (10) "não completou" sem o porquê;
+       (11) imagem sem clique não deixa rastro. (4, 8, 9 e 10: item abaixo; 1, 5 e 7: itens seguintes; 2 e 3 pedem
+       RFC; 6 já é coberto por `ide.instructions`; 11 não tem como: o iced não diz o que está visível.)
     9. Os comandos que o agente sugere no painel (`cargo run -p tea-app -- .`) não são fáceis de copiar: o texto
        do painel não seleciona. Opção: botão de copiar nos blocos de código do `markdown`. (resolvida: item
        abaixo)
@@ -1049,6 +1057,13 @@ e grava a resposta do usuário em `.idetea/ui/responses/<nome>/`. Estudo, decis�
   lista só dão aviso.
   - [x] Teste manual (aprovado, pelo painel): `idetea:open/` de um HTML abre no navegador e de um PDF no leitor; um `.desktop` e um `.sh`
     só avisam.
+- [x] **Lacunas pequenas do jogo depois da mídia** (lacuna 17: 4, 8, 9 e 10): o `FORMAT.md` do projeto troca os
+  links para o repositório da IDE por texto com o caminho (e `agentes.md` pelo `AGENTS.md` do projeto); o `media`
+  ganha `seconds`, `peak_db` e `clips` de um WAV, `stopped` e `interrupted`, e o `opened` de um link
+  `idetea:open/` (com a versão do disco na hora do clique).
+  - [x] Teste manual (aprovado, pelo painel): num documento com um WAV estourado, tocar e parar, tocar por cima,
+    abrir um link `idetea:open/`; a resposta traz cada coisa; o `FORMAT.md` sem links quebrados (conferido neste
+    projeto; o do jogo é regravado quando a IDE abrir lá).
 - [x] **Aba de imagem sempre em dia + schema junto do formato** (lacuna 16): as abas de imagem e PDF conferem
   tamanho e data do arquivo a cada segundo (além do observador) e recarregam quando mudam; o rodapé da aba mostra a
   hora em que o arquivo foi gravado, para conferir qual versão está na tela. A IDE grava também
