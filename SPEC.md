@@ -913,7 +913,7 @@ e grava a resposta do usuário em `.idetea/ui/responses/<nome>/`. Estudo, decis�
        mudava no disco; um `context` com caminho de objeto perdia o que o usuário mudou dentro dele; o link do
        formato aponta para um repositório privado; o tocador de áudio sugerido era só o `paplay`; não dizia o que
        `open` faz com vários arquivos; o agente não sabia que as instruções mudaram. (resolvidas: item abaixo)
-       Ficam para uma RFC 0004 de mídia: imagem dentro do painel e lado a lado, pixel art sem borrar e fundo
+       Ficam para a [RFC 0004](docs/rfc/0004-midia-no-painel.md) de mídia: imagem dentro do painel e lado a lado, pixel art sem borrar e fundo
        quadriculado, animar spritesheets, tocar áudio no painel (duração, loop), saber o que foi visto ou ouvido,
        abrir no navegador.
     9. Os comandos que o agente sugere no painel (`cargo run -p tea-app -- .`) não são fáceis de copiar: o texto
@@ -1008,6 +1008,16 @@ e grava a resposta do usuário em `.idetea/ui/responses/<nome>/`. Estudo, decis�
     script e a aba mostra a imagem nova; "Ensinar os agentes" põe a linha "Instructions version"; o agente do jogo
     confere que a versão bate com a da resposta e manda uma revisão com caminho de objeto no `context`.
     (aprovado, pelo painel)
+- [ ] **Mídia M1: `image` e `gallery`** ([RFC 0004](docs/rfc/0004-midia-no-painel.md); lacunas 4, 5 e 12 do
+  jogo): imagem dentro do painel (`pixelated`, `background: checker`, `height`), lida fora da thread da interface,
+  com limites; `gallery` lado a lado com `select` `none`/`one`/`many`; um clique abre a aba de imagem, que passa a
+  usar o vizinho mais próximo no zoom.
+- [ ] **Mídia M2: `audio`** (lacunas 9 a 11): Tocar/Parar pelo tocador do sistema (ou `[ui] audio_player`), um
+  de cada vez, `loop`; metadados e forma de onda de WAV com leitor próprio.
+- [ ] **Mídia M3: `sprite`** (lacuna 6): quadros de um spritesheet animados no painel, com pausa e quadro a quadro.
+- [ ] **Mídia M4: o que foi visto e ouvido** (lacuna 14): `media` na resposta.
+- [ ] **Mídia M5: `idetea:open`** (lacuna 13): link que abre um arquivo do projeto no app do sistema, só com as
+  extensões da lista.
 - Depois, só se o uso pedir: `Row`/`Column`, progresso, Markdown sem links, vários painéis (`PanelId` dinâmico no
   núcleo), adaptador A2UI v1.0, e a mesma crate nos painéis dos plugins WASM (Fase 4).
 
