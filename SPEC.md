@@ -1043,11 +1043,11 @@ e grava a resposta do usuário em `.idetea/ui/responses/<nome>/`. Estudo, decis�
   `.idetea/ui/idetea-ui.schema.json` ao lado do `FORMAT.md`. Teste do observador com os três jeitos de regravar.
   - [x] Teste manual (aprovado, pelo painel): com um PNG aberto na aba, regravar o arquivo várias vezes (mesmo tamanho, outra cor): a aba
     acompanha em até 1 s e o rodapé mostra a hora nova; `.idetea/ui/idetea-ui.schema.json` aparece no jogo.
-- [ ] **Reusar o nome de uma interface** (lacuna 15): a IDE guarda o hash do documento; recriado com o mesmo nome
+- [x] **Reusar o nome de uma interface** (lacuna 15): a IDE guarda o hash do documento; recriado com o mesmo nome
   antes de ela ver o arquivo sumir, outro conteúdo com `revision` menor (ou na mesma, já respondida) é interface
   nova: campos do zero, botões ligados, aviso de pergunta nova; o `seq` das respostas continua subindo. As
   instruções pedem apagar as respostas que sobraram e usar `revision` maior que todas as já escritas no nome.
-  - [ ] Teste manual: responder uma interface, apagar e recriar na mesma `revision` com outro texto num comando só:
+  - [x] Teste manual (aprovado, pelo painel): responder uma interface, apagar e recriar na mesma `revision` com outro texto num comando só:
     a nova aparece com os botões ligados, e a resposta sai com `seq` maior.
 - Depois, só se o uso pedir: `Row`/`Column`, progresso, Markdown sem links, vários painéis (`PanelId` dinâmico no
   núcleo), adaptador A2UI v1.0, e a mesma crate nos painéis dos plugins WASM (Fase 4).
