@@ -6,6 +6,8 @@ use std::path::{Path, PathBuf};
 pub const BEGIN: &str = "<!-- idetea-ui:begin (IDE TEA: \"Interfaces\" command; edit outside these markers) -->";
 pub const END: &str = "<!-- idetea-ui:end -->";
 const BEGIN_PREFIX: &str = "<!-- idetea-ui:begin";
+/// O `CLAUDE.md` criado junto com um `AGENTS.md` novo: só importa o outro (o texto fica num lugar só).
+const CLAUDE_IMPORT: &str = "@AGENTS.md\n";
 
 /// O texto para os agentes. Sempre em inglês (é para agentes lerem); ele pede para conversar no idioma do
 /// usuário, então não depende do idioma da IDE.
@@ -35,8 +37,9 @@ pub struct Change {
 }
 
 /// O que gravar no projeto: os `AGENTS.md`/`CLAUDE.md` que existirem (um symlink para o outro conta uma vez; um
-/// `CLAUDE.md` que já importa o `AGENTS.md` com `@AGENTS.md` fica de fora), ou um `AGENTS.md` novo. Arquivos que
-/// já estão com o texto atual não entram.
+/// `CLAUDE.md` que já importa o `AGENTS.md` com `@AGENTS.md` fica de fora). Sem nenhum dos dois: um `AGENTS.md`
+/// novo com o texto e um `CLAUDE.md` novo que só importa o `AGENTS.md` (o Claude Code lê o `CLAUDE.md`; os outros
+/// agentes, o `AGENTS.md`). Arquivos que já estão com o texto atual não entram.
 pub fn plan(root: &Path, text: &str) -> std::io::Result<Vec<Change>> {
     let real_root = root.canonicalize()?;
     let agents = root.join("AGENTS.md");
@@ -65,6 +68,8 @@ pub fn plan(root: &Path, text: &str) -> std::io::Result<Vec<Change>> {
     }
     if !any {
         out.push(Change { name: "AGENTS.md".to_string(), path: agents, content: merge("", text), new: true });
+        let claude = root.join("CLAUDE.md");
+        out.push(Change { name: "CLAUDE.md".to_string(), path: claude, content: CLAUDE_IMPORT.to_string(), new: true });
     }
     Ok(out)
 }
@@ -102,11 +107,13 @@ mod tests {
     #[test]
     fn plan_picks_the_right_files() {
         let root = tmp_root("plan");
-        // Nada: cria o AGENTS.md.
+        // Nada: cria o AGENTS.md com o texto e um CLAUDE.md que só importa o AGENTS.md.
         let p = plan(&root, "t").unwrap();
-        assert_eq!((p.len(), p[0].name.as_str(), p[0].new), (1, "AGENTS.md", true));
+        let names: Vec<(&str, bool)> = p.iter().map(|c| (c.name.as_str(), c.new)).collect();
+        assert_eq!(names, [("AGENTS.md", true), ("CLAUDE.md", true)]);
         apply(&p).unwrap();
-        assert!(plan(&root, "t").unwrap().is_empty(), "já atualizado");
+        assert_eq!(std::fs::read_to_string(root.join("CLAUDE.md")).unwrap(), "@AGENTS.md\n");
+        assert!(plan(&root, "t").unwrap().is_empty(), "já atualizado (o CLAUDE.md importa o AGENTS.md)");
 
         // CLAUDE.md que importa o AGENTS.md: fica de fora. Sem o import: entra.
         std::fs::write(root.join("CLAUDE.md"), "@AGENTS.md\n").unwrap();

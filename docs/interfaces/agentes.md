@@ -3,7 +3,9 @@
 O jeito fácil: na IDE, rode **Interfaces: ensinar os agentes deste projeto** (paleta de comandos, ou o botão no
 painel vazio). A IDE grava o bloco abaixo no `AGENTS.md` (e no `CLAUDE.md`, se houver), entre marcadores
 `<!-- idetea-ui:begin … -->` e `<!-- idetea-ui:end -->`; rodar de novo só atualiza esse trecho. O texto vem de
-`crates/ext/tea-ext-ui/agents/instructions.md` (um teste confere que o bloco abaixo é igual).
+`crates/ext/tea-ext-ui/agents/instructions.md` (um teste confere que o bloco abaixo é igual). Num projeto sem
+nenhum dos dois, cria o `AGENTS.md` com o bloco e um `CLAUDE.md` que só tem `@AGENTS.md` (o Claude Code lê o
+`CLAUDE.md` e segue o import; os outros agentes leem o `AGENTS.md`).
 
 O texto é sempre em inglês, qualquer que seja o idioma da IDE: é para agentes lerem, e um texto só é mais fácil
 de manter igual. Ele pede ao agente para conversar (e escrever as interfaces) no idioma que o usuário usa com ele.

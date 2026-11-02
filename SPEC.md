@@ -880,7 +880,7 @@ e grava a resposta do usuário em `.idetea/ui/responses/<nome>/`. Estudo, decis�
   - Lacunas encontradas:
     1. "Ensinar os agentes" num projeto sem `AGENTS.md` nem `CLAUDE.md` cria só o `AGENTS.md`; o Claude Code lê o
        `CLAUDE.md` (a confirmar se ele também lê o `AGENTS.md`). Opção: criar o `AGENTS.md` e um `CLAUDE.md` com
-       `@AGENTS.md`.
+       `@AGENTS.md`. (resolvida: item abaixo)
     2. Não há texto formatado (Markdown) no painel: uma explicação mais longa do agente fica no terminal, e o painel
        só aponta para lá. (resolvida: componente `markdown`)
     3. O usuário quis fazer perguntas de volta ao agente e usou o campo "Observação" para isso. Não há um jeito
@@ -900,6 +900,8 @@ e grava a resposta do usuário em `.idetea/ui/responses/<nome>/`. Estudo, decis�
     8. Um teste foi aprovado sem ter rodado na versão nova: a IDE aberta era a antiga, e o resultado parecia certo. O
        agente conferiu o arquivo e pediu de novo. Nas entregas, dizer como reconhecer a versão nova (ou o agente
        conferir o efeito no disco antes de commitar, como aqui).
+    9. Os comandos que o agente sugere no painel (`cargo run -p tea-app -- .`) não são fáceis de copiar: o texto
+       do painel não seleciona. Opção: botão de copiar nos blocos de código do `markdown`.
 - [x] **Instruções para agentes só em inglês** (lacuna 6): um texto só (`agents/instructions.md`), qualquer que seja
   o idioma da IDE, com o pedido de conversar e escrever as interfaces no idioma do usuário, e de pôr no painel toda
   pergunta que espera resposta depois que o painel estiver em uso (lacuna 7). Saem os textos em português e
@@ -925,6 +927,11 @@ e grava a resposta do usuário em `.idetea/ui/responses/<nome>/`. Estudo, decis�
   - [x] Teste manual: a entrega deste item não tem campo "Observação": escrever no campo de comentário e
     clicar num botão; o agente mostra o comentário recebido. Rodar "Ensinar os agentes": o `CLAUDE.md` ganha a
     linha sobre `comment`. (aprovado, pelo painel)
+- [x] **Ensinar cria também o `CLAUDE.md`** (lacuna 1): num projeto sem `AGENTS.md` nem `CLAUDE.md`, o comando cria
+  o `AGENTS.md` com o bloco e um `CLAUDE.md` só com `@AGENTS.md` (o texto fica num lugar só). Projetos que já têm um
+  dos dois continuam como antes.
+  - [x] Teste manual: numa pasta vazia, o botão do painel vazio lista `AGENTS.md (novo)` e `CLAUDE.md (novo)`; os
+    dois aparecem, o `CLAUDE.md` com `@AGENTS.md`; rodar de novo avisa "já atualizadas". (aprovado, pelo painel)
 - Depois, só se o uso pedir: `Row`/`Column`, progresso, Markdown sem links, vários painéis (`PanelId` dinâmico no
   núcleo), adaptador A2UI v1.0, e a mesma crate nos painéis dos plugins WASM (Fase 4).
 
