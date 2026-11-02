@@ -891,7 +891,20 @@ e grava a resposta do usuário em `.idetea/ui/responses/<nome>/`. Estudo, decis�
     5. O botão "Aprovado" de um teste não dizia se podia commitar: precisou de uma segunda pergunta (revisão 2).
        Nas entregas, oferecer "Aprovado, pode commitar" junto.
     6. Instruções para agentes: o usuário prefere o texto sempre em inglês (agentes leem melhor), com uma linha
-       pedindo para conversar no idioma do usuário, em vez de um texto por idioma da IDE.
+       pedindo para conversar no idioma do usuário, em vez de um texto por idioma da IDE. (resolvida: item abaixo)
+    7. Com o fluxo no painel, uma pergunta que o agente fez só no chat passou despercebida: o usuário foi responder
+       no painel e não havia nada lá. Toda pergunta que espera resposta vai para o painel. (as instruções dos
+       agentes agora dizem isso)
+    8. Um teste foi aprovado sem ter rodado na versão nova: a IDE aberta era a antiga, e o resultado parecia certo. O
+       agente conferiu o arquivo e pediu de novo. Nas entregas, dizer como reconhecer a versão nova (ou o agente
+       conferir o efeito no disco antes de commitar, como aqui).
+- [x] **Instruções para agentes só em inglês** (lacuna 6): um texto só (`agents/instructions.md`), qualquer que seja
+  o idioma da IDE, com o pedido de conversar e escrever as interfaces no idioma do usuário, e de pôr no painel toda
+  pergunta que espera resposta depois que o painel estiver em uso (lacuna 7). Saem os textos em português e
+  espanhol; quem já tem o bloco num deles recebe o inglês ao rodar o comando de novo.
+  - [x] Teste manual: nesta pasta, com a IDE nova, rodar "Interfaces: ensinar os agentes": o diálogo lista o
+    `CLAUDE.md`, e o bloco ganha o parágrafo sobre idioma; rodar de novo avisa "já atualizadas". Trocar o idioma da
+    IDE e rodar de novo: continua "já atualizadas". (aprovado, pelo painel)
 - Depois, só se o uso pedir: `Row`/`Column`, progresso, Markdown sem links, vários painéis (`PanelId` dinâmico no
   núcleo), adaptador A2UI v1.0, e a mesma crate nos painéis dos plugins WASM (Fase 4).
 

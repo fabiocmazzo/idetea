@@ -17,8 +17,6 @@ ui-write-failed = Could not write the response: { $error }
 ui-prepare-failed = Could not prepare the .idetea/ui folder: { $error }
 ui-not-a-file = not a regular file
 ui-surface-mismatch = the surface field is "{ $found }", but the file is named { $expected }.json
-# Language code of the agent instructions (agents/<code>.md).
-ui-agents-lang = en
 cmd-ui-teach = Interfaces: teach this project's agents
 ui-teach-hint = So that a coding agent knows how to use this panel, write the instructions to the project's AGENTS.md.
 ui-teach-button = Teach this project's agents

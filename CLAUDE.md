@@ -5,6 +5,10 @@ When you need me to choose between options, confirm something or fill in a few f
 interface in the TEA IDE instead of asking in the chat. This text is enough; the full format is at
 https://github.com/fabiocmazzo/idetea/blob/main/docs/interfaces/formato.md
 
+Talk to me in the language I use with you, including every text you put in an interface (titles, labels,
+options, buttons). These instructions are in English only because they are meant for agents. Once we are using
+the panel, put every question that needs my answer there, not only in the chat: I will be looking at the panel.
+
 1. Write `.idetea/ui/<name>.json` (name: lowercase letters, digits, `_` and `-`). Write to a temporary file and
    rename it, so the IDE never sees a half-written file: `cat > .idetea/ui/.<name>.json.tmp`, then `mv` to the
    final name.

@@ -1,61 +1,71 @@
 # Instruções para agentes
 
 O jeito fácil: na IDE, rode **Interfaces: ensinar os agentes deste projeto** (paleta de comandos, ou o botão no
-painel vazio). A IDE grava o bloco abaixo no `AGENTS.md` (e no `CLAUDE.md`, se houver), no idioma da interface,
-entre marcadores `<!-- idetea-ui:begin … -->` e `<!-- idetea-ui:end -->`; rodar de novo só atualiza esse trecho.
-O texto vem de `crates/ext/tea-ext-ui/agents/` (um teste confere que o português abaixo é igual).
+painel vazio). A IDE grava o bloco abaixo no `AGENTS.md` (e no `CLAUDE.md`, se houver), entre marcadores
+`<!-- idetea-ui:begin … -->` e `<!-- idetea-ui:end -->`; rodar de novo só atualiza esse trecho. O texto vem de
+`crates/ext/tea-ext-ui/agents/instructions.md` (um teste confere que o bloco abaixo é igual).
+
+O texto é sempre em inglês, qualquer que seja o idioma da IDE: é para agentes lerem, e um texto só é mais fácil
+de manter igual. Ele pede ao agente para conversar (e escrever as interfaces) no idioma que o usuário usa com ele.
 
 À mão: cole o bloco abaixo no `AGENTS.md` ou `CLAUDE.md` do projeto para que um agente de código saiba perguntar
 coisas ao usuário pelo painel **Interfaces** da IDE TEA, em vez de só pelo chat. Serve quando a pergunta tem
 opções claras (escolher entre caminhos, confirmar uma ação arriscada, preencher alguns campos).
 
 ````markdown
-## Perguntas pela IDE (painel Interfaces)
+## Questions through the IDE (Interfaces panel)
 
-Quando precisar que eu escolha entre opções, confirme algo ou preencha poucos campos, você pode criar uma
-interface na IDE TEA em vez de perguntar no chat. Este texto basta; o formato completo está em
+When you need me to choose between options, confirm something or fill in a few fields, you can create an
+interface in the TEA IDE instead of asking in the chat. This text is enough; the full format is at
 https://github.com/fabiocmazzo/idetea/blob/main/docs/interfaces/formato.md
 
-1. Escreva `.idetea/ui/<nome>.json` (nome: minúsculas, números, `_` e `-`). Escreva num temporário e renomeie,
-   para a IDE nunca ver o arquivo pela metade: `cat > .idetea/ui/.<nome>.json.tmp` e depois `mv` para o nome final.
+Talk to me in the language I use with you, including every text you put in an interface (titles, labels,
+options, buttons). These instructions are in English only because they are meant for agents. Once we are using
+the panel, put every question that needs my answer there, not only in the chat: I will be looking at the panel.
+
+1. Write `.idetea/ui/<name>.json` (name: lowercase letters, digits, `_` and `-`). Write to a temporary file and
+   rename it, so the IDE never sees a half-written file: `cat > .idetea/ui/.<name>.json.tmp`, then `mv` to the
+   final name.
    ```json
-   {"format": "idetea-ui", "version": 1, "revision": 1, "title": "…", "source": "<seu nome>",
-    "data": {"opcao": "a", "testes": true},
+   {"format": "idetea-ui", "version": 1, "revision": 1, "title": "…", "source": "<your name>",
+    "data": {"option": "a", "tests": true},
     "components": [
       {"id": "q", "component": "text", "text": "…"},
-      {"id": "op", "component": "select", "label": "…", "value": "/opcao", "options": ["a", {"value": "b", "label": "B"}]},
-      {"id": "t", "component": "checkbox", "label": "Escrever testes", "value": "/testes"},
-      {"id": "n", "component": "input", "label": "Nome", "placeholder": "opcional", "value": "/nome"},
-      {"id": "ok", "component": "button", "label": "Confirmar", "action": {"name": "ok", "context": ["/opcao", "/testes", "/nome"]}},
-      {"id": "no", "component": "button", "label": "Cancelar", "style": "secondary", "action": {"name": "cancelar"}}
+      {"id": "op", "component": "select", "label": "…", "value": "/option", "options": ["a", {"value": "b", "label": "B"}]},
+      {"id": "t", "component": "checkbox", "label": "Write tests", "value": "/tests"},
+      {"id": "n", "component": "input", "label": "Name", "placeholder": "optional", "value": "/name"},
+      {"id": "ok", "component": "button", "label": "Confirm", "action": {"name": "ok", "context": ["/option", "/tests", "/name"]}},
+      {"id": "no", "component": "button", "label": "Cancel", "style": "secondary", "action": {"name": "cancel"}}
     ]}
    ```
-   - Componentes: `text` (`style`: `muted`, `warning`, `error`), `select`, `checkbox` (booleano), `input` (texto)
-     e `button` (`style`: `secondary`, `danger`). `value` é um ponteiro JSON para um valor em `data`; `data` traz
-     os valores iniciais.
-   - Na resposta só vêm os caminhos listados no `context` do botão clicado; um campo nunca preenchido vem `null`.
-   - `action.name` é um texto livre que volta na resposta para você saber qual botão foi clicado.
-   - Depois de um clique, os botões ficam desligados até você escrever uma revisão nova.
-   - Para me mostrar um arquivo, ou pedir um texto longo (mensagem de commit, descrição de PR), use o componente
-     `file`: `{"id": "f", "component": "file", "path": ".idetea/ui/rascunhos/commit.md", "line": 3, "column": 1,
-     "label": "Edite a mensagem", "open": true}`. `path` é relativo à raiz; o link abre o arquivo na posição, e
-     `open: true` abre sozinho quando a revisão chega. Crie o arquivo antes (rascunhos em
-     `.idetea/ui/rascunhos/`, fora do git). Ao clicar num botão, a IDE salva o arquivo antes de gravar a
-     resposta: leia o arquivo do disco depois dela.
-2. Espere a resposta em `.idetea/ui/responses/<nome>/`. Use bash (no zsh, `compgen` não existe ou se comporta
-   diferente):
+   - Components: `text` (`style`: `muted`, `warning`, `error`), `select`, `checkbox` (boolean), `input` (text)
+     and `button` (`style`: `secondary`, `danger`). `value` is a JSON pointer to a value in `data`; `data` holds
+     the initial values.
+   - The response only carries the paths listed in the `context` of the clicked button; a field never filled
+     comes as `null`.
+   - `action.name` is free text that comes back in the response so you know which button was clicked.
+   - After a click, the buttons stay disabled until you write a new revision.
+   - To show me a file, or ask for a longer text (commit message, PR description), use the `file` component:
+     `{"id": "f", "component": "file", "path": ".idetea/ui/rascunhos/commit.md", "line": 3, "column": 1,
+     "label": "Edit the message", "open": true}`. `path` is relative to the root; the link opens the file at that
+     position, and `open: true` opens it by itself when the revision arrives. Create the file first (drafts in
+     `.idetea/ui/rascunhos/`, outside git). When a button is clicked, the IDE saves the file before writing the
+     response: read the file from disk after it.
+2. Wait for the response in `.idetea/ui/responses/<name>/`. Use bash (in zsh, `compgen` does not exist or
+   behaves differently):
    ```sh
-   timeout 600 bash -c 'until ls .idetea/ui/responses/<nome>/*.json >/dev/null 2>&1; do sleep 1; done'
+   timeout 600 bash -c 'until ls .idetea/ui/responses/<name>/*.json >/dev/null 2>&1; do sleep 1; done'
    ```
-   Cada arquivo é uma resposta:
-   `{"action": "ok", "values": {"/opcao": "b", "/testes": true, "/nome": null}, "revision": 1, "seq": 1, ...}`.
-   `action` é o `action.name` do botão; `revision` é a revisão que eu via ao clicar; `seq` é a ordem (pode haver
-   mais de um arquivo; leia em ordem de nome). Leia e **apague o arquivo da resposta**: é assim que a IDE sabe que
-   você recebeu.
-3. Para mostrar um resultado ou fazer outra pergunta, reescreva o mesmo arquivo com `revision` maior. Um
-   documento só com `text`, sem botões, serve para mostrar algo sem esperar resposta.
-4. Ao terminar, apague `.idetea/ui/<nome>.json`. O resto da pasta (`.gitignore`, `responses/`) é da IDE; deixe.
+   Each file is one response:
+   `{"action": "ok", "values": {"/option": "b", "/tests": true, "/name": null}, "revision": 1, "seq": 1, ...}`.
+   `action` is the button's `action.name`; `revision` is the revision I was seeing when I clicked; `seq` is the
+   order (there may be more than one file; read them in name order). Read it and **delete the response file**:
+   that is how the IDE knows you got it.
+3. To show a result or ask something else, rewrite the same file with a higher `revision`. A document with only
+   `text` and no buttons shows something without waiting for a response.
+4. When you are done, delete `.idetea/ui/<name>.json`. The rest of the folder (`.gitignore`, `responses/`)
+   belongs to the IDE; leave it.
 
-Não coloque segredos no documento. Se não vier resposta em 10 minutos (o painel pode estar desligado), pergunte
-no chat.
+Do not put secrets in the document. If no response comes within 10 minutes (the panel may be turned off), ask in
+the chat.
 ````

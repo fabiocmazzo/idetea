@@ -192,7 +192,7 @@ impl UiExtension {
     }
 
     fn teach_text() -> &'static str {
-        teach::instructions(&fl!("ui-agents-lang"))
+        teach::INSTRUCTIONS
     }
 
     fn ask_teach(&self, ctx: &mut Context) {

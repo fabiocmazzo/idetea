@@ -7,14 +7,9 @@ pub const BEGIN: &str = "<!-- idetea-ui:begin (IDE TEA: \"Interfaces\" command; 
 pub const END: &str = "<!-- idetea-ui:end -->";
 const BEGIN_PREFIX: &str = "<!-- idetea-ui:begin";
 
-/// O texto no idioma pedido (o da interface); português se não houver.
-pub fn instructions(lang: &str) -> &'static str {
-    match lang {
-        "en" => include_str!("../agents/en.md"),
-        "es" => include_str!("../agents/es.md"),
-        _ => include_str!("../agents/pt-BR.md"),
-    }
-}
+/// O texto para os agentes. Sempre em inglês (é para agentes lerem); ele pede para conversar no idioma do
+/// usuário, então não depende do idioma da IDE.
+pub const INSTRUCTIONS: &str = include_str!("../agents/instructions.md");
 
 /// O arquivo com o bloco novo: troca o bloco que já existir ou acrescenta no fim.
 pub fn merge(existing: &str, text: &str) -> String {
@@ -135,17 +130,10 @@ mod tests {
         let _ = std::fs::remove_dir_all(&root);
     }
 
-    /// O texto em português é o mesmo que a documentação mostra.
+    /// O texto é o mesmo que a documentação mostra.
     #[test]
     fn docs_show_the_same_text() {
         let docs = include_str!("../../../../docs/interfaces/agentes.md");
-        assert!(docs.contains(instructions("pt-BR")), "atualize docs/interfaces/agentes.md junto com agents/pt-BR.md");
-        for lang in ["en", "es"] {
-            assert_eq!(
-                instructions(lang).matches("```").count(),
-                instructions("pt-BR").matches("```").count(),
-                "{lang}: mesmos blocos de código"
-            );
-        }
+        assert!(docs.contains(INSTRUCTIONS), "atualize docs/interfaces/agentes.md junto com agents/instructions.md");
     }
 }
