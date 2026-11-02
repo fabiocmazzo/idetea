@@ -82,8 +82,8 @@ references = { enabled = true, slot = "bottom" }
 outline = { enabled = true, slot = "right" }
 calls = { enabled = true, slot = "bottom" }
 preview = { enabled = true, slot = "right" }
-# Experimental: interfaces que um agente escreve em .idetea/ui/ (docs/interfaces/formato.md).
-interfaces = { enabled = false, slot = "right" }
+# Interfaces que um agente escreve em .idetea/ui/ (docs/interfaces/formato.md).
+interfaces = { enabled = true, slot = "right" }
 
 # Plugins (~/.local/share/idetea/plugins/<id>/): a config de cada um, no formato que o plugin pedir.
 # [plugins.contador]

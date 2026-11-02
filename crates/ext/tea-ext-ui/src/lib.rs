@@ -528,7 +528,7 @@ impl Extension for UiExtension {
     fn activate(&mut self, ctx: &mut Context) -> Task<Message> {
         self.root = ctx.root().to_path_buf();
         ctx.register_panel_hidden(PANEL, fl!("ui-panel"), Slot::Right);
-        ctx.panel_icon(PANEL, Icon::Preview);
+        ctx.panel_icon(PANEL, Icon::CommentDiscussion);
         ctx.register_command("interfaces.show", fl!("cmd-ui-show"));
         ctx.register_command("interfaces.teach", fl!("cmd-ui-teach"));
         if let Err(e) = store::prepare(&self.root) {

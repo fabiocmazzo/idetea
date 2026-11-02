@@ -13,11 +13,11 @@ Os outros links deste texto (RFCs, exemplos) só funcionam no repositório da ID
 
 ## Ligar
 
-A extensão vem desligada. Em `~/.config/idetea/config.toml` (ou `.idetea/config.toml` do projeto):
+A extensão vem ligada. Para desligar, em `~/.config/idetea/config.toml` (ou `.idetea/config.toml` do projeto):
 
 ```toml
 [extensions]
-interfaces = { enabled = true }
+interfaces = { enabled = false }
 ```
 
 Ou em Configurações → Extensões. Reinicie a IDE depois de mudar.

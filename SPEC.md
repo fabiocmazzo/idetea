@@ -830,8 +830,8 @@ O que mais falta no uso diário. Cada item é uma entrega com teste manual; a or
 
 Agentes e processos externos gravam um documento JSON em `.idetea/ui/<nome>.json`; a IDE desenha um painel nativo
 e grava a resposta do usuário em `.idetea/ui/responses/<nome>/`. Estudo, decisões e riscos:
-[RFC 0001](docs/rfc/0001-interfaces-declarativas.md). Desligada por padrão:
-`[extensions] interfaces = { enabled = true }` liga (precisa reiniciar).
+[RFC 0001](docs/rfc/0001-interfaces-declarativas.md). Ligada por padrão:
+`[extensions] interfaces = { enabled = false }` desliga (precisa reiniciar).
 
 - [x] **Formato v1 e instruções para agentes:** `docs/interfaces/formato.md` (documento, resposta, regras de escrita
   atômica e de confirmação), `docs/interfaces/idetea-ui.schema.json` (referência para quem escreve; a IDE valida com
