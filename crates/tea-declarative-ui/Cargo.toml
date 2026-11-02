@@ -7,7 +7,7 @@ license.workspace = true
 # Interfaces descritas por dados (JSON): o modelo, a validação e o desenho em iced. Não sabe de arquivos nem
 # da IDE: quem lê os documentos e grava as respostas é a extensão (`tea-ext-ui`). Ver docs/rfc/0001.
 [dependencies]
-iced.workspace = true
+iced = { workspace = true, features = ["markdown"] }
 serde.workspace = true
 serde_json.workspace = true
 tea-core.workspace = true

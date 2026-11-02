@@ -86,6 +86,9 @@ pub enum Kind {
     /// Um arquivo do projeto: um clique abre na linha e coluna (começando em 1; 0 = início). `path` é relativo à
     /// raiz e não sai dela. `open`: abre sozinho quando a revisão chega.
     File { path: String, line: u64, column: u64, label: Option<String>, open: bool },
+    /// Texto em Markdown (listas, código, ênfase, links). Imagens não são carregadas. O texto já lido para
+    /// desenhar fica em [`crate::Rendered`].
+    Markdown { text: String },
     /// Componente que esta versão não conhece: um aviso aparece no lugar dele.
     Unknown { component: String },
 }
@@ -224,7 +227,7 @@ fn depth(v: &Value) -> usize {
 }
 
 /// `src/main.rs` sim; `/etc/x`, `../x`, `C:\x` e vazio, não.
-fn relative_inside(path: &str) -> bool {
+pub(crate) fn relative_inside(path: &str) -> bool {
     use std::path::{Component, Path};
     !path.is_empty()
         && !path.starts_with(['/', '\\'])
@@ -363,6 +366,7 @@ impl Reader {
                     value: self.path(obj, "value", field)?,
                 },
             ),
+            "markdown" => (&["text"], Kind::Markdown { text: self.required(obj, "text", field)? }),
             "file" => (
                 &["path", "line", "column", "label", "open"],
                 Kind::File {

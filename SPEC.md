@@ -882,12 +882,13 @@ e grava a resposta do usuário em `.idetea/ui/responses/<nome>/`. Estudo, decis�
        `CLAUDE.md` (a confirmar se ele também lê o `AGENTS.md`). Opção: criar o `AGENTS.md` e um `CLAUDE.md` com
        `@AGENTS.md`.
     2. Não há texto formatado (Markdown) no painel: uma explicação mais longa do agente fica no terminal, e o painel
-       só aponta para lá.
+       só aponta para lá. (resolvida: componente `markdown`)
     3. O usuário quis fazer perguntas de volta ao agente e usou o campo "Observação" para isso. Não há um jeito
        padrão de comentar uma resposta; avaliar um comentário opcional em toda resposta.
     4. Na entrega de um teste, o passo "edite o config global" não teve link: o `file` só aceita caminhos do
        projeto (por segurança). Opção: alguns destinos conhecidos fora do projeto (`config:global`), sem caminho
-       livre. Também faltou lista numerada: cada passo virou um `text` (lacuna 2).
+       livre. Também faltou lista numerada: cada passo virou um `text` (lacuna 2). (resolvida: links
+       `idetea:config` e `idetea:config-project` no `markdown`)
     5. O botão "Aprovado" de um teste não dizia se podia commitar: precisou de uma segunda pergunta (revisão 2).
        Nas entregas, oferecer "Aprovado, pode commitar" junto.
     6. Instruções para agentes: o usuário prefere o texto sempre em inglês (agentes leem melhor), com uma linha
@@ -905,6 +906,16 @@ e grava a resposta do usuário em `.idetea/ui/responses/<nome>/`. Estudo, decis�
   - [x] Teste manual: nesta pasta, com a IDE nova, rodar "Interfaces: ensinar os agentes": o diálogo lista o
     `CLAUDE.md`, e o bloco ganha o parágrafo sobre idioma; rodar de novo avisa "já atualizadas". Trocar o idioma da
     IDE e rodar de novo: continua "já atualizadas". (aprovado, pelo painel)
+- [x] **Markdown nas interfaces** (lacunas 2 e 4): componente `markdown` (`text`) desenhado pelo `markdown` do
+  iced, com as cores do tema da IDE; imagens não são carregadas. Links: web (`http`, `https`, `mailto`, no
+  navegador), arquivos do projeto (`src/main.rs:42:5`, na posição; sem `..`) e o config da IDE
+  (`idetea:config`, `idetea:config-project`, o único jeito de apontar para fora do projeto); qualquer outro só
+  avisa. O documento guarda só o texto; cada painel guarda o Markdown lido (as peças do iced não vão entre
+  threads). Vale no painel Interfaces e nos painéis dos plugins. Formato, schema, exemplo e instruções dos agentes.
+  - [x] Teste manual: a entrega deste item, no painel, já usa o `markdown`: os passos numerados aparecem
+    formatados, com `código`; o link do config abre o config global; o link de arquivo abre na linha; o link da
+    web abre o navegador; o link `../fora` só mostra o aviso. Rodar "Ensinar os agentes": o `CLAUDE.md` ganha as
+    linhas sobre `markdown`. (aprovado, pelo painel)
 - Depois, só se o uso pedir: `Row`/`Column`, progresso, Markdown sem links, vários painéis (`PanelId` dinâmico no
   núcleo), adaptador A2UI v1.0, e a mesma crate nos painéis dos plugins WASM (Fase 4).
 

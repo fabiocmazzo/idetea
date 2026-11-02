@@ -19,11 +19,11 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use iced::futures::channel::mpsc;
 use iced::widget::{Column, button, column, row, scrollable, text};
-use iced::{Element, Fill, Subscription, Task};
+use iced::{Element, Fill, Subscription, Task, Theme};
 use serde::{Deserialize, Serialize};
 use tea_core::icons::Icon;
-use tea_core::{ButtonKind, Context, Dialog, Extension, PanelId, Slot};
-use tea_declarative_ui::{Document, Kind, Limits, Response, State, UiMessage, timestamp};
+use tea_core::{ButtonKind, Context, CoreEvent, Dialog, Extension, PanelId, Slot};
+use tea_declarative_ui::{Document, Kind, Limits, Rendered, Response, State, UiMessage, timestamp};
 
 use store::SurfaceFile;
 
@@ -64,6 +64,12 @@ pub struct UiExtension {
     /// Erro ao criar `.idetea/ui/`.
     problem: Option<String>,
     counter: u64,
+    /// Tema da IDE (cores do Markdown).
+    theme: Option<Theme>,
+    /// O Markdown de cada interface, já lido (refeito a cada leitura da pasta).
+    rendered: BTreeMap<String, Rendered>,
+    /// Para uma interface ainda sem o Markdown lido.
+    no_markdown: Rendered,
 }
 
 impl UiExtension {
@@ -131,6 +137,7 @@ impl UiExtension {
         }
         // Interface apagada pelo agente: acabou; o estado dela não serve mais.
         self.saved.retain(|name, _| files.iter().any(|f| &f.name == name));
+        self.rendered = files.iter().filter_map(|f| Some((f.name.clone(), Rendered::new(f.doc.as_ref().ok()?)))).collect();
         self.files = files;
         if let Some((name, title, new)) = changed {
             ctx.notify(if new { fl!("ui-new", title = title) } else { fl!("ui-updated", title = title) });
@@ -264,7 +271,11 @@ impl UiExtension {
             out = out.push(text(w).size(12).style(text::warning).width(Fill));
         }
         let name = f.name.clone();
-        out = out.push(tea_declarative_ui::view(doc, &saved.state).map(move |m| Message::Ui(name.clone(), m)));
+        let theme = self.theme.clone().unwrap_or(Theme::Dark);
+        let rendered = self.rendered.get(&f.name).unwrap_or(&self.no_markdown);
+        out = out.push(
+            tea_declarative_ui::view(doc, &saved.state, rendered, &theme).map(move |m| Message::Ui(name.clone(), m)),
+        );
         let status = if !f.pending.is_empty() {
             Some(fl!("ui-waiting", count = f.pending.len()))
         } else if saved.state.locked(doc) {
@@ -325,6 +336,13 @@ impl Extension for UiExtension {
         Task::none()
     }
 
+    fn on_event(&mut self, event: &CoreEvent, _ctx: &mut Context) -> Task<Message> {
+        if let CoreEvent::Appearance { theme, .. } = event {
+            self.theme = Some(theme.clone());
+        }
+        Task::none()
+    }
+
     fn on_command(&mut self, command: &str, ctx: &mut Context) -> Task<Message> {
         match command {
             "interfaces.show" => ctx.show_panel(PANEL),
@@ -346,13 +364,9 @@ impl Extension for UiExtension {
             }
             Message::Ui(name, UiMessage::Press(source)) => self.press(&name, &source, ctx),
             Message::Ui(_, UiMessage::Open { path, line, column }) => {
-                let path = self.root.join(path);
-                if line == 0 {
-                    ctx.open_file(path);
-                } else {
-                    ctx.open_file_at(path, line as usize, column.max(1) as usize);
-                }
+                tea_declarative_ui::open_file(&self.root, &path, line, column, ctx);
             }
+            Message::Ui(_, UiMessage::Link(url)) => tea_declarative_ui::follow(&url, &self.root, ctx),
             Message::Submit(name, source) => self.submit(&name, &source, ctx),
             Message::AskTeach => self.ask_teach(ctx),
             Message::Teach => self.teach(ctx),

@@ -19,3 +19,5 @@ ui-data-too-deep = "data" tiene más de { $max } niveles.
 ui-unknown-field = Campo desconocido ignorado: "{ $field }".
 ui-unknown-value = "{ $field }": valor desconocido "{ $value }", se usa el predeterminado.
 ui-unknown-component = El componente "{ $component }" no es compatible en esta versión.
+ui-link-error = No se pudo abrir { $url }: { $error }
+ui-link-ignored = Enlace ignorado (solo web, archivos del proyecto e idetea:config): { $url }

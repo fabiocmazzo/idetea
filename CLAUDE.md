@@ -24,9 +24,9 @@ the panel, put every question that needs my answer there, not only in the chat: 
       {"id": "no", "component": "button", "label": "Cancel", "style": "secondary", "action": {"name": "cancel"}}
     ]}
    ```
-   - Components: `text` (`style`: `muted`, `warning`, `error`), `select`, `checkbox` (boolean), `input` (text)
-     and `button` (`style`: `secondary`, `danger`). `value` is a JSON pointer to a value in `data`; `data` holds
-     the initial values.
+   - Components: `text` (`style`: `muted`, `warning`, `error`), `markdown` (`text`: lists, `code`, emphasis,
+     links), `select`, `checkbox` (boolean), `input` (text) and `button` (`style`: `secondary`, `danger`).
+     `value` is a JSON pointer to a value in `data`; `data` holds the initial values.
    - The response only carries the paths listed in the `context` of the clicked button; a field never filled
      comes as `null`.
    - `action.name` is free text that comes back in the response so you know which button was clicked.
@@ -37,6 +37,9 @@ the panel, put every question that needs my answer there, not only in the chat: 
      position, and `open: true` opens it by itself when the revision arrives. Create the file first (drafts in
      `.idetea/ui/rascunhos/`, outside git). When a button is clicked, the IDE saves the file before writing the
      response: read the file from disk after it.
+   - Links in `markdown` open the web (`https://…`), project files (`src/main.rs:42`) or the IDE config
+     (`idetea:config`, `idetea:config-project`). Use a `markdown` for step lists and commands instead of one
+     `text` per step.
 2. Wait for the response in `.idetea/ui/responses/<name>/`. Use bash (in zsh, `compgen` does not exist or
    behaves differently):
    ```sh

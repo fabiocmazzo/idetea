@@ -97,6 +97,7 @@ Todo componente tem `id` (`[A-Za-z0-9_-]`, até 64, único no documento) e `comp
 | `select` | `options`, `value`, `label` | `options`: até 500, cada uma `"x"` ou `{"value": "x", "label": "X"}`. Valor: o `value` escolhido. |
 | `input` | `value`, `label`, `placeholder` | Texto de uma linha. |
 | `file` | `path`, `line`, `column`, `label`, `open` | Um arquivo do projeto. Ver [Arquivos](#arquivos). |
+| `markdown` | `text` | Texto formatado: listas, `código`, ênfase, títulos, links. Ver [Markdown](#markdown). |
 
 `value` é o lugar do valor em `data`: um ponteiro JSON (RFC 6901) como `"/usuario/nome"`, ou
 `{"path": "/usuario/nome"}`.
@@ -132,6 +133,25 @@ configuração para ajustar.
 - A IDE não cria o arquivo: escreva-o antes do documento (um arquivo que não existe abre como aba nova, e é criado
   quando o usuário salvar). Para rascunhos, use `.idetea/ui/rascunhos/`: fica fora do git (o `.gitignore` da
   pasta) e a IDE não mexe nele. Apague-os ao terminar.
+
+## Markdown
+
+O componente `markdown` serve para o que um `text` faz mal: passos numerados, comandos, explicações mais longas.
+
+```json
+{"id": "passos", "component": "markdown",
+ "text": "1. Abra [o config](idetea:config) e salve.\n2. Rode `cargo test`.\n3. Confira [a linha 42](src/main.rs:42)."}
+```
+
+Os links levam a três lugares; qualquer outro só mostra um aviso:
+
+- **Web:** `http://`, `https://` e `mailto:` abrem no navegador.
+- **Arquivos do projeto:** `src/main.rs`, `src/main.rs:42` ou `src/main.rs:42:5` abrem na IDE, na posição. Mesma
+  regra do `file`: relativo à raiz, sem `..`.
+- **Config da IDE:** `idetea:config` (o global) e `idetea:config-project` (o do projeto). É o único jeito de
+  apontar para um arquivo fora do projeto, e só para esses dois.
+
+Imagens não são carregadas (aparece o texto alternativo). Tabelas e HTML aparecem como texto.
 
 ## A resposta
 

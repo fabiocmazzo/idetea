@@ -1,7 +1,9 @@
 //! Desenho de uma interface em iced: os componentes um embaixo do outro; botões seguidos ficam na mesma linha.
 
-use iced::widget::{Column, button, checkbox, column, pick_list, row, text, text_input};
-use iced::{Element, Fill};
+use iced::widget::{Column, button, checkbox, column, container, markdown, pick_list, row, text, text_input};
+use std::collections::HashMap;
+
+use iced::{Element, Fill, Theme};
 use serde_json::Value;
 
 use crate::document::{ButtonStyle, Choice, Component, Document, Kind, TextStyle};
@@ -15,10 +17,48 @@ pub enum UiMessage {
     Press(String),
     /// Clique num componente `file`: abrir `path` (relativo à raiz) na linha e coluna (0 = início).
     Open { path: String, line: u64, column: u64 },
+    /// Clique num link do Markdown (ver [`crate::follow`]).
+    Link(String),
 }
 
-/// A interface. Quem chama põe título, rolagem e o status em volta.
-pub fn view<'a>(doc: &'a Document, state: &'a State) -> Element<'a, UiMessage> {
+/// O Markdown de um documento já lido, por id do componente. Fica com quem desenha (as peças do iced não podem
+/// ir entre threads, e o documento vai); refaça com [`Rendered::new`] quando o documento mudar.
+#[derive(Default)]
+pub struct Rendered(HashMap<String, Vec<markdown::Item>>);
+
+impl Rendered {
+    pub fn new(doc: &Document) -> Self {
+        let parsed = doc.components.iter().filter_map(|c| match &c.kind {
+            Kind::Markdown { text } => Some((c.id.clone(), markdown::parse(text).collect())),
+            _ => None,
+        });
+        Self(parsed.collect())
+    }
+}
+
+/// Markdown de agente: imagens viram o texto alternativo (nada é carregado do disco ou da rede).
+struct Viewer;
+
+impl<'a> markdown::Viewer<'a, UiMessage> for Viewer {
+    fn on_link_click(url: markdown::Uri) -> UiMessage {
+        UiMessage::Link(url)
+    }
+
+    fn image(
+        &self,
+        settings: markdown::Settings,
+        _url: &'a markdown::Uri,
+        _title: &'a str,
+        alt: &markdown::Text,
+    ) -> Element<'a, UiMessage> {
+        let alt: String = alt.spans(settings.style).iter().map(|s| s.text.as_ref()).collect();
+        container(text(alt).size(12)).padding(6).style(container::bordered_box).into()
+    }
+}
+
+/// A interface. Quem chama põe título, rolagem e o status em volta. `theme`: as cores do Markdown.
+pub fn view<'a>(doc: &'a Document, state: &'a State, rendered: &'a Rendered, theme: &Theme) -> Element<'a, UiMessage> {
+    let settings = markdown::Settings::with_style(theme);
     let locked = state.locked(doc);
     let mut out: Column<'a, UiMessage> = column![].spacing(12).width(Fill);
     let mut i = 0;
@@ -32,7 +72,7 @@ pub fn view<'a>(doc: &'a Document, state: &'a State) -> Element<'a, UiMessage> {
             out = out.push(line);
             continue;
         }
-        out = out.push(component_view(doc, state, &doc.components[i]));
+        out = out.push(component_view(doc, state, rendered, &doc.components[i], settings));
         i += 1;
     }
     out.into()
@@ -56,7 +96,13 @@ fn labeled<'a>(label: Option<&'a str>, field: impl Into<Element<'a, UiMessage>>)
     }
 }
 
-fn component_view<'a>(doc: &'a Document, state: &'a State, c: &'a Component) -> Element<'a, UiMessage> {
+fn component_view<'a>(
+    doc: &'a Document,
+    state: &'a State,
+    rendered: &'a Rendered,
+    c: &'a Component,
+    settings: markdown::Settings,
+) -> Element<'a, UiMessage> {
     let set = |path: &str| {
         let path = path.to_string();
         move |value: Value| UiMessage::Set { path: path.clone(), value }
@@ -106,6 +152,10 @@ fn component_view<'a>(doc: &'a Document, state: &'a State, c: &'a Component) -> 
                 None => link.into(),
             }
         }
+        Kind::Markdown { text: plain } => match rendered.0.get(&c.id) {
+            Some(items) => markdown::view_with(items, settings, &Viewer),
+            None => text(plain).width(Fill).into(),
+        },
         Kind::Unknown { component } => {
             text(fl!("ui-unknown-component", component = component.clone())).size(13).style(text::warning).into()
         }
@@ -130,6 +180,7 @@ mod tests {
                 { "id": "c", "component": "checkbox", "label": "Concordo", "value": { "path": "/ok" } },
                 { "id": "x", "component": "grafico" },
                 { "id": "f", "component": "file", "path": "notas/rascunho.md", "line": 4, "label": "Escreva aqui" },
+                { "id": "md", "component": "markdown", "text": "Leia **com calma** e [abra o arquivo](src/a.rs:3)." },
                 { "id": "enviar", "component": "button", "label": "Enviar", "action": { "name": "enviar", "context": ["/nome", "/ok"] } },
                 { "id": "cancelar", "component": "button", "label": "Cancelar", "style": "secondary", "action": { "name": "cancelar" } }
             ]
@@ -140,12 +191,14 @@ mod tests {
     #[test]
     fn clicks_and_typing_become_messages() {
         let d = doc();
+        let rendered = Rendered::new(&d);
         let mut state = State::new(&d);
-        let mut ui = simulator(view(&d, &state));
+        let mut ui = simulator(view(&d, &state, &rendered, &Theme::Dark));
         assert!(ui.find("Confirme os dados").is_ok());
         let unknown = fl!("ui-unknown-component", component = "grafico");
         assert!(ui.find(unknown.as_str()).is_ok(), "aviso no lugar do componente desconhecido");
         assert!(ui.find("notas/rascunho.md:4").is_ok(), "o caminho embaixo do rótulo");
+        assert_eq!(rendered.0["md"].len(), 1, "o Markdown foi lido (um parágrafo)");
         ui.click("Escreva aqui").unwrap();
         ui.click("Concordo").unwrap();
         ui.click("Enviar").unwrap();
@@ -164,7 +217,7 @@ mod tests {
         assert_eq!(values["/nome"], json!("Ana"));
 
         // Respondida (submit once): clicar de novo não gera nada.
-        let mut ui = simulator(view(&d, &state));
+        let mut ui = simulator(view(&d, &state, &rendered, &Theme::Dark));
         let _ = ui.click("Cancelar");
         assert_eq!(ui.into_messages().count(), 0, "botões desligados depois de responder");
     }

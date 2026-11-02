@@ -7,7 +7,7 @@
   "title": "Mensagem do commit",
   "source": "agente de código",
   "components": [
-    { "id": "intro", "component": "text", "text": "Escrevi um rascunho da mensagem. Ajuste no editor e clique em Commitar." },
+    { "id": "intro", "component": "markdown", "text": "Escrevi um **rascunho** da mensagem:\n\n1. Ajuste no editor (abre sozinho).\n2. Confira [a mudança principal](src/main.rs:120).\n3. Clique em *Commitar*." },
     { "id": "msg", "component": "file", "path": ".idetea/ui/rascunhos/commit.md", "line": 3, "column": 1,
       "label": "Editar a mensagem", "open": true },
     { "id": "diff", "component": "file", "path": "src/main.rs", "line": 120, "label": "A mudança principal" },

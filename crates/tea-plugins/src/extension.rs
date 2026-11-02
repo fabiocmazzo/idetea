@@ -3,10 +3,10 @@
 use std::path::{Path, PathBuf};
 
 use iced::widget::{column, scrollable, text};
-use iced::{Element, Fill, Task};
+use iced::{Element, Fill, Task, Theme};
 use tea_core::icons::Icon;
 use tea_core::{Context, CoreEvent, Extension, PanelId};
-use tea_declarative_ui::{Document, Limits, State, UiMessage};
+use tea_declarative_ui::{Document, Limits, Rendered, State, UiMessage};
 
 use crate::manifest::Manifest;
 use crate::process;
@@ -33,6 +33,10 @@ pub struct PluginExtension {
     failed: Option<String>,
     /// `host.run` em andamento.
     running: usize,
+    /// Tema da IDE (cores do Markdown).
+    theme: Option<Theme>,
+    /// O Markdown do painel, já lido.
+    rendered: Rendered,
 }
 
 fn leak(s: String) -> &'static str {
@@ -59,6 +63,8 @@ impl PluginExtension {
             state: State::default(),
             failed,
             running: 0,
+            theme: None,
+            rendered: Rendered::default(),
         }
     }
 
@@ -119,11 +125,12 @@ impl PluginExtension {
                     }
                 }
                 HostRequest::OpenFile { path, line, column } => {
-                    open(ctx, self.root.join(path), line.into(), column.into());
+                    tea_declarative_ui::open_file(&self.root, &path, line.into(), column.into(), ctx);
                 }
                 HostRequest::SetPanel(json) => {
                     let doc = tea_declarative_ui::parse(json.as_bytes(), &Limits::default());
                     if let Ok(d) = &doc {
+                        self.rendered = Rendered::new(d);
                         match &self.doc {
                             Some(Ok(_)) => self.state.apply(d),
                             _ => self.state = State::new(d),
@@ -155,15 +162,6 @@ impl PluginExtension {
 
     fn relative(&self, path: &Path) -> String {
         path.strip_prefix(&self.root).unwrap_or(path).to_string_lossy().into_owned()
-    }
-}
-
-/// Abre na linha e coluna (começando em 1; linha 0 = só abre).
-fn open(ctx: &mut Context, path: PathBuf, line: u64, column: u64) {
-    if line == 0 {
-        ctx.open_file(path);
-    } else {
-        ctx.open_file_at(path, line as usize, column.max(1) as usize);
     }
 }
 
@@ -213,6 +211,10 @@ impl Extension for PluginExtension {
 
     fn on_event(&mut self, event: &CoreEvent, ctx: &mut Context) -> Task<Message> {
         let event = match event {
+            CoreEvent::Appearance { theme, .. } => {
+                self.theme = Some(theme.clone());
+                return Task::none();
+            }
             CoreEvent::FileSaved(p) => Event::FileSaved(self.relative(p)),
             CoreEvent::ActiveFileChanged(p) => Event::ActiveFile(p.as_deref().map(|p| self.relative(p))),
             CoreEvent::ConfigReloaded => {
@@ -230,7 +232,10 @@ impl Extension for PluginExtension {
     fn update(&mut self, message: Message, ctx: &mut Context) -> Task<Message> {
         match message {
             Message::Ui(UiMessage::Set { path, value }) => self.state.set(&path, value),
-            Message::Ui(UiMessage::Open { path, line, column }) => open(ctx, self.root.join(path), line, column),
+            Message::Ui(UiMessage::Open { path, line, column }) => {
+                tea_declarative_ui::open_file(&self.root, &path, line, column, ctx);
+            }
+            Message::Ui(UiMessage::Link(url)) => tea_declarative_ui::follow(&url, &self.root, ctx),
             Message::Ui(UiMessage::Press(source)) => {
                 let Some(Ok(doc)) = &self.doc else { return Task::none() };
                 let Some((name, values)) = self.state.press(doc, &source) else { return Task::none() };
@@ -263,7 +268,8 @@ impl Extension for PluginExtension {
                 for w in &doc.warnings {
                     out = out.push(text(w).size(12).style(text::warning).width(Fill));
                 }
-                out = out.push(tea_declarative_ui::view(doc, &self.state).map(Message::Ui));
+                let theme = self.theme.clone().unwrap_or(Theme::Dark);
+                out = out.push(tea_declarative_ui::view(doc, &self.state, &self.rendered, &theme).map(Message::Ui));
             }
             Some(Err(e)) => {
                 out = out.push(text(fl!("plugin-bad-panel", error = e.clone())).size(13).style(text::danger).width(Fill));

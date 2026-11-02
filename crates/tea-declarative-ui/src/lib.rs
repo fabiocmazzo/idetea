@@ -11,14 +11,17 @@ macro_rules! fl {
 }
 
 mod document;
+mod links;
 pub mod pointer;
 mod response;
 mod state;
 mod view;
 
 pub use document::{
-    Action, ButtonStyle, Choice, Component, Document, FORMAT, Kind, Limits, Submit, TextStyle, VERSION, parse,
+    Action, ButtonStyle, Choice, Component, Document, FORMAT, Kind, Limits, Submit, TextStyle, VERSION,
+    parse,
 };
+pub use links::{Link, follow, link, open_file};
 pub use response::{RESPONSE_FORMAT, Response, file_name, timestamp};
 pub use state::State;
-pub use view::{UiMessage, view};
+pub use view::{Rendered, UiMessage, view};

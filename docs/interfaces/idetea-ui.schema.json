@@ -92,6 +92,10 @@
           }
         },
         {
+          "if": { "properties": { "component": { "const": "markdown" } } },
+          "then": { "required": ["text"], "properties": { "text": { "$ref": "#/$defs/text" } } }
+        },
+        {
           "if": { "properties": { "component": { "const": "file" } } },
           "then": {
             "required": ["path"],
