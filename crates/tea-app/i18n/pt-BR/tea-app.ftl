@@ -64,6 +64,7 @@ cmd-config-reload = Config: recarregar
 cmd-view-toggle-left = Layout: mostrar/ocultar lateral esquerda
 cmd-view-toggle-right = Layout: mostrar/ocultar lateral direita
 cmd-view-toggle-bottom = Layout: mostrar/ocultar painel inferior
+cmd-app-restart = Reiniciar a IDE
 cmd-app-quit = Sair
 
 ## Avisos, diálogos e menus
@@ -482,3 +483,8 @@ desktop-removed = IDE TEA saiu do menu de aplicativos.
 ## Arquivos grandes
 file-light-mode = "{ $name }" tem uma linha muito longa e abriu no modo leve: sem cores, sem servidor de linguagem e com quebra de linha
 lsp-light-mode = arquivo no modo leve (linha muito longa): sem servidor de linguagem
+
+## Executável recompilado
+binary-changed = A IDE foi recompilada: rode "Reiniciar a IDE" (paleta) para usar a versão nova.
+binary-changed-title = [versão nova: reinicie]
+binary-restart-error = Não deu para reiniciar: { $error }

@@ -9,6 +9,7 @@ macro_rules! fl {
 }
 
 mod backup;
+mod binary;
 mod calls;
 mod cli;
 mod context_menu;
@@ -273,6 +274,7 @@ const CORE_COMMANDS: &[(&str, &str)] = &[
     ("tasks.run", "cmd-tasks-run"),
     ("tasks.rerun", "cmd-tasks-rerun"),
     ("tasks.test_here", "cmd-tasks-test-here"),
+    ("app.restart", "cmd-app-restart"),
     ("app.quit", "cmd-app-quit"),
 ];
 
@@ -395,6 +397,12 @@ struct App {
     own_saves: std::collections::HashMap<PathBuf, Instant>,
     /// Última tecla que mudou o texto num editor (para não abrir arquivos por cima de quem está digitando).
     last_typed: Option<Instant>,
+    /// O executável na abertura (`None`: não deu para ler).
+    binary: Option<binary::Stamp>,
+    /// O executável foi recompilado depois que a IDE abriu.
+    binary_changed: bool,
+    /// Sair para reiniciar (o "Reiniciar a IDE" passa pelo mesmo diálogo de arquivos não salvos que o "Sair").
+    restart: bool,
     /// Última lista de arquivos do projeto (para `Ctrl+P` abrir na hora; é relida a cada abertura).
     file_list: std::sync::Arc<Vec<String>>,
     splash: Option<Splash>,
@@ -471,6 +479,8 @@ enum Message {
     MousePressed,
     /// Hora de copiar as abas com alterações (recuperação depois de um travamento).
     BackupTick,
+    /// O executável da IDE mudou no disco.
+    BinaryChanged,
     /// Passou a espera depois de digitar: pede a estrutura de novo (se for a última espera).
     OutlineDue(u64),
     /// Hora de mandar o texto do arquivo ativo (só a última espera vale).
@@ -543,6 +553,9 @@ impl App {
             file_list: Default::default(),
             own_saves: Default::default(),
             last_typed: None,
+            binary: binary::Stamp::current(),
+            binary_changed: false,
+            restart: false,
             splash: show_splash.then(|| Splash::new(started)),
             pointer_over_panel: false,
             dialog: None,
@@ -628,7 +641,8 @@ impl App {
 
     fn title(&self) -> String {
         let project = self.root.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
-        format!("{} — {project} — IDE TEA", self.tabs[self.active].editor.title())
+        let title = format!("{} — {project} — IDE TEA", self.tabs[self.active].editor.title());
+        if self.binary_changed { format!("{title} {}", fl!("binary-changed-title")) } else { title }
     }
 
     fn theme(&self) -> Theme {
@@ -2517,7 +2531,14 @@ impl App {
             "view.toggle_left" => self.toggle_slot(Slot::Left),
             "view.toggle_right" => self.toggle_slot(Slot::Right),
             "view.toggle_bottom" => self.toggle_slot(Slot::Bottom),
-            "app.quit" => self.request_quit(),
+            "app.quit" => {
+                self.restart = false;
+                self.request_quit()
+            }
+            "app.restart" => {
+                self.restart = true;
+                self.request_quit()
+            }
             "tasks.run" => self.open_tasks(),
             "tasks.rerun" => match self.last_task.clone() {
                 Some(task) => self.run_task(task),
@@ -2600,6 +2621,14 @@ impl App {
         }
         self.lsp.shutdown_all();
         self.debug.stop();
+        if self.restart
+            && let Some(stamp) = &self.binary
+            && let Err(e) = binary::restart(stamp)
+        {
+            // Não abriu a nova: fica nesta (a sessão já foi salva).
+            self.restart = false;
+            return self.notify(fl!("binary-restart-error", error = e.to_string()));
+        }
         iced::exit()
     }
 
@@ -3571,13 +3600,20 @@ impl App {
                 self.backup_tick();
                 Task::none()
             }
+            Message::BinaryChanged => {
+                self.binary_changed = true;
+                self.notify(fl!("binary-changed"))
+            }
             Message::MousePressed => {
                 if self.pointer_over_panel {
                     self.editor_mut().lose_focus();
                 }
                 Task::none()
             }
-            Message::CloseRequested => self.request_quit(),
+            Message::CloseRequested => {
+                self.restart = false;
+                self.request_quit()
+            }
             Message::Nav(forward) => self.navigate(forward),
             Message::SymbolQueryDue(wait) => {
                 if wait == self.symbol_wait { self.search_project_symbols() } else { Task::none() }
@@ -3644,7 +3680,13 @@ impl App {
         } else {
             Subscription::none()
         };
-        Subscription::batch([input, close, frames, extensions, resized, disk, backups])
+        let binary = match &self.binary {
+            Some(stamp) if !self.binary_changed => {
+                Subscription::run_with(stamp.clone(), binary::watch).map(|()| Message::BinaryChanged)
+            }
+            _ => Subscription::none(),
+        };
+        Subscription::batch([input, close, frames, extensions, resized, disk, backups, binary])
     }
 
     fn view(&self) -> Element<'_, Message> {

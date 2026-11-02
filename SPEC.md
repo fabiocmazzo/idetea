@@ -181,7 +181,7 @@ sempre funciona. O app aplica a regra em todos os painéis laterais e inferiores
 
 `palette.open`, `file.{new,save,save_as,close}`, `tab.{next,prev}`,
 `editor.{find,replace,goto_line,undo,redo,select_all,fold_all,unfold_all,toggle_vim}`,
-`theme.toggle`, `config.{open,open_project,reload}`, `view.toggle_{left,right,bottom}`, `app.quit`.
+`theme.toggle`, `config.{open,open_project,reload}`, `view.toggle_{left,right,bottom}`, `app.restart`, `app.quit`.
 Extensões registram os delas com o próprio prefixo (`filetree.*`).
 
 ### Segurança contra perda de dados
@@ -899,7 +899,8 @@ e grava a resposta do usuário em `.idetea/ui/responses/<nome>/`. Estudo, decis�
        agentes agora dizem isso)
     8. Um teste foi aprovado sem ter rodado na versão nova: a IDE aberta era a antiga, e o resultado parecia certo. O
        agente conferiu o arquivo e pediu de novo. Nas entregas, dizer como reconhecer a versão nova (ou o agente
-       conferir o efeito no disco antes de commitar, como aqui).
+       conferir o efeito no disco antes de commitar, como aqui). Aconteceu de novo no teste da lacuna 9. (resolvida:
+       item abaixo; o agente continua conferindo no disco)
     9. Os comandos que o agente sugere no painel (`cargo run -p tea-app -- .`) não são fáceis de copiar: o texto
        do painel não seleciona. Opção: botão de copiar nos blocos de código do `markdown`. (resolvida: item
        abaixo)
@@ -938,6 +939,14 @@ e grava a resposta do usuário em `.idetea/ui/responses/<nome>/`. Estudo, decis�
   no painel Interfaces e nos plugins. As instruções dos agentes pedem os comandos em blocos de código.
   - [x] Teste manual: na entrega deste item, "Copiar" no bloco do comando e colar num terminal: vem o comando
     inteiro, sem o "```"; rodar "Ensinar os agentes": o `CLAUDE.md` ganha a frase sobre blocos de código.
+    (aprovado, pelo painel)
+- [x] **A IDE percebe que foi recompilada** (lacuna 8): na abertura guarda a data do próprio executável (no
+  AppImage, a do `.AppImage`); uma thread olha a cada 3 s e, quando a data muda e para de mudar (o linker
+  terminou), a IDE avisa uma vez e o título ganha "[versão nova: reinicie]". O comando `app.restart` ("Reiniciar a
+  IDE") passa pelo mesmo diálogo de arquivos não salvos do "Sair", salva a sessão, roda o executável novo com os
+  mesmos argumentos (solto, numa sessão própria, saída no log) e sai. Se não der para rodar, avisa e fica aberta.
+  - [ ] Teste manual: com a IDE aberta, `touch target/debug/idetea`: em alguns segundos vem o aviso e o título muda;
+    "Reiniciar a IDE" com um arquivo alterado pergunta antes; a IDE volta com as mesmas abas e o título normal.
     (aprovado, pelo painel)
 - Depois, só se o uso pedir: `Row`/`Column`, progresso, Markdown sem links, vários painéis (`PanelId` dinâmico no
   núcleo), adaptador A2UI v1.0, e a mesma crate nos painéis dos plugins WASM (Fase 4).

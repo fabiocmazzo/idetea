@@ -64,6 +64,7 @@ cmd-config-reload = Config: reload
 cmd-view-toggle-left = Layout: show/hide left side
 cmd-view-toggle-right = Layout: show/hide right side
 cmd-view-toggle-bottom = Layout: show/hide bottom panel
+cmd-app-restart = Restart the IDE
 cmd-app-quit = Quit
 
 ## Avisos, diálogos e menus
@@ -482,3 +483,8 @@ desktop-removed = IDE TEA removed from the applications menu.
 ## Arquivos grandes
 file-light-mode = "{ $name }" has a very long line and opened in light mode: no colors, no language server and with line wrap
 lsp-light-mode = file in light mode (very long line): no language server
+
+## Executável recompilado
+binary-changed = The IDE was rebuilt: run "Restart the IDE" (palette) to use the new version.
+binary-changed-title = [new version: restart]
+binary-restart-error = Could not restart: { $error }

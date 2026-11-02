@@ -25,16 +25,21 @@ pub fn log_path() -> Option<PathBuf> {
 }
 
 /// Roda a cópia solta com os mesmos argumentos. `Ok`: este processo deve sair; `Err`: segue no terminal.
-#[cfg(unix)]
 pub fn spawn() -> std::io::Result<()> {
-    use std::os::unix::process::CommandExt;
-    use std::process::{Command, Stdio};
-
     // AppImage: o executável está numa montagem que some quando este processo sai; roda o `.AppImage` de novo.
     let exe = match std::env::var_os("APPIMAGE").map(PathBuf::from).filter(|p| p.is_file()) {
         Some(appimage) => appimage,
         None => std::env::current_exe()?,
     };
+    spawn_exe(&exe)
+}
+
+/// Roda `exe` com os argumentos deste processo, numa sessão própria, com a saída no log.
+#[cfg(unix)]
+pub fn spawn_exe(exe: &Path) -> std::io::Result<()> {
+    use std::os::unix::process::CommandExt;
+    use std::process::{Command, Stdio};
+
     let log = log_path().and_then(|p| open_log(&p).ok());
     let (out, err) = match &log {
         Some(f) => (Stdio::from(f.try_clone()?), Stdio::from(f.try_clone()?)),
@@ -56,7 +61,7 @@ pub fn spawn() -> std::io::Result<()> {
 }
 
 #[cfg(not(unix))]
-pub fn spawn() -> std::io::Result<()> {
+pub fn spawn_exe(_exe: &Path) -> std::io::Result<()> {
     Err(std::io::Error::other("sem suporte"))
 }
 
