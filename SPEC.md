@@ -875,7 +875,7 @@ e grava a resposta do usuário em `.idetea/ui/responses/<nome>/`. Estudo, decis�
     painel abrem. Um `path` com `..` mostra o erro no painel. (aprovado)
 - [ ] **Desenvolver a IDE TEA com a IDE TEA (dogfooding):** o agente de código deste repositório pergunta e entrega os
   testes manuais pelo painel Interfaces (instruções no `CLAUDE.md`). Cada lacuna encontrada entra na lista abaixo,
-  com o que aconteceu; a lista é a base da RFC 0003 (evolução das interfaces: decisões, artefatos para revisão,
+  com o que aconteceu; a lista é a base da [RFC 0003](docs/rfc/0003-interfaces-pelo-uso.md) (evolução das interfaces: decisões, artefatos para revisão,
   simulações), em vez de planejar tudo antes do uso.
   - Lacunas encontradas:
     1. "Ensinar os agentes" num projeto sem `AGENTS.md` nem `CLAUDE.md` cria só o `AGENTS.md`; o Claude Code lê o
@@ -901,6 +901,12 @@ e grava a resposta do usuário em `.idetea/ui/responses/<nome>/`. Estudo, decis�
        agente conferiu o arquivo e pediu de novo. Nas entregas, dizer como reconhecer a versão nova (ou o agente
        conferir o efeito no disco antes de commitar, como aqui). Aconteceu de novo no teste da lacuna 9. (resolvida:
        item abaixo; o agente continua conferindo no disco)
+    10. Aprovado antes de terminar todos os passos: "Ensinar os agentes" ficou de fora duas vezes e "Reiniciar a
+       IDE" uma; o agente pegou conferindo o disco e o processo. (RFC 0003, etapa B)
+    11. O agente não sabe qual IDE respondeu: cruzou `pgrep`, `/proc` e o PID dentro do `event`, que não é
+       contrato. (RFC 0003, etapa A)
+    12. Um aviso fixo do agente sobre a IDE ("esta é a antiga") continuou na tela depois que deixou de ser verdade,
+       e o teste falhou por isso. (RFC 0003, etapas A e C)
     9. Os comandos que o agente sugere no painel (`cargo run -p tea-app -- .`) não são fáceis de copiar: o texto
        do painel não seleciona. Opção: botão de copiar nos blocos de código do `markdown`. (resolvida: item
        abaixo)
@@ -945,9 +951,18 @@ e grava a resposta do usuário em `.idetea/ui/responses/<nome>/`. Estudo, decis�
   terminou), a IDE avisa uma vez e o título ganha "[versão nova: reinicie]". O comando `app.restart` ("Reiniciar a
   IDE") passa pelo mesmo diálogo de arquivos não salvos do "Sair", salva a sessão, roda o executável novo com os
   mesmos argumentos (solto, numa sessão própria, saída no log) e sai. Se não der para rodar, avisa e fica aberta.
-  - [ ] Teste manual: com a IDE aberta, `touch target/debug/idetea`: em alguns segundos vem o aviso e o título muda;
+  - [x] Teste manual: com a IDE aberta, `touch target/debug/idetea`: em alguns segundos vem o aviso e o título muda;
     "Reiniciar a IDE" com um arquivo alterado pergunta antes; a IDE volta com as mesmas abas e o título normal.
     (aprovado, pelo painel)
+- [ ] **Quem respondeu** ([RFC 0003](docs/rfc/0003-interfaces-pelo-uso.md), etapa A; lacunas 8, 11 e 12): a
+  resposta ganha `ide` (`pid`, `version`, `outdated`); o cabeçalho do painel mostra quando a IDE está desatualizada.
+  Formato, schema e instruções dos agentes.
+- [ ] **Passos que se marcam** (RFC 0003, etapa B; lacuna 10): componente `steps` (cada passo um `checkbox`, texto
+  em Markdown de uma linha, `optional`); o valor é a lista dos ids marcados; `requires` no `button` deixa o botão
+  desabilitado até os passos obrigatórios estarem marcados.
+- [ ] **Convenções de entrega nas instruções** (RFC 0003, etapa C): entrega de teste com os três botões, conferir
+  no disco antes de commitar, não afirmar o estado da IDE, ler o `ide` da resposta.
+- [ ] **Segundo projeto de dogfooding** (RFC 0003, decisão 3): depois de A, B e C; decide imagem e mídia.
 - Depois, só se o uso pedir: `Row`/`Column`, progresso, Markdown sem links, vários painéis (`PanelId` dinâmico no
   núcleo), adaptador A2UI v1.0, e a mesma crate nos painéis dos plugins WASM (Fase 4).
 
