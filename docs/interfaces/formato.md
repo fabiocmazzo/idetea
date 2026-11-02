@@ -152,7 +152,8 @@ Os links levam a três lugares; qualquer outro só mostra um aviso:
 - **Config da IDE:** `idetea:config` (o global) e `idetea:config-project` (o do projeto). É o único jeito de
   apontar para um arquivo fora do projeto, e só para esses dois.
 
-Imagens não são carregadas (aparece o texto alternativo). Tabelas e HTML aparecem como texto.
+Blocos de código (entre ```` ``` ````) ganham um botão **Copiar** no canto: ponha num bloco os comandos que o
+usuário deve rodar. Imagens não são carregadas (aparece o texto alternativo). Tabelas e HTML aparecem como texto.
 
 ## A resposta
 

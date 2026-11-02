@@ -376,6 +376,7 @@ impl Extension for UiExtension {
                 tea_declarative_ui::open_file(&self.root, &path, line, column, ctx);
             }
             Message::Ui(_, UiMessage::Link(url)) => tea_declarative_ui::follow(&url, &self.root, ctx),
+            Message::Ui(_, UiMessage::Copy(code)) => return tea_declarative_ui::copy(code, ctx),
             Message::Submit(name, source) => self.submit(&name, &source, ctx),
             Message::AskTeach => self.ask_teach(ctx),
             Message::Teach => self.teach(ctx),

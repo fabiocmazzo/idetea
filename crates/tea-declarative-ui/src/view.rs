@@ -1,6 +1,6 @@
 //! Desenho de uma interface em iced: os componentes um embaixo do outro; botões seguidos ficam na mesma linha.
 
-use iced::widget::{Column, button, checkbox, column, container, markdown, pick_list, row, text, text_input};
+use iced::widget::{Column, button, checkbox, column, container, markdown, pick_list, row, stack, text, text_input};
 use std::collections::HashMap;
 
 use iced::{Element, Fill, Theme};
@@ -21,6 +21,8 @@ pub enum UiMessage {
     Link(String),
     /// O "comentário para o agente" mudou.
     Comment(String),
+    /// Botão "copiar" de um bloco de código do Markdown: o texto vai para a área de transferência.
+    Copy(String),
 }
 
 /// O Markdown de um documento já lido, por id do componente. Fica com quem desenha (as peças do iced não podem
@@ -55,6 +57,22 @@ impl<'a> markdown::Viewer<'a, UiMessage> for Viewer {
     ) -> Element<'a, UiMessage> {
         let alt: String = alt.spans(settings.style).iter().map(|s| s.text.as_ref()).collect();
         container(text(alt).size(12)).padding(6).style(container::bordered_box).into()
+    }
+
+    /// O bloco do iced com um botão "copiar" no canto (comandos que o agente pede para rodar).
+    fn code_block(
+        &self,
+        settings: markdown::Settings,
+        _language: Option<&'a str>,
+        code: &'a str,
+        lines: &'a [markdown::Text],
+    ) -> Element<'a, UiMessage> {
+        let block = markdown::code_block(settings, lines, UiMessage::Link);
+        let copy = button(text(fl!("ui-copy")).size(11))
+            .padding([2, 8])
+            .style(button::secondary)
+            .on_press(UiMessage::Copy(code.trim_end().to_string()));
+        stack![block, container(copy).width(Fill).align_right(Fill).padding(4)].into()
     }
 }
 
@@ -208,6 +226,7 @@ mod tests {
                 { "id": "x", "component": "grafico" },
                 { "id": "f", "component": "file", "path": "notas/rascunho.md", "line": 4, "label": "Escreva aqui" },
                 { "id": "md", "component": "markdown", "text": "Leia **com calma** e [abra o arquivo](src/a.rs:3)." },
+                { "id": "cmd", "component": "markdown", "text": "Rode:\n\n```sh\ncargo test\n```\n" },
                 { "id": "enviar", "component": "button", "label": "Enviar", "action": { "name": "enviar", "context": ["/nome", "/ok"] } },
                 { "id": "cancelar", "component": "button", "label": "Cancelar", "style": "secondary", "action": { "name": "cancelar" } }
             ]
@@ -228,11 +247,13 @@ mod tests {
         assert_eq!(rendered.0["md"].len(), 1, "o Markdown foi lido (um parágrafo)");
         let comment = fl!("ui-comment-label");
         assert!(ui.find(comment.as_str()).is_ok(), "campo de comentário antes dos botões");
+        ui.click(fl!("ui-copy").as_str()).unwrap();
         ui.click("Escreva aqui").unwrap();
         ui.click("Concordo").unwrap();
         ui.click("Enviar").unwrap();
         let msgs: Vec<UiMessage> = ui.into_messages().collect();
         assert_eq!(msgs, vec![
+            UiMessage::Copy("cargo test".into()),
             UiMessage::Open { path: "notas/rascunho.md".into(), line: 4, column: 0 },
             UiMessage::Set { path: "/ok".into(), value: json!(true) },
             UiMessage::Press("enviar".into()),

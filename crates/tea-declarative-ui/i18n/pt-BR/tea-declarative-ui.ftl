@@ -23,3 +23,5 @@ ui-link-error = Não deu para abrir { $url }: { $error }
 ui-link-ignored = Link ignorado (só web, arquivos do projeto e idetea:config): { $url }
 ui-comment-label = Comentário para o agente (opcional)
 ui-comment-placeholder = vai junto com o botão que você clicar
+ui-copy = Copiar
+ui-copied = Copiado.

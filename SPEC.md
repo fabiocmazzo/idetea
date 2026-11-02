@@ -901,7 +901,8 @@ e grava a resposta do usuário em `.idetea/ui/responses/<nome>/`. Estudo, decis�
        agente conferiu o arquivo e pediu de novo. Nas entregas, dizer como reconhecer a versão nova (ou o agente
        conferir o efeito no disco antes de commitar, como aqui).
     9. Os comandos que o agente sugere no painel (`cargo run -p tea-app -- .`) não são fáceis de copiar: o texto
-       do painel não seleciona. Opção: botão de copiar nos blocos de código do `markdown`.
+       do painel não seleciona. Opção: botão de copiar nos blocos de código do `markdown`. (resolvida: item
+       abaixo)
 - [x] **Instruções para agentes só em inglês** (lacuna 6): um texto só (`agents/instructions.md`), qualquer que seja
   o idioma da IDE, com o pedido de conversar e escrever as interfaces no idioma do usuário, e de pôr no painel toda
   pergunta que espera resposta depois que o painel estiver em uso (lacuna 7). Saem os textos em português e
@@ -932,6 +933,12 @@ e grava a resposta do usuário em `.idetea/ui/responses/<nome>/`. Estudo, decis�
   dos dois continuam como antes.
   - [x] Teste manual: numa pasta vazia, o botão do painel vazio lista `AGENTS.md (novo)` e `CLAUDE.md (novo)`; os
     dois aparecem, o `CLAUDE.md` com `@AGENTS.md`; rodar de novo avisa "já atualizadas". (aprovado, pelo painel)
+- [x] **Copiar comandos do painel** (lacuna 9): os blocos de código do `markdown` ganham um botão "Copiar" no canto
+  (o bloco é o do iced, com o botão por cima); o texto vai para a área de transferência, com o aviso "Copiado". Vale
+  no painel Interfaces e nos plugins. As instruções dos agentes pedem os comandos em blocos de código.
+  - [x] Teste manual: na entrega deste item, "Copiar" no bloco do comando e colar num terminal: vem o comando
+    inteiro, sem o "```"; rodar "Ensinar os agentes": o `CLAUDE.md` ganha a frase sobre blocos de código.
+    (aprovado, pelo painel)
 - Depois, só se o uso pedir: `Row`/`Column`, progresso, Markdown sem links, vários painéis (`PanelId` dinâmico no
   núcleo), adaptador A2UI v1.0, e a mesma crate nos painéis dos plugins WASM (Fase 4).
 

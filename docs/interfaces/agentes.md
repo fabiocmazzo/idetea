@@ -55,7 +55,7 @@ the panel, put every question that needs my answer there, not only in the chat: 
      response: read the file from disk after it.
    - Links in `markdown` open the web (`https://…`), project files (`src/main.rs:42`) or the IDE config
      (`idetea:config`, `idetea:config-project`). Use a `markdown` for step lists and commands instead of one
-     `text` per step.
+     `text` per step. Put every command I should run in a fenced code block: the panel shows a Copy button on it.
 2. Wait for the response in `.idetea/ui/responses/<name>/`. Use bash (in zsh, `compgen` does not exist or
    behaves differently):
    ```sh

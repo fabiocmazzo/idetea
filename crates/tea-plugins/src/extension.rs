@@ -236,6 +236,7 @@ impl Extension for PluginExtension {
                 tea_declarative_ui::open_file(&self.root, &path, line, column, ctx);
             }
             Message::Ui(UiMessage::Link(url)) => tea_declarative_ui::follow(&url, &self.root, ctx),
+            Message::Ui(UiMessage::Copy(code)) => return tea_declarative_ui::copy(code, ctx),
             Message::Ui(UiMessage::Comment(_)) => {} // o painel de plugin não mostra o comentário
             Message::Ui(UiMessage::Press(source)) => {
                 let Some(Ok(doc)) = &self.doc else { return Task::none() };

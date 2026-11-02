@@ -69,6 +69,12 @@ pub fn open_file(root: &Path, path: &str, line: u64, column: u64, ctx: &mut Cont
     }
 }
 
+/// O botão "copiar" de um bloco de código: o texto vai para a área de transferência, com um aviso.
+pub fn copy<T>(code: String, ctx: &mut Context) -> iced::Task<T> {
+    ctx.notify(fl!("ui-copied"));
+    iced::clipboard::write(code)
+}
+
 /// Segue um link clicado no Markdown de uma interface.
 pub fn follow(url: &str, root: &Path, ctx: &mut Context) {
     match link(url) {

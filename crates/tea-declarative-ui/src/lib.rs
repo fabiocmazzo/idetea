@@ -21,7 +21,7 @@ pub use document::{
     Action, ButtonStyle, Choice, Component, Document, FORMAT, Kind, Limits, Submit, TextStyle, VERSION,
     parse,
 };
-pub use links::{Link, follow, link, open_file};
+pub use links::{Link, copy, follow, link, open_file};
 pub use response::{RESPONSE_FORMAT, Response, file_name, timestamp};
 pub use state::State;
 pub use view::{Rendered, UiMessage, view};
