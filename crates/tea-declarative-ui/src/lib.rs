@@ -26,6 +26,6 @@ pub use document::{
 pub use media::{AUDIO_EXTENSIONS, Frames, Media, MediaLimits, Picture, Sound, display_size, fit, stamps as media_stamps};
 pub use links::{Link, copy, follow, link, open_file};
 pub use response::{Ide, RESPONSE_FORMAT, Response, Seen, file_name, timestamp};
-pub use state::State;
+pub use state::{State, Waiting};
 pub use view::{Playback, Rendered, UiMessage, view};
 pub use wav::WavInfo;

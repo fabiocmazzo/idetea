@@ -30,7 +30,8 @@ ui-steps-missing = { $count ->
    *[other] Faltan marcar { $count } pasos.
 }
 ui-step-optional = (opcional)
-ui-requires-not-steps = "{ $field }" debe apuntar al "value" de un "steps"; ignorado.
+ui-requires-unbound = "{ $field }": "{ $path }" no es el "value" de ningún componente; ignorado.
+ui-fields-missing = Falta completar: { $fields }
 ui-too-many-images = El documento tiene más de { $max } imágenes.
 ui-image-loading = { $path }: cargando…
 ui-image-error = no se pudo leer: { $error }

@@ -101,7 +101,7 @@ Todo componente tem `id` (`[A-Za-z0-9_-]`, até 64, único no documento) e `comp
 | `component` | Campos | Notas |
 |---|---|---|
 | `text` | `text`, `style` | `style`: `normal` (padrão), `muted`, `warning`, `error`. |
-| `button` | `label`, `action`, `style`, `requires` | `style`: `primary` (padrão), `secondary`, `danger`. Botões seguidos ficam na mesma linha. `requires`: o `value` de um `steps`; o botão fica desligado até os passos obrigatórios estarem marcados. |
+| `button` | `label`, `action`, `style`, `requires` | `style`: `primary` (padrão), `secondary`, `danger`. Botões seguidos ficam na mesma linha. `requires`: um caminho ou uma lista (`["/feitos", "/escolha"]`), cada um o `value` de um componente; o botão fica desligado até os passos obrigatórios de um `steps` estarem marcados e os outros campos preenchidos. |
 | `checkbox` | `label`, `value` | Valor booleano. |
 | `select` | `options`, `value`, `label` | `options`: até 500, cada uma `"x"` ou `{"value": "x", "label": "X"}`. Valor: o `value` escolhido. |
 | `input` | `value`, `label`, `placeholder` | Texto de uma linha. |
@@ -131,6 +131,18 @@ Uma entrega de teste: os passos se marcam, e "Aprovado" espera todos (o "Falhou"
 {"id": "falhou", "component": "button", "label": "Falhou", "style": "danger",
  "action": {"name": "falhou", "context": ["/feitos"]}}
 ```
+
+`requires` também espera outros campos, e aceita uma lista. Uma escolha obrigatória numa `gallery` e o que
+ajustar num `input`:
+
+```json
+{"id": "enviar", "component": "button", "label": "Enviar", "requires": ["/escolha", "/ajuste"],
+ "action": {"name": "enviar", "context": ["/escolha", "/ajuste"]}}
+```
+
+Preenchido quer dizer: uma escolha feita (não `null`), texto com algo além de espaços, `checkbox` marcada, lista
+não vazia. Embaixo dos botões o painel diz o que falta ("Falta preencher: …", pelo `label` do campo, ou pelo `id`).
+Um caminho que não é o `value` de nenhum componente vira aviso e é ignorado.
 
 ### Limites
 

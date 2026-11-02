@@ -48,7 +48,7 @@
             "properties": {
               "label": { "$ref": "#/$defs/text" },
               "style": { "enum": ["primary", "secondary", "danger"] },
-              "requires": { "$ref": "#/$defs/binding" },
+              "requires": { "oneOf": [ { "$ref": "#/$defs/binding" }, { "type": "array", "items": { "$ref": "#/$defs/binding" } } ] },
               "action": {
                 "type": "object",
                 "required": ["name"],

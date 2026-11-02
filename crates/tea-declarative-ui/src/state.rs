@@ -75,12 +75,35 @@ impl State {
             .count()
     }
 
-    /// O botão está esperando passos (`requires`): quantos faltam (0: pode clicar).
-    pub fn waiting(&self, doc: &Document, button: &Kind) -> usize {
-        match button {
-            Kind::Button { requires: Some(path), .. } => self.missing(doc, path),
-            _ => 0,
+    /// O campo em `path` tem valor: escolha feita, texto não vazio, caixa marcada, lista com algo.
+    pub fn filled(&self, doc: &Document, path: &str) -> bool {
+        match self.value(doc, path) {
+            None | Some(Value::Null) => false,
+            Some(Value::Bool(b)) => *b,
+            Some(Value::String(s)) => !s.trim().is_empty(),
+            Some(Value::Array(a)) => !a.is_empty(),
+            Some(Value::Object(o)) => !o.is_empty(),
+            Some(Value::Number(_)) => true,
         }
+    }
+
+    /// O que o botão ainda espera (`requires`): passos que faltam e os campos vazios (pelo rótulo).
+    pub fn waiting(&self, doc: &Document, button: &Kind) -> Waiting {
+        let mut out = Waiting::default();
+        let Kind::Button { requires, .. } = button else { return out };
+        for path in requires {
+            let Some(c) = doc.components.iter().find(|c| c.kind.binding() == Some(path.as_str())) else { continue };
+            match &c.kind {
+                Kind::Steps { .. } => out.steps += self.missing(doc, path),
+                kind if !self.filled(doc, path) => out.fields.push(match kind {
+                    Kind::Checkbox { label, .. } => label.clone(),
+                    Kind::Select { label: Some(l), .. } | Kind::Input { label: Some(l), .. } => l.clone(),
+                    _ => c.id.clone(),
+                }),
+                _ => {}
+            }
+        }
+        out
     }
 
     /// Os botões estão desligados: já respondeu esta revisão e ela só aceita uma resposta.
@@ -96,7 +119,7 @@ impl State {
         }
         let button = doc.components.iter().find(|c| c.id == source)?;
         let Kind::Button { action, .. } = &button.kind else { return None };
-        if self.waiting(doc, &button.kind) > 0 {
+        if !self.waiting(doc, &button.kind).is_empty() {
             return None;
         }
         // Os dados como o usuário vê: o `data` do agente com o que ele mudou por cima. Assim um caminho de objeto
@@ -111,6 +134,21 @@ impl State {
             action.context.iter().map(|p| (p.clone(), pointer::get(&seen, p).cloned().unwrap_or(Value::Null))).collect();
         self.answered = Some(doc.revision);
         Some((action.name.clone(), values))
+    }
+}
+
+/// O que falta para um botão com `requires` ligar.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct Waiting {
+    /// Passos obrigatórios ainda sem marcar.
+    pub steps: usize,
+    /// Campos ainda vazios, pelo rótulo (ou id).
+    pub fields: Vec<String>,
+}
+
+impl Waiting {
+    pub fn is_empty(&self) -> bool {
+        self.steps == 0 && self.fields.is_empty()
     }
 }
 

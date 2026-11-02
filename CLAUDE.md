@@ -65,7 +65,9 @@ the panel, put every question that needs my answer there, not only in the chat: 
      make the approve button wait for them: `{"id": "s", "component": "steps", "value": "/done", "items":
      [{"id": "a", "text": "Run `x`"}, {"id": "b", "text": "Maybe y", "optional": true}]}` and
      `"requires": "/done"` on the button. The value is the list of checked ids; put `/done` in the `context` of
-     the "failed" button too, so you see how far I got.
+     the "failed" button too, so you see how far I got. `requires` also takes any field and a list:
+     `"requires": ["/pick", "/what"]` waits for a choice in the gallery and a non-empty input (the panel says what
+     is missing).
 2. Wait for the response in `.idetea/ui/responses/<name>/`. Use bash (in zsh, `compgen` does not exist or
    behaves differently):
    ```sh
@@ -105,5 +107,5 @@ did not find.
 Do not put secrets in the document. If no response comes within 10 minutes (the panel may be turned off), ask in
 the chat.
 
-Instructions version: `978b5ec5`
+Instructions version: `1929b1fb`
 <!-- idetea-ui:end -->

@@ -83,8 +83,9 @@ pub struct Component {
 #[derive(Debug, Clone, PartialEq)]
 pub enum Kind {
     Text { text: String, style: TextStyle },
-    /// `requires`: caminho de um `steps`; o botão só liga com os passos obrigatórios dele marcados.
-    Button { label: String, style: ButtonStyle, action: Action, requires: Option<String> },
+    /// `requires`: caminhos que o botão espera. De um `steps`: os passos obrigatórios marcados; de outro campo
+    /// (`select`, `input`, `checkbox`, `gallery`): um valor preenchido.
+    Button { label: String, style: ButtonStyle, action: Action, requires: Vec<String> },
     /// Passos numerados que o usuário marca. `value`: caminho da lista dos ids marcados.
     Steps { items: Vec<Step>, value: String },
     /// `value`: caminho (ponteiro JSON) do valor em `data`.
@@ -317,20 +318,17 @@ pub fn parse(bytes: &[u8], limits: &Limits) -> Result<Document, String> {
     if sounds > limits.max_images {
         return Err(fl!("ui-too-many-sounds", max = limits.max_images));
     }
-    // `requires` só vale para o caminho de um `steps`; outro caminho vira aviso e o botão não espera nada.
-    let steps: Vec<String> = components
-        .iter()
-        .filter_map(|c| match &c.kind {
-            Kind::Steps { value, .. } => Some(value.clone()),
-            _ => None,
-        })
-        .collect();
+    // `requires` só vale para o `value` de um componente; outro caminho vira aviso e o botão não espera por ele.
+    let bound: Vec<String> = components.iter().filter_map(|c| c.kind.binding().map(str::to_string)).collect();
     for (i, c) in components.iter_mut().enumerate() {
-        if let Kind::Button { requires: requires @ Some(_), .. } = &mut c.kind
-            && !steps.contains(requires.as_ref().unwrap())
-        {
-            r.warnings.push(fl!("ui-requires-not-steps", field = format!("components[{i}].requires")));
-            *requires = None;
+        if let Kind::Button { requires, .. } = &mut c.kind {
+            requires.retain(|path| {
+                let ok = bound.contains(path);
+                if !ok {
+                    r.warnings.push(fl!("ui-requires-unbound", field = format!("components[{i}].requires"), path = path.clone()));
+                }
+                ok
+            });
         }
     }
 
@@ -449,6 +447,22 @@ impl Reader {
         }
     }
 
+    /// `requires`: um caminho (`"/x"` ou `{"path": "/x"}`) ou uma lista deles.
+    fn requires(&self, obj: &Map<String, Value>, field: &str) -> Result<Vec<String>, String> {
+        match obj.get("requires") {
+            None | Some(Value::Null) => Ok(Vec::new()),
+            Some(Value::Array(list)) => list
+                .iter()
+                .enumerate()
+                .map(|(i, v)| {
+                    let one: Map<String, Value> = [(format!("requires[{i}]"), v.clone())].into_iter().collect();
+                    self.path(&one, &format!("requires[{i}]"), field)
+                })
+                .collect(),
+            Some(_) => Ok(vec![self.path(obj, "requires", field)?]),
+        }
+    }
+
     fn component(&mut self, item: &Value, field: &str) -> Result<Component, String> {
         let Value::Object(obj) = item else {
             return Err(fl!("ui-wrong-type", field = field, expected = "object"));
@@ -481,10 +495,7 @@ impl Reader {
                     label: self.required(obj, "label", field)?,
                     style: self.button_style(obj, field)?,
                     action: self.action(obj, field)?,
-                    requires: match obj.get("requires") {
-                        None | Some(Value::Null) => None,
-                        Some(_) => Some(self.path(obj, "requires", field)?),
-                    },
+                    requires: self.requires(obj, field)?,
                 },
             ),
             "image" => (

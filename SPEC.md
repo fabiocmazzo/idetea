@@ -1070,6 +1070,11 @@ e grava a resposta do usuário em `.idetea/ui/responses/<nome>/`. Estudo, decis�
   janela). O temporário `.<nome>.json.tmp` vale pelo nome final.
   - [x] Teste manual (aprovado, pelo painel): `.idetea/ui/check` num documento bom, num quebrado e num com mídia
     faltando (rodado neste projeto; no jogo o script aparece quando a IDE abrir lá).
+- [x] **`requires` em qualquer campo** (lacuna 17, 1): um caminho ou uma lista; de um `steps`, os passos
+  obrigatórios; de outro campo (`gallery`, `select`, `input`, `checkbox`), um valor preenchido. O painel diz o que
+  falta ("Falta preencher: …"). Caminho sem componente: aviso e ignorado.
+  - [x] Teste manual (aprovado, pelo painel): um botão que espera uma escolha na `gallery`, um texto e uma
+    `checkbox`; liga só com os três.
 - [x] **Aba de imagem sempre em dia + schema junto do formato** (lacuna 16): as abas de imagem e PDF conferem
   tamanho e data do arquivo a cada segundo (além do observador) e recarregam quando mudam; o rodapé da aba mostra a
   hora em que o arquivo foi gravado, para conferir qual versão está na tela. A IDE grava também

@@ -168,14 +168,29 @@ pub fn view<'a>(
             doc.components[i..].iter().take_while(|c| matches!(c.kind, Kind::Button { .. })).collect();
         if !buttons.is_empty() {
             i += buttons.len();
-            let waiting = buttons.iter().map(|c| state.waiting(doc, &c.kind)).max().unwrap_or(0);
-            let line = row(buttons.into_iter().map(|c| button_view(c, locked || state.waiting(doc, &c.kind) > 0)))
+            // O que falta, de todos os botões da linha (normalmente um só espera).
+            let mut steps = 0;
+            let mut fields: Vec<String> = Vec::new();
+            for c in &buttons {
+                let w = state.waiting(doc, &c.kind);
+                steps = steps.max(w.steps);
+                for f in w.fields {
+                    if !fields.contains(&f) {
+                        fields.push(f);
+                    }
+                }
+            }
+            let line = row(buttons.into_iter().map(|c| button_view(c, locked || !state.waiting(doc, &c.kind).is_empty())))
                 .spacing(8)
                 .wrap()
                 .vertical_spacing(8);
             out = out.push(line);
-            if waiting > 0 && !locked {
-                out = out.push(text(fl!("ui-steps-missing", count = waiting)).size(12).style(text::secondary));
+            if steps > 0 && !locked {
+                out = out.push(text(fl!("ui-steps-missing", count = steps)).size(12).style(text::secondary));
+            }
+            if !fields.is_empty() && !locked {
+                let list = fields.join(", ");
+                out = out.push(text(fl!("ui-fields-missing", fields = list)).size(12).style(text::secondary));
             }
             continue;
         }
@@ -594,12 +609,53 @@ mod tests {
         let (_, values) = state.press(&d, "ok").unwrap();
         assert_eq!(values["/feitos"], json!(["copiar", "ensinar"]));
 
-        // `requires` que não aponta um `steps`: aviso, e o botão não espera nada.
+        // `requires` que não aponta o `value` de um componente: aviso, e o botão não espera nada.
         let mut bad = v.clone();
         bad["components"][1]["requires"] = json!("/outro");
         let d = parse(bad.to_string().as_bytes(), &Limits::default()).unwrap();
         assert_eq!(d.warnings.len(), 1, "{:?}", d.warnings);
         assert!(State::new(&d).press(&d, "ok").is_some());
+    }
+
+    #[test]
+    fn requires_waits_for_any_field() {
+        let v = json!({
+            "format": "idetea-ui", "version": 1, "revision": 1,
+            "data": { "nome": "  " },
+            "components": [
+                { "id": "g", "component": "gallery", "select": "one", "value": "/escolha", "items": [
+                    { "id": "a", "path": "a.png" }, { "id": "b", "path": "b.png" } ] },
+                { "id": "n", "component": "input", "label": "O que ajustar", "value": "/nome" },
+                { "id": "c", "component": "checkbox", "label": "Ouvi tudo", "value": "/ouvi" },
+                { "id": "p", "component": "steps", "value": "/feitos", "items": [ { "id": "x", "text": "x" } ] },
+                { "id": "ok", "component": "button", "label": "Enviar", "requires": ["/escolha", "/nome", "/ouvi", "/feitos"],
+                  "action": { "name": "ok", "context": ["/escolha"] } }
+            ]
+        });
+        let d = parse(v.to_string().as_bytes(), &Limits::default()).unwrap();
+        assert!(d.warnings.is_empty(), "{:?}", d.warnings);
+        let rendered = Rendered::new(&d);
+        let mut state = State::new(&d);
+        let ok = &d.components[4].kind;
+        let w = state.waiting(&d, ok);
+        assert_eq!((w.steps, w.fields.clone()), (1, vec!["g".to_string(), "O que ajustar".into(), "Ouvi tudo".into()]), "texto só com espaços não conta");
+        let mut ui = simulator(view(&d, &state, &rendered, no_media(), no_playback(), &Theme::Dark, true));
+        assert!(ui.find(fl!("ui-fields-missing", fields = "g, O que ajustar, Ouvi tudo").as_str()).is_ok());
+        let _ = ui.click("Enviar");
+        assert_eq!(ui.into_messages().count(), 0, "esperando");
+
+        for (path, value) in [("/escolha", json!("b")), ("/nome", json!("a chama")), ("/ouvi", json!(true)), ("/feitos", json!(["x"]))] {
+            assert!(state.press(&d, "ok").is_none(), "ainda falta {path}");
+            state.set(path, value);
+        }
+        assert!(state.waiting(&d, ok).is_empty());
+        let (_, values) = state.press(&d, "ok").unwrap();
+        assert_eq!(values["/escolha"], json!("b"));
+
+        // Desmarcar a escolha (`null`) volta a esperar.
+        let mut again = State::new(&d);
+        again.set("/escolha", Value::Null);
+        assert!(again.waiting(&d, ok).fields.contains(&"g".to_string()));
     }
 
     #[test]
