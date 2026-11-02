@@ -885,6 +885,13 @@ e grava a resposta do usuário em `.idetea/ui/responses/<nome>/`. Estudo, decis�
        só aponta para lá.
     3. O usuário quis fazer perguntas de volta ao agente e usou o campo "Observação" para isso. Não há um jeito
        padrão de comentar uma resposta; avaliar um comentário opcional em toda resposta.
+    4. Na entrega de um teste, o passo "edite o config global" não teve link: o `file` só aceita caminhos do
+       projeto (por segurança). Opção: alguns destinos conhecidos fora do projeto (`config:global`), sem caminho
+       livre. Também faltou lista numerada: cada passo virou um `text` (lacuna 2).
+    5. O botão "Aprovado" de um teste não dizia se podia commitar: precisou de uma segunda pergunta (revisão 2).
+       Nas entregas, oferecer "Aprovado, pode commitar" junto.
+    6. Instruções para agentes: o usuário prefere o texto sempre em inglês (agentes leem melhor), com uma linha
+       pedindo para conversar no idioma do usuário, em vez de um texto por idioma da IDE.
 - Depois, só se o uso pedir: `Row`/`Column`, progresso, Markdown sem links, vários painéis (`PanelId` dinâmico no
   núcleo), adaptador A2UI v1.0, e a mesma crate nos painéis dos plugins WASM (Fase 4).
 
@@ -903,8 +910,19 @@ Estudo, medições e plano: [RFC 0002](docs/rfc/0002-plugins-wasm.md). Protótip
     plugin em meio segundo com o motivo no painel, sem travar a IDE. (aprovado)
 - [x] **Protocolo de UI declarativa para painéis de plugins:** o painel é um documento `idetea-ui` (RFC 0001) que o
   plugin manda com `set-panel`; clique volta em `on-action`. (Feito no protótipo; fecha junto com ele.) (aprovado)
-- [ ] Partes seguintes, depois da RFC aprovada: API que um plugin real pede (config, `/data`, `host.run`),
-  instalar e gerenciar pelas Configurações, texto para autores, e decidir se a feature entra no padrão.
+- [x] RFC 0002 aprovada (2026-11-02, pelo painel Interfaces): a feature `plugins` fica fora do padrão até existir
+  um plugin de verdade; a parte 2 começa por `host.run` e config própria.
+- [x] **API 0.2: `host.run` + config do plugin.** `host.config()` devolve `[plugins.<id>]` do config (global +
+  projeto) em JSON, e salvar o config manda `config-changed`. `host.run(id, command)` roda um programa sem
+  esperar (thread da IDE) e o resultado chega em `run-finished`: 4 por plugin, prazo de 10 s (até 60 s), 1 MB de
+  saída, `cwd` dentro do projeto, grupo de processos morto inteiro no prazo. O exemplo `contador` ganha o botão
+  "Rodar" com o comando da config (padrão `git status --short`).
+  - [x] Teste manual: instalar o contador novo (README dele) e abrir a IDE com `--features plugins` num
+    repositório git: "Rodar" mostra o `git status --short`; pôr `[plugins.contador] comando = ["sh", "-c", "sleep
+    1; ls"]` no config e salvar: o painel mostra o comando novo, e "Rodar" mostra "Rodando..." por 1 s sem travar
+    a IDE; `comando = ["sleep", "30"]`: em 5 s aparece o erro de prazo. (aprovado, pelo painel)
+- [ ] Partes seguintes: `/data` e mais eventos (quando um plugin pedir), instalar e gerenciar pelas
+  Configurações, texto para autores, e decidir se a feature entra no padrão (com um plugin de verdade).
 - **Plugins WASM têm confiança total:** um plugin instalado pode ler e escrever no disco e rodar processos, como extensões do VS Code.
   Não há sandbox de permissões (decisão do usuário). Instale só plugins em que você confia.
 

@@ -11,9 +11,10 @@ use wasmtime::component::{Component, HasSelf, Linker, ResourceTable};
 use wasmtime::{Config, Engine, Store};
 use wasmtime_wasi::{FsPerms, WasiCtx, WasiCtxView, WasiView};
 
-wasmtime::component::bindgen!({ world: "plugin", path: "wit" });
+wasmtime::component::bindgen!({ world: "plugin", path: "wit", additional_derives: [PartialEq] });
 
 // `Event` e `UiAction` (do `types` do WIT) já ficam neste módulo pelo `bindgen!`.
+pub use idetea::plugin::types::{Command, RunOutput};
 
 /// Um "tique" da época. O prazo de uma chamada é contado em tiques.
 const TICK: Duration = Duration::from_millis(10);
@@ -31,12 +32,17 @@ pub enum HostRequest {
     SetPanel(String),
     ShowPanel,
     Log(String),
+    Run { id: u32, command: Command },
+    /// `host.run` com programa, argumentos ou entrada grandes demais: recusado sem rodar.
+    RunTooBig(u32),
 }
 
 pub struct HostState {
     wasi: WasiCtx,
     table: ResourceTable,
     requests: Vec<HostRequest>,
+    /// `[plugins.<id>]` do config, em JSON (o que `host.config` devolve).
+    config: String,
 }
 
 impl WasiView for HostState {
@@ -76,6 +82,17 @@ impl idetea::plugin::host::Host for HostState {
     }
     fn log(&mut self, text: String) {
         self.requests.push(HostRequest::Log(cap(text, 4096)));
+    }
+    fn config(&mut self) -> String {
+        self.config.clone()
+    }
+    fn run(&mut self, id: u32, command: Command) {
+        // Pedidos grandes demais não chegam ao sistema; o plugin recebe o motivo em `run-finished`.
+        let too_big = command.program.len() > 4096
+            || command.args.len() > 1024
+            || command.args.iter().map(String::len).sum::<usize>() > 256 * 1024
+            || command.stdin.as_ref().is_some_and(|s| s.len() > 4 * 1024 * 1024);
+        self.requests.push(if too_big { HostRequest::RunTooBig(id) } else { HostRequest::Run { id, command } });
     }
 }
 
@@ -141,7 +158,8 @@ impl Instance {
         if project.is_dir() {
             wasi.preopened_dir(project, "/project", FsPerms::ReadWrite).map_err(|e| format!("{e:#}"))?;
         }
-        let state = HostState { wasi: wasi.build(), table: ResourceTable::new(), requests: Vec::new() };
+        let state =
+            HostState { wasi: wasi.build(), table: ResourceTable::new(), requests: Vec::new(), config: "{}".into() };
         let mut store = Store::new(engine, state);
         store.set_epoch_deadline(ticks(ACTIVATE_BUDGET));
         let bindings = Plugin::instantiate(&mut store, &component, &linker).map_err(|e| format!("{e:#}"))?;
@@ -165,6 +183,11 @@ impl Instance {
             }
             Err(e) => Err(format!("{e:#}")),
         }
+    }
+
+    /// O que `host.config` devolve (objeto JSON).
+    pub fn set_config(&mut self, json: String) {
+        self.store.data_mut().config = json;
     }
 
     pub fn activate(&mut self) -> Result<Vec<HostRequest>, String> {
@@ -251,6 +274,19 @@ pub(crate) mod tests {
         assert!(panel(&r).contains("Valor: 0"));
         let r = p.on_event(&Event::FileSaved("a.txt".into())).unwrap();
         assert!(panel(&r).contains("1 arquivos salvos"));
+
+        // Config e `host.run`: o pedido sai com o comando da config; o resultado volta como evento.
+        p.set_config(r#"{"comando": ["echo", "olá"]}"#.into());
+        let r = p.on_command("contador.rodar").unwrap();
+        let run = r.iter().find_map(|r| if let HostRequest::Run { id, command } = r { Some((*id, command)) } else { None });
+        let (id, command) = run.expect("pediu para rodar");
+        assert_eq!((command.program.as_str(), command.args.as_slice()), ("echo", ["olá".to_string()].as_slice()));
+        assert!(panel(&r).contains("Rodando echo"));
+        let out = crate::process::run(&project, id, command);
+        let r = p.on_event(&Event::RunFinished(out)).unwrap();
+        assert!(panel(&r).contains("olá"), "{}", panel(&r));
+        let r = p.on_event(&Event::ConfigChanged).unwrap();
+        assert!(r.contains(&HostRequest::Log("config mudou".into())));
 
         // Laço infinito: interrompido no prazo.
         let t = Instant::now();

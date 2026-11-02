@@ -85,6 +85,10 @@ preview = { enabled = true, slot = "right" }
 # Experimental: interfaces que um agente escreve em .idetea/ui/ (docs/interfaces/formato.md).
 interfaces = { enabled = false, slot = "right" }
 
+# Plugins (~/.local/share/idetea/plugins/<id>/): a config de cada um, no formato que o plugin pedir.
+# [plugins.contador]
+# comando = ["git", "status", "--short"]
+
 # Atalhos: "combinação" = "comando". Comando vazio ("") desliga o atalho.
 # Atalhos que o editor já usa (Ctrl+F, Ctrl+H, Ctrl+G, Ctrl+Z, Ctrl+D...) têm prioridade quando ele tem foco.
 [keys]
@@ -253,6 +257,8 @@ pub struct Config {
     /// Tarefas do usuário: nome → comando.
     pub tasks: BTreeMap<String, String>,
     pub extensions: BTreeMap<String, ExtensionConfig>,
+    /// Config de cada plugin (`[plugins.<id>]`): o plugin lê com `host.config` (formato livre).
+    pub plugins: BTreeMap<String, toml::Table>,
     /// Atalhos na ordem das camadas (os últimos vencem).
     pub keys: Vec<(String, String)>,
     /// Problemas encontrados ao ler (o config segue com o que deu para ler).
@@ -328,10 +334,11 @@ impl Config {
         let lsp = take_section(&mut merged, "lsp", &mut errors);
         let debug = take_section(&mut merged, "debug", &mut errors);
         let tasks = take_section(&mut merged, "tasks", &mut errors);
+        let plugins = take_section(&mut merged, "plugins", &mut errors);
         for unknown in merged.keys() {
             errors.push(fl!("config-unknown-section", section = unknown.as_str()));
         }
-        Self { ui, editor, lsp, debug, tasks, extensions, keys, errors }
+        Self { ui, editor, lsp, debug, tasks, extensions, plugins, keys, errors }
     }
 
     /// Config de uma extensão (padrão: ligada, slot escolhido pela extensão).

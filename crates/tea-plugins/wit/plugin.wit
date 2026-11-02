@@ -3,9 +3,11 @@
 /// Um plugin é um componente WASM (`cargo build --target wasm32-wasip2`). Ele vê a pasta do projeto pelo WASI
 /// (como `/project`) e conversa com a IDE só por este arquivo: a IDE chama as funções exportadas; o plugin pede
 /// coisas importando `host`. Os pedidos são aplicados quando a função exportada termina.
-package idetea:plugin@0.1.0;
+package idetea:plugin@0.2.0;
 
 interface host {
+    use types.{command};
+
     /// Mensagem curta na barra de avisos.
     notify: func(text: string);
     /// Registra um comando na paleta. O id tem que começar com `<id do plugin>.`.
@@ -18,6 +20,12 @@ interface host {
     show-panel: func();
     /// Linha no log da IDE (stderr com `IDETEA_PLUGIN_LOG=1`).
     log: func(text: string);
+    /// A config do plugin: a tabela `[plugins.<id>]` do config da IDE (global + projeto), como objeto JSON
+    /// (`{}` se não houver). Muda quando o usuário salva o config: chega o evento `config-changed`.
+    config: func() -> string;
+    /// Roda um programa fora da IDE, sem esperar: o resultado chega depois no evento `run-finished` com o mesmo
+    /// `id` (escolhido pelo plugin). No máximo 4 ao mesmo tempo por plugin; passou do prazo, o processo é morto.
+    run: func(id: u32, command: command);
 }
 
 interface types {
@@ -31,11 +39,40 @@ interface types {
         values: string,
     }
 
+    /// Um programa para `host.run`.
+    record command {
+        /// Nome (procurado no PATH) ou caminho do executável. Não passa por shell: para pipes, use `sh -c`.
+        program: string,
+        args: list<string>,
+        /// Pasta onde roda, relativa à raiz do projeto (`none`: a raiz). Não sai do projeto.
+        cwd: option<string>,
+        /// Texto para a entrada padrão (`none`: entrada vazia).
+        stdin: option<string>,
+        /// Prazo em milissegundos (0 = 10 s; no máximo 60 s).
+        timeout-ms: u32,
+    }
+
+    /// Como terminou um `host.run`.
+    record run-output {
+        id: u32,
+        /// Código de saída (`none`: morto por sinal, prazo estourado ou não começou).
+        status: option<s32>,
+        /// Saída e erro do programa (até 1 MB cada; o resto é cortado).
+        stdout: string,
+        stderr: string,
+        /// Não começou (programa não encontrado, `cwd` fora do projeto, muitos ao mesmo tempo) ou passou do prazo.
+        error: option<string>,
+    }
+
     variant event {
         /// Um arquivo do projeto foi salvo (caminho relativo à raiz).
         file-saved(string),
         /// O arquivo ativo mudou (caminho relativo à raiz; `none` sem arquivo).
         active-file(option<string>),
+        /// Terminou um `host.run`.
+        run-finished(run-output),
+        /// O usuário mudou a config (leia de novo com `host.config`).
+        config-changed,
     }
 }
 

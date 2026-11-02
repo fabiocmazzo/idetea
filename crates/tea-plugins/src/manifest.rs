@@ -5,8 +5,8 @@ use std::path::{Path, PathBuf};
 use serde::Deserialize;
 use tea_core::Slot;
 
-/// Versão da API (`package idetea:plugin@0.1.0` no WIT). Um plugin feito para outra não carrega.
-pub const API: &str = "0.1";
+/// Versão da API (`package idetea:plugin@0.2.0` no WIT). Um plugin feito para outra não carrega.
+pub const API: &str = "0.2";
 
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -91,10 +91,10 @@ mod tests {
             std::fs::write(dir.join("plugin.toml"), text).unwrap();
             Manifest::load(&dir)
         };
-        let ok = "id = \"a\"\nname = \"A\"\nversion = \"1\"\napi = \"0.1\"\nwasm = \"a.wasm\"\n";
+        let ok = &format!("id = \"a\"\nname = \"A\"\nversion = \"1\"\napi = \"{API}\"\nwasm = \"a.wasm\"\n");
         assert!(check("a", ok).is_ok());
         assert!(check("b", ok).is_err(), "id diferente da pasta");
-        assert!(check("a", &ok.replace("0.1", "9.0")).is_err(), "outra API");
+        assert!(check("a", &ok.replace(API, "9.0")).is_err(), "outra API");
         assert!(check("a", &ok.replace("a.wasm", "../x.wasm")).is_err());
         assert!(check("a", &format!("{ok}extra = 1\n")).is_err(), "campo desconhecido");
         let _ = std::fs::remove_dir_all(&root);

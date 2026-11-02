@@ -9,11 +9,14 @@ use tea_core::{Context, CoreEvent, Extension, PanelId};
 use tea_declarative_ui::{Document, Limits, State, UiMessage};
 
 use crate::manifest::Manifest;
-use crate::runtime::{Event, HostRequest, Instance, UiAction};
+use crate::process;
+use crate::runtime::{Event, HostRequest, Instance, RunOutput, UiAction};
 
 #[derive(Debug, Clone)]
 pub enum Message {
     Ui(UiMessage),
+    /// Terminou um `host.run`. `counted`: ocupava uma das vagas (os recusados não ocupam).
+    RunDone(RunOutput, bool),
 }
 
 pub struct PluginExtension {
@@ -28,6 +31,8 @@ pub struct PluginExtension {
     state: State,
     /// Por que o plugin está desligado (manifesto ruim, erro ao carregar, trap, prazo estourado).
     failed: Option<String>,
+    /// `host.run` em andamento.
+    running: usize,
 }
 
 fn leak(s: String) -> &'static str {
@@ -53,6 +58,7 @@ impl PluginExtension {
             doc: None,
             state: State::default(),
             failed,
+            running: 0,
         }
     }
 
@@ -67,11 +73,41 @@ impl PluginExtension {
         self.failed = Some(error);
     }
 
-    fn apply(&mut self, result: Result<Vec<HostRequest>, String>, ctx: &mut Context) {
+    /// `[plugins.<id>]` do config (global + projeto) em JSON; `{}` sem nada.
+    fn read_config(&self) -> String {
+        let global = tea_core::config::global_config_path();
+        let project = tea_core::config::project_config_path(&self.root);
+        let config = tea_core::config::Config::load(global.as_deref(), Some(&project));
+        config.plugins.get(self.id).and_then(|t| serde_json::to_string(t).ok()).unwrap_or_else(|| "{}".into())
+    }
+
+    /// Começa um `host.run` numa thread; o resultado volta como [`Message::RunDone`].
+    fn start_run(&mut self, id: u32, command: crate::runtime::Command) -> Task<Message> {
+        if self.running >= process::MAX_RUNNING {
+            let out = process::refused(id, fl!("plugin-run-busy", max = process::MAX_RUNNING));
+            return Task::done(Message::RunDone(out, false));
+        }
+        self.running += 1;
+        log(self.id, &format!("rodando {} {:?}", command.program, command.args));
+        let (tx, rx) = iced::futures::channel::oneshot::channel();
+        let root = self.root.clone();
+        std::thread::spawn(move || {
+            let _ = tx.send(process::run(&root, id, &command));
+        });
+        Task::perform(rx, move |out| {
+            Message::RunDone(out.unwrap_or_else(|_| process::refused(id, "thread".into())), true)
+        })
+    }
+
+    fn apply(&mut self, result: Result<Vec<HostRequest>, String>, ctx: &mut Context) -> Task<Message> {
         let requests = match result {
             Ok(r) => r,
-            Err(e) => return self.fail(e, ctx),
+            Err(e) => {
+                self.fail(e, ctx);
+                return Task::none();
+            }
         };
+        let mut tasks = Vec::new();
         for r in requests {
             match r {
                 HostRequest::Notify(t) => ctx.notify(format!("{}: {t}", self.name())),
@@ -101,8 +137,20 @@ impl PluginExtension {
                     }
                 }
                 HostRequest::Log(t) => log(self.id, &t),
+                HostRequest::Run { id, command } => tasks.push(self.start_run(id, command)),
+                HostRequest::RunTooBig(id) => {
+                    tasks.push(Task::done(Message::RunDone(process::refused(id, fl!("plugin-run-too-big")), false)));
+                }
             }
         }
+        Task::batch(tasks)
+    }
+
+    /// Manda um evento ao plugin (se ele estiver ligado).
+    fn send(&mut self, event: &Event, ctx: &mut Context) -> Task<Message> {
+        let Some(instance) = &mut self.instance else { return Task::none() };
+        let result = instance.on_event(event);
+        self.apply(result, ctx)
     }
 
     fn relative(&self, path: &Path) -> String {
@@ -147,9 +195,10 @@ impl Extension for PluginExtension {
         match Instance::load(&m.wasm_path(&self.dir), &self.root) {
             Ok(mut instance) => {
                 log(self.id, &format!("carregado em {:?}", instance.load_time));
+                instance.set_config(self.read_config());
                 let result = instance.activate();
                 self.instance = Some(instance);
-                self.apply(result, ctx);
+                return self.apply(result, ctx);
             }
             Err(e) => self.fail(e, ctx),
         }
@@ -157,24 +206,25 @@ impl Extension for PluginExtension {
     }
 
     fn on_command(&mut self, command: &str, ctx: &mut Context) -> Task<Message> {
-        if let Some(instance) = &mut self.instance {
-            let result = instance.on_command(command);
-            self.apply(result, ctx);
-        }
-        Task::none()
+        let Some(instance) = &mut self.instance else { return Task::none() };
+        let result = instance.on_command(command);
+        self.apply(result, ctx)
     }
 
     fn on_event(&mut self, event: &CoreEvent, ctx: &mut Context) -> Task<Message> {
         let event = match event {
             CoreEvent::FileSaved(p) => Event::FileSaved(self.relative(p)),
             CoreEvent::ActiveFileChanged(p) => Event::ActiveFile(p.as_deref().map(|p| self.relative(p))),
+            CoreEvent::ConfigReloaded => {
+                let config = self.read_config();
+                if let Some(instance) = &mut self.instance {
+                    instance.set_config(config);
+                }
+                Event::ConfigChanged
+            }
             _ => return Task::none(),
         };
-        if let Some(instance) = &mut self.instance {
-            let result = instance.on_event(&event);
-            self.apply(result, ctx);
-        }
-        Task::none()
+        self.send(&event, ctx)
     }
 
     fn update(&mut self, message: Message, ctx: &mut Context) -> Task<Message> {
@@ -185,10 +235,16 @@ impl Extension for PluginExtension {
                 let Some(Ok(doc)) = &self.doc else { return Task::none() };
                 let Some((name, values)) = self.state.press(doc, &source) else { return Task::none() };
                 let values = serde_json::to_string(&values).unwrap_or_else(|_| "{}".into());
-                if let Some(instance) = &mut self.instance {
-                    let result = instance.on_action(&UiAction { name, source, values });
-                    self.apply(result, ctx);
+                let Some(instance) = &mut self.instance else { return Task::none() };
+                let result = instance.on_action(&UiAction { name, source, values });
+                return self.apply(result, ctx);
+            }
+            Message::RunDone(out, counted) => {
+                if counted {
+                    self.running = self.running.saturating_sub(1);
                 }
+                log(self.id, &format!("run {} terminou: {:?} {:?}", out.id, out.status, out.error));
+                return self.send(&Event::RunFinished(out), ctx);
             }
         }
         Task::none()
@@ -258,6 +314,14 @@ mod tests {
             let _ = ext.update(m, &mut Context::new(&project, None));
         }
         assert!(shows(&ext, "Valor: 1"), "o clique foi ao plugin e o painel voltou");
+
+        // `host.run`: o resultado chega como mensagem e volta ao plugin, que mostra no painel.
+        let _ = ext.on_command("contador.rodar", &mut Context::new(&project, None));
+        assert_eq!(ext.running, 1);
+        let out = RunOutput { id: 1, status: Some(0), stdout: "M src/main.rs\n".into(), stderr: String::new(), error: None };
+        let _ = ext.update(Message::RunDone(out, true), &mut Context::new(&project, None));
+        assert_eq!(ext.running, 0);
+        assert!(shows(&ext, "M src/main.rs"));
 
         // Plugin preso: desligado, com o motivo no painel; a IDE segue.
         let mut ctx = Context::new(&project, None);

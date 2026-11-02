@@ -1,6 +1,7 @@
 # RFC 0002 — Plugins WASM
 
-- **Status:** proposta, com protótipo funcionando (feature `plugins`, fora do padrão).
+- **Status:** aprovada em 2026-11-02. API 0.2 (`host.run` e `host.config`). A feature `plugins` continua fora
+  do padrão até existir um plugin de verdade (ver "Decisões tomadas").
 - **Fase do SPEC:** 4 — Plugins externos.
 - **Depende de:** [RFC 0001](0001-interfaces-declarativas.md) (o painel de um plugin é um documento `idetea-ui`).
 
@@ -29,19 +30,25 @@ sendo interrompido sem travar a IDE.
 | Plugin de exemplo | `examples/plugins/contador/` |
 | Medição | `cargo run --release -p tea-plugins --example medir -- <plugin.wasm>` |
 
-### A API 0.1
+### A API 0.2
 
 O plugin **exporta** o que a IDE chama:
 
 - `activate() -> result<_, string>`: uma vez, ao carregar. Erro: o plugin fica desligado, com a mensagem.
 - `on-command(id)`: um comando do plugin foi escolhido.
-- `on-event(event)`: `file-saved(caminho)` ou `active-file(option<caminho>)`, relativos à raiz.
+- `on-event(event)`: `file-saved(caminho)` ou `active-file(option<caminho>)` (relativos à raiz),
+  `run-finished(run-output)` (terminou um `host.run`) ou `config-changed`.
 - `on-action(ui-action)`: um botão do painel foi clicado (`name`, `source` e `values` em JSON).
 
 E **importa** `host`, o que ele pode pedir:
 
 - `notify`, `register-command` (o id tem que começar com `<id do plugin>.`), `open-file`, `set-panel` (documento
   `idetea-ui`), `show-panel`, `log`.
+- `config() -> string`: a tabela `[plugins.<id>]` do config (global + projeto, como o resto do config) em JSON;
+  `{}` sem nada. Salvar o config manda `config-changed`.
+- `run(id, command)`: roda um programa **sem esperar** (`program`, `args`, `cwd` relativo à raiz, `stdin`,
+  `timeout-ms`); o resultado (`status`, `stdout`, `stderr`, `error`) chega em `run-finished` com o mesmo `id`.
+  Ver a decisão 10.
 
 Os pedidos são juntados durante a chamada e aplicados quando ela termina. Não há chamada da IDE de volta para o
 plugin no meio de outra (sem reentrada), o que deixa o host simples e previsível.
@@ -52,7 +59,7 @@ plugin no meio de outra (sem reentrada), o que deixa o host simples e previsíve
 id = "contador"          # = nome da pasta; prefixo dos comandos
 name = "Contador"
 version = "0.1.0"
-api = "0.1"              # versão do WIT; outra versão não carrega
+api = "0.2"              # versão do WIT; outra versão não carrega
 wasm = "contador.wasm"   # na mesma pasta
 
 [panel]                  # opcional
@@ -90,7 +97,15 @@ slot = "right"           # left, right, bottom
    Um plugin com problema no manifesto aparece desligado, com o motivo, em vez de sumir.
 8. **Versão da API.** Na fase 0.x, o `api` do manifesto tem que ser igual (`0.1`). A partir da 1.0: semver; a IDE
    mantém o mundo da versão anterior junto (o `bindgen!` gera os dois) por pelo menos uma versão.
-9. **Feature `plugins` fora do padrão até esta RFC ser aprovada.** Ver custos.
+9. **Feature `plugins` fora do padrão até existir um plugin de verdade.** Ver custos e "Decisões tomadas".
+10. **`host.run` é assíncrono.** A chamada só registra o pedido; o processo roda numa thread da IDE e o resultado
+    volta como evento. Esperar dentro da chamada travaria a interface pelo tempo do programa (um formatador leva
+    centenas de ms) e o prazo da chamada mataria o plugin. Limites: 4 processos por plugin ao mesmo tempo, prazo
+    de 10 s (até 60 s), 1 MB de saída e de erro (o resto é lido e descartado, para o programa não travar no pipe
+    cheio), `cwd` dentro do projeto. O processo roda num grupo próprio: estourado o prazo, morre o grupo inteiro
+    (um `sh -c` leva os filhos). Sem shell no meio: `program` e `args` vão direto ao sistema. Como no resto da
+    RFC, é confiança total (o plugin roda o que quiser), não sandbox; os limites protegem a IDE de um plugin com
+    defeito.
 
 ## Medições
 
@@ -128,17 +143,19 @@ binário pelo terminal (`iced_term`).
 
 1. **Host e WIT 0.1** — o protótipo: carregar, prazo, comandos, eventos, painel. Falta: revisão da API com um
    segundo plugin de verdade, e o texto para autores.
-2. **API que um plugin real pede** — config própria (`[plugins.<id>]` no config), pasta de dados (`/data`),
-   mais eventos (arquivo aberto, diagnósticos), `host.run` para rodar processos, `host.read-config`.
+2. **API que um plugin real pede** — feito: config própria (`[plugins.<id>]`, `host.config`) e `host.run` (API
+   0.2). Falta, quando um plugin pedir: pasta de dados (`/data`) e mais eventos (arquivo aberto, diagnósticos).
 3. **Instalar e gerenciar** — "Plugins: instalar de uma pasta…" (copia e confere o manifesto), plugins listados em
    Configurações → Extensões com liga/desliga e o erro de cada um.
 4. **Para autores** — `docs/plugins/`: como começar (o exemplo como modelo), a API, como depurar
    (`IDETEA_PLUGIN_LOG=1`).
 5. **Decidir o padrão** — feature `plugins` no padrão, ou o host num executável à parte, conforme o uso.
 
-## Perguntas para decidir
+## Decisões tomadas (2026-11-02)
 
-1. O custo de +17,6 MB no binário é aceitável para ligar a feature no padrão, ou o host vai para um executável à
-   parte (parte 5)?
-2. A parte 2 começa por qual pedido? Sugestão: `host.run` + config própria, que é o que um plugin de
-   formatador/linter (o caso mais comum) precisa.
+Respondidas pelo painel Interfaces (o desenvolvimento da IDE usa a própria IDE).
+
+1. **Feature no padrão:** ainda não. Decidir quando houver um plugin de verdade, com uso para medir; até lá, a
+   feature `plugins` fica fora do padrão (nada muda para quem não a liga).
+2. **Começo da parte 2:** `host.run` + config própria (API 0.2, feito). O resto da parte 2 (`/data`, mais
+   eventos) espera um plugin que precise.

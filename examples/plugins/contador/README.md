@@ -27,7 +27,20 @@ cargo run -p tea-app --features plugins -- <pasta do projeto>
 
 ## O que dá para fazer
 
-- Paleta: "Contador: mostrar o painel", "Contador: zerar".
+- Paleta: "Contador: mostrar o painel", "Contador: zerar", "Contador: rodar o comando da config".
 - Painel: `+1` e `Zerar`; salvar um arquivo na IDE conta no painel.
 - "Contador: travar (demonstra o prazo)": o plugin entra num laço infinito; a IDE o interrompe em meio segundo e o
   desliga, com o motivo no painel.
+
+## Config e comandos externos
+
+O botão "Rodar" (ou o comando "Contador: rodar o comando da config") roda um programa na raiz do projeto com
+`host.run`, sem travar a IDE, e mostra as primeiras 20 linhas da saída no painel. O programa vem da config do
+plugin, no `config.toml` da IDE (global ou do projeto):
+
+```toml
+[plugins.contador]
+comando = ["git", "status", "--short"]   # o padrão; sem shell: para pipes, ["sh", "-c", "..."]
+```
+
+Salvar o config avisa o plugin (`config-changed`); o painel mostra o comando novo.

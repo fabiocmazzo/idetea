@@ -11,6 +11,7 @@ macro_rules! fl {
 
 mod extension;
 pub mod manifest;
+mod process;
 pub mod runtime;
 
 use std::path::{Path, PathBuf};
