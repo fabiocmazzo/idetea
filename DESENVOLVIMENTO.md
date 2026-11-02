@@ -97,6 +97,7 @@ com eles comentados.
 crates/
 ├── tea-core/      API das extensões (trait Extension, Context, eventos), config, atalhos, ícones, menu
 ├── tea-declarative-ui/  formato idetea-ui: valida, guarda o que o usuário mudou, desenha, monta a resposta
+├── tea-plugins/      host de plugins WASM (wasmtime + WIT em wit/; feature `plugins`, protótipo da Fase 4)
 ├── tea-editor/    fachada sobre o iced-code-editor (nenhuma outra crate usa o widget direto)
 ├── tea-lsp/       cliente LSP (processo + JSON-RPC), sem UI
 ├── tea-dap/       cliente DAP (debug), sem UI

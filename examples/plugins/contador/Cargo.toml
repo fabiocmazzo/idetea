@@ -1,0 +1,24 @@
+[package]
+name = "contador"
+version = "0.1.0"
+edition = "2024"
+license = "Apache-2.0"
+publish = false
+
+# Plugin de exemplo da IDE TEA. Compile com:
+#   cargo build --release --target wasm32-wasip2
+# e copie target/wasm32-wasip2/release/contador.wasm e plugin.toml para
+# ~/.local/share/idetea/plugins/contador/ (veja README.md).
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+wit-bindgen = "0.63.0"
+
+[profile.release]
+opt-level = "s"
+lto = true
+strip = true
+
+# Fora do workspace da IDE.
+[workspace]

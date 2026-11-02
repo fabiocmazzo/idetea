@@ -1,0 +1,11 @@
+# Manifesto do plugin. O id é também o nome da pasta e o prefixo dos comandos.
+id = "contador"
+name = "Contador"
+version = "0.1.0"
+# Versão da API (crates/tea-plugins/wit/plugin.wit).
+api = "0.1"
+wasm = "contador.wasm"
+
+[panel]
+title = "Contador"
+slot = "right"

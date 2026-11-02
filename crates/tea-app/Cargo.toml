@@ -22,6 +22,8 @@ ext-outline = ["dep:tea-ext-outline"]
 ext-calls = ["dep:tea-ext-calls"]
 ext-preview = ["dep:tea-ext-preview"]
 ext-ui = ["dep:tea-ext-ui"]
+# Protótipo da Fase 4 (docs/rfc/0002-plugins-wasm.md): fora do padrão até a RFC ser aprovada.
+plugins = ["dep:tea-plugins"]
 
 [dependencies]
 iced = { workspace = true, features = ["advanced"] }
@@ -39,6 +41,7 @@ tea-ext-outline = { workspace = true, optional = true }
 tea-ext-calls = { workspace = true, optional = true }
 tea-ext-preview = { workspace = true, optional = true }
 tea-ext-ui = { workspace = true, optional = true }
+tea-plugins = { workspace = true, optional = true }
 tea-lsp.workspace = true
 tea-dap.workspace = true
 globset.workspace = true

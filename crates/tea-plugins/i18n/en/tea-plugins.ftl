@@ -1,0 +1,10 @@
+plugin-failed = Plugin { $name } turned off: { $error }
+plugin-off = Plugin turned off: { $error }
+plugin-bad-panel = The plugin panel is invalid: { $error }
+plugin-timeout = took longer than { $ms } ms
+plugin-bad-id = invalid id "{ $id }" (lowercase letters, digits, _ and -)
+plugin-id-folder = the id "{ $id }" must be the folder name ({ $folder })
+plugin-id-taken = the id "{ $id }" is already used by the IDE
+plugin-api = made for API { $found }; this IDE has { $expected }
+plugin-bad-wasm = the wasm field must be a .wasm file name in the same folder ({ $wasm })
+plugin-command-prefix = command { $id } ignored: it must start with "{ $prefix }."

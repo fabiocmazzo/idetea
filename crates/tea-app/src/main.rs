@@ -193,6 +193,17 @@ fn builtin_extensions() -> Vec<Box<dyn AnyExtension>> {
     list
 }
 
+/// Plugins WASM instalados (protótipo da Fase 4, feature `plugins`). Não podem usar o id de uma extensão de
+/// dentro nem o prefixo de um comando do núcleo: o comando iria para o lugar errado.
+#[cfg(feature = "plugins")]
+fn installed_plugins(builtin: &[Box<dyn AnyExtension>]) -> Vec<Box<dyn AnyExtension>> {
+    let Some(dir) = tea_plugins::plugins_dir() else { return Vec::new() };
+    let mut taken: Vec<&str> = builtin.iter().map(|e| e.id()).collect();
+    taken.extend(CORE_COMMANDS.iter().filter_map(|(id, _)| id.split('.').next()));
+    taken.extend(["plugin", "plugins", "core", "app", "idetea"]);
+    tea_plugins::discover(&dir, &taken).into_iter().map(|p| Box::new(p) as Box<dyn AnyExtension>).collect()
+}
+
 /// Comandos do núcleo: (id, mensagem do título em `i18n/*/tea-app.ftl`).
 const CORE_COMMANDS: &[(&str, &str)] = &[
     ("palette.open", "cmd-palette-open"),
@@ -485,7 +496,10 @@ impl App {
         let session_path =
             (config.ui.restore_session && launch.files.is_empty()).then(|| session::path_for(&root)).flatten();
         let restored = session_path.as_deref().and_then(|p| session::Session::load(p, &root));
-        let builtin = builtin_extensions();
+        #[cfg_attr(not(feature = "plugins"), allow(unused_mut))]
+        let mut builtin = builtin_extensions();
+        #[cfg(feature = "plugins")]
+        builtin.extend(installed_plugins(&builtin));
         let all_extensions: Vec<&'static str> = builtin.iter().map(|e| e.id()).collect();
         let extensions = builtin.into_iter().filter(|e| config.extension(e.id()).enabled).collect();
 

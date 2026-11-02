@@ -17,9 +17,11 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy
+          # Os testes de crates/tea-plugins compilam o plugin de exemplo para este alvo.
+          targets: wasm32-wasip2
       - uses: Swatinem/rust-cache@v2
       - name: Clippy
         run: cargo clippy --locked --workspace --all-targets -- -D warnings
       - name: Testes
-        # Os testes com clangd e gdb se pulam quando eles não estão instalados.
+        # Os testes com clangd e gdb se pulam quando eles não estão instalados (e os de plugin, sem wasm32-wasip2).
         run: cargo test --locked --workspace

@@ -858,8 +858,19 @@ e grava a resposta do usuário em `.idetea/ui/responses/<nome>/`. Estudo, decis�
 
 Adiado: prévias de arquivos (Markdown, SVG, imagem, PDF) vêm antes.
 
-- [ ] Host WASM (`wasmtime`) + WIT versionado.
-- [ ] Protocolo de UI declarativa para painéis de plugins.
+Estudo, medições e plano: [RFC 0002](docs/rfc/0002-plugins-wasm.md). Protótipo na feature `plugins` (fora do padrão).
+
+- [x] **Protótipo: host WASM (`wasmtime`) + WIT versionado** (`crates/tea-plugins`, `idetea:plugin@0.1.0`): plugin é
+  um componente `wasm32-wasip2` com `plugin.toml` em `~/.local/share/idetea/plugins/<id>/`; vira uma extensão
+  (comandos com o prefixo do id, eventos de arquivo salvo e arquivo ativo); vê o projeto em `/project` pelo WASI;
+  prazo por chamada (2 s no `activate`, 500 ms nas outras) desliga um plugin preso sem travar a IDE.
+  - [x] Teste manual: instalar `examples/plugins/contador` (README dele), abrir a IDE com `--features plugins`;
+    os comandos aparecem na paleta, o painel conta cliques e arquivos salvos, e "Contador: travar" desliga o
+    plugin em meio segundo com o motivo no painel, sem travar a IDE. (aprovado)
+- [x] **Protocolo de UI declarativa para painéis de plugins:** o painel é um documento `idetea-ui` (RFC 0001) que o
+  plugin manda com `set-panel`; clique volta em `on-action`. (Feito no protótipo; fecha junto com ele.) (aprovado)
+- [ ] Partes seguintes, depois da RFC aprovada: API que um plugin real pede (config, `/data`, `host.run`),
+  instalar e gerenciar pelas Configurações, texto para autores, e decidir se a feature entra no padrão.
 - **Plugins WASM têm confiança total:** um plugin instalado pode ler e escrever no disco e rodar processos, como extensões do VS Code.
   Não há sandbox de permissões (decisão do usuário). Instale só plugins em que você confia.
 
