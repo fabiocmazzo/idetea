@@ -59,6 +59,8 @@ pub enum CoreEvent {
     Notification(String),
     /// Config recarregado (ex.: depois de salvar o config.toml).
     ConfigReloaded,
+    /// O executável da IDE foi recompilado ou atualizado depois que ela abriu: esta IDE está desatualizada.
+    BinaryChanged,
     /// Diagnósticos de um arquivo (substituem os anteriores desse arquivo e dessa fonte).
     Diagnostics { source: String, path: PathBuf, items: Vec<Diagnostic> },
     /// Trabalho em segundo plano (ex.: "rust-analyzer: indexando 40%"). `text: None` = terminou.

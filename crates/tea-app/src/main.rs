@@ -3602,7 +3602,8 @@ impl App {
             }
             Message::BinaryChanged => {
                 self.binary_changed = true;
-                self.notify(fl!("binary-changed"))
+                let note = self.notify(fl!("binary-changed"));
+                Task::batch([self.broadcast(CoreEvent::BinaryChanged), note])
             }
             Message::MousePressed => {
                 if self.pointer_over_panel {

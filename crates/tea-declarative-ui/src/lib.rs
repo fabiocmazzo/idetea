@@ -22,6 +22,6 @@ pub use document::{
     parse,
 };
 pub use links::{Link, copy, follow, link, open_file};
-pub use response::{RESPONSE_FORMAT, Response, file_name, timestamp};
+pub use response::{Ide, RESPONSE_FORMAT, Response, file_name, timestamp};
 pub use state::State;
 pub use view::{Rendered, UiMessage, view};

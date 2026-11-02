@@ -28,3 +28,4 @@ ui-cancel = Cancelar
 ui-teach-up-to-date = As instruções para agentes já estão atualizadas.
 ui-teach-done = Instruções gravadas em { $files }.
 ui-teach-failed = Não deu para gravar as instruções: { $error }
+ui-outdated = Esta IDE está desatualizada (foi recompilada depois de abrir): as respostas avisam o agente. Paleta: "Reiniciar a IDE".

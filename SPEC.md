@@ -954,9 +954,14 @@ e grava a resposta do usuário em `.idetea/ui/responses/<nome>/`. Estudo, decis�
   - [x] Teste manual: com a IDE aberta, `touch target/debug/idetea`: em alguns segundos vem o aviso e o título muda;
     "Reiniciar a IDE" com um arquivo alterado pergunta antes; a IDE volta com as mesmas abas e o título normal.
     (aprovado, pelo painel)
-- [ ] **Quem respondeu** ([RFC 0003](docs/rfc/0003-interfaces-pelo-uso.md), etapa A; lacunas 8, 11 e 12): a
-  resposta ganha `ide` (`pid`, `version`, `outdated`); o cabeçalho do painel mostra quando a IDE está desatualizada.
-  Formato, schema e instruções dos agentes.
+- [x] **Quem respondeu** ([RFC 0003](docs/rfc/0003-interfaces-pelo-uso.md), etapa A; lacunas 8, 11 e 12): a
+  resposta ganha `ide` (`pid`, `version`, `outdated`); o topo do painel avisa quando a IDE está desatualizada. O
+  app manda `CoreEvent::BinaryChanged` quando percebe o executável novo (lacuna 8). Formato e instruções dos
+  agentes (não escrever avisos sobre qual IDE está aberta).
+  - [x] Teste manual: responder a entrega deste item: o agente mostra o `ide` recebido, com o PID desta IDE e
+    `outdated: false`; `touch target/debug/idetea`: o topo do painel mostra o aviso; responder de novo: chega
+    `outdated: true`. Rodar "Ensinar os agentes": o `CLAUDE.md` ganha o parágrafo sobre `ide`. (aprovado, pelo
+    painel)
 - [ ] **Passos que se marcam** (RFC 0003, etapa B; lacuna 10): componente `steps` (cada passo um `checkbox`, texto
   em Markdown de uma linha, `optional`); o valor é a lista dos ids marcados; `requires` no `button` deixa o botão
   desabilitado até os passos obrigatórios estarem marcados.

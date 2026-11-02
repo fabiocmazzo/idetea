@@ -171,7 +171,8 @@ Um clique grava `.idetea/ui/responses/<nome>/<seq>-<event>.json`:
   "source": "aplicar",
   "time": "2026-11-01T20:41:07Z",
   "values": { "/ambiente": "prod", "/backup": true, "/nota": null },
-  "comment": "faça o backup antes, mesmo em staging"
+  "comment": "faça o backup antes, mesmo em staging",
+  "ide": { "pid": 48213, "version": "0.0.1", "outdated": false }
 }
 ```
 
@@ -185,6 +186,11 @@ Um clique grava `.idetea/ui/responses/<nome>/<seq>-<event>.json`:
 - `comment`: o que o usuário escreveu no campo de comentário, se escreveu (sem o campo quando vazio). Pode ser uma
   pergunta de volta ou uma ressalva: responda numa revisão nova ou no chat. Não ponha um campo "observação"
   próprio no documento; o comentário já faz isso.
+- `ide`: a IDE que gravou a resposta. `pid` é o processo; `outdated: true` quer dizer que o executável foi
+  recompilado (ou atualizado) depois que essa IDE abriu, então o clique veio do código antigo. Numa entrega de
+  teste, uma resposta com `outdated: true` não vale: peça para reiniciar a IDE (paleta: "Reiniciar a IDE") e
+  repetir. O painel mostra o mesmo aviso no topo; não escreva no documento avisos sobre qual IDE está aberta, eles
+  ficam falsos assim que o usuário reinicia.
 
 Depois de ler, **apague o arquivo da resposta**. Enquanto ele existir, o painel mostra "aguardando o agente ler".
 

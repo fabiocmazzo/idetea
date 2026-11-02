@@ -30,6 +30,18 @@ pub struct Response {
     /// O "comentário para o agente", se o usuário escreveu um.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub comment: Option<String>,
+    /// A IDE que gravou a resposta (o agente confere se o teste rodou na versão nova).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ide: Option<Ide>,
+}
+
+/// Quem respondeu: o processo da IDE e se ele está desatualizado.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Ide {
+    pub pid: u32,
+    pub version: String,
+    /// O executável mudou no disco depois que esta IDE abriu (recompilada ou atualizada): ela roda o código antigo.
+    pub outdated: bool,
 }
 
 impl Response {
@@ -56,6 +68,7 @@ impl Response {
             time,
             values,
             comment: None,
+            ide: None,
         }
     }
 }
@@ -102,5 +115,9 @@ mod tests {
         assert!(!serde_json::to_string(&r).unwrap().contains("comment"), "sem comentário, sem o campo");
         r.comment = Some("pense de novo".into());
         assert!(serde_json::to_string(&r).unwrap().contains(r#""comment":"pense de novo""#));
+        r.ide = Some(Ide { pid: 42, version: "0.0.1".into(), outdated: true });
+        let json = serde_json::to_string(&r).unwrap();
+        assert!(json.contains(r#""ide":{"pid":42,"version":"0.0.1","outdated":true}"#), "{json}");
+        assert_eq!(serde_json::from_str::<Response>(&json).unwrap(), r);
     }
 }

@@ -23,7 +23,7 @@ use iced::{Element, Fill, Subscription, Task, Theme};
 use serde::{Deserialize, Serialize};
 use tea_core::icons::Icon;
 use tea_core::{ButtonKind, Context, CoreEvent, Dialog, Extension, PanelId, Slot};
-use tea_declarative_ui::{Document, Kind, Limits, Rendered, Response, State, UiMessage, timestamp};
+use tea_declarative_ui::{Document, Ide, Kind, Limits, Rendered, Response, State, UiMessage, timestamp};
 
 use store::SurfaceFile;
 
@@ -66,6 +66,8 @@ pub struct UiExtension {
     counter: u64,
     /// Tema da IDE (cores do Markdown).
     theme: Option<Theme>,
+    /// O executável da IDE mudou depois que ela abriu: as respostas saem com `ide.outdated`.
+    outdated: bool,
     /// O Markdown de cada interface, já lido (refeito a cada leitura da pasta).
     rendered: BTreeMap<String, Rendered>,
     /// Para uma interface ainda sem o Markdown lido.
@@ -184,6 +186,8 @@ impl UiExtension {
             Response::new(name, doc.revision, seq, event.clone(), action, source, timestamp(SystemTime::now()), values);
         let comment = saved.state.comment.trim();
         response.comment = (!comment.is_empty()).then(|| comment.to_string());
+        response.ide =
+            Some(Ide { pid: std::process::id(), version: env!("CARGO_PKG_VERSION").into(), outdated: self.outdated });
         match store::write_response(&self.root, &response) {
             Ok(_) => {
                 saved.seq = seq;
@@ -340,8 +344,10 @@ impl Extension for UiExtension {
     }
 
     fn on_event(&mut self, event: &CoreEvent, _ctx: &mut Context) -> Task<Message> {
-        if let CoreEvent::Appearance { theme, .. } = event {
-            self.theme = Some(theme.clone());
+        match event {
+            CoreEvent::Appearance { theme, .. } => self.theme = Some(theme.clone()),
+            CoreEvent::BinaryChanged => self.outdated = true,
+            _ => {}
         }
         Task::none()
     }
@@ -388,6 +394,9 @@ impl Extension for UiExtension {
         let mut out: Column<'_, Message> = column![].spacing(12).padding(12).width(Fill);
         if let Some(problem) = &self.problem {
             out = out.push(text(problem).size(13).style(text::danger).width(Fill));
+        }
+        if self.outdated {
+            out = out.push(text(fl!("ui-outdated")).size(13).style(text::warning).width(Fill));
         }
         if self.files.is_empty() {
             out = out.push(text(fl!("ui-empty")).size(13).style(text::secondary).width(Fill));
@@ -511,6 +520,8 @@ mod tests {
         let response: Response = serde_json::from_str(&std::fs::read_to_string(file).unwrap()).unwrap();
         assert_eq!((response.action.as_str(), response.revision, response.seq), ("aplicar", 1, 1));
         assert_eq!(response.values["/ok"], serde_json::json!(true));
+        let ide = response.ide.expect("a resposta diz qual IDE respondeu");
+        assert_eq!((ide.pid, ide.outdated), (std::process::id(), false));
 
         // Reiniciar a IDE: a revisão continua respondida (o estado foi salvo).
         let mut again = UiExtension::new();
