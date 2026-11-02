@@ -77,7 +77,9 @@ the panel, put every question that needs my answer there, not only in the chat: 
 3. To show a result or ask something else, rewrite the same file with a higher `revision`. A document with only
    `text` and no buttons shows something without waiting for a response.
 4. When you are done, delete `.idetea/ui/<name>.json`. The rest of the folder (`.gitignore`, `responses/`)
-   belongs to the IDE; leave it.
+   belongs to the IDE; leave it. To reuse a name later, first delete any response left in
+   `.idetea/ui/responses/<name>/`, and keep `revision` higher than any you wrote under that name: then a response
+   whose `revision` is not the one you wrote is an old one.
 
 Handing me a manual test, do it in one interface: what changed in a `markdown`, what to do in a `steps`, and three
 buttons: "Approved, you can commit", "Approved, don't commit" and "Failed" (the first two with `requires`). An

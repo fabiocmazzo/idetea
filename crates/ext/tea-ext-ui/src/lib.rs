@@ -51,6 +51,8 @@ struct Saved {
     state: State,
     /// Último `seq` usado nas respostas desta interface.
     seq: u64,
+    /// Hash do arquivo na última leitura (0: estado gravado antes deste campo existir).
+    hash: u64,
 }
 
 #[derive(Default)]
@@ -123,16 +125,29 @@ impl UiExtension {
                 continue;
             }
             let before = self.file(&f.name).and_then(|old| old.doc.as_ref().ok()).map(|d| d.revision);
+            // O agente apagou e recriou o documento entre duas leituras (a IDE não viu sumir): conteúdo novo com
+            // revisão menor, ou na mesma revisão já respondida, é outra interface e começa do zero.
+            let mut reborn = false;
             match self.saved.get_mut(&f.name) {
-                Some(saved) => saved.state.apply(doc),
+                Some(saved) => {
+                    reborn = saved.hash != 0
+                        && saved.hash != f.hash
+                        && (doc.revision < saved.state.revision || saved.state.locked(doc));
+                    if reborn {
+                        saved.state = State::new(doc);
+                    } else {
+                        saved.state.apply(doc);
+                    }
+                    saved.hash = f.hash;
+                }
                 None => {
-                    self.saved.insert(f.name.clone(), Saved { state: State::new(doc), seq: 0 });
+                    self.saved.insert(f.name.clone(), Saved { state: State::new(doc), seq: 0, hash: f.hash });
                 }
             }
             // Revisão nova; ou, ao abrir a IDE, uma pergunta que ficou sem resposta (o agente pode ter escrito
             // antes de a IDE abrir).
             let waiting = first && f.pending.is_empty() && !self.saved[&f.name].state.locked(doc);
-            if waiting || (!first && before != Some(doc.revision)) {
+            if waiting || (!first && (reborn || before != Some(doc.revision))) {
                 changed = Some((f.name.clone(), title(doc, &f.name).to_string(), before.is_none()));
                 opens.extend(file_components(doc).filter(|f| f.3).map(|(path, line, column, _)| (path.to_string(), line, column)));
             }
@@ -541,6 +556,40 @@ mod tests {
         let doc = again.files[0].doc.as_ref().unwrap();
         assert!(again.saved["migracao"].state.locked(doc));
         assert!(!shows_panel(ctx.into_requests()), "já respondida: não abre o painel de novo");
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn recreated_with_the_same_name_starts_over() {
+        let root = tmp_root("recriada");
+        test_state();
+        let mut ext = UiExtension::new();
+        let _ = ext.activate(&mut Context::new(&root, None));
+        let path = store::ui_dir(&root).join("migracao.json");
+        std::fs::write(&path, DOC).unwrap();
+        let scan = |ext: &mut UiExtension| {
+            let mut ctx = Context::new(&root, None);
+            let _ = ext.update(Message::Snapshot(Arc::new(store::scan(&root, &Limits::default()))), &mut ctx);
+            ctx.into_requests()
+        };
+        scan(&mut ext);
+        let mut ctx = Context::new(&root, None);
+        let _ = ext.update(Message::Submit("migracao".into(), "aplicar".into()), &mut ctx);
+        let locked = |ext: &UiExtension| ext.saved["migracao"].state.locked(ext.files[0].doc.as_ref().unwrap());
+        assert!(locked(&ext));
+
+        // Mesmo conteúdo relido: continua respondida.
+        scan(&mut ext);
+        assert!(locked(&ext));
+
+        // Apagado e recriado entre duas leituras, com a mesma revisão e outra pergunta: interface nova.
+        std::fs::write(&path, DOC.replace("Revisar migração", "Revisar de novo")).unwrap();
+        assert!(shows_panel(scan(&mut ext)), "avisa como pergunta nova");
+        assert!(!locked(&ext), "botões ligados");
+        let mut ctx = Context::new(&root, None);
+        let _ = ext.update(Message::Submit("migracao".into(), "aplicar".into()), &mut ctx);
+        let seqs: Vec<u64> = store::pending(&store::ui_dir(&root), "migracao").iter().map(|p| p.0).collect();
+        assert_eq!(seqs, [1, 2], "o seq continua subindo: a resposta nova não se confunde com a velha");
         let _ = std::fs::remove_dir_all(&root);
     }
 

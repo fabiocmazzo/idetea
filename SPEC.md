@@ -919,7 +919,7 @@ e grava a resposta do usuário em `.idetea/ui/responses/<nome>/`. Estudo, decis�
     15. Reusar o nome de uma interface: o agente leu uma resposta velha que tinha esquecido de apagar como se fosse
        nova, e o documento recriado com a mesma `revision` já respondida veio com os botões travados. Opção: a IDE
        esquece o estado de uma interface quando o documento some, e as instruções pedem `revision` sempre maior.
-       (aberta)
+       (resolvida: item abaixo)
     16. Do jogo, depois de M1: a aba de imagem nem sempre recarregava (um azul→vermelho ficou azul por 8 min); o
        observador de arquivos vê os três jeitos de regravar (no lugar, apagar e criar, renomear), e a causa não
        apareceu. E o `FORMAT.md` citava o JSON Schema por um link que não existe no projeto. (resolvidas: item
@@ -1037,6 +1037,12 @@ e grava a resposta do usuário em `.idetea/ui/responses/<nome>/`. Estudo, decis�
   `.idetea/ui/idetea-ui.schema.json` ao lado do `FORMAT.md`. Teste do observador com os três jeitos de regravar.
   - [x] Teste manual (aprovado, pelo painel): com um PNG aberto na aba, regravar o arquivo várias vezes (mesmo tamanho, outra cor): a aba
     acompanha em até 1 s e o rodapé mostra a hora nova; `.idetea/ui/idetea-ui.schema.json` aparece no jogo.
+- [ ] **Reusar o nome de uma interface** (lacuna 15): a IDE guarda o hash do documento; recriado com o mesmo nome
+  antes de ela ver o arquivo sumir, outro conteúdo com `revision` menor (ou na mesma, já respondida) é interface
+  nova: campos do zero, botões ligados, aviso de pergunta nova; o `seq` das respostas continua subindo. As
+  instruções pedem apagar as respostas que sobraram e usar `revision` maior que todas as já escritas no nome.
+  - [ ] Teste manual: responder uma interface, apagar e recriar na mesma `revision` com outro texto num comando só:
+    a nova aparece com os botões ligados, e a resposta sai com `seq` maior.
 - Depois, só se o uso pedir: `Row`/`Column`, progresso, Markdown sem links, vários painéis (`PanelId` dinâmico no
   núcleo), adaptador A2UI v1.0, e a mesma crate nos painéis dos plugins WASM (Fase 4).
 

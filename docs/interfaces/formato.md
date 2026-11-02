@@ -273,6 +273,12 @@ Para mudar a interface, reescreva o arquivo com `revision` maior. A IDE avisa o 
 
 O que o usuário digitou sobrevive a reiniciar a IDE (fica em `~/.local/state/idetea/ui/`, fora do projeto).
 
+Apagar o documento encerra a interface, e a IDE esquece o estado dela. Se o agente apagar e recriar com o mesmo
+nome antes de a IDE ver o arquivo sumir, a IDE reconhece pelo conteúdo: outro conteúdo com `revision` menor, ou na
+mesma `revision` já respondida, é uma interface nova (campos do zero, botões ligados). Para reusar um nome, o
+agente apaga antes as respostas que sobraram em `responses/<nome>/` e usa `revision` maior que todas as que já
+escreveu nele: assim uma resposta com outra `revision` é velha.
+
 ## Entregas de teste
 
 O que o uso mostrou ([RFC 0003](../rfc/0003-interfaces-pelo-uso.md)) sobre pedir um teste manual ao usuário:

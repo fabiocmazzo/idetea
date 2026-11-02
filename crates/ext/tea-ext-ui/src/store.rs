@@ -80,6 +80,8 @@ pub struct SurfaceFile {
     pub pending: Vec<(u64, String)>,
     /// As imagens do documento (`image`, `gallery`), já lidas.
     pub media: Media,
+    /// Hash do conteúdo do arquivo: o mesmo nome recriado com outro conteúdo é outra interface.
+    pub hash: u64,
 }
 
 /// Lê a pasta inteira. Roda fora da thread da interface.
@@ -95,13 +97,13 @@ pub fn scan(root: &Path, limits: &Limits) -> Vec<SurfaceFile> {
         .map(|(name, path)| {
             let rel = format!(".idetea/ui/{name}.json");
             let tracked = tracked.contains(&rel);
-            let doc = read_document(&path, &name, limits);
+            let (doc, hash) = read_document(&path, &name, limits);
             // Um documento versionado é ignorado: nem as imagens dele são lidas.
             let media = match &doc {
                 Ok(d) if !tracked => Media::load(root, d, &MediaLimits::default()),
                 _ => Media::default(),
             };
-            SurfaceFile { tracked, doc, pending: pending(&ui, &name), media, name }
+            SurfaceFile { tracked, doc, pending: pending(&ui, &name), media, name, hash }
         })
         .collect();
     out.sort_by(|a, b| a.name.cmp(&b.name));
@@ -140,21 +142,29 @@ fn list_json(dir: &Path) -> Vec<(String, PathBuf)> {
         .collect()
 }
 
-fn read_document(path: &Path, name: &str, limits: &Limits) -> Result<Document, String> {
-    let meta = std::fs::symlink_metadata(path).map_err(|e| e.to_string())?;
+fn read_document(path: &Path, name: &str, limits: &Limits) -> (Result<Document, String>, u64) {
+    let meta = match std::fs::symlink_metadata(path) {
+        Ok(m) => m,
+        Err(e) => return (Err(e.to_string()), 0),
+    };
     if !meta.file_type().is_file() {
-        return Err(fl!("ui-not-a-file"));
+        return (Err(fl!("ui-not-a-file")), 0);
     }
     let mut bytes = Vec::new();
     // Lê no máximo um byte além do limite: arquivo que cresce durante a leitura também é recusado.
-    std::fs::File::open(path)
-        .and_then(|f| f.take(limits.max_bytes as u64 + 1).read_to_end(&mut bytes))
-        .map_err(|e| e.to_string())?;
-    let doc = parse(&bytes, limits)?;
-    match &doc.surface {
+    if let Err(e) = std::fs::File::open(path).and_then(|f| f.take(limits.max_bytes as u64 + 1).read_to_end(&mut bytes)) {
+        return (Err(e.to_string()), 0);
+    }
+    let hash = fnv1a(&bytes);
+    let doc = parse(&bytes, limits).and_then(|doc| match &doc.surface {
         Some(s) if s != name => Err(fl!("ui-surface-mismatch", found = s.clone(), expected = name)),
         _ => Ok(doc),
-    }
+    });
+    (doc, hash)
+}
+
+fn fnv1a(bytes: &[u8]) -> u64 {
+    bytes.iter().fold(0xcbf2_9ce4_8422_2325, |h, b| (h ^ u64::from(*b)).wrapping_mul(0x0100_0000_01b3))
 }
 
 /// Respostas esperando o agente: (`seq`, `event`) pelo nome `000007-<event>.json`.
