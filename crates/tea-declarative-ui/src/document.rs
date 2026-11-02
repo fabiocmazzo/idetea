@@ -25,7 +25,7 @@ pub struct Limits {
     pub max_options: usize,
     /// `data` inteiro, em bytes (como JSON compacto).
     pub max_data_bytes: usize,
-    /// Imagens de um documento (`image` + itens de `gallery`).
+    /// Imagens de um documento (`image` + itens de `gallery`); também o máximo de sons (`audio`).
     pub max_images: usize,
     /// Profundidade de `data`.
     pub max_depth: usize,
@@ -101,6 +101,9 @@ pub enum Kind {
     Image { path: String, label: Option<String>, look: Look },
     /// Imagens lado a lado. Com `pick` `One` ou `Many`, o usuário escolhe; `value`: o id escolhido (ou a lista).
     Gallery { items: Vec<GalleryItem>, pick: Pick, value: Option<String>, look: Look },
+    /// Um som do projeto: Tocar/Parar pelo tocador do sistema; de WAV, também duração, taxa, pico e forma de onda
+    /// (já lidos em [`crate::Media`]). `looped`: toca de novo quando termina.
+    Audio { path: String, label: Option<String>, looped: bool },
     /// Componente que esta versão não conhece: um aviso aparece no lugar dele.
     Unknown { component: String },
 }
@@ -165,6 +168,19 @@ pub struct GalleryItem {
 }
 
 impl Document {
+    /// Os caminhos dos sons (`audio`) do documento, na ordem, sem repetir.
+    pub fn audio_paths(&self) -> Vec<&str> {
+        let mut out: Vec<&str> = Vec::new();
+        for c in &self.components {
+            if let Kind::Audio { path, .. } = &c.kind
+                && !out.contains(&path.as_str())
+            {
+                out.push(path);
+            }
+        }
+        out
+    }
+
     /// Os caminhos das imagens do documento, na ordem, sem repetir.
     pub fn image_paths(&self) -> Vec<&str> {
         let mut out: Vec<&str> = Vec::new();
@@ -293,6 +309,10 @@ pub fn parse(bytes: &[u8], limits: &Limits) -> Result<Document, String> {
         .sum();
     if images > limits.max_images {
         return Err(fl!("ui-too-many-images", max = limits.max_images));
+    }
+    let sounds = components.iter().filter(|c| matches!(c.kind, Kind::Audio { .. })).count();
+    if sounds > limits.max_images {
+        return Err(fl!("ui-too-many-sounds", max = limits.max_images));
     }
     // `requires` só vale para o caminho de um `steps`; outro caminho vira aviso e o botão não espera nada.
     let steps: Vec<String> = components
@@ -467,6 +487,14 @@ impl Reader {
             "image" => (
                 &["path", "label", "pixelated", "background", "height"],
                 Kind::Image { path: self.file_path(obj, field)?, label: self.string(obj, "label", field)?, look: self.look(obj, field)? },
+            ),
+            "audio" => (
+                &["path", "label", "loop"],
+                Kind::Audio {
+                    path: self.file_path(obj, field)?,
+                    label: self.string(obj, "label", field)?,
+                    looped: self.boolean(obj, "loop", field)?,
+                },
             ),
             "gallery" => {
                 let pick = match self.string(obj, "select", field)?.as_deref() {

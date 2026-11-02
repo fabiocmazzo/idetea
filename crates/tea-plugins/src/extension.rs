@@ -240,6 +240,7 @@ impl Extension for PluginExtension {
             Message::Ui(UiMessage::Link(url)) => tea_declarative_ui::follow(&url, &self.root, ctx),
             Message::Ui(UiMessage::Copy(code)) => return tea_declarative_ui::copy(code, ctx),
             Message::Ui(UiMessage::Comment(_)) => {} // o painel de plugin não mostra o comentário
+            Message::Ui(UiMessage::Play(_) | UiMessage::Stop) => {} // nem toca som
             Message::Ui(UiMessage::Press(source)) => {
                 let Some(Ok(doc)) = &self.doc else { return Task::none() };
                 let Some((name, values)) = self.state.press(doc, &source) else { return Task::none() };
@@ -275,7 +276,7 @@ impl Extension for PluginExtension {
                 let theme = self.theme.clone().unwrap_or(Theme::Dark);
                 // Imagens nos painéis de plugins ainda não são lidas: aparece o aviso no lugar.
                 out = out.push(
-                    tea_declarative_ui::view(doc, &self.state, &self.rendered, &self.media, &theme, false).map(Message::Ui),
+                    tea_declarative_ui::view(doc, &self.state, &self.rendered, &self.media, &tea_declarative_ui::Playback::unsupported(), &theme, false).map(Message::Ui),
                 );
             }
             Some(Err(e)) => {

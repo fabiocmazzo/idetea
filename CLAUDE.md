@@ -45,10 +45,12 @@ the panel, put every question that needs my answer there, not only in the chat: 
      "select": "one", "value": "/pick", "items": [{"id": "a", "path": "a.png", "label": "A"}, …]}` (`select`:
      `none`, `one` or `many`). The panel rereads an image when the file changes, so regenerate it and I see the
      new one. A click opens it in the image tab (zoom). Images inside `markdown` show only their alt text.
-   - Other media: a `file` (or a `markdown` link) to a PDF opens a PDF tab; SVG opens as text with a preview. Audio,
-     video and other binary files do not open. To have me review audio, give me the command to play
-     it in a fenced code block, with a player that exists here (`paplay`, `pw-play` or `aplay` on Linux, `afplay`
-     on macOS; check with `command -v`).
+   - Sound in the panel: `{"id": "v", "component": "audio", "path": "sfx/wind.wav", "label": "Wind", "loop": true}`
+     (`wav`, `ogg`, `oga`, `opus`, `flac`, `mp3`). I get Play/Stop (one sound at a time, through the system
+     player); for WAV the panel also shows duration, rate, channels, bits, peak in dBFS (with a warning at 0 dBFS)
+     and the waveform, and rereads them when the file changes.
+   - Other media: a `file` (or a `markdown` link) to a PDF opens a PDF tab; SVG opens as text with a preview.
+     Audio, video and other binary files do not open in a tab.
    - Links in `markdown` open the web (`https://…`), project files (`src/main.rs:42`) or the IDE config
      (`idetea:config`, `idetea:config-project`). Use a `markdown` for step lists and commands instead of one
      `text` per step. Put every command I should run in a fenced code block: the panel shows a Copy button on it.
@@ -78,7 +80,9 @@ the panel, put every question that needs my answer there, not only in the chat: 
 3. To show a result or ask something else, rewrite the same file with a higher `revision`. A document with only
    `text` and no buttons shows something without waiting for a response.
 4. When you are done, delete `.idetea/ui/<name>.json`. The rest of the folder (`.gitignore`, `responses/`)
-   belongs to the IDE; leave it.
+   belongs to the IDE; leave it. To reuse a name later, first delete any response left in
+   `.idetea/ui/responses/<name>/`, and keep `revision` higher than any you wrote under that name: then a response
+   whose `revision` is not the one you wrote is an old one.
 
 Handing me a manual test, do it in one interface: what changed in a `markdown`, what to do in a `steps`, and three
 buttons: "Approved, you can commit", "Approved, don't commit" and "Failed" (the first two with `requires`). An
@@ -89,5 +93,5 @@ did not find.
 Do not put secrets in the document. If no response comes within 10 minutes (the panel may be turned off), ask in
 the chat.
 
-Instructions version: `507de1e4`
+Instructions version: `0babddda`
 <!-- idetea-ui:end -->

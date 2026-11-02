@@ -9,7 +9,7 @@ use iced::{Element, Fill, Theme};
 use serde_json::Value;
 
 use crate::document::{ButtonStyle, Choice, Component, Document, Kind, Look, Pick, TextStyle};
-use crate::media::{Media, display_size};
+use crate::media::{Media, WAVE_HEIGHT, WAVE_WIDTH, display_size};
 use crate::state::State;
 
 #[derive(Debug, Clone, PartialEq)]
@@ -26,6 +26,31 @@ pub enum UiMessage {
     Comment(String),
     /// Botão "copiar" de um bloco de código do Markdown: o texto vai para a área de transferência.
     Copy(String),
+    /// Tocar o `audio` com este id (para o que estiver tocando).
+    Play(String),
+    /// Parar o som que está tocando.
+    Stop,
+}
+
+/// O som tocando agora, de quem chama (o painel Interfaces toca; o dos plugins, não).
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct Playback {
+    /// Id do componente `audio` tocando.
+    pub playing: Option<String>,
+    /// Por que não dá para tocar (sem tocador no sistema). `None`: dá.
+    pub unavailable: Option<String>,
+}
+
+impl Playback {
+    /// Nenhum tocador de som no sistema.
+    pub fn no_player() -> Self {
+        Self { playing: None, unavailable: Some(fl!("ui-audio-no-player")) }
+    }
+
+    /// Quem desenha não toca som (painel de plugin).
+    pub fn unsupported() -> Self {
+        Self { playing: None, unavailable: Some(fl!("ui-audio-plugin")) }
+    }
 }
 
 /// O Markdown de um documento já lido, por id do componente. Fica com quem desenha (as peças do iced não podem
@@ -88,12 +113,13 @@ impl<'a> markdown::Viewer<'a, UiMessage> for Viewer {
 
 /// A interface. Quem chama põe título, rolagem e o status em volta. `theme`: as cores do Markdown.
 /// `comment`: quem chama grava o comentário na resposta (o painel Interfaces sim; o dos plugins, não).
-/// `media`: as imagens do documento, já lidas por quem chama ([`Media::load`]).
+/// `media`: as imagens e os sons do documento, já lidos por quem chama ([`Media::load`]).
 pub fn view<'a>(
     doc: &'a Document,
     state: &'a State,
     rendered: &'a Rendered,
     media: &'a Media,
+    playback: &Playback,
     theme: &Theme,
     comment: bool,
 ) -> Element<'a, UiMessage> {
@@ -133,7 +159,7 @@ pub fn view<'a>(
             }
             continue;
         }
-        out = out.push(component_view(doc, state, rendered, media, &doc.components[i], settings));
+        out = out.push(component_view(doc, state, rendered, media, playback, &doc.components[i], settings));
         i += 1;
     }
     if comment_at == Some(doc.components.len()) {
@@ -181,11 +207,68 @@ fn picture_view<'a>(media: &'a Media, path: &'a str, look: Look) -> Element<'a, 
         .into()
 }
 
+/// Um som: Tocar/Parar, o nome, o formato (WAV) e a forma de onda.
+fn audio_view<'a>(
+    media: &'a Media,
+    playback: &Playback,
+    id: &str,
+    path: &'a str,
+    label: Option<&'a str>,
+    looped: bool,
+) -> Element<'a, UiMessage> {
+    let name = text(label.unwrap_or(path)).size(13);
+    let sound = match media.sound(path) {
+        Some(Ok(s)) => s,
+        Some(Err(e)) => return column![name, text(format!("{path}: {e}")).size(12).style(text::warning)].spacing(4).into(),
+        None => return text(fl!("ui-image-loading", path = path)).size(12).style(text::secondary).into(),
+    };
+    let playing = playback.playing.as_deref() == Some(id);
+    let (label, msg) = if playing { (fl!("ui-audio-stop"), UiMessage::Stop) } else { (fl!("ui-audio-play"), UiMessage::Play(id.to_string())) };
+    let style = if playing { button::primary } else { button::secondary };
+    let play = button(text(label).size(12))
+        .padding([2, 10])
+        .style(style)
+        .on_press_maybe(playback.unavailable.is_none().then_some(msg));
+    let mut out = column![row![play, name].spacing(8).align_y(iced::Alignment::Center)].spacing(4);
+    let mut facts: Vec<String> = Vec::new();
+    if let Some(info) = sound.info {
+        let peak = info.peak_db().map_or(fl!("ui-audio-silent"), |db| fl!("ui-audio-peak", db = format!("{db:.1}")));
+        facts.push(fl!(
+            "ui-audio-info",
+            seconds = format!("{:.2}", info.seconds()),
+            rate = info.rate,
+            channels = info.channels,
+            bits = format!("{}{}", info.bits, if info.float { " float" } else { "" }),
+            peak = peak
+        ));
+    }
+    if looped {
+        facts.push(fl!("ui-audio-loop"));
+    }
+    if !facts.is_empty() {
+        out = out.push(text(facts.join(" · ")).size(12).style(text::secondary));
+    }
+    if sound.info.is_some_and(|i| i.clips()) {
+        out = out.push(text(fl!("ui-audio-clips")).size(12).style(text::warning));
+    }
+    if let Some(note) = &sound.note {
+        out = out.push(text(note).size(12).style(text::secondary));
+    }
+    if let Some(wave) = &sound.wave {
+        out = out.push(image(wave.clone()).width(WAVE_WIDTH as f32).height(WAVE_HEIGHT as f32));
+    }
+    if let (Some(why), false) = (&playback.unavailable, playing) {
+        out = out.push(text(why.clone()).size(12).style(text::secondary));
+    }
+    out.into()
+}
+
 fn component_view<'a>(
     doc: &'a Document,
     state: &'a State,
     rendered: &'a Rendered,
     media: &'a Media,
+    playback: &Playback,
     c: &'a Component,
     settings: markdown::Settings,
 ) -> Element<'a, UiMessage> {
@@ -247,6 +330,7 @@ fn component_view<'a>(
             let caption = text(label.clone().unwrap_or_else(|| path.clone())).size(12).style(text::secondary);
             column![pic, caption].spacing(4).into()
         }
+        Kind::Audio { path, label, looped } => audio_view(media, playback, &c.id, path, label.as_deref(), *looped),
         Kind::Gallery { items, pick, value, look } => {
             let chosen: Vec<String> = match (pick, value) {
                 (Pick::One, Some(v)) => state.value(doc, v).and_then(Value::as_str).map(|s| vec![s.to_string()]).unwrap_or_default(),
@@ -324,6 +408,10 @@ mod tests {
         Box::leak(Box::new(Media::default()))
     }
 
+    fn no_playback() -> &'static Playback {
+        Box::leak(Box::new(Playback::default()))
+    }
+
     fn doc() -> Document {
         let v = json!({
             "format": "idetea-ui", "version": 1, "revision": 1,
@@ -348,7 +436,7 @@ mod tests {
         let d = doc();
         let rendered = Rendered::new(&d);
         let mut state = State::new(&d);
-        let mut ui = simulator(view(&d, &state, &rendered, no_media(), &Theme::Dark, true));
+        let mut ui = simulator(view(&d, &state, &rendered, no_media(), no_playback(), &Theme::Dark, true));
         assert!(ui.find("Confirme os dados").is_ok());
         let unknown = fl!("ui-unknown-component", component = "grafico");
         assert!(ui.find(unknown.as_str()).is_ok(), "aviso no lugar do componente desconhecido");
@@ -376,7 +464,7 @@ mod tests {
         assert_eq!(values["/nome"], json!("Ana"));
 
         // Respondida (submit once): clicar de novo não gera nada.
-        let mut ui = simulator(view(&d, &state, &rendered, no_media(), &Theme::Dark, true));
+        let mut ui = simulator(view(&d, &state, &rendered, no_media(), no_playback(), &Theme::Dark, true));
         let _ = ui.click("Cancelar");
         assert_eq!(ui.into_messages().count(), 0, "botões desligados depois de responder");
     }
@@ -387,7 +475,7 @@ mod tests {
         let rendered = Rendered::new(&d);
         let state = State::new(&d);
         let comment = fl!("ui-comment-label");
-        let shows = |d: &Document, host: bool| simulator(view(d, &state, &rendered, no_media(), &Theme::Dark, host)).find(comment.as_str()).is_ok();
+        let shows = |d: &Document, host: bool| simulator(view(d, &state, &rendered, no_media(), no_playback(), &Theme::Dark, host)).find(comment.as_str()).is_ok();
         assert!(shows(&d, true));
         assert!(!shows(&d, false), "painel de plugin: sem comentário");
         let mut off = d.clone();
@@ -418,7 +506,7 @@ mod tests {
         let mut state = State::new(&d);
         assert_eq!(state.missing(&d, "/feitos"), 2, "o opcional não conta");
 
-        let mut ui = simulator(view(&d, &state, &rendered, no_media(), &Theme::Dark, true));
+        let mut ui = simulator(view(&d, &state, &rendered, no_media(), no_playback(), &Theme::Dark, true));
         let missing = fl!("ui-steps-missing", count = 2);
         assert!(ui.find(missing.as_str()).is_ok());
         let _ = ui.click("Aprovado");
@@ -428,7 +516,7 @@ mod tests {
 
         // Marcar: a lista vai na ordem dos passos.
         state.set("/feitos", json!(["ensinar"]));
-        let mut ui = simulator(view(&d, &state, &rendered, no_media(), &Theme::Dark, true));
+        let mut ui = simulator(view(&d, &state, &rendered, no_media(), no_playback(), &Theme::Dark, true));
         ui.click("1.").unwrap();
         let set = UiMessage::Set { path: "/feitos".into(), value: json!(["copiar", "ensinar"]) };
         assert_eq!(ui.into_messages().collect::<Vec<_>>(), vec![set]);
@@ -470,7 +558,7 @@ mod tests {
         let mut state = State::new(&d);
         state.set("/varios", json!(["b"]));
         let rendered = Rendered::new(&d);
-        let mut ui = simulator(view(&d, &state, &rendered, media, &Theme::Dark, true));
+        let mut ui = simulator(view(&d, &state, &rendered, media, no_playback(), &Theme::Dark, true));
         assert!(ui.find("Só olhar").is_ok());
         assert!(ui.find("falta.png").is_ok(), "o caminho e o erro no lugar da imagem que falta");
         ui.click("Opção B").unwrap();
@@ -479,6 +567,43 @@ mod tests {
             UiMessage::Set { path: "/um".into(), value: json!("b") },
             UiMessage::Set { path: "/varios".into(), value: json!(["a", "b"]) },
         ]);
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn audio_plays_and_stops() {
+        let root = std::env::temp_dir().join(format!("idetea-view-audio-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        std::fs::create_dir_all(&root).unwrap();
+        std::fs::write(root.join("vento.wav"), crate::wav::pcm16(8000, 2, &[i16::MAX; 1600])).unwrap();
+        let v = json!({
+            "format": "idetea-ui", "version": 1, "revision": 1,
+            "components": [ { "id": "v", "component": "audio", "path": "vento.wav", "label": "Vento", "loop": true } ]
+        });
+        let d = parse(v.to_string().as_bytes(), &Limits::default()).unwrap();
+        let media = Media::load(&root, &d, &crate::MediaLimits::default());
+        let rendered = Rendered::new(&d);
+        let state = State::new(&d);
+        let play = fl!("ui-audio-play");
+        let stop = fl!("ui-audio-stop");
+
+        let idle = Playback::default();
+        let mut ui = simulator(view(&d, &state, &rendered, &media, &idle, &Theme::Dark, true));
+        assert!(ui.find("Vento").is_ok());
+        assert!(ui.find(fl!("ui-audio-clips").as_str()).is_ok(), "chega a 0 dBFS");
+        ui.click(play.as_str()).unwrap();
+        assert_eq!(ui.into_messages().collect::<Vec<_>>(), vec![UiMessage::Play("v".into())]);
+
+        let playing = Playback { playing: Some("v".into()), unavailable: None };
+        let mut ui = simulator(view(&d, &state, &rendered, &media, &playing, &Theme::Dark, true));
+        ui.click(stop.as_str()).unwrap();
+        assert_eq!(ui.into_messages().collect::<Vec<_>>(), vec![UiMessage::Stop]);
+
+        let none = Playback::no_player();
+        let mut ui = simulator(view(&d, &state, &rendered, &media, &none, &Theme::Dark, true));
+        assert!(ui.find(fl!("ui-audio-no-player").as_str()).is_ok());
+        let _ = ui.click(play.as_str());
+        assert_eq!(ui.into_messages().count(), 0, "sem tocador o botão fica desligado");
         let _ = std::fs::remove_dir_all(&root);
     }
 }

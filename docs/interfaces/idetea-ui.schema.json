@@ -107,6 +107,17 @@
           }
         },
         {
+          "if": { "properties": { "component": { "const": "audio" } } },
+          "then": {
+            "required": ["path"],
+            "properties": {
+              "path": { "type": "string", "minLength": 1, "maxLength": 16384, "pattern": "\\.([Ww][Aa][Vv]|[Oo][Gg][Gg]|[Oo][Gg][Aa]|[Oo][Pp][Uu][Ss]|[Ff][Ll][Aa][Cc]|[Mm][Pp]3)$", "not": { "pattern": "(^[/\\\\])|(^.:)|(^|[/\\\\])\\.\\.([/\\\\]|$)" } },
+              "label": { "$ref": "#/$defs/text" },
+              "loop": { "type": "boolean" }
+            }
+          }
+        },
+        {
           "if": { "properties": { "component": { "const": "gallery" } } },
           "then": {
             "required": ["items"],

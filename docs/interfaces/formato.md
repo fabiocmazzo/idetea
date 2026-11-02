@@ -107,6 +107,7 @@ Todo componente tem `id` (`[A-Za-z0-9_-]`, até 64, único no documento) e `comp
 | `markdown` | `text` | Texto formatado: listas, `código`, ênfase, títulos, links. Ver [Markdown](#markdown). |
 | `image` | `path`, `label`, `pixelated`, `background`, `height` | Uma imagem do projeto dentro do painel. Ver [Imagens](#imagens). |
 | `gallery` | `items`, `select`, `value`, `pixelated`, `background`, `height` | Imagens lado a lado, para comparar ou escolher. Ver [Imagens](#imagens). |
+| `audio` | `path`, `label`, `loop` | Um som do projeto: Tocar/Parar; de WAV, também formato, pico e forma de onda. Ver [Sons](#sons). |
 | `steps` | `items`, `value` | Passos numerados que o usuário marca. `items`: até 500, cada um `{"id": "x", "text": "…", "optional": true}` (`text` em Markdown de uma linha; `optional` não conta para o `requires`). Valor: a lista dos ids marcados, na ordem dos passos. |
 
 `value` é o lugar do valor em `data`: um ponteiro JSON (RFC 6901) como `"/usuario/nome"`, ou
@@ -130,7 +131,7 @@ Uma entrega de teste: os passos se marcam, e "Aprovado" espera todos (o "Falhou"
 
 ### Limites
 
-256 KB por arquivo, 200 componentes, 16 KB por texto, 500 opções, 32 imagens, 64 KB e 16 níveis em `data`. Acima disso o
+256 KB por arquivo, 200 componentes, 16 KB por texto, 500 opções, 32 imagens, 32 sons, 64 KB e 16 níveis em `data`. Acima disso o
 documento é recusado e o erro aparece no painel com o campo (ex.: `components[3].value`).
 
 ## Arquivos
@@ -168,9 +169,7 @@ configuração para ajustar.
 | Áudio, vídeo e outros binários | não abrem: aparece o erro "arquivo não é UTF-8" |
 
 Para mostrar imagens dentro do painel, use `image` e `gallery` ([Imagens](#imagens)); uma imagem no `markdown`
-aparece só como o texto alternativo. Áudio ainda não toca no painel: peça ao usuário para tocar o arquivo fora da
-IDE (um bloco de código com o comando tem o botão Copiar). Use um tocador que exista na máquina: `paplay`,
-`pw-play` ou `aplay` no Linux, `afplay` no macOS (`command -v` diz qual). Uma aba de imagem aberta recarrega
+aparece só como o texto alternativo. Para tocar um som, use `audio` ([Sons](#sons)). Uma aba de imagem aberta recarrega
 quando o arquivo muda no disco: dá para regerar e olhar de novo.
 
 ## Imagens
@@ -200,6 +199,26 @@ quando o arquivo muda no disco: dá para regerar e olhar de novo.
 - Formatos: os da aba de imagem (`png`, `jpg`, `gif`, `webp`, `bmp`, `ico`, `tif`, `tga`, `qoi`). Um GIF mostra o
   primeiro quadro.
 - Nos painéis de plugins as imagens ainda não aparecem (só o aviso).
+
+## Sons
+
+```json
+{"id": "vento", "component": "audio", "path": "assets/sons/vento.wav", "label": "Vento", "loop": true}
+```
+
+- `path`: como no `file`, relativo à raiz e sem `..`; symlinks não são seguidos. Extensões: `wav`, `ogg`, `oga`,
+  `opus`, `flac`, `mp3`. Outra extensão (ou arquivo que falta) mostra o motivo no lugar.
+- Um botão **Tocar**/**Parar**. Toca pelo tocador do sistema: `pw-play`, `paplay` ou `aplay` no Linux, `afplay`
+  no macOS (o primeiro que existir). Sem nenhum, o botão fica desligado com o motivo. O `mp3` depende do tocador
+  (o `afplay` toca; `pw-play` e `paplay`, conforme o sistema).
+- Um som de cada vez: tocar outro para o anterior. O som para numa revisão nova do documento, quando o documento
+  some e quando a IDE sai.
+- `loop: true`: toca de novo quando termina (fica um intervalo pequeno entre uma vez e outra).
+- WAV (PCM de 8 a 32 bits ou float): o painel mostra duração, taxa, canais, bits, pico em dBFS (com um aviso
+  quando chega a 0 dBFS, possível estouro) e a forma de onda. Outros formatos só tocam. Até 64 MB; acima disso,
+  só toca.
+- **O som é relido quando o arquivo muda:** regere e os dados e a forma de onda são atualizados.
+- Nos painéis de plugins o som não toca (só o aviso).
 
 ## Markdown
 

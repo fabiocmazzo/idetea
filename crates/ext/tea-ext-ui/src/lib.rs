@@ -9,6 +9,7 @@ macro_rules! fl {
     ($($t:tt)*) => { tea_core::i18n::fl!(crate::LOADER, $($t)*) };
 }
 
+mod player;
 pub mod store;
 pub mod teach;
 
@@ -23,8 +24,9 @@ use iced::{Element, Fill, Subscription, Task, Theme};
 use serde::{Deserialize, Serialize};
 use tea_core::icons::Icon;
 use tea_core::{ButtonKind, Context, CoreEvent, Dialog, Extension, PanelId, Slot};
-use tea_declarative_ui::{Document, Ide, Kind, Limits, Rendered, Response, State, UiMessage, timestamp};
+use tea_declarative_ui::{Document, Ide, Kind, Limits, Playback, Rendered, Response, State, UiMessage, timestamp};
 
+use player::{Player, Playing};
 use store::SurfaceFile;
 
 const PANEL: PanelId = PanelId("ui");
@@ -42,6 +44,8 @@ pub enum Message {
     AskTeach,
     /// Confirmado: grava as instruções.
     Teach,
+    /// Olhar o tocador (enquanto um som toca).
+    AudioTick,
 }
 
 /// O que a IDE guarda de uma interface (sobrevive a reiniciar a IDE).
@@ -74,6 +78,8 @@ pub struct UiExtension {
     rendered: BTreeMap<String, Rendered>,
     /// Para uma interface ainda sem o Markdown lido.
     no_markdown: Rendered,
+    /// O som do componente `audio` tocando agora.
+    player: Player,
 }
 
 impl UiExtension {
@@ -152,6 +158,13 @@ impl UiExtension {
                 opens.extend(file_components(doc).filter(|f| f.3).map(|(path, line, column, _)| (path.to_string(), line, column)));
             }
         }
+        // O som para quando a interface dele some ou muda de revisão.
+        if let Some(p) = self.player.playing() {
+            let same = files.iter().any(|f| f.name == p.name && f.doc.as_ref().is_ok_and(|d| d.revision == p.revision));
+            if !same {
+                self.player.stop();
+            }
+        }
         // Interface apagada pelo agente: acabou; o estado dela não serve mais.
         self.saved.retain(|name, _| files.iter().any(|f| &f.name == name));
         self.rendered = files.iter().filter_map(|f| Some((f.name.clone(), Rendered::new(f.doc.as_ref().ok()?)))).collect();
@@ -223,6 +236,34 @@ impl UiExtension {
             }
         }
         self.save();
+    }
+
+    /// Tocar o `audio` `id` da interface `name` (o que estiver tocando para).
+    fn play(&mut self, name: &str, id: &str, ctx: &mut Context) {
+        let Some(f) = self.files.iter().find(|f| f.name == name && !f.tracked) else { return };
+        let Ok(doc) = &f.doc else { return };
+        let Some((path, looped)) = doc.components.iter().find(|c| c.id == id).and_then(|c| match &c.kind {
+            Kind::Audio { path, looped, .. } => Some((path, *looped)),
+            _ => None,
+        }) else {
+            return;
+        };
+        // Só um arquivo que a leitura aceitou (dentro da raiz, sem symlink, extensão de som).
+        if !matches!(f.media.sound(path), Some(Ok(_))) {
+            return;
+        }
+        let what = Playing { name: name.to_string(), id: id.to_string(), revision: doc.revision };
+        if let Err(e) = self.player.play(what, self.root.join(path), looped) {
+            ctx.notify(fl!("ui-audio-failed", error = e.to_string()));
+        }
+    }
+
+    fn playback(&self, name: &str) -> Playback {
+        if !self.player.available() {
+            return Playback::no_player();
+        }
+        let playing = self.player.playing().filter(|p| p.name == name).map(|p| p.id.clone());
+        Playback { playing, unavailable: None }
     }
 
     fn teach_text() -> &'static str {
@@ -301,7 +342,7 @@ impl UiExtension {
         let theme = self.theme.clone().unwrap_or(Theme::Dark);
         let rendered = self.rendered.get(&f.name).unwrap_or(&self.no_markdown);
         out = out.push(
-            tea_declarative_ui::view(doc, &saved.state, rendered, &f.media, &theme, true)
+            tea_declarative_ui::view(doc, &saved.state, rendered, &f.media, &self.playback(&f.name), &theme, true)
                 .map(move |m| Message::Ui(name.clone(), m)),
         );
         let status = if !f.pending.is_empty() {
@@ -361,6 +402,7 @@ impl Extension for UiExtension {
             self.problem = Some(fl!("ui-prepare-failed", error = e.to_string()));
         }
         self.load();
+        self.player = Player::new(player::find());
         Task::none()
     }
 
@@ -404,6 +446,13 @@ impl Extension for UiExtension {
             }
             Message::Ui(_, UiMessage::Link(url)) => tea_declarative_ui::follow(&url, &self.root, ctx),
             Message::Ui(_, UiMessage::Copy(code)) => return tea_declarative_ui::copy(code, ctx),
+            Message::Ui(name, UiMessage::Play(id)) => self.play(&name, &id, ctx),
+            Message::Ui(_, UiMessage::Stop) => self.player.stop(),
+            Message::AudioTick => {
+                if let player::Tick::Failed(e) = self.player.tick() {
+                    ctx.notify(fl!("ui-audio-failed", error = e));
+                }
+            }
             Message::Submit(name, source) => self.submit(&name, &source, ctx),
             Message::AskTeach => self.ask_teach(ctx),
             Message::Teach => self.teach(ctx),
@@ -446,8 +495,28 @@ impl Extension for UiExtension {
         if self.root.as_os_str().is_empty() {
             return Subscription::none();
         }
-        Subscription::run_with(self.root.clone(), watch)
+        let folder = Subscription::run_with(self.root.clone(), watch);
+        if self.player.playing().is_some() {
+            Subscription::batch([folder, Subscription::run_with(AUDIO_TICK, audio_ticks)])
+        } else {
+            folder
+        }
     }
+}
+
+/// De quanto em quanto tempo olhar o tocador (fim do som, `loop`).
+const AUDIO_TICK: Duration = Duration::from_millis(200);
+
+#[allow(clippy::trivially_copy_pass_by_ref)] // `Subscription::run_with` exige `fn(&D)`.
+fn audio_ticks(every: &Duration) -> mpsc::UnboundedReceiver<Message> {
+    let (tx, rx) = mpsc::unbounded();
+    let every = *every;
+    std::thread::spawn(move || {
+        while tx.unbounded_send(Message::AudioTick).is_ok() {
+            std::thread::sleep(every);
+        }
+    });
+    rx
 }
 
 /// Olha a pasta a cada 250 ms (só `stat`); quando algo muda, lê tudo e manda. Termina quando a subscription

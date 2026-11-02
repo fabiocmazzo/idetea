@@ -38,3 +38,20 @@ ui-image-not-file = não é um arquivo (symlinks não são seguidos)
 ui-image-too-big = passa de { $max } MB
 ui-image-too-large = { $width }×{ $height } px; o máximo é { $max } de lado
 ui-image-total = as imagens do documento passam de { $max } milhões de pixels
+ui-too-many-sounds = O documento tem mais de { $max } sons.
+ui-audio-play = Tocar
+ui-audio-stop = Parar
+ui-audio-info = { $seconds } s · { $rate } Hz · { $channels ->
+        [one] mono
+        [2] estéreo
+       *[other] { $channels } canais
+    } · { $bits } bits · { $peak }
+ui-audio-peak = pico { $db } dBFS
+ui-audio-silent = silêncio
+ui-audio-loop = em repetição
+ui-audio-clips = Chega a 0 dBFS: pode estar estourando.
+ui-audio-extension = Não é um som (aceitos: { $list }).
+ui-audio-too-big = Maior que { $max } MB: toca, sem duração nem forma de onda.
+ui-audio-unreadable = Sem duração nem forma de onda ({ $error }); toca mesmo assim.
+ui-audio-no-player = Nenhum tocador de som encontrado (pw-play, paplay, aplay ou afplay).
+ui-audio-plugin = Os painéis de plugin não tocam som.

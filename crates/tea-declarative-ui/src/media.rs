@@ -1,4 +1,4 @@
-//! As imagens de um documento (`image` e `gallery`), já lidas para desenhar.
+//! As imagens (`image` e `gallery`) e os sons (`audio`) de um documento, já lidos para desenhar.
 //!
 //! Quem lê é a extensão, numa thread fora da interface: o arquivo é aberto, o tamanho é conferido pelo cabeçalho
 //! antes de decodificar (um PNG pode pedir dimensões enormes) e a imagem vira RGBA. O resultado ([`Media`]) vai
@@ -12,6 +12,7 @@ use std::time::SystemTime;
 use iced::widget::image::Handle;
 
 use crate::document::{Document, Look};
+use crate::wav::{self, WavInfo};
 
 /// Limites para ler as imagens de um documento.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -38,10 +39,28 @@ pub struct Picture {
     pub height: u32,
 }
 
-/// As imagens de um documento, pelo caminho (relativo à raiz). Um erro aparece no lugar da imagem.
+/// Um som lido. `info` e `wave` só existem para WAV; outros formatos só tocam.
+#[derive(Debug, Clone)]
+pub struct Sound {
+    pub info: Option<WavInfo>,
+    /// Forma de onda, já desenhada ([`WAVE_WIDTH`] × [`WAVE_HEIGHT`]).
+    pub wave: Option<Handle>,
+    /// O WAV não pôde ser lido (formato que o leitor não conhece); ainda toca.
+    pub note: Option<String>,
+}
+
+/// Extensões que o componente `audio` aceita (o tocador do sistema recebe só estas).
+pub const AUDIO_EXTENSIONS: &[&str] = &["wav", "ogg", "oga", "opus", "flac", "mp3"];
+/// Tamanho máximo de um som para ler duração e forma de onda (maior que isso, só toca).
+const MAX_AUDIO_BYTES: u64 = 64 * 1024 * 1024;
+pub const WAVE_WIDTH: u32 = 240;
+pub const WAVE_HEIGHT: u32 = 36;
+
+/// As imagens e os sons de um documento, pelo caminho (relativo à raiz). Um erro aparece no lugar.
 #[derive(Debug, Clone, Default)]
 pub struct Media {
     pictures: HashMap<String, Result<Picture, String>>,
+    sounds: HashMap<String, Result<Sound, String>>,
     /// Fundos quadriculados, pelo tamanho na tela.
     checkers: HashMap<(u32, u32), Handle>,
 }
@@ -69,6 +88,9 @@ impl Media {
             });
             media.pictures.insert(path.to_string(), picture);
         }
+        for path in doc.audio_paths() {
+            media.sounds.insert(path.to_string(), sound(&root.join(path)));
+        }
         for c in &doc.components {
             let (paths, look): (Vec<&str>, Look) = match &c.kind {
                 crate::Kind::Image { path, look, .. } => (vec![path.as_str()], *look),
@@ -92,6 +114,10 @@ impl Media {
         self.pictures.get(path)
     }
 
+    pub fn sound(&self, path: &str) -> Option<&Result<Sound, String>> {
+        self.sounds.get(path)
+    }
+
     pub fn checker(&self, size: (u32, u32)) -> Option<&Handle> {
         self.checkers.get(&size)
     }
@@ -110,10 +136,12 @@ pub fn display_size(p: &Picture, height: Option<u32>) -> (u32, u32) {
     (dw, dh)
 }
 
-/// Os arquivos de imagem do documento com tamanho e data, para a thread de observação saber quando reler.
+/// Os arquivos de imagem e de som do documento com tamanho e data, para a thread de observação saber quando
+/// reler.
 pub fn stamps(root: &Path, doc: &Document) -> Vec<(PathBuf, u64, Option<SystemTime>)> {
     doc.image_paths()
         .into_iter()
+        .chain(doc.audio_paths())
         .map(|p| {
             let path = root.join(p);
             let meta = std::fs::metadata(&path).ok();
@@ -144,6 +172,52 @@ fn read(path: &Path, limits: &MediaLimits) -> Result<Picture, String> {
     let rgba = decoded.into_rgba8();
     let (width, height) = rgba.dimensions();
     Ok(Picture { handle: Handle::from_rgba(width, height, rgba.into_raw()), width, height })
+}
+
+/// Confere o arquivo (sem symlink, extensão de som) e, se for WAV, lê formato e forma de onda.
+fn sound(path: &Path) -> Result<Sound, String> {
+    let meta = std::fs::symlink_metadata(path).map_err(|e| fl!("ui-image-error", error = e.to_string()))?;
+    if meta.file_type().is_symlink() || !meta.is_file() {
+        return Err(fl!("ui-image-not-file"));
+    }
+    let ext = path.extension().and_then(|e| e.to_str()).map(str::to_ascii_lowercase).unwrap_or_default();
+    if !AUDIO_EXTENSIONS.contains(&ext.as_str()) {
+        return Err(fl!("ui-audio-extension", list = AUDIO_EXTENSIONS.join(", ")));
+    }
+    let mut out = Sound { info: None, wave: None, note: None };
+    if ext != "wav" {
+        return Ok(out);
+    }
+    if meta.len() > MAX_AUDIO_BYTES {
+        out.note = Some(fl!("ui-audio-too-big", max = (MAX_AUDIO_BYTES / (1024 * 1024))));
+        return Ok(out);
+    }
+    let bytes = std::fs::read(path).map_err(|e| fl!("ui-image-error", error = e.to_string()))?;
+    match wav::read(&bytes, WAVE_WIDTH as usize) {
+        Ok((info, columns)) => {
+            out.info = Some(info);
+            out.wave = Some(wave(&columns));
+        }
+        Err(e) => out.note = Some(fl!("ui-audio-unreadable", error = e)),
+    }
+    Ok(out)
+}
+
+/// A forma de onda como imagem: uma barra por coluna, do menor ao maior valor, em volta da linha do meio.
+fn wave(columns: &[(f32, f32)]) -> Handle {
+    let (w, h) = (WAVE_WIDTH, WAVE_HEIGHT);
+    let mut pixels = vec![0u8; (w * h * 4) as usize];
+    let mid = (h - 1) as f32 / 2.0;
+    for (x, (lo, hi)) in columns.iter().enumerate().take(w as usize) {
+        // Pelo menos um pixel: o silêncio aparece como linha.
+        let top = (mid - hi * mid).floor().clamp(0.0, (h - 1) as f32) as u32;
+        let bottom = (mid - lo * mid).ceil().clamp(0.0, (h - 1) as f32) as u32;
+        for y in top.min(bottom)..=bottom.max(top) {
+            let i = ((y * w + x as u32) * 4) as usize;
+            pixels[i..i + 4].copy_from_slice(&[0x5b, 0x8d, 0xef, 0xff]);
+        }
+    }
+    Handle::from_rgba(w, h, pixels)
 }
 
 /// Fundo quadriculado do tamanho da imagem na tela (cinza claro e escuro).
@@ -207,6 +281,44 @@ mod tests {
         for bad in ["grande.png", "nao.png", "falta.png"] {
             assert!(media.picture(bad).unwrap().is_err(), "{bad}");
         }
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn loads_sounds() {
+        let root = tmp("sons");
+        let samples: Vec<i16> = (0..800).map(|i| if i % 2 == 0 { 8000 } else { -8000 }).collect();
+        std::fs::write(root.join("a.wav"), crate::wav::pcm16(8000, 1, &samples)).unwrap();
+        std::fs::write(root.join("b.ogg"), "ogg").unwrap();
+        std::fs::write(root.join("c.txt"), "texto").unwrap();
+        std::fs::write(root.join("d.wav"), "não é wav").unwrap();
+        let doc = parse(
+            json!({
+                "format": "idetea-ui", "version": 1,
+                "components": [
+                    { "id": "a", "component": "audio", "path": "a.wav", "loop": true },
+                    { "id": "b", "component": "audio", "path": "b.ogg" },
+                    { "id": "c", "component": "audio", "path": "c.txt" },
+                    { "id": "d", "component": "audio", "path": "d.wav" },
+                    { "id": "e", "component": "audio", "path": "falta.wav" }
+                ]
+            })
+            .to_string()
+            .as_bytes(),
+            &Limits::default(),
+        )
+        .unwrap();
+        let media = Media::load(&root, &doc, &MediaLimits::default());
+        let a = media.sound("a.wav").unwrap().as_ref().unwrap();
+        let info = a.info.unwrap();
+        assert_eq!((info.frames, info.rate), (800, 8000));
+        assert!(a.wave.is_some());
+        let b = media.sound("b.ogg").unwrap().as_ref().unwrap();
+        assert!(b.info.is_none() && b.note.is_none(), "toca, sem metadados");
+        assert!(media.sound("c.txt").unwrap().is_err(), "extensão fora da lista");
+        assert!(media.sound("d.wav").unwrap().as_ref().unwrap().note.is_some(), "WAV ilegível ainda toca");
+        assert!(media.sound("falta.wav").unwrap().is_err());
+        assert_eq!(stamps(&root, &doc).len(), 5, "os sons entram na assinatura");
         let _ = std::fs::remove_dir_all(&root);
     }
 

@@ -1025,8 +1025,14 @@ e grava a resposta do usuário em `.idetea/ui/responses/<nome>/`. Estudo, decis�
   - [x] Teste manual: o agente do jogo revisa os sprites com `image` e `gallery`, sem gerar a `previa-sprites.png`;
     os sprites aparecem nítidos e com o quadriculado; escolher numa `gallery` volta na resposta; regerar um sprite
     pelo script atualiza o painel sozinho; um clique abre a aba, sem borrar no zoom. (aprovado, pelo painel)
-- [ ] **Mídia M2: `audio`** (lacunas 9 a 11): Tocar/Parar pelo tocador do sistema (ou `[ui] audio_player`), um
-  de cada vez, `loop`; metadados e forma de onda de WAV com leitor próprio.
+- [x] **Mídia M2: `audio`** (lacunas 9 a 11): Tocar/Parar pelo tocador do sistema (`pw-play`, `paplay`, `aplay`;
+  `afplay` no macOS), um de cada vez, num grupo de processos próprio que morre inteiro; `loop` (roda de novo se
+  terminou bem); para numa revisão nova, quando o documento some e quando a IDE sai. WAV (PCM 8 a 32 bits, float)
+  com leitor próprio: duração, taxa, canais, bits, pico em dBFS com aviso em 0 dBFS, forma de onda; relidos quando
+  o arquivo muda. Extensões `wav`, `ogg`, `oga`, `opus`, `flac`, `mp3`. O `[ui] audio_player` fica para quando
+  as extensões lerem o config.
+  - [x] Teste manual (aprovado, pelo painel): no painel, tocar e parar três sons do jogo, um em `loop`; trocar de som para o anterior; o
+    `batida.wav` mostra o aviso de 0 dBFS.
 - [ ] **Mídia M3: `sprite`** (lacuna 6): quadros de um spritesheet animados no painel, com pausa e quadro a quadro.
 - [ ] **Mídia M4: o que foi visto e ouvido** (lacuna 14): `media` na resposta.
 - [ ] **Mídia M5: `idetea:open`** (lacuna 13): link que abre um arquivo do projeto no app do sistema, só com as

@@ -29,3 +29,4 @@ ui-teach-up-to-date = The agent instructions are already up to date.
 ui-teach-done = Instructions written to { $files }.
 ui-teach-failed = Could not write the instructions: { $error }
 ui-outdated = This IDE is outdated (it was rebuilt after it opened): responses tell the agent. Palette: "Restart the IDE".
+ui-audio-failed = Could not play the sound: { $error }

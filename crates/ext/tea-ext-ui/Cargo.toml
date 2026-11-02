@@ -8,6 +8,7 @@ license.workspace = true
 # em `.idetea/ui/responses/`. Desligada por padrão (ver docs/rfc/0001-interfaces-declarativas.md).
 [dependencies]
 iced.workspace = true
+libc.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 tea-core.workspace = true
