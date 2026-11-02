@@ -976,6 +976,9 @@ e grava a resposta do usuário em `.idetea/ui/responses/<nome>/`. Estudo, decis�
   - [x] Teste manual: rodar "Ensinar os agentes": o `CLAUDE.md` ganha o parágrafo "Handing me a manual test".
     (aprovado, pelo painel)
 - [ ] **Segundo projeto de dogfooding** (RFC 0003, decisão 3): depois de A, B e C; decide imagem e mídia.
+  Escolhido (pelo painel): "Correio de balão", jogo 2D original em JS com canvas, sem framework, em
+  `~/NewProjects/tea-jogo`, feito por uma sessão nova do agente que só conhece o que "Ensinar os agentes" ensina.
+  Ela anota as lacunas num `lacunas.md` de lá; as que forem da IDE entram aqui.
 - Depois, só se o uso pedir: `Row`/`Column`, progresso, Markdown sem links, vários painéis (`PanelId` dinâmico no
   núcleo), adaptador A2UI v1.0, e a mesma crate nos painéis dos plugins WASM (Fase 4).
 
