@@ -462,6 +462,7 @@ fn describe(id: &str) -> String {
         "outline" => fl!("ext-outline"),
         "preview" => fl!("ext-preview"),
         "calls" => fl!("ext-calls"),
+        "interfaces" => fl!("ext-interfaces"),
         _ => String::new(),
     }
 }

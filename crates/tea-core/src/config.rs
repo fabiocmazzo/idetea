@@ -82,6 +82,8 @@ references = { enabled = true, slot = "bottom" }
 outline = { enabled = true, slot = "right" }
 calls = { enabled = true, slot = "bottom" }
 preview = { enabled = true, slot = "right" }
+# Experimental: interfaces que um agente escreve em .idetea/ui/ (docs/interfaces/formato.md).
+interfaces = { enabled = false, slot = "right" }
 
 # Atalhos: "combinação" = "comando". Comando vazio ("") desliga o atalho.
 # Atalhos que o editor já usa (Ctrl+F, Ctrl+H, Ctrl+G, Ctrl+Z, Ctrl+D...) têm prioridade quando ele tem foco.

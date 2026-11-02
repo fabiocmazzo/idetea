@@ -188,6 +188,8 @@ fn builtin_extensions() -> Vec<Box<dyn AnyExtension>> {
     list.push(Box::new(tea_ext_calls::CallsExtension::new()));
     #[cfg(feature = "ext-preview")]
     list.push(Box::new(tea_ext_preview::PreviewExtension::new()));
+    #[cfg(feature = "ext-ui")]
+    list.push(Box::new(tea_ext_ui::UiExtension::new()));
     list
 }
 

@@ -1,0 +1,68 @@
+{
+  "format": "idetea-ui",
+  "version": 1,
+  "surface": "revisar-migracao",
+  "revision": 1,
+  "title": "Revisar a migração",
+  "source": "agente de banco de dados",
+  "data": {
+    "backup": false,
+    "ambiente": "staging"
+  },
+  "components": [
+    {
+      "id": "aviso",
+      "component": "text",
+      "text": "A migração apaga a coluna antiga.",
+      "style": "warning"
+    },
+    {
+      "id": "amb",
+      "component": "select",
+      "label": "Ambiente",
+      "value": "/ambiente",
+      "options": [
+        "staging",
+        {
+          "value": "prod",
+          "label": "Produção"
+        }
+      ]
+    },
+    {
+      "id": "backup",
+      "component": "checkbox",
+      "label": "Fiz backup",
+      "value": "/backup"
+    },
+    {
+      "id": "nota",
+      "component": "input",
+      "label": "Observação",
+      "placeholder": "opcional",
+      "value": "/nota"
+    },
+    {
+      "id": "aplicar",
+      "component": "button",
+      "label": "Aplicar",
+      "action": {
+        "name": "aplicar",
+        "context": [
+          "/ambiente",
+          "/backup",
+          "/nota"
+        ]
+      }
+    },
+    {
+      "id": "cancelar",
+      "component": "button",
+      "label": "Cancelar",
+      "style": "secondary",
+      "action": {
+        "name": "cancelar"
+      }
+    }
+  ]
+}

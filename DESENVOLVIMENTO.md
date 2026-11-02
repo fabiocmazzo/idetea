@@ -96,6 +96,7 @@ com eles comentados.
 ```
 crates/
 ├── tea-core/      API das extensões (trait Extension, Context, eventos), config, atalhos, ícones, menu
+├── tea-declarative-ui/  formato idetea-ui: valida, guarda o que o usuário mudou, desenha, monta a resposta
 ├── tea-editor/    fachada sobre o iced-code-editor (nenhuma outra crate usa o widget direto)
 ├── tea-lsp/       cliente LSP (processo + JSON-RPC), sem UI
 ├── tea-dap/       cliente DAP (debug), sem UI
@@ -111,7 +112,8 @@ crates/
     ├── tea-ext-references/ painel Referências (onde um nome é usado, vindo do LSP)
     ├── tea-ext-outline/    painel Estrutura (símbolos do arquivo; a visibilidade vem de tea-app/src/outline.rs)
     ├── tea-ext-calls/      painel Chamadas (quem chama / o que chama, vindo do LSP)
-    └── tea-ext-preview/    painel Prévia (Markdown e SVG do arquivo ativo; recebe CoreEvent::ActiveText)
+    ├── tea-ext-preview/    painel Prévia (Markdown e SVG do arquivo ativo; recebe CoreEvent::ActiveText)
+    └── tea-ext-ui/         painel Interfaces (lê .idetea/ui/, grava as respostas; desligado por padrão)
 ```
 
 Regra de ouro: **as extensões internas usam só a API pública de `tea-core`**, a mesma que um plugin usaria.

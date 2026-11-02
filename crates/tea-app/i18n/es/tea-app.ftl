@@ -210,6 +210,7 @@ ext-references = Dónde se usa un nombre (Shift+F12)
 ext-outline = Funciones y métodos del archivo, con visibilidad (Alt+7)
 ext-preview = Vista previa de Markdown y SVG junto al editor (Ctrl+Shift+V)
 ext-calls = Quién llama a una función, y a quién llama ella (Alt+Shift+H)
+ext-interfaces = Interfaces que un agente escribe en .idetea/ui/ (experimental)
 
 ## Paleta, diálogos, LSP, debug e o resto do app
 palette-commands = Escriba un comando…

@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["crates/tea-core", "crates/tea-editor", "crates/tea-lsp", "crates/tea-dap", "crates/tea-app", "crates/ext/*"]
+members = ["crates/tea-core", "crates/tea-declarative-ui", "crates/tea-editor", "crates/tea-lsp", "crates/tea-dap", "crates/tea-app", "crates/ext/*"]
 
 [workspace.package]
 version = "0.0.1"
@@ -28,6 +28,8 @@ rust-embed = "8"
 sys-locale = "0.3"
 fluent-syntax = "0.12"
 tea-core = { path = "crates/tea-core" }
+tea-declarative-ui = { path = "crates/tea-declarative-ui" }
+tea-ext-ui = { path = "crates/ext/tea-ext-ui" }
 tea-editor = { path = "crates/tea-editor" }
 tea-lsp = { path = "crates/tea-lsp" }
 tea-dap = { path = "crates/tea-dap" }

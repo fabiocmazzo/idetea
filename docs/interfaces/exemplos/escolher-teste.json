@@ -1,0 +1,16 @@
+{
+  "format": "idetea-ui",
+  "version": 1,
+  "title": "Quais testes rodar?",
+  "source": "agente",
+  "submit": "many",
+  "data": { "unit": true, "integracao": false },
+  "components": [
+    { "id": "intro", "component": "text", "text": "Mudei 3 arquivos em crates/tea-editor. Escolha o que rodar agora; dá para clicar de novo depois.", "style": "muted" },
+    { "id": "unit", "component": "checkbox", "label": "Testes de unidade", "value": "/unit" },
+    { "id": "integracao", "component": "checkbox", "label": "Testes de integração (lentos)", "value": "/integracao" },
+    { "id": "filtro", "component": "input", "label": "Filtro (opcional)", "placeholder": "ex.: wrap", "value": "/filtro" },
+    { "id": "rodar", "component": "button", "label": "Rodar", "action": { "name": "rodar", "context": ["/unit", "/integracao", "/filtro"] } },
+    { "id": "parar", "component": "button", "label": "Parar por aqui", "style": "secondary", "action": { "name": "parar" } }
+  ]
+}

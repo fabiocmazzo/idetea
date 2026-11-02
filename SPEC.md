@@ -816,6 +816,35 @@ O que mais falta no uso diário. Cada item é uma entrega com teste manual; a or
     1500000 --write /tmp/grande.rs`) e um JSON de uma linha só de alguns MB: rolar com a barra até o fim, `Ctrl+End`,
     buscar e digitar sem travar; o JSON abre com o aviso do modo leve e "(modo leve)" na barra de status.
 
+### Interfaces declarativas (antes dos plugins)
+
+Agentes e processos externos gravam um documento JSON em `.idetea/ui/<nome>.json`; a IDE desenha um painel nativo
+e grava a resposta do usuário em `.idetea/ui/responses/<nome>/`. Estudo, decisões e riscos:
+[RFC 0001](docs/rfc/0001-interfaces-declarativas.md). Desligada por padrão:
+`[extensions] interfaces = { enabled = true }` liga (precisa reiniciar).
+
+- [x] **Formato v1 e instruções para agentes:** `docs/interfaces/formato.md` (documento, resposta, regras de escrita
+  atômica e de confirmação), `docs/interfaces/idetea-ui.schema.json` (referência para quem escreve; a IDE valida com
+  tipos `serde`), exemplos e um texto curto para colar no `AGENTS.md`/`CLAUDE.md`.
+- [x] **`tea-declarative-ui`, modelo:** tipos do documento e da resposta, validação com limites (tamanho, número de
+  componentes, nomes), ponteiros JSON (`/a/b`), estado local com a regra de atualização (o agente vence só onde
+  mudou o valor) e montagem da resposta com os caminhos do `context`. Só testes, sem iced.
+- [x] **`tea-declarative-ui`, desenho:** `text`, `button`, `checkbox`, `select` e `input` em coluna; componente
+  desconhecido vira aviso no lugar; botões desligados depois de responder (`submit: "once"`). Testes com `iced_test`.
+- [x] **`tea-ext-ui` (extensão `interfaces`):** observa `.idetea/ui/` sozinha (o observador do app pula pastas do
+  `.gitignore`); lê com proteção (symlink recusado, tamanho máximo, nome validado); ignora arquivos versionados no
+  git; cria `.idetea/ui/.gitignore` com `*`; grava respostas com `create_new` + `rename`; mostra "aguardando o
+  agente" até a resposta ser apagada; guarda o que foi digitado em `$XDG_STATE_HOME/idetea/ui/`; painel
+  "Interfaces" no slot direito, que aparece sozinho sem tirar o foco do editor.
+  - [x] Teste manual: com `examples/interfaces/pergunta.sh`, a interface aparece sozinha; escolher, marcar, digitar
+    e clicar gera a resposta, que o script lê e apaga ("recebido" no painel); o script grava uma revisão nova e a
+    interface muda sem perder o que estava digitado; fechar e abrir a IDE mantém interface e valores; um JSON
+    inválido mostra o erro no painel. (aprovado)
+- [ ] **Teste com um agente de verdade** (Claude Code com o texto de instruções): anotar o que confundiu o agente e
+  ajustar o formato antes de considerar estável.
+- Depois, só se o uso pedir: `Row`/`Column`, progresso, Markdown sem links, vários painéis (`PanelId` dinâmico no
+  núcleo), adaptador A2UI v1.0, e a mesma crate nos painéis dos plugins WASM (Fase 4).
+
 ### Fase 4 — Plugins externos (melhoria futura)
 
 Adiado: prévias de arquivos (Markdown, SVG, imagem, PDF) vêm antes.

@@ -5126,6 +5126,7 @@ dependencies = [
  "tea-ext-search",
  "tea-ext-statusbar",
  "tea-ext-terminal",
+ "tea-ext-ui",
  "tea-lsp",
  "toml 1.1.8+spec-1.1.0",
 ]
@@ -5152,6 +5153,17 @@ version = "0.0.1"
 dependencies = [
  "serde_json",
  "tea-lsp",
+]
+
+[[package]]
+name = "tea-declarative-ui"
+version = "0.0.1"
+dependencies = [
+ "iced",
+ "iced_test",
+ "serde",
+ "serde_json",
+ "tea-core",
 ]
 
 [[package]]
@@ -5263,6 +5275,18 @@ dependencies = [
  "iced",
  "iced_term",
  "tea-core",
+]
+
+[[package]]
+name = "tea-ext-ui"
+version = "0.0.1"
+dependencies = [
+ "iced",
+ "iced_test",
+ "serde",
+ "serde_json",
+ "tea-core",
+ "tea-declarative-ui",
 ]
 
 [[package]]

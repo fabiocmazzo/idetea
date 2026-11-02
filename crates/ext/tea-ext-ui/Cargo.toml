@@ -1,0 +1,17 @@
+[package]
+name = "tea-ext-ui"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+# Extensão "interfaces": lê documentos de `.idetea/ui/`, desenha com `tea-declarative-ui` e grava as respostas
+# em `.idetea/ui/responses/`. Desligada por padrão (ver docs/rfc/0001-interfaces-declarativas.md).
+[dependencies]
+iced.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tea-core.workspace = true
+tea-declarative-ui.workspace = true
+
+[dev-dependencies]
+iced_test = "0.14"
