@@ -7,6 +7,11 @@ painel vazio). A IDE grava o bloco abaixo no `AGENTS.md` (e no `CLAUDE.md`, se h
 nenhum dos dois, cria o `AGENTS.md` com o bloco e um `CLAUDE.md` que só tem `@AGENTS.md` (o Claude Code lê o
 `CLAUDE.md` e segue o import; os outros agentes leem o `AGENTS.md`).
 
+O bloco termina com a linha `Instructions version: \`<versão>\``, a mesma que vai em `ide.instructions` de cada
+resposta. A IDE conhece todas as versões que já teve (`crates/ext/tea-ext-ui/agents/versions.txt`; mudou o
+`instructions.md`, um teste pede a versão nova no fim da lista). Se o bloco do projeto tem uma versão que ela não
+conhece, foi gravado por uma IDE mais nova: o "ensinar" avisa que vai voltar atrás e pede "Gravar mesmo assim".
+
 O texto é sempre em inglês, qualquer que seja o idioma da IDE: é para agentes lerem, e um texto só é mais fácil
 de manter igual. Ele pede ao agente para conversar (e escrever as interfaces) no idioma que o usuário usa com ele.
 

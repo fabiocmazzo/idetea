@@ -399,9 +399,21 @@ impl UiExtension {
                     .iter()
                     .map(|c| if c.new { fl!("ui-teach-file-new", name = c.name.clone()) } else { c.name.clone() })
                     .collect();
+                let mut detail = fl!("ui-teach-detail", files = files.join(", "));
+                let newer: Vec<String> = plan
+                    .iter()
+                    .filter_map(|c| c.newer.as_ref().map(|v| fl!("ui-teach-newer-file", name = c.name.clone(), version = v.clone())))
+                    .collect();
+                // Um bloco de uma IDE mais nova: gravar volta as instruções atrás (o agente perde o que ela ensinou).
+                let (label, kind) = if newer.is_empty() {
+                    (fl!("ui-teach-write"), ButtonKind::Primary)
+                } else {
+                    detail = format!("{}\n\n{detail}", fl!("ui-teach-newer", files = newer.join(", "), ours = teach::version(teach::INSTRUCTIONS)));
+                    (fl!("ui-teach-write-anyway"), ButtonKind::Danger)
+                };
                 ctx.show_dialog(
-                    Dialog::new(fl!("ui-teach-title"), fl!("ui-teach-detail", files = files.join(", ")))
-                        .button(fl!("ui-teach-write"), ButtonKind::Primary, Message::Teach)
+                    Dialog::new(fl!("ui-teach-title"), detail)
+                        .button(label, kind, Message::Teach)
                         .cancel(fl!("ui-cancel")),
                 );
             }

@@ -39,3 +39,6 @@ ui-check-warning = warning: { $warning }
 ui-check-media = media: { $path }: { $problem }
 ui-check-name = invalid file name ("{ $name }"): lowercase letters, digits, _ and -, ending in .json
 ui-check-usage = usage: idetea ui check <file.json>…
+ui-teach-newer-file = { $name } (version { $version })
+ui-teach-newer = Warning: { $files } was written by a newer IDE than this one (which has version { $ours } and does not know that one). Writing takes the instructions back to this IDE's version; usually you want to open the project with the newer IDE.
+ui-teach-write-anyway = Write anyway

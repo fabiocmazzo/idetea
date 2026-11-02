@@ -39,3 +39,6 @@ ui-check-warning = aviso: { $warning }
 ui-check-media = mídia: { $path }: { $problem }
 ui-check-name = o nome do arquivo não vale ("{ $name }"): letras minúsculas, dígitos, _ e -, terminando em .json
 ui-check-usage = uso: idetea ui check <arquivo.json>…
+ui-teach-newer-file = { $name } (versão { $version })
+ui-teach-newer = Atenção: { $files } foi gravado por uma IDE mais nova que esta (que tem a versão { $ours } e não conhece aquela). Gravar volta as instruções para a versão desta IDE; o normal é abrir o projeto com a IDE nova.
+ui-teach-write-anyway = Gravar mesmo assim

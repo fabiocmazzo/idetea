@@ -13,6 +13,21 @@ const CLAUDE_IMPORT: &str = "@AGENTS.md\n";
 /// usuário, então não depende do idioma da IDE.
 pub const INSTRUCTIONS: &str = include_str!("../agents/instructions.md");
 
+/// As versões que esta IDE já teve (`agents/versions.txt`, a última é a atual).
+const VERSIONS: &str = include_str!("../agents/versions.txt");
+
+fn known_versions() -> impl Iterator<Item = &'static str> {
+    VERSIONS.lines().map(str::trim).filter(|l| !l.is_empty() && !l.starts_with('#'))
+}
+
+/// A versão gravada no bloco de um arquivo (`None`: sem bloco, ou um bloco antigo, sem a linha de versão).
+pub fn block_version(existing: &str) -> Option<&str> {
+    let b = existing.find(BEGIN_PREFIX)?;
+    let e = existing[b..].find(END).map_or(existing.len(), |e| b + e);
+    let line = existing[b..e].lines().rev().find_map(|l| l.trim().strip_prefix("Instructions version: `"))?;
+    line.strip_suffix('`')
+}
+
 /// Versão de um texto de instruções: 8 dígitos hexadecimais (FNV-1a de 32 bits). Vai no fim do bloco e no `ide`
 /// de cada resposta; diferentes, o agente sabe que a IDE tem instruções mais novas que as do arquivo.
 pub fn version(text: &str) -> String {
@@ -41,6 +56,8 @@ pub struct Change {
     pub content: String,
     /// O arquivo ainda não existe.
     pub new: bool,
+    /// O bloco tem uma versão que esta IDE não conhece: foi gravado por uma IDE mais nova (gravar volta atrás).
+    pub newer: Option<String>,
 }
 
 /// O que gravar no projeto: os `AGENTS.md`/`CLAUDE.md` que existirem (um symlink para o outro conta uma vez; um
@@ -70,13 +87,17 @@ pub fn plan(root: &Path, text: &str) -> std::io::Result<Vec<Change>> {
         any = true;
         let content = merge(&existing, text);
         if content != existing {
-            out.push(Change { name: name.to_string(), path: real, content, new: false });
+            let ours = version(text);
+            let newer = block_version(&existing)
+                .filter(|v| *v != ours && !known_versions().any(|k| k == *v))
+                .map(str::to_string);
+            out.push(Change { name: name.to_string(), path: real, content, new: false, newer });
         }
     }
     if !any {
-        out.push(Change { name: "AGENTS.md".to_string(), path: agents, content: merge("", text), new: true });
+        out.push(Change { name: "AGENTS.md".to_string(), path: agents, content: merge("", text), new: true, newer: None });
         let claude = root.join("CLAUDE.md");
-        out.push(Change { name: "CLAUDE.md".to_string(), path: claude, content: CLAUDE_IMPORT.to_string(), new: true });
+        out.push(Change { name: "CLAUDE.md".to_string(), path: claude, content: CLAUDE_IMPORT.to_string(), new: true, newer: None });
     }
     Ok(out)
 }
@@ -145,6 +166,41 @@ mod tests {
             assert!(std::fs::symlink_metadata(root.join("AGENTS.md")).unwrap().file_type().is_symlink());
             assert!(std::fs::read_to_string(root.join("CLAUDE.md")).unwrap().contains("t3"));
         }
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn knows_its_versions() {
+        let all: Vec<&str> = known_versions().collect();
+        assert_eq!(
+            all.last().copied(),
+            Some(version(INSTRUCTIONS).as_str()),
+            "instructions.md mudou: acrescente {} no fim de agents/versions.txt",
+            version(INSTRUCTIONS)
+        );
+        let mut unique = all.clone();
+        unique.sort();
+        unique.dedup();
+        assert_eq!(unique.len(), all.len(), "versões repetidas");
+    }
+
+    #[test]
+    fn warns_before_going_back() {
+        let root = tmp_root("volta");
+        let block = |v: &str| format!("# P\n\n{BEGIN}\ntexto\n\nInstructions version: `{v}`\n{END}\n");
+        assert_eq!(block_version(&block("abcd1234")), Some("abcd1234"));
+        assert_eq!(block_version(&format!("{BEGIN}\nsem versão\n{END}")), None);
+        assert_eq!(block_version("# nada"), None);
+
+        // Uma versão velha que esta IDE conhece: troca sem aviso.
+        std::fs::write(root.join("AGENTS.md"), block("60bfcf4d")).unwrap();
+        assert_eq!(plan(&root, INSTRUCTIONS).unwrap()[0].newer, None);
+        // Sem a linha de versão (bloco antigo): também.
+        std::fs::write(root.join("AGENTS.md"), format!("{BEGIN}\nvelho\n{END}\n")).unwrap();
+        assert_eq!(plan(&root, INSTRUCTIONS).unwrap()[0].newer, None);
+        // Uma versão que ela não conhece: de uma IDE mais nova.
+        std::fs::write(root.join("AGENTS.md"), block("ffff0000")).unwrap();
+        assert_eq!(plan(&root, INSTRUCTIONS).unwrap()[0].newer.as_deref(), Some("ffff0000"));
         let _ = std::fs::remove_dir_all(&root);
     }
 

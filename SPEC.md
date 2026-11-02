@@ -1075,6 +1075,11 @@ e grava a resposta do usuário em `.idetea/ui/responses/<nome>/`. Estudo, decis�
   falta ("Falta preencher: …"). Caminho sem componente: aviso e ignorado.
   - [x] Teste manual (aprovado, pelo painel): um botão que espera uma escolha na `gallery`, um texto e uma
     `checkbox`; liga só com os três.
+- [x] **Instruções protegidas** (lacuna 17, 7): a IDE conhece todas as versões das instruções que já teve
+  (`agents/versions.txt`, conferido por teste); um bloco com versão desconhecida foi gravado por uma IDE mais nova,
+  e o "ensinar" avisa que vai voltar atrás, com "Gravar mesmo assim". Bloco sem a linha de versão conta como velho.
+  - [x] Teste manual: com o `AGENTS.md` de um projeto marcando uma versão inventada, o "ensinar" mostra o aviso;
+    com uma versão velha da lista, grava sem aviso (aprovado, pelo painel).
 - [x] **Aba de imagem sempre em dia + schema junto do formato** (lacuna 16): as abas de imagem e PDF conferem
   tamanho e data do arquivo a cada segundo (além do observador) e recarregam quando mudam; o rodapé da aba mostra a
   hora em que o arquivo foi gravado, para conferir qual versão está na tela. A IDE grava também

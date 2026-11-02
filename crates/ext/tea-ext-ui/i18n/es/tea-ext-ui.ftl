@@ -39,3 +39,6 @@ ui-check-warning = aviso: { $warning }
 ui-check-media = medios: { $path }: { $problem }
 ui-check-name = el nombre del archivo no vale ("{ $name }"): minúsculas, dígitos, _ y -, terminando en .json
 ui-check-usage = uso: idetea ui check <archivo.json>…
+ui-teach-newer-file = { $name } (versión { $version })
+ui-teach-newer = Atención: { $files } fue escrito por un IDE más nuevo que este (que tiene la versión { $ours } y no conoce aquella). Escribir devuelve las instrucciones a la versión de este IDE; lo normal es abrir el proyecto con el IDE nuevo.
+ui-teach-write-anyway = Escribir de todos modos

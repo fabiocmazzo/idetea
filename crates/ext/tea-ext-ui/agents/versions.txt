@@ -1,0 +1,23 @@
+# Versões das instruções para agentes (agents/instructions.md), da mais velha para a atual: a linha
+# "Instructions version" do bloco. A IDE conhece todas estas; um bloco com outra versão foi gravado por uma IDE
+# mais nova, e "ensinar" avisa antes de trocar. Mudou o instructions.md: acrescente a versão nova no fim (o teste
+# diz qual).
+e348d8a1
+e66ceb52
+32a9823d
+0c09a841
+677789dd
+69587227
+4baa6f25
+eadc7ae5
+60bfcf4d
+27801e5e
+507de1e4
+ded12dd5
+0babddda
+ea2ada9d
+f69ecd0a
+f6058fda
+dd57ade4
+978b5ec5
+1929b1fb
