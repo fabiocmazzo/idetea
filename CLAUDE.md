@@ -78,7 +78,10 @@ the panel, put every question that needs my answer there, not only in the chat: 
    repeat. Don't write claims about which IDE is open into the document; the panel shows that itself.
    `ide.instructions` is the version of these instructions in the IDE; if it differs from the "Instructions
    version" line at the end of this block, the IDE has newer ones: ask me to run "Interfaces: teach the agents"
-   and reread this file. Read the
+   and reread this file. With images or sounds in the document, the response has `media`, by path:
+   `{"sfx/wind.wav": {"size": 61784, "modified": "…", "played": 2, "completed": 1}}` (`size` and `modified` of the
+   file that was on screen; counts of `opened`, `played`, `completed`, `stepped` in this revision). It tells what
+   I did, not what I heard or saw. Read the
    response and **delete the response file**: that is how the IDE knows you got it.
 3. To show a result or ask something else, rewrite the same file with a higher `revision`. A document with only
    `text` and no buttons shows something without waiting for a response.
@@ -96,5 +99,5 @@ did not find.
 Do not put secrets in the document. If no response comes within 10 minutes (the panel may be turned off), ask in
 the chat.
 
-Instructions version: `ea2ada9d`
+Instructions version: `f69ecd0a`
 <!-- idetea-ui:end -->

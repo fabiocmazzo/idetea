@@ -279,7 +279,11 @@ Um clique grava `.idetea/ui/responses/<nome>/<seq>-<event>.json`:
   "time": "2026-11-01T20:41:07Z",
   "values": { "/ambiente": "prod", "/backup": true, "/nota": null },
   "comment": "faça o backup antes, mesmo em staging",
-  "ide": { "pid": 48213, "version": "0.0.1", "outdated": false, "instructions": "4f2a9c1e" }
+  "ide": { "pid": 48213, "version": "0.0.1", "outdated": false, "instructions": "4f2a9c1e" },
+  "media": {
+    "assets/sprites/balao.png": { "size": 515, "modified": "2026-11-01T20:39:52Z", "opened": 1, "stepped": 3 },
+    "assets/sons/vento.wav": { "size": 61784, "modified": "2026-11-01T20:30:10Z", "played": 2, "completed": 1 }
+  }
 }
 ```
 
@@ -301,6 +305,12 @@ Um clique grava `.idetea/ui/responses/<nome>/<seq>-<event>.json`:
   ficam falsos assim que o usuário reinicia. `instructions` é a versão das instruções para agentes desta IDE; o
   bloco do `AGENTS.md` termina com a linha "Instructions version" da versão que foi gravada. Diferentes: a IDE
   tem instruções mais novas, e falta rodar "Interfaces: ensinar os agentes".
+- `media` (só com `image`, `gallery`, `sprite` ou `audio` no documento): cada arquivo de mídia, pelo caminho.
+  `size` e `modified` são do arquivo que estava na tela (lido pela última vez); compare com o disco para saber se o
+  usuário viu a versão nova. As contagens são desta revisão, e só aparecem quando passam de zero: `opened` (cliques
+  que abriram a imagem na aba), `played` (vezes que o som começou; cada volta do `loop` conta), `completed` (tocou
+  até o fim, sem Parar) e `stepped` (quadros passados à mão num `sprite`). É o que o usuário fez, não prova do que
+  ele viu ou ouviu.
 
 Depois de ler, **apague o arquivo da resposta**. Enquanto ele existir, o painel mostra "aguardando o agente ler".
 

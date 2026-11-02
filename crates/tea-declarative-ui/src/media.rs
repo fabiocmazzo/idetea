@@ -69,6 +69,8 @@ pub const WAVE_HEIGHT: u32 = 36;
 pub struct Media {
     pictures: HashMap<String, Result<Picture, String>>,
     sounds: HashMap<String, Result<Sound, String>>,
+    /// Tamanho e data de cada arquivo quando foi lido (a versão na tela).
+    files: HashMap<String, (u64, Option<SystemTime>)>,
     /// Pelo id do componente: dois `sprite` da mesma folha podem recortar diferente.
     sprites: HashMap<String, Result<Frames, String>>,
     /// Fundos quadriculados, pelo tamanho na tela.
@@ -87,6 +89,12 @@ impl Media {
     pub fn load(root: &Path, doc: &Document, limits: &MediaLimits) -> Media {
         let mut media = Media::default();
         let mut pixels = 0u64;
+        for path in doc.image_paths().into_iter().chain(doc.audio_paths()) {
+            // Antes de ler: se o arquivo mudar no meio, a data mais velha faz a próxima leitura acontecer.
+            if let Ok(m) = std::fs::symlink_metadata(root.join(path)) {
+                media.files.insert(path.to_string(), (m.len(), m.modified().ok()));
+            }
+        }
         for path in doc.image_paths() {
             let picture = read(&root.join(path), limits).and_then(|p| {
                 pixels += u64::from(p.width) * u64::from(p.height);
@@ -147,6 +155,11 @@ impl Media {
 
     pub fn picture(&self, path: &str) -> Option<&Result<Picture, String>> {
         self.pictures.get(path)
+    }
+
+    /// Tamanho e data do arquivo quando foi lido para a tela.
+    pub fn file(&self, path: &str) -> Option<(u64, Option<SystemTime>)> {
+        self.files.get(path).copied()
     }
 
     /// Os quadros do `sprite` com este id.

@@ -33,6 +33,38 @@ pub struct Response {
     /// A IDE que gravou a resposta (o agente confere se o teste rodou na versão nova).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub ide: Option<Ide>,
+    /// As imagens e os sons do documento, pelo caminho: a versão que estava na tela e o que o usuário fez com
+    /// eles nesta revisão. Informação, não prova (o painel não sabe se o som estava baixo).
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub media: BTreeMap<String, Seen>,
+}
+
+/// Uma imagem ou um som, na resposta.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct Seen {
+    /// Tamanho do arquivo lido para a tela, em bytes (`None`: não deu para ler).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub size: Option<u64>,
+    /// Data do arquivo lido para a tela (RFC 3339, UTC): compare com a do disco.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub modified: Option<String>,
+    /// Cliques que abriram a imagem na aba.
+    #[serde(skip_serializing_if = "is_zero")]
+    pub opened: u32,
+    /// Vezes que o som começou a tocar (cada volta de um `loop` conta).
+    #[serde(skip_serializing_if = "is_zero")]
+    pub played: u32,
+    /// Vezes que o som tocou até o fim (sem Parar).
+    #[serde(skip_serializing_if = "is_zero")]
+    pub completed: u32,
+    /// Quadros passados à mão num `sprite` pausado.
+    #[serde(skip_serializing_if = "is_zero")]
+    pub stepped: u32,
+}
+
+fn is_zero(n: &u32) -> bool {
+    *n == 0
 }
 
 /// Quem respondeu: o processo da IDE e se ele está desatualizado.
@@ -73,6 +105,7 @@ impl Response {
             values,
             comment: None,
             ide: None,
+            media: BTreeMap::new(),
         }
     }
 }

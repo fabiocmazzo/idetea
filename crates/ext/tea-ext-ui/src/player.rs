@@ -29,6 +29,8 @@ pub struct Playing {
     pub name: String,
     pub id: String,
     pub revision: u64,
+    /// Caminho do som, relativo à raiz (como no documento).
+    pub path: String,
 }
 
 #[derive(Default)]
@@ -42,8 +44,10 @@ pub struct Player {
 pub enum Tick {
     /// Continua tocando (ou nada tocando).
     Same,
-    /// Terminou (sem `loop`) ou parou com erro.
-    Ended,
+    /// Com `loop`: tocou até o fim e começou de novo.
+    Looped(Playing),
+    /// Tocou até o fim (sem `loop`).
+    Ended(Playing),
     /// O tocador saiu com erro: provavelmente não conhece o formato.
     Failed(String),
 }
@@ -78,7 +82,7 @@ impl Player {
 
     /// Olha o tocador: com `loop`, roda de novo quando termina bem.
     pub fn tick(&mut self) -> Tick {
-        let Some((_, path, looped, child)) = &mut self.current else { return Tick::Same };
+        let Some((what, path, looped, child)) = &mut self.current else { return Tick::Same };
         let status = match child.try_wait() {
             Ok(None) => return Tick::Same,
             Ok(Some(status)) => status,
@@ -96,10 +100,11 @@ impl Player {
             && let Ok(next) = spawn(program, path)
         {
             *child = next;
-            return Tick::Same;
+            return Tick::Looped(what.clone());
         }
+        let what = what.clone();
         self.current = None;
-        Tick::Ended
+        Tick::Ended(what)
     }
 }
 
@@ -142,7 +147,7 @@ mod tests {
     }
 
     fn what() -> Playing {
-        Playing { name: "sons".into(), id: "vento".into(), revision: 1 }
+        Playing { name: "sons".into(), id: "vento".into(), revision: 1, path: "som.wav".into() }
     }
 
     fn wait_for(player: &mut Player, want: Tick) {
@@ -179,7 +184,7 @@ mod tests {
 
         // Sem loop: termina sozinho.
         player.play(what(), "som.wav".into(), false).unwrap();
-        wait_for(&mut player, Tick::Ended);
+        wait_for(&mut player, Tick::Ended(what()));
         assert_eq!(player.playing(), None);
         let _ = std::fs::remove_file(&count);
     }

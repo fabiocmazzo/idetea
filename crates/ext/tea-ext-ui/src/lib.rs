@@ -24,7 +24,9 @@ use iced::{Element, Fill, Subscription, Task, Theme};
 use serde::{Deserialize, Serialize};
 use tea_core::icons::Icon;
 use tea_core::{ButtonKind, Context, CoreEvent, Dialog, Extension, PanelId, Slot};
-use tea_declarative_ui::{Document, Ide, Kind, Limits, Playback, Rendered, Response, State, UiMessage, timestamp};
+use tea_declarative_ui::{
+    Document, Ide, Kind, Limits, Playback, Rendered, Response, Seen, State, UiMessage, timestamp,
+};
 
 use player::{Player, Playing};
 use store::SurfaceFile;
@@ -87,6 +89,9 @@ pub struct UiExtension {
     clock_ms: u64,
     /// `sprite` pausados, por interface: id → quadro mostrado. Uma revisão nova volta a animar.
     paused: BTreeMap<String, HashMap<String, u32>>,
+    /// O que o usuário fez com as imagens e os sons, por interface (revisão, caminho → contagem). Vai na resposta
+    /// (`media`) e recomeça numa revisão nova.
+    seen: BTreeMap<String, (u64, BTreeMap<String, Seen>)>,
 }
 
 impl UiExtension {
@@ -216,6 +221,7 @@ impl UiExtension {
     fn submit(&mut self, name: &str, source: &str, ctx: &mut Context) {
         let Some(f) = self.files.iter().find(|f| f.name == name && !f.tracked) else { return };
         let Ok(doc) = &f.doc else { return };
+        let media = self.media_seen(f, doc);
         let Some(saved) = self.saved.get_mut(name) else { return };
         let before = saved.state.clone();
         let Some((action, values)) = saved.state.press(doc, source) else { return };
@@ -227,6 +233,7 @@ impl UiExtension {
             Response::new(name, doc.revision, seq, event.clone(), action, source, timestamp(SystemTime::now()), values);
         let comment = saved.state.comment.trim();
         response.comment = (!comment.is_empty()).then(|| comment.to_string());
+        response.media = media;
         response.ide =
             Some(Ide {
                 pid: std::process::id(),
@@ -265,10 +272,39 @@ impl UiExtension {
         if !matches!(f.media.sound(path), Some(Ok(_))) {
             return;
         }
-        let what = Playing { name: name.to_string(), id: id.to_string(), revision: doc.revision };
-        if let Err(e) = self.player.play(what, self.root.join(path), looped) {
-            ctx.notify(fl!("ui-audio-failed", error = e.to_string()));
+        let what = Playing { name: name.to_string(), id: id.to_string(), revision: doc.revision, path: path.clone() };
+        let path = path.clone();
+        match self.player.play(what, self.root.join(&path), looped) {
+            Ok(()) => self.count(name, &path, |s| s.played += 1),
+            Err(e) => ctx.notify(fl!("ui-audio-failed", error = e.to_string())),
         }
+    }
+
+    /// Anota algo que o usuário fez com uma imagem ou um som (`path`) da interface `name`, na revisão atual.
+    fn count(&mut self, name: &str, path: &str, f: impl FnOnce(&mut Seen)) {
+        let Some(revision) = self.file(name).and_then(|f| f.doc.as_ref().ok()).map(|d| d.revision) else { return };
+        let entry = self.seen.entry(name.to_string()).or_default();
+        if entry.0 != revision {
+            *entry = (revision, BTreeMap::new());
+        }
+        f(entry.1.entry(path.to_string()).or_default());
+    }
+
+    /// O `media` da resposta: cada imagem e som do documento, com a versão lida para a tela e as contagens.
+    fn media_seen(&self, f: &SurfaceFile, doc: &Document) -> BTreeMap<String, Seen> {
+        let counts = self.seen.get(&f.name).filter(|(r, _)| *r == doc.revision).map(|(_, c)| c);
+        doc.image_paths()
+            .into_iter()
+            .chain(doc.audio_paths())
+            .map(|path| {
+                let mut seen = counts.and_then(|c| c.get(path)).cloned().unwrap_or_default();
+                if let Some((size, modified)) = f.media.file(path) {
+                    seen.size = Some(size);
+                    seen.modified = modified.map(timestamp);
+                }
+                (path.to_string(), seen)
+            })
+            .collect()
     }
 
     fn playback(&self, name: &str) -> Playback {
@@ -283,8 +319,8 @@ impl UiExtension {
     fn sprite(&mut self, name: &str, id: &str, step: bool) {
         let Some(f) = self.file(name) else { return };
         let Ok(doc) = &f.doc else { return };
-        let Some(fps) = doc.components.iter().find(|c| c.id == id).and_then(|c| match &c.kind {
-            Kind::Sprite { fps, .. } => Some(*fps),
+        let Some((fps, path)) = doc.components.iter().find(|c| c.id == id).and_then(|c| match &c.kind {
+            Kind::Sprite { fps, path, .. } => Some((*fps, path.clone())),
             _ => None,
         }) else {
             return;
@@ -296,6 +332,7 @@ impl UiExtension {
         match (step, paused.contains_key(id)) {
             (true, true) => {
                 paused.insert(id.to_string(), (now + 1) % count as u32);
+                self.count(name, &path, |s| s.stepped += 1);
             }
             (true, false) => {}
             (false, true) => {
@@ -503,7 +540,11 @@ impl Extension for UiExtension {
                     self.save();
                 }
             }
-            Message::Ui(_, UiMessage::Open { path, line, column }) => {
+            Message::Ui(name, UiMessage::Open { path, line, column }) => {
+                let media = self.file(&name).and_then(|f| f.doc.as_ref().ok()).is_some_and(|d| d.image_paths().contains(&path.as_str()));
+                if media {
+                    self.count(&name, &path, |s| s.opened += 1);
+                }
                 tea_declarative_ui::open_file(&self.root, &path, line, column, ctx);
             }
             Message::Ui(_, UiMessage::Link(url)) => tea_declarative_ui::follow(&url, &self.root, ctx),
@@ -517,8 +558,14 @@ impl Extension for UiExtension {
                 self.clock_ms = start.elapsed().as_millis() as u64;
             }
             Message::AudioTick => {
-                if let player::Tick::Failed(e) = self.player.tick() {
-                    ctx.notify(fl!("ui-audio-failed", error = e));
+                match self.player.tick() {
+                    player::Tick::Failed(e) => ctx.notify(fl!("ui-audio-failed", error = e)),
+                    player::Tick::Looped(p) => self.count(&p.name, &p.path, |s| {
+                        s.completed += 1;
+                        s.played += 1;
+                    }),
+                    player::Tick::Ended(p) => self.count(&p.name, &p.path, |s| s.completed += 1),
+                    player::Tick::Same => {}
                 }
             }
             Message::Submit(name, source) => self.submit(&name, &source, ctx),
@@ -848,6 +895,43 @@ mod tests {
         std::fs::write(store::ui_dir(&root).join("anim.json"), doc.replace(r#""revision": 1"#, r#""revision": 2"#)).unwrap();
         let _ = ext.update(Message::Snapshot(Arc::new(store::scan(&root, &Limits::default()))), &mut Context::new(&root, None));
         assert!(!ext.paused.contains_key("anim"));
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn response_says_what_was_seen() {
+        let root = tmp_root("visto");
+        test_state();
+        let mut ext = UiExtension::new();
+        let _ = ext.activate(&mut Context::new(&root, None));
+        std::fs::write(root.join("folha.png"), include_bytes!("../testdata/folha-6x2.png")).unwrap();
+        let doc = r#"{"format": "idetea-ui", "version": 1, "revision": 1, "components": [
+            {"id": "img", "component": "image", "path": "folha.png"},
+            {"id": "voo", "component": "sprite", "path": "folha.png", "frames": 3},
+            {"id": "som", "component": "audio", "path": "falta.wav"},
+            {"id": "ok", "component": "button", "label": "Ok", "action": {"name": "ok"}}]}"#;
+        std::fs::write(store::ui_dir(&root).join("ver.json"), doc).unwrap();
+        let _ = ext.update(Message::Snapshot(Arc::new(store::scan(&root, &Limits::default()))), &mut Context::new(&root, None));
+        let ui = |ext: &mut UiExtension, m: UiMessage| {
+            let _ = ext.update(Message::Ui("ver".into(), m), &mut Context::new(&root, None));
+        };
+        ui(&mut ext, UiMessage::Open { path: "folha.png".into(), line: 0, column: 0 });
+        ui(&mut ext, UiMessage::SpritePause("voo".into()));
+        ui(&mut ext, UiMessage::SpriteStep("voo".into()));
+        ui(&mut ext, UiMessage::SpriteStep("voo".into()));
+        ui(&mut ext, UiMessage::Press("ok".into()));
+
+        let (seq, event) = store::pending(&store::ui_dir(&root), "ver")[0].clone();
+        let file = store::ui_dir(&root).join("responses/ver").join(tea_declarative_ui::file_name(seq, &event));
+        let text = std::fs::read_to_string(file).unwrap();
+        let response: Response = serde_json::from_str(&text).unwrap();
+        let folha = &response.media["folha.png"];
+        let meta = std::fs::metadata(root.join("folha.png")).unwrap();
+        assert_eq!(folha.size, Some(meta.len()));
+        assert_eq!(folha.modified, Some(timestamp(meta.modified().unwrap())), "a versão lida para a tela");
+        assert_eq!((folha.opened, folha.stepped, folha.played), (1, 2, 0));
+        assert_eq!(response.media["falta.wav"], Seen::default(), "som que não existe: sem tamanho nem contagem");
+        assert!(!text.contains("\"played\""), "contagens zeradas não aparecem: {text}");
         let _ = std::fs::remove_dir_all(&root);
     }
 }

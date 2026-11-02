@@ -1039,7 +1039,11 @@ e grava a resposta do usuário em `.idetea/ui/responses/<nome>/`. Estudo, decis�
   animando (o núcleo não avisa quando o painel fecha); uma revisão nova volta a animar.
   - [x] Teste manual (aprovado, pelo painel): o voo do pássaro a 8 fps como no jogo; pausar, passar quadro a quadro os 3 do balão;
     regerar a folha atualiza os quadros.
-- [ ] **Mídia M4: o que foi visto e ouvido** (lacuna 14): `media` na resposta.
+- [x] **Mídia M4: o que foi visto e ouvido** (lacuna 14): `media` na resposta, pelo caminho: `size` e `modified`
+  do arquivo que estava na tela (lacuna 2 do jogo) e as contagens da revisão (`opened`, `played`, `completed`,
+  `stepped`), só quando passam de zero.
+  - [x] Teste manual (aprovado, pelo painel): abrir uma imagem na aba, tocar um som até o fim e parar outro, passar quadros de um sprite;
+    a resposta traz cada contagem e a data do arquivo na tela.
 - [ ] **Mídia M5: `idetea:open`** (lacuna 13): link que abre um arquivo do projeto no app do sistema, só com as
   extensões da lista.
 - [x] **Aba de imagem sempre em dia + schema junto do formato** (lacuna 16): as abas de imagem e PDF conferem
