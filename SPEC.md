@@ -840,8 +840,10 @@ e grava a resposta do usuário em `.idetea/ui/responses/<nome>/`. Estudo, decis�
     e clicar gera a resposta, que o script lê e apaga ("recebido" no painel); o script grava uma revisão nova e a
     interface muda sem perder o que estava digitado; fechar e abrir a IDE mantém interface e valores; um JSON
     inválido mostra o erro no painel. (aprovado)
-- [ ] **Teste com um agente de verdade** (Claude Code com o texto de instruções): anotar o que confundiu o agente e
-  ajustar o formato antes de considerar estável.
+- [x] **Teste com um agente de verdade** (Claude Code com o texto de instruções): anotar o que confundiu o agente e
+  ajustar o formato antes de considerar estável. (aprovado) O formato bastou; o texto para agentes ganhou os cinco
+  componentes, o que volta na resposta, como esperar em bash e o que apagar no fim. A IDE passou a mostrar o painel
+  ao abrir quando há pergunta sem resposta e a apagar a pasta de respostas vazia de interfaces fechadas.
 - Depois, só se o uso pedir: `Row`/`Column`, progresso, Markdown sem links, vários painéis (`PanelId` dinâmico no
   núcleo), adaptador A2UI v1.0, e a mesma crate nos painéis dos plugins WASM (Fase 4).
 

@@ -83,7 +83,25 @@ pub fn scan(root: &Path, limits: &Limits) -> Vec<SurfaceFile> {
         })
         .collect();
     out.sort_by(|a, b| a.name.cmp(&b.name));
+    clean_responses(&ui, &out);
     out
+}
+
+/// A pasta de respostas de uma interface já fechada (o agente apagou o documento e leu tudo) sai.
+/// `remove_dir` só apaga pasta vazia: uma resposta ainda não lida nunca se perde.
+fn clean_responses(ui: &Path, open: &[SurfaceFile]) {
+    let dir = responses_dir(ui);
+    if is_link(&dir) {
+        return;
+    }
+    let Ok(entries) = std::fs::read_dir(&dir) else { return };
+    for e in entries.flatten() {
+        let name = e.file_name();
+        let closed = name.to_str().is_some_and(|n| !open.iter().any(|f| f.name == n));
+        if closed && e.file_type().is_ok_and(|t| t.is_dir()) {
+            let _ = std::fs::remove_dir(e.path());
+        }
+    }
 }
 
 /// `<nome>.json` de uma pasta (sem ocultos, temporários, symlinks e nomes inválidos).
@@ -293,10 +311,15 @@ mod tests {
         assert!(write_response(&root, &r(2, "e2")).is_err(), "nunca sobrescreve");
         std::fs::remove_file(p2).unwrap(); // o agente leu
         assert_eq!(pending(&ui_dir(&root), "pergunta").len(), 1);
-        assert!(std::fs::read_dir(root.join(".idetea/ui/responses/pergunta")).unwrap().flatten().all(|e| !e
-            .file_name()
-            .to_string_lossy()
-            .ends_with(".tmp")));
+        let dir = root.join(".idetea/ui/responses/pergunta");
+        assert!(std::fs::read_dir(&dir).unwrap().flatten().all(|e| !e.file_name().to_string_lossy().ends_with(".tmp")));
+        scan(&root, &Limits::default()); // sem documento, mas com uma resposta não lida: a pasta fica
+        assert!(dir.exists());
+        for e in std::fs::read_dir(&dir).unwrap().flatten() {
+            std::fs::remove_file(e.path()).unwrap();
+        }
+        scan(&root, &Limits::default()); // fechada e vazia: sai
+        assert!(!dir.exists());
         let _ = std::fs::remove_dir_all(&root);
     }
 

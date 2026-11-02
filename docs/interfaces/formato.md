@@ -34,7 +34,9 @@ Ou em Configurações → Extensões. Reinicie a IDE depois de mudar.
   apaga cada resposta depois de ler — é assim que a IDE sabe que ele recebeu.
 - Escreva o documento num temporário e renomeie (`mv`): a IDE nunca vê metade do arquivo. Temporários que
   terminam em `.tmp` são ignorados (e apagados depois de uma hora).
-- Para fechar a interface, apague `<nome>.json`.
+- Para fechar a interface, apague `<nome>.json`. O resto (`.gitignore`, `responses/`) é da IDE: a pasta de
+  respostas de uma interface fechada sai sozinha quando fica vazia.
+- Um documento só com `text`, sem botões, serve para mostrar algo sem esperar resposta.
 - Arquivos versionados no git (que vieram de um repositório clonado) são ignorados por segurança. Symlinks
   também.
 

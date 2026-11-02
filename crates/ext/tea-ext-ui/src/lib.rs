@@ -113,7 +113,10 @@ impl UiExtension {
                     self.saved.insert(f.name.clone(), Saved { state: State::new(doc), seq: 0 });
                 }
             }
-            if !first && before != Some(doc.revision) {
+            // Revisão nova; ou, ao abrir a IDE, uma pergunta que ficou sem resposta (o agente pode ter escrito
+            // antes de a IDE abrir).
+            let waiting = first && f.pending.is_empty() && !self.saved[&f.name].state.locked(doc);
+            if waiting || (!first && before != Some(doc.revision)) {
                 changed = Some((f.name.clone(), title(doc, &f.name).to_string(), before.is_none()));
             }
         }
@@ -347,6 +350,10 @@ mod tests {
         ]
     }"#;
 
+    fn shows_panel(requests: Vec<tea_core::Request>) -> bool {
+        requests.iter().any(|r| matches!(r, tea_core::Request::PanelVisibility { id, visible: Some(true) } if *id == PANEL))
+    }
+
     #[test]
     fn from_file_to_response() {
         let root = tmp_root("fluxo");
@@ -358,8 +365,12 @@ mod tests {
         let _ = ext.activate(&mut ctx);
         std::fs::write(store::ui_dir(&root).join("migracao.json"), DOC).unwrap();
 
+        // A pergunta já estava lá quando a IDE abriu: o painel aparece.
         let mut ctx = Context::new(&root, None);
         let _ = ext.update(Message::Snapshot(Arc::new(store::scan(&root, &Limits::default()))), &mut ctx);
+        assert!(shows_panel(ctx.into_requests()));
+
+        let mut ctx = Context::new(&root, None);
         let msgs: Vec<Message> = {
             let mut ui = simulator(ext.view(PANEL));
             assert!(ui.find("Revisar migração").is_ok());
@@ -382,9 +393,11 @@ mod tests {
         // Reiniciar a IDE: a revisão continua respondida (o estado foi salvo).
         let mut again = UiExtension::new();
         let _ = again.activate(&mut Context::new(&root, None));
+        let mut ctx = Context::new(&root, None);
         let _ = again.update(Message::Snapshot(Arc::new(store::scan(&root, &Limits::default()))), &mut ctx);
         let doc = again.files[0].doc.as_ref().unwrap();
         assert!(again.saved["migracao"].state.locked(doc));
+        assert!(!shows_panel(ctx.into_requests()), "já respondida: não abre o painel de novo");
         let _ = std::fs::remove_dir_all(&root);
     }
 }
