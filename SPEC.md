@@ -962,9 +962,14 @@ e grava a resposta do usuário em `.idetea/ui/responses/<nome>/`. Estudo, decis�
     `outdated: false`; `touch target/debug/idetea`: o topo do painel mostra o aviso; responder de novo: chega
     `outdated: true`. Rodar "Ensinar os agentes": o `CLAUDE.md` ganha o parágrafo sobre `ide`. (aprovado, pelo
     painel)
-- [ ] **Passos que se marcam** (RFC 0003, etapa B; lacuna 10): componente `steps` (cada passo um `checkbox`, texto
-  em Markdown de uma linha, `optional`); o valor é a lista dos ids marcados; `requires` no `button` deixa o botão
-  desabilitado até os passos obrigatórios estarem marcados.
+- [x] **Passos que se marcam** (RFC 0003, etapa B; lacuna 10): componente `steps` (cada passo um `checkbox`
+  numerado, texto em Markdown de uma linha, `optional`); o valor é a lista dos ids marcados, na ordem dos passos;
+  `requires` no `button` deixa o botão desabilitado até os passos obrigatórios estarem marcados, com "Faltam N
+  passos" embaixo (o estado também recusa o clique). Um `requires` que não aponta um `steps` vira aviso. Vale nos
+  plugins. Formato, schema e instruções dos agentes.
+  - [x] Teste manual: a entrega deste item usa `steps`: "Aprovado" fica desligado até marcar os passos
+    obrigatórios (o opcional não conta), "Falhou" funciona sempre; a resposta traz a lista marcada. Rodar "Ensinar
+    os agentes": o `CLAUDE.md` ganha o parágrafo sobre `steps`. (aprovado, pelo painel)
 - [ ] **Convenções de entrega nas instruções** (RFC 0003, etapa C): entrega de teste com os três botões, conferir
   no disco antes de commitar, não afirmar o estado da IDE, ler o `ide` da resposta.
 - [ ] **Segundo projeto de dogfooding** (RFC 0003, decisão 3): depois de A, B e C; decide imagem e mídia.

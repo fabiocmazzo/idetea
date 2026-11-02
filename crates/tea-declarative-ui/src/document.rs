@@ -80,7 +80,10 @@ pub struct Component {
 #[derive(Debug, Clone, PartialEq)]
 pub enum Kind {
     Text { text: String, style: TextStyle },
-    Button { label: String, style: ButtonStyle, action: Action },
+    /// `requires`: caminho de um `steps`; o botão só liga com os passos obrigatórios dele marcados.
+    Button { label: String, style: ButtonStyle, action: Action, requires: Option<String> },
+    /// Passos numerados que o usuário marca. `value`: caminho da lista dos ids marcados.
+    Steps { items: Vec<Step>, value: String },
     /// `value`: caminho (ponteiro JSON) do valor em `data`.
     Checkbox { label: String, value: String },
     Select { label: Option<String>, options: Vec<Choice>, value: String },
@@ -99,7 +102,10 @@ impl Kind {
     /// Caminho do valor que o componente mostra e muda.
     pub fn binding(&self) -> Option<&str> {
         match self {
-            Kind::Checkbox { value, .. } | Kind::Select { value, .. } | Kind::Input { value, .. } => Some(value),
+            Kind::Checkbox { value, .. }
+            | Kind::Select { value, .. }
+            | Kind::Input { value, .. }
+            | Kind::Steps { value, .. } => Some(value),
             _ => None,
         }
     }
@@ -120,6 +126,14 @@ pub enum ButtonStyle {
     Primary,
     Secondary,
     Danger,
+}
+
+/// Um passo de um `steps`. `text`: Markdown de uma linha. `optional`: não conta para o `requires`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Step {
+    pub id: String,
+    pub text: String,
+    pub optional: bool,
 }
 
 /// Uma opção de um `select`.
@@ -212,6 +226,22 @@ pub fn parse(bytes: &[u8], limits: &Limits) -> Result<Document, String> {
             return Err(fl!("ui-duplicate-id", id = component.id));
         }
         components.push(component);
+    }
+    // `requires` só vale para o caminho de um `steps`; outro caminho vira aviso e o botão não espera nada.
+    let steps: Vec<String> = components
+        .iter()
+        .filter_map(|c| match &c.kind {
+            Kind::Steps { value, .. } => Some(value.clone()),
+            _ => None,
+        })
+        .collect();
+    for (i, c) in components.iter_mut().enumerate() {
+        if let Kind::Button { requires: requires @ Some(_), .. } = &mut c.kind
+            && !steps.contains(requires.as_ref().unwrap())
+        {
+            r.warnings.push(fl!("ui-requires-not-steps", field = format!("components[{i}].requires")));
+            *requires = None;
+        }
     }
 
     Ok(Document {
@@ -356,13 +386,18 @@ impl Reader {
                 },
             ),
             "button" => (
-                &["label", "style", "action"],
+                &["label", "style", "action", "requires"],
                 Kind::Button {
                     label: self.required(obj, "label", field)?,
                     style: self.button_style(obj, field)?,
                     action: self.action(obj, field)?,
+                    requires: match obj.get("requires") {
+                        None | Some(Value::Null) => None,
+                        Some(_) => Some(self.path(obj, "requires", field)?),
+                    },
                 },
             ),
+            "steps" => (&["items", "value"], Kind::Steps { items: self.steps(obj, field)?, value: self.path(obj, "value", field)? }),
             "checkbox" => (
                 &["label", "value"],
                 Kind::Checkbox { label: self.required(obj, "label", field)?, value: self.path(obj, "value", field)? },
@@ -443,6 +478,37 @@ impl Reader {
             Some(_) => return Err(fl!("ui-wrong-type", field = at(&field, "context"), expected = "array")),
         };
         Ok(Action { name, context })
+    }
+
+    /// Passos: `{"id": "a", "text": "…", "optional": true}`; ids únicos no componente.
+    fn steps(&mut self, obj: &Map<String, Value>, field: &str) -> Result<Vec<Step>, String> {
+        let field = at(field, "items");
+        let list = match obj.get("items") {
+            Some(Value::Array(list)) => list,
+            Some(_) => return Err(fl!("ui-wrong-type", field = field, expected = "array")),
+            None => return Err(fl!("ui-missing", field = field)),
+        };
+        if list.len() > self.limits.max_options {
+            return Err(fl!("ui-too-many", field = field, max = self.limits.max_options));
+        }
+        let mut out: Vec<Step> = Vec::with_capacity(list.len());
+        for (i, item) in list.iter().enumerate() {
+            let item_field = format!("{field}[{i}]");
+            let Value::Object(o) = item else {
+                return Err(fl!("ui-wrong-type", field = item_field, expected = "object"));
+            };
+            self.known_fields(o, &["id", "text", "optional"], &item_field);
+            let id = self.required(o, "id", &item_field)?;
+            if !valid_id(&id) {
+                return Err(fl!("ui-bad-id", field = at(&item_field, "id"), id = id));
+            }
+            if out.iter().any(|s| s.id == id) {
+                return Err(fl!("ui-duplicate-id", id = id));
+            }
+            let text = self.required(o, "text", &item_field)?;
+            out.push(Step { id, text, optional: self.boolean(o, "optional", &item_field)? });
+        }
+        Ok(out)
     }
 
     /// Opções: `{"value": "x", "label": "X"}` ou só `"x"`.

@@ -56,6 +56,33 @@ impl State {
         self.revision = doc.revision;
     }
 
+    /// Ids marcados num `steps` (o valor no caminho é uma lista de ids).
+    pub fn checked<'a>(&'a self, doc: &'a Document, path: &str) -> Vec<&'a str> {
+        self.value(doc, path).and_then(Value::as_array).map_or(Vec::new(), |a| a.iter().filter_map(Value::as_str).collect())
+    }
+
+    /// Quantos passos obrigatórios do `steps` em `path` ainda faltam marcar.
+    pub fn missing(&self, doc: &Document, path: &str) -> usize {
+        let checked = self.checked(doc, path);
+        doc.components
+            .iter()
+            .filter_map(|c| match &c.kind {
+                Kind::Steps { items, value } if value == path => Some(items),
+                _ => None,
+            })
+            .flatten()
+            .filter(|s| !s.optional && !checked.contains(&s.id.as_str()))
+            .count()
+    }
+
+    /// O botão está esperando passos (`requires`): quantos faltam (0: pode clicar).
+    pub fn waiting(&self, doc: &Document, button: &Kind) -> usize {
+        match button {
+            Kind::Button { requires: Some(path), .. } => self.missing(doc, path),
+            _ => 0,
+        }
+    }
+
     /// Os botões estão desligados: já respondeu esta revisão e ela só aceita uma resposta.
     pub fn locked(&self, doc: &Document) -> bool {
         doc.submit == Submit::Once && self.answered == Some(doc.revision)
@@ -67,10 +94,11 @@ impl State {
         if self.locked(doc) {
             return None;
         }
-        let action = doc.components.iter().find(|c| c.id == source).and_then(|c| match &c.kind {
-            Kind::Button { action, .. } => Some(action),
-            _ => None,
-        })?;
+        let button = doc.components.iter().find(|c| c.id == source)?;
+        let Kind::Button { action, .. } = &button.kind else { return None };
+        if self.waiting(doc, &button.kind) > 0 {
+            return None;
+        }
         let values = action
             .context
             .iter()

@@ -48,6 +48,7 @@
             "properties": {
               "label": { "$ref": "#/$defs/text" },
               "style": { "enum": ["primary", "secondary", "danger"] },
+              "requires": { "$ref": "#/$defs/binding" },
               "action": {
                 "type": "object",
                 "required": ["name"],
@@ -87,6 +88,25 @@
                       "additionalProperties": false
                     }
                   ]
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "component": { "const": "steps" } } },
+          "then": {
+            "required": ["items", "value"],
+            "properties": {
+              "value": { "$ref": "#/$defs/binding" },
+              "items": {
+                "type": "array",
+                "maxItems": 500,
+                "items": {
+                  "type": "object",
+                  "required": ["id", "text"],
+                  "properties": { "id": { "$ref": "#/$defs/id" }, "text": { "$ref": "#/$defs/text" }, "optional": { "type": "boolean" } },
+                  "additionalProperties": false
                 }
               }
             }

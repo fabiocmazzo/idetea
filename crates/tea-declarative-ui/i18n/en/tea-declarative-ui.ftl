@@ -25,3 +25,9 @@ ui-comment-label = Comment for the agent (optional)
 ui-comment-placeholder = sent along with the button you click
 ui-copy = Copy
 ui-copied = Copied.
+ui-steps-missing = { $count ->
+    [one] 1 step left to check.
+   *[other] { $count } steps left to check.
+}
+ui-step-optional = (optional)
+ui-requires-not-steps = "{ $field }" must point to the "value" of a "steps"; ignored.

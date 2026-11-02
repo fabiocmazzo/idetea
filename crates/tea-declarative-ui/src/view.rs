@@ -1,6 +1,8 @@
 //! Desenho de uma interface em iced: os componentes um embaixo do outro; botões seguidos ficam na mesma linha.
 
-use iced::widget::{Column, button, checkbox, column, container, markdown, pick_list, row, stack, text, text_input};
+use iced::widget::{
+    Column, button, checkbox, column, container, markdown, pick_list, row, stack, text, text_input,
+};
 use std::collections::HashMap;
 
 use iced::{Element, Fill, Theme};
@@ -36,7 +38,14 @@ impl Rendered {
             Kind::Markdown { text } => Some((c.id.clone(), markdown::parse(text).collect())),
             _ => None,
         });
-        Self(parsed.collect())
+        // Cada passo de um `steps` também é Markdown: chave `<componente>#<passo>`.
+        let steps = doc.components.iter().flat_map(|c| match &c.kind {
+            Kind::Steps { items, .. } => {
+                items.iter().map(|s| (format!("{}#{}", c.id, s.id), markdown::parse(&s.text).collect())).collect()
+            }
+            _ => Vec::new(),
+        });
+        Self(parsed.chain(steps).collect())
     }
 }
 
@@ -110,8 +119,15 @@ pub fn view<'a>(
             doc.components[i..].iter().take_while(|c| matches!(c.kind, Kind::Button { .. })).collect();
         if !buttons.is_empty() {
             i += buttons.len();
-            let line = row(buttons.into_iter().map(|c| button_view(c, locked))).spacing(8).wrap().vertical_spacing(8);
+            let waiting = buttons.iter().map(|c| state.waiting(doc, &c.kind)).max().unwrap_or(0);
+            let line = row(buttons.into_iter().map(|c| button_view(c, locked || state.waiting(doc, &c.kind) > 0)))
+                .spacing(8)
+                .wrap()
+                .vertical_spacing(8);
             out = out.push(line);
+            if waiting > 0 && !locked {
+                out = out.push(text(fl!("ui-steps-missing", count = waiting)).size(12).style(text::secondary));
+            }
             continue;
         }
         out = out.push(component_view(doc, state, rendered, &doc.components[i], settings));
@@ -201,6 +217,32 @@ fn component_view<'a>(
             Some(items) => markdown::view_with(items, settings, &Viewer),
             None => text(plain).width(Fill).into(),
         },
+        Kind::Steps { items, value } => {
+            let checked = state.checked(doc, value);
+            let list = items.iter().enumerate().map(|(n, step)| {
+                let on = checked.contains(&step.id.as_str());
+                // Marcar ou desmarcar grava a lista inteira, na ordem dos passos.
+                let toggled: Vec<Value> = items
+                    .iter()
+                    .filter(|s| if s.id == step.id { !on } else { checked.contains(&s.id.as_str()) })
+                    .map(|s| Value::String(s.id.clone()))
+                    .collect();
+                let msg = UiMessage::Set { path: value.clone(), value: Value::Array(toggled) };
+                let label: Element<'a, UiMessage> = match rendered.0.get(&format!("{}#{}", c.id, step.id)) {
+                    Some(md) => markdown::view_with(md, settings, &Viewer),
+                    None => text(&step.text).into(),
+                };
+                let number = checkbox(on).label(format!("{}.", n + 1)).on_toggle(move |_| msg.clone());
+                let mut line = row![number, label]
+                    .spacing(8)
+                    .align_y(iced::Alignment::Start);
+                if step.optional {
+                    line = line.push(text(fl!("ui-step-optional")).size(12).style(text::secondary));
+                }
+                line.into()
+            });
+            column(list).spacing(6).width(Fill).into()
+        }
         Kind::Unknown { component } => {
             text(fl!("ui-unknown-component", component = component.clone())).size(13).style(text::warning).into()
         }
@@ -287,5 +329,52 @@ mod tests {
         let mut no_buttons = d.clone();
         no_buttons.components.retain(|c| !matches!(c.kind, Kind::Button { .. }));
         assert!(!shows(&no_buttons, true), "sem botões não há o que mandar");
+    }
+
+    #[test]
+    fn steps_hold_the_button_until_done() {
+        let v = json!({
+            "format": "idetea-ui", "version": 1, "revision": 1,
+            "components": [
+                { "id": "p", "component": "steps", "value": "/feitos", "items": [
+                    { "id": "copiar", "text": "Clique em **Copiar**" },
+                    { "id": "ensinar", "text": "Rode `ensinar`" },
+                    { "id": "extra", "text": "Se quiser, reinicie", "optional": true } ] },
+                { "id": "ok", "component": "button", "label": "Aprovado", "requires": "/feitos",
+                  "action": { "name": "ok", "context": ["/feitos"] } },
+                { "id": "falhou", "component": "button", "label": "Falhou", "action": { "name": "falhou" } }
+            ]
+        });
+        let d = parse(v.to_string().as_bytes(), &Limits::default()).unwrap();
+        assert!(d.warnings.is_empty(), "{:?}", d.warnings);
+        let rendered = Rendered::new(&d);
+        let mut state = State::new(&d);
+        assert_eq!(state.missing(&d, "/feitos"), 2, "o opcional não conta");
+
+        let mut ui = simulator(view(&d, &state, &rendered, &Theme::Dark, true));
+        let missing = fl!("ui-steps-missing", count = 2);
+        assert!(ui.find(missing.as_str()).is_ok());
+        let _ = ui.click("Aprovado");
+        ui.click("Falhou").unwrap();
+        assert_eq!(ui.into_messages().collect::<Vec<_>>(), vec![UiMessage::Press("falhou".into())], "Aprovado esperando");
+        assert!(state.press(&d, "ok").is_none(), "nem pelo estado");
+
+        // Marcar: a lista vai na ordem dos passos.
+        state.set("/feitos", json!(["ensinar"]));
+        let mut ui = simulator(view(&d, &state, &rendered, &Theme::Dark, true));
+        ui.click("1.").unwrap();
+        let set = UiMessage::Set { path: "/feitos".into(), value: json!(["copiar", "ensinar"]) };
+        assert_eq!(ui.into_messages().collect::<Vec<_>>(), vec![set]);
+        state.set("/feitos", json!(["copiar", "ensinar"]));
+        assert_eq!(state.missing(&d, "/feitos"), 0);
+        let (_, values) = state.press(&d, "ok").unwrap();
+        assert_eq!(values["/feitos"], json!(["copiar", "ensinar"]));
+
+        // `requires` que não aponta um `steps`: aviso, e o botão não espera nada.
+        let mut bad = v.clone();
+        bad["components"][1]["requires"] = json!("/outro");
+        let d = parse(bad.to_string().as_bytes(), &Limits::default()).unwrap();
+        assert_eq!(d.warnings.len(), 1, "{:?}", d.warnings);
+        assert!(State::new(&d).press(&d, "ok").is_some());
     }
 }

@@ -56,6 +56,11 @@ the panel, put every question that needs my answer there, not only in the chat: 
    - Links in `markdown` open the web (`https://…`), project files (`src/main.rs:42`) or the IDE config
      (`idetea:config`, `idetea:config-project`). Use a `markdown` for step lists and commands instead of one
      `text` per step. Put every command I should run in a fenced code block: the panel shows a Copy button on it.
+   - When I must do several things before answering (a manual test), use `steps` instead of a numbered list, and
+     make the approve button wait for them: `{"id": "s", "component": "steps", "value": "/done", "items":
+     [{"id": "a", "text": "Run `x`"}, {"id": "b", "text": "Maybe y", "optional": true}]}` and
+     `"requires": "/done"` on the button. The value is the list of checked ids; put `/done` in the `context` of
+     the "failed" button too, so you see how far I got.
 2. Wait for the response in `.idetea/ui/responses/<name>/`. Use bash (in zsh, `compgen` does not exist or
    behaves differently):
    ```sh

@@ -93,18 +93,32 @@ Todo componente tem `id` (`[A-Za-z0-9_-]`, até 64, único no documento) e `comp
 | `component` | Campos | Notas |
 |---|---|---|
 | `text` | `text`, `style` | `style`: `normal` (padrão), `muted`, `warning`, `error`. |
-| `button` | `label`, `action`, `style` | `style`: `primary` (padrão), `secondary`, `danger`. Botões seguidos ficam na mesma linha. |
+| `button` | `label`, `action`, `style`, `requires` | `style`: `primary` (padrão), `secondary`, `danger`. Botões seguidos ficam na mesma linha. `requires`: o `value` de um `steps`; o botão fica desligado até os passos obrigatórios estarem marcados. |
 | `checkbox` | `label`, `value` | Valor booleano. |
 | `select` | `options`, `value`, `label` | `options`: até 500, cada uma `"x"` ou `{"value": "x", "label": "X"}`. Valor: o `value` escolhido. |
 | `input` | `value`, `label`, `placeholder` | Texto de uma linha. |
 | `file` | `path`, `line`, `column`, `label`, `open` | Um arquivo do projeto. Ver [Arquivos](#arquivos). |
 | `markdown` | `text` | Texto formatado: listas, `código`, ênfase, títulos, links. Ver [Markdown](#markdown). |
+| `steps` | `items`, `value` | Passos numerados que o usuário marca. `items`: até 500, cada um `{"id": "x", "text": "…", "optional": true}` (`text` em Markdown de uma linha; `optional` não conta para o `requires`). Valor: a lista dos ids marcados, na ordem dos passos. |
 
 `value` é o lugar do valor em `data`: um ponteiro JSON (RFC 6901) como `"/usuario/nome"`, ou
 `{"path": "/usuario/nome"}`.
 
 `action` é `{"name": "...", "context": ["/caminho", ...]}`: o nome volta na resposta, junto com o valor atual de cada
 caminho do `context`.
+
+Uma entrega de teste: os passos se marcam, e "Aprovado" espera todos (o "Falhou" não espera nada):
+
+```json
+{"id": "passos", "component": "steps", "value": "/feitos", "items": [
+  {"id": "copiar", "text": "Clique em **Copiar** e cole num terminal"},
+  {"id": "ensinar", "text": "Paleta: `Interfaces: ensinar os agentes`"},
+  {"id": "reiniciar", "text": "Reinicie a IDE", "optional": true}]},
+{"id": "ok", "component": "button", "label": "Aprovado", "requires": "/feitos",
+ "action": {"name": "aprovado", "context": ["/feitos"]}},
+{"id": "falhou", "component": "button", "label": "Falhou", "style": "danger",
+ "action": {"name": "falhou", "context": ["/feitos"]}}
+```
 
 ### Limites
 

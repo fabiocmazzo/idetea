@@ -25,3 +25,9 @@ ui-comment-label = Comentário para o agente (opcional)
 ui-comment-placeholder = vai junto com o botão que você clicar
 ui-copy = Copiar
 ui-copied = Copiado.
+ui-steps-missing = { $count ->
+    [one] Falta marcar 1 passo.
+   *[other] Faltam marcar { $count } passos.
+}
+ui-step-optional = (opcional)
+ui-requires-not-steps = "{ $field }" precisa apontar o "value" de um "steps"; ignorado.
