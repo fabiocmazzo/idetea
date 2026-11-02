@@ -916,6 +916,14 @@ e grava a resposta do usuário em `.idetea/ui/responses/<nome>/`. Estudo, decis�
        Ficam para a [RFC 0004](docs/rfc/0004-midia-no-painel.md) de mídia: imagem dentro do painel e lado a lado, pixel art sem borrar e fundo
        quadriculado, animar spritesheets, tocar áudio no painel (duração, loop), saber o que foi visto ou ouvido,
        abrir no navegador.
+    15. Reusar o nome de uma interface: o agente leu uma resposta velha que tinha esquecido de apagar como se fosse
+       nova, e o documento recriado com a mesma `revision` já respondida veio com os botões travados. Opção: a IDE
+       esquece o estado de uma interface quando o documento some, e as instruções pedem `revision` sempre maior.
+       (aberta)
+    16. Do jogo, depois de M1: a aba de imagem nem sempre recarregava (um azul→vermelho ficou azul por 8 min); o
+       observador de arquivos vê os três jeitos de regravar (no lugar, apagar e criar, renomear), e a causa não
+       apareceu. E o `FORMAT.md` citava o JSON Schema por um link que não existe no projeto. (resolvidas: item
+       abaixo)
     9. Os comandos que o agente sugere no painel (`cargo run -p tea-app -- .`) não são fáceis de copiar: o texto
        do painel não seleciona. Opção: botão de copiar nos blocos de código do `markdown`. (resolvida: item
        abaixo)
@@ -1023,6 +1031,12 @@ e grava a resposta do usuário em `.idetea/ui/responses/<nome>/`. Estudo, decis�
 - [ ] **Mídia M4: o que foi visto e ouvido** (lacuna 14): `media` na resposta.
 - [ ] **Mídia M5: `idetea:open`** (lacuna 13): link que abre um arquivo do projeto no app do sistema, só com as
   extensões da lista.
+- [x] **Aba de imagem sempre em dia + schema junto do formato** (lacuna 16): as abas de imagem e PDF conferem
+  tamanho e data do arquivo a cada segundo (além do observador) e recarregam quando mudam; o rodapé da aba mostra a
+  hora em que o arquivo foi gravado, para conferir qual versão está na tela. A IDE grava também
+  `.idetea/ui/idetea-ui.schema.json` ao lado do `FORMAT.md`. Teste do observador com os três jeitos de regravar.
+  - [x] Teste manual (aprovado, pelo painel): com um PNG aberto na aba, regravar o arquivo várias vezes (mesmo tamanho, outra cor): a aba
+    acompanha em até 1 s e o rodapé mostra a hora nova; `.idetea/ui/idetea-ui.schema.json` aparece no jogo.
 - Depois, só se o uso pedir: `Row`/`Column`, progresso, Markdown sem links, vários painéis (`PanelId` dinâmico no
   núcleo), adaptador A2UI v1.0, e a mesma crate nos painéis dos plugins WASM (Fase 4).
 

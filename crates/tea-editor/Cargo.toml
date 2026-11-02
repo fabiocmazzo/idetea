@@ -14,6 +14,8 @@ iced-code-editor = { workspace = true, features = ["lsp-process"] }
 tea-lsp.workspace = true
 tea-core.workspace = true
 similar.workspace = true
+# Hora local no rodapé da aba de imagem (`localtime_r`).
+libc.workspace = true
 
 [dev-dependencies]
 iced_test = "0.14"

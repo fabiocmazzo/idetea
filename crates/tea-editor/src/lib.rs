@@ -192,6 +192,8 @@ pub struct Editor {
     image: Option<image_file::ImageFile>,
     /// Aba de PDF: como a de imagem, só mostra.
     pdf: Option<pdf_file::PdfFile>,
+    /// Abas de imagem e PDF: tamanho e data do arquivo quando foi lido (para perceber que mudou no disco).
+    file_stamp: Option<(u64, Option<std::time::SystemTime>)>,
     /// Dica de parâmetros: `signature_open` = pedida (o cursor está numa chamada); `signature` = a que aparece.
     signature_open: bool,
     signature: Option<tea_lsp::SignatureHelp>,
@@ -225,11 +227,13 @@ impl Editor {
     pub fn open(path: &Path) -> io::Result<Self> {
         if image_file::is_image(path) && path.is_file() {
             let mut editor = Self::build(Some(path), "", false);
+            editor.file_stamp = file_stamp(path);
             editor.image = Some(image_file::ImageFile::read(path)?);
             return Ok(editor);
         }
         if pdf_file::is_pdf(path) && path.is_file() {
             let mut editor = Self::build(Some(path), "", false);
+            editor.file_stamp = file_stamp(path);
             editor.pdf = Some(pdf_file::PdfFile::read(path)?);
             return Ok(editor);
         }
@@ -280,6 +284,7 @@ impl Editor {
             exec_line: None,
             image: None,
             pdf: None,
+            file_stamp: None,
             signature_open: false,
             signature: None,
             diff_base: None,
@@ -312,6 +317,15 @@ impl Editor {
     /// Aberto no modo leve (linha gigante): a barra de status avisa.
     pub fn is_light(&self) -> bool {
         self.light.is_some()
+    }
+
+    /// Aba de imagem ou PDF cujo arquivo mudou no disco (tamanho ou data) desde que foi lido: hora de reler.
+    /// Não depende do observador de arquivos: quem chama olha de tempos em tempos.
+    pub fn file_changed_on_disk(&self) -> bool {
+        match (&self.file_stamp, self.path()) {
+            (Some(stamp), Some(path)) => file_stamp(path).is_some_and(|now| now != *stamp),
+            _ => false,
+        }
     }
 
     /// Aba que só mostra o arquivo (imagem ou PDF), sem texto para editar.
@@ -1187,6 +1201,11 @@ fn lsp_position(text: &str, byte: usize) -> iced_code_editor::LspPosition {
     }
 }
 
+/// Tamanho e data de um arquivo (`None`: não deu para ler).
+fn file_stamp(path: &Path) -> Option<(u64, Option<std::time::SystemTime>)> {
+    std::fs::metadata(path).ok().map(|m| (m.len(), m.modified().ok()))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1339,5 +1358,21 @@ mod tests {
         let path = tmp("bin.dat");
         std::fs::write(&path, [0xff, 0xfe, 0x00]).unwrap();
         assert!(Editor::open(&path).is_err());
+    }
+
+    #[test]
+    fn image_tab_notices_the_file_changed() {
+        let dir = std::env::temp_dir().join(format!("idetea-editor-stamp-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("balao.png");
+        ::image::RgbaImage::from_pixel(2, 2, ::image::Rgba([255, 0, 0, 255])).save(&path).unwrap();
+        let editor = Editor::open(&path).unwrap();
+        assert!(editor.is_image() && !editor.file_changed_on_disk());
+        // Mesmo tamanho, data nova (como regerar o sprite com outra cor).
+        let later = std::time::SystemTime::now() + std::time::Duration::from_secs(3);
+        std::fs::File::options().write(true).open(&path).unwrap().set_modified(later).unwrap();
+        assert!(editor.file_changed_on_disk());
+        assert!(!Editor::open(&path).unwrap().file_changed_on_disk(), "relida: em dia");
+        let _ = std::fs::remove_dir_all(&dir);
     }
 }

@@ -19,6 +19,8 @@ pub struct ImageFile {
     /// Largura e altura, ou o motivo de não ter conseguido ler.
     size: Result<(u32, u32), String>,
     bytes: usize,
+    /// Hora (local) em que o arquivo lido foi gravado: confere qual versão está na tela.
+    saved: Option<String>,
 }
 
 impl ImageFile {
@@ -30,14 +32,18 @@ impl ImageFile {
             .with_guessed_format()
             .map_err(|e| e.to_string())
             .and_then(|r| r.into_dimensions().map_err(|e| e.to_string()));
-        Ok(Self { bytes: bytes.len(), handle: image::Handle::from_bytes(bytes), size })
+        let saved = std::fs::metadata(path).and_then(|m| m.modified()).ok().map(local_time);
+        Ok(Self { bytes: bytes.len(), handle: image::Handle::from_bytes(bytes), size, saved })
     }
 
     pub fn view<'a, M: 'a>(&'a self) -> Element<'a, M> {
-        let info = match &self.size {
+        let mut info = match &self.size {
             Ok((w, h)) => fl!("image-info", width = w, height = h, size = human_size(self.bytes)),
             Err(e) => fl!("image-error", error = e.as_str()),
         };
+        if let Some(saved) = &self.saved {
+            info = format!("{info} · {}", fl!("image-saved", time = saved.as_str()));
+        }
         // Imagem pequena (sprite, ícone): vizinho mais próximo, para a pixel art não borrar no zoom.
         let small = self.size.as_ref().is_ok_and(|(w, h)| *w <= SMALL && *h <= SMALL);
         let filter = if small { image::FilterMethod::Nearest } else { image::FilterMethod::Linear };
@@ -52,6 +58,22 @@ impl ImageFile {
         });
         column![row![text(info).size(12).style(text::secondary)].padding([2, 6]), canvas].spacing(2).into()
     }
+}
+
+/// `HH:MM:SS` na hora local (UTC, com o sufixo, se não der para saber o fuso).
+fn local_time(t: std::time::SystemTime) -> String {
+    let secs = t.duration_since(std::time::UNIX_EPOCH).map_or(0, |d| d.as_secs());
+    #[cfg(unix)]
+    {
+        let raw = secs as libc::time_t;
+        // SAFETY: `localtime_r` só escreve no `tm` que passamos; os dois ponteiros valem durante a chamada.
+        let mut tm: libc::tm = unsafe { std::mem::zeroed() };
+        if !unsafe { libc::localtime_r(&raw, &mut tm) }.is_null() {
+            return format!("{:02}:{:02}:{:02}", tm.tm_hour, tm.tm_min, tm.tm_sec);
+        }
+    }
+    let day = secs % 86_400;
+    format!("{:02}:{:02}:{:02} UTC", day / 3600, day % 3600 / 60, day % 60)
 }
 
 /// Até este lado (em pixels), a imagem é desenhada com o vizinho mais próximo.

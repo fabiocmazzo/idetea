@@ -30,3 +30,4 @@ hunk-deleted =
     }
 hunk-added-note = No están en el último commit.
 hunk-revert = Deshacer cambio
+image-saved = guardada a las { $time }

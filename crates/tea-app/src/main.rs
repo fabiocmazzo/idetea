@@ -127,6 +127,19 @@ fn backup_ticks() -> iced::futures::channel::mpsc::UnboundedReceiver<Message> {
     rx
 }
 
+fn media_ticks() -> iced::futures::channel::mpsc::UnboundedReceiver<Message> {
+    let (tx, rx) = iced::futures::channel::mpsc::unbounded();
+    std::thread::spawn(move || {
+        loop {
+            std::thread::sleep(std::time::Duration::from_secs(1));
+            if tx.unbounded_send(Message::MediaTick).is_err() {
+                return;
+            }
+        }
+    });
+    rx
+}
+
 /// Modo da paleta que um comando abre (para o atalho fechar ou trocar de modo com ela aberta).
 fn palette_mode_of(command: &str) -> Option<palette::Mode> {
     Some(match command {
@@ -481,6 +494,8 @@ enum Message {
     BackupTick,
     /// O executável da IDE mudou no disco.
     BinaryChanged,
+    /// Hora de conferir se o arquivo de uma aba de imagem ou PDF mudou no disco.
+    MediaTick,
     /// Passou a espera depois de digitar: pede a estrutura de novo (se for a última espera).
     OutlineDue(u64),
     /// Hora de mandar o texto do arquivo ativo (só a última espera vale).
@@ -3610,6 +3625,15 @@ impl App {
                 self.backup_tick();
                 Task::none()
             }
+            Message::MediaTick => {
+                let changed: Vec<PathBuf> = self
+                    .tabs
+                    .iter()
+                    .filter(|t| t.editor.is_image() && t.editor.file_changed_on_disk())
+                    .filter_map(|t| t.editor.path().map(Path::to_path_buf))
+                    .collect();
+                Task::batch(changed.iter().map(|p| self.reload_from_disk(p)).collect::<Vec<_>>())
+            }
             Message::BinaryChanged => {
                 self.binary_changed = true;
                 let note = self.notify(fl!("binary-changed"));
@@ -3697,7 +3721,14 @@ impl App {
             }
             _ => Subscription::none(),
         };
-        Subscription::batch([input, close, frames, extensions, resized, disk, backups, binary])
+        // Abas de imagem e PDF: além do observador, conferem tamanho e data a cada segundo (um arquivo regerado
+        // no lugar às vezes não recarregava a aba; assim não depende só dos eventos).
+        let media = if self.tabs.iter().any(|t| t.editor.is_image()) {
+            Subscription::run(media_ticks)
+        } else {
+            Subscription::none()
+        };
+        Subscription::batch([input, close, frames, extensions, resized, disk, backups, binary, media])
     }
 
     fn view(&self) -> Element<'_, Message> {

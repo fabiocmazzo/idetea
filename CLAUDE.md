@@ -3,7 +3,8 @@
 
 When you need me to choose between options, confirm something or fill in a few fields, you can create an
 interface in the TEA IDE instead of asking in the chat. This text is enough; the full format (in Portuguese) is
-in `.idetea/ui/FORMAT.md`, which the IDE writes for the version that is open.
+in `.idetea/ui/FORMAT.md`, which the IDE writes for the version that is open, with the JSON Schema next to it
+(`.idetea/ui/idetea-ui.schema.json`).
 
 Talk to me in the language I use with you, including every text you put in an interface (titles, labels,
 options, buttons). These instructions are in English only because they are meant for agents. Once we are using
@@ -88,5 +89,5 @@ did not find.
 Do not put secrets in the document. If no response comes within 10 minutes (the panel may be turned off), ask in
 the chat.
 
-Instructions version: `27801e5e`
+Instructions version: `507de1e4`
 <!-- idetea-ui:end -->

@@ -205,4 +205,41 @@ mod tests {
         drop(rx);
         let _ = std::fs::remove_dir_all(&root);
     }
+
+    #[test]
+    fn sees_rewrites_in_place_recreated_and_renamed() {
+        let root = std::env::temp_dir().join(format!("idetea-watch-exp-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        std::fs::create_dir_all(root.join("assets/sprites")).unwrap();
+        let root = root.canonicalize().unwrap();
+        let file = root.join("assets/sprites/balao.png");
+        std::fs::write(&file, vec![1u8; 515]).unwrap();
+        let mut rx = watch(&root);
+        std::thread::sleep(Duration::from_millis(300));
+        let mut faltou = Vec::new();
+        for i in 0..6 {
+            let byte = if i % 2 == 0 { 2u8 } else { 1u8 };
+            match i % 3 {
+                0 => std::fs::write(&file, vec![byte; 515]).unwrap(), // no lugar
+                1 => {
+                    // como o git: apaga e cria de novo
+                    std::fs::remove_file(&file).unwrap();
+                    std::fs::write(&file, vec![byte; 515]).unwrap();
+                }
+                _ => {
+                    // temporário + renomear
+                    let tmp = root.join("assets/sprites/.balao.png.tmp");
+                    std::fs::write(&tmp, vec![byte; 515]).unwrap();
+                    std::fs::rename(&tmp, &file).unwrap();
+                }
+            }
+            match next(&mut rx) {
+                Some(Change::Paths(p)) if p.contains(&file) => {}
+                other => faltou.push((i, format!("{other:?}"))),
+            }
+            std::thread::sleep(Duration::from_millis(400));
+        }
+        let _ = std::fs::remove_dir_all(&root);
+        assert!(faltou.is_empty(), "{faltou:?}");
+    }
 }

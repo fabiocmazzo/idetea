@@ -37,6 +37,8 @@ fn is_link(path: &Path) -> bool {
 /// O formato completo, da versão desta IDE. Fica em `.idetea/ui/FORMAT.md` para o agente ler sem internet (o
 /// repositório pode ser privado) e sem pegar uma versão diferente da IDE que está aberta.
 pub const FORMAT_DOC: &str = include_str!("../../../../docs/interfaces/formato.md");
+/// O JSON Schema do documento, ao lado do `FORMAT.md` (para o agente validar antes de publicar).
+pub const SCHEMA: &str = include_str!("../../../../docs/interfaces/idetea-ui.schema.json");
 const FORMAT_HEADER: &str = "<!-- Written by the TEA IDE (the version that is open): the full interface format. Do not edit; the IDE rewrites it. -->\n\n";
 
 /// Cria `.idetea/ui/` e um `.gitignore` com `*` dentro (respostas podem ter o que o usuário digitou; não vão
@@ -53,12 +55,16 @@ pub fn prepare(root: &Path) -> std::io::Result<()> {
     if !ignore.exists() && !is_link(&ui) {
         std::fs::write(ignore, "# Criado pela IDE TEA: interfaces e respostas não vão para o git.\n*\n")?;
     }
-    let format = ui.join("FORMAT.md");
-    let text = format!("{FORMAT_HEADER}{FORMAT_DOC}");
-    // Um symlink no lugar não é seguido (poderia apontar para fora do projeto).
-    let symlink = std::fs::symlink_metadata(&format).is_ok_and(|m| m.file_type().is_symlink());
-    if !symlink && std::fs::read_to_string(&format).ok().as_deref() != Some(text.as_str()) {
-        std::fs::write(format, text)?;
+    write_if_changed(&ui.join("FORMAT.md"), &format!("{FORMAT_HEADER}{FORMAT_DOC}"))?;
+    write_if_changed(&ui.join("idetea-ui.schema.json"), SCHEMA)?;
+    Ok(())
+}
+
+/// Grava só se o conteúdo mudou. Um symlink no lugar não é seguido (poderia apontar para fora do projeto).
+fn write_if_changed(path: &Path, text: &str) -> std::io::Result<()> {
+    let symlink = std::fs::symlink_metadata(path).is_ok_and(|m| m.file_type().is_symlink());
+    if !symlink && std::fs::read_to_string(path).ok().as_deref() != Some(text) {
+        std::fs::write(path, text)?;
     }
     Ok(())
 }
@@ -303,6 +309,7 @@ mod tests {
         assert!(std::fs::read_to_string(ui.join(".gitignore")).unwrap().contains('*'));
         let format = std::fs::read_to_string(ui.join("FORMAT.md")).unwrap();
         assert!(format.ends_with(FORMAT_DOC) && format.contains("## A resposta"), "o formato da versão desta IDE");
+        assert_eq!(std::fs::read_to_string(ui.join("idetea-ui.schema.json")).unwrap(), SCHEMA);
         std::fs::write(ui.join("boa.json"), DOC).unwrap();
         std::fs::write(ui.join("quebrada.json"), "{ nada").unwrap();
         std::fs::write(ui.join("outro-nome.json"), DOC.replace("{\"format\"", "{\"surface\":\"x\",\"format\"")).unwrap();
