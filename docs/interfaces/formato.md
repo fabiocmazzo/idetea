@@ -251,13 +251,18 @@ O componente `markdown` serve para o que um `text` faz mal: passos numerados, co
  "text": "1. Abra [o config](idetea:config) e salve.\n2. Rode `cargo test`.\n3. Confira [a linha 42](src/main.rs:42)."}
 ```
 
-Os links levam a três lugares; qualquer outro só mostra um aviso:
+Os links levam a quatro lugares; qualquer outro só mostra um aviso:
 
 - **Web:** `http://`, `https://` e `mailto:` abrem no navegador.
 - **Arquivos do projeto:** `src/main.rs`, `src/main.rs:42` ou `src/main.rs:42:5` abrem na IDE, na posição. Mesma
   regra do `file`: relativo à raiz, sem `..`.
 - **Config da IDE:** `idetea:config` (o global) e `idetea:config-project` (o do projeto). É o único jeito de
   apontar para um arquivo fora do projeto, e só para esses dois.
+- **App do sistema:** `idetea:open/<caminho>`, por exemplo `[jogar](idetea:open/index.html)`, abre um arquivo do
+  projeto no programa padrão do sistema (navegador, leitor de PDF, tocador). Só as extensões `html`, `htm`, `pdf`,
+  `png`, `jpg`, `jpeg`, `gif`, `webp`, `bmp`, `wav`, `ogg`, `oga`, `opus`, `flac`, `mp3`, `mp4` e `webm`: o
+  sistema roda um `.desktop` ou um script, e um link de agente não deve rodar programas. Fora da lista, ou se o
+  arquivo for symlink, pasta ou faltar, aparece só um aviso. Mesma regra de caminho do `file`.
 
 Blocos de código (entre ```` ``` ````) ganham um botão **Copiar** no canto: ponha num bloco os comandos que o
 usuário deve rodar. Imagens não são carregadas (aparece o texto alternativo). Tabelas e HTML aparecem como texto.

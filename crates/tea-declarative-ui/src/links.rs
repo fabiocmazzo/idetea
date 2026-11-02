@@ -1,14 +1,22 @@
 //! Links do Markdown de uma interface e o componente `file`: o que cada um abre.
 //!
-//! O documento vem de um agente, então só três tipos de destino funcionam: a web (`http`, `https`, `mailto`, no
-//! navegador), arquivos do projeto (`src/main.rs:42:5`, na IDE) e o config da IDE (`idetea:config`,
-//! `idetea:config-project`). Qualquer outro só gera um aviso.
+//! O documento vem de um agente, então só quatro tipos de destino funcionam: a web (`http`, `https`, `mailto`, no
+//! navegador), arquivos do projeto (`src/main.rs:42:5`, na IDE), o config da IDE (`idetea:config`,
+//! `idetea:config-project`) e um arquivo do projeto no app do sistema (`idetea:open/index.html`), só com as
+//! extensões de [`OPEN_EXTENSIONS`]. Qualquer outro só gera um aviso.
 
 use std::path::Path;
 
 use tea_core::Context;
 
 use crate::document::relative_inside;
+
+/// O que `idetea:open/` abre no app do sistema. O `xdg-open` roda um `.desktop` (e o `open` do macOS, um
+/// `.app` ou `.command`): por isso uma lista do que é documento ou mídia, e nada que execute.
+pub const OPEN_EXTENSIONS: &[&str] = &[
+    "html", "htm", "pdf", "png", "jpg", "jpeg", "gif", "webp", "bmp", "wav", "ogg", "oga", "opus", "flac", "mp3", "mp4",
+    "webm",
+];
 
 /// Para onde um link leva.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -18,6 +26,10 @@ pub enum Link {
     File { path: String, line: u64, column: u64 },
     /// O config global (`false`) ou o do projeto (`true`).
     Config { project: bool },
+    /// Um arquivo do projeto no app do sistema (relativo à raiz, extensão da lista).
+    System(String),
+    /// `idetea:open/` com uma extensão fora da lista.
+    Blocked(String),
     Ignored,
 }
 
@@ -30,6 +42,14 @@ pub fn link(url: &str) -> Link {
         "idetea:config" => return Link::Config { project: false },
         "idetea:config-project" => return Link::Config { project: true },
         _ => {}
+    }
+    if lower.starts_with("idetea:open/") {
+        let path = &url["idetea:open/".len()..];
+        if path.is_empty() || path.contains(':') || !relative_inside(path) {
+            return Link::Ignored;
+        }
+        let ext = Path::new(path).extension().and_then(|e| e.to_str()).map(str::to_ascii_lowercase).unwrap_or_default();
+        return if OPEN_EXTENSIONS.contains(&ext.as_str()) { Link::System(path.to_string()) } else { Link::Blocked(path.to_string()) };
     }
     if url.contains("://") || url.starts_with('#') {
         return Link::Ignored;
@@ -85,6 +105,17 @@ pub fn follow(url: &str, root: &Path, ctx: &mut Context) {
         }
         Link::File { path, line, column } => open_file(root, &path, line, column, ctx),
         Link::Config { project } => ctx.run_command(if project { "config.open_project" } else { "config.open" }),
+        Link::System(path) => {
+            // Um symlink com nome `.html` poderia apontar para um `.desktop`: só arquivo comum.
+            let full = root.join(&path);
+            let plain = std::fs::symlink_metadata(&full).is_ok_and(|m| m.file_type().is_file());
+            if !plain {
+                ctx.notify(fl!("ui-open-not-file", path = path));
+            } else if let Err(e) = tea_core::os::open_path(&full) {
+                ctx.notify(fl!("ui-link-error", url = url, error = e.to_string()));
+            }
+        }
+        Link::Blocked(path) => ctx.notify(fl!("ui-open-blocked", path = path, list = OPEN_EXTENSIONS.join(", "))),
         Link::Ignored => ctx.notify(fl!("ui-link-ignored", url = url)),
     }
 }
@@ -105,6 +136,14 @@ mod tests {
         assert_eq!(link("src/main.rs"), file("src/main.rs", 0, 0));
         assert_eq!(link("src/main.rs:42"), file("src/main.rs", 42, 0));
         assert_eq!(link("src/main.rs:42:5"), file("src/main.rs", 42, 5));
+        assert_eq!(link("idetea:open/index.html"), Link::System("index.html".into()));
+        assert_eq!(link("idetea:open/docs/Manual.PDF"), Link::System("docs/Manual.PDF".into()));
+        assert_eq!(link("idetea:open/jogo.desktop"), Link::Blocked("jogo.desktop".into()));
+        assert_eq!(link("idetea:open/rodar.sh"), Link::Blocked("rodar.sh".into()));
+        assert_eq!(link("idetea:open/semextensao"), Link::Blocked("semextensao".into()));
+        for bad in ["idetea:open/", "idetea:open/../x.html", "idetea:open//etc/a.html", "idetea:open/C:/a.html"] {
+            assert_eq!(link(bad), Link::Ignored, "{bad}");
+        }
         for bad in ["../x", "/etc/passwd", "file:///etc/passwd", "javascript:alert(1)", "#topo", "ftp://x/y"] {
             assert_eq!(link(bad), Link::Ignored, "{bad}");
         }

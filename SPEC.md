@@ -1044,8 +1044,11 @@ e grava a resposta do usuário em `.idetea/ui/responses/<nome>/`. Estudo, decis�
   `stepped`), só quando passam de zero.
   - [x] Teste manual (aprovado, pelo painel): abrir uma imagem na aba, tocar um som até o fim e parar outro, passar quadros de um sprite;
     a resposta traz cada contagem e a data do arquivo na tela.
-- [ ] **Mídia M5: `idetea:open`** (lacuna 13): link que abre um arquivo do projeto no app do sistema, só com as
-  extensões da lista.
+- [x] **Mídia M5: `idetea:open`** (lacuna 13): link que abre um arquivo do projeto no app do sistema, só com as
+  extensões da lista (`html`, `htm`, `pdf`, imagens, áudio, `mp4`, `webm`); symlink, pasta ou extensão fora da
+  lista só dão aviso.
+  - [x] Teste manual (aprovado, pelo painel): `idetea:open/` de um HTML abre no navegador e de um PDF no leitor; um `.desktop` e um `.sh`
+    só avisam.
 - [x] **Aba de imagem sempre em dia + schema junto do formato** (lacuna 16): as abas de imagem e PDF conferem
   tamanho e data do arquivo a cada segundo (além do observador) e recarregam quando mudam; o rodapé da aba mostra a
   hora em que o arquivo foi gravado, para conferir qual versão está na tela. A IDE grava também

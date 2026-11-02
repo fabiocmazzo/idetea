@@ -61,3 +61,5 @@ ui-sprite-step = Próximo quadro
 ui-sprite-info = quadro { $frame } de { $count } · { $fps } fps
 ui-sprite-frame = { $field }: frame_width e frame_height vão juntos.
 ui-sprite-too-small = A folha ({ $width }×{ $height }) é menor que um quadro.
+ui-open-blocked = { $path }: o link idetea:open só abre { $list }.
+ui-open-not-file = { $path } não é um arquivo comum (falta, é pasta ou symlink).

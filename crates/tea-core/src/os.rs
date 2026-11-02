@@ -12,6 +12,11 @@ pub fn open_url(url: &str) -> std::io::Result<()> {
     open_with_system(std::ffi::OsStr::new(url))
 }
 
+/// Abre um arquivo no programa padrão do sistema para o tipo dele.
+pub fn open_path(path: &Path) -> std::io::Result<()> {
+    open_with_system(path.as_os_str())
+}
+
 fn open_with_system(target: &std::ffi::OsStr) -> std::io::Result<()> {
     let program = if cfg!(target_os = "macos") {
         "open"

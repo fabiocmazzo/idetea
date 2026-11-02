@@ -1,6 +1,8 @@
 # RFC 0004 — Mídia no painel (imagem, animação, áudio)
 
-- **Status:** aprovada em 2026-11-02 (pelo painel), com as decisões do fim. Base: `main` em `ec25f8e`.
+- **Status:** implementada (M1 a M5, aprovadas pelo painel em 2026-11-02). Aprovada em 2026-11-02, com as
+  decisões do fim. Base: `main` em `ec25f8e`. Fica de fora o `[ui] audio_player` (as extensões ainda não leem o
+  config).
 - **Depende de:** [RFC 0001](0001-interfaces-declarativas.md) (formato `idetea-ui`) e
   [RFC 0003](0003-interfaces-pelo-uso.md) (decisão 3: o segundo projeto de dogfooding decide sobre mídia).
 - **Origem:** o `lacunas.md` do "Correio de balão" (`~/NewProjects/tea-jogo`), escrito pelo agente do jogo

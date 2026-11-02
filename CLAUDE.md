@@ -54,8 +54,9 @@ the panel, put every question that needs my answer there, not only in the chat: 
      and the waveform, and rereads them when the file changes.
    - Other media: a `file` (or a `markdown` link) to a PDF opens a PDF tab; SVG opens as text with a preview.
      Audio, video and other binary files do not open in a tab.
-   - Links in `markdown` open the web (`https://…`), project files (`src/main.rs:42`) or the IDE config
-     (`idetea:config`, `idetea:config-project`). Use a `markdown` for step lists and commands instead of one
+   - Links in `markdown` open the web (`https://…`), project files (`src/main.rs:42`), the IDE config
+     (`idetea:config`, `idetea:config-project`) or a project file in the system app (`[play](idetea:open/index.html)`;
+     only `html`, `htm`, `pdf`, images, audio, `mp4` and `webm`). Use a `markdown` for step lists and commands instead of one
      `text` per step. Put every command I should run in a fenced code block: the panel shows a Copy button on it.
    - When I must do several things before answering (a manual test), use `steps` instead of a numbered list, and
      make the approve button wait for them: `{"id": "s", "component": "steps", "value": "/done", "items":
@@ -99,5 +100,5 @@ did not find.
 Do not put secrets in the document. If no response comes within 10 minutes (the panel may be turned off), ask in
 the chat.
 
-Instructions version: `f69ecd0a`
+Instructions version: `f6058fda`
 <!-- idetea-ui:end -->
