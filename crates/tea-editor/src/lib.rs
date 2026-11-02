@@ -87,6 +87,24 @@ impl EditorMessage {
                 | Msg::OpenHunk(_)
         )
     }
+
+    /// Tecla que muda o texto (digitar, apagar, Enter, colar...): o usuário está escrevendo.
+    pub fn is_typing(&self) -> bool {
+        matches!(
+            self.0,
+            Msg::Widget(
+                Inner::CharacterInput(_)
+                    | Inner::VimKey(_)
+                    | Inner::Backspace
+                    | Inner::Delete
+                    | Inner::Enter
+                    | Inner::Tab
+                    | Inner::Paste(_)
+                    | Inner::Cut
+                    | Inner::DeleteSelection
+            )
+        )
+    }
 }
 
 /// LSP ligado neste editor.

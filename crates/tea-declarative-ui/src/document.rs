@@ -83,6 +83,9 @@ pub enum Kind {
     Checkbox { label: String, value: String },
     Select { label: Option<String>, options: Vec<Choice>, value: String },
     Input { label: Option<String>, placeholder: String, value: String },
+    /// Um arquivo do projeto: um clique abre na linha e coluna (começando em 1; 0 = início). `path` é relativo à
+    /// raiz e não sai dela. `open`: abre sozinho quando a revisão chega.
+    File { path: String, line: u64, column: u64, label: Option<String>, open: bool },
     /// Componente que esta versão não conhece: um aviso aparece no lugar dele.
     Unknown { component: String },
 }
@@ -220,6 +223,16 @@ fn depth(v: &Value) -> usize {
     }
 }
 
+/// `src/main.rs` sim; `/etc/x`, `../x`, `C:\x` e vazio, não.
+fn relative_inside(path: &str) -> bool {
+    use std::path::{Component, Path};
+    !path.is_empty()
+        && !path.starts_with(['/', '\\'])
+        && path.as_bytes().get(1) != Some(&b':')
+        && Path::new(path).components().all(|c| matches!(c, Component::Normal(_) | Component::CurDir))
+        && !path.split(['/', '\\']).any(|part| part == "..")
+}
+
 /// Id de componente: letras, números, `_` e `-`, até 64.
 fn valid_id(id: &str) -> bool {
     !id.is_empty() && id.len() <= 64 && id.chars().all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-')
@@ -256,6 +269,24 @@ impl Reader {
 
     fn required(&self, obj: &Map<String, Value>, key: &str, field: &str) -> Result<String, String> {
         self.string(obj, key, field)?.ok_or_else(|| fl!("ui-missing", field = at(field, key)))
+    }
+
+    fn boolean(&self, obj: &Map<String, Value>, key: &str, field: &str) -> Result<bool, String> {
+        match obj.get(key) {
+            None | Some(Value::Null) => Ok(false),
+            Some(Value::Bool(b)) => Ok(*b),
+            Some(_) => Err(fl!("ui-wrong-type", field = at(field, key), expected = "boolean")),
+        }
+    }
+
+    /// Caminho de arquivo relativo à raiz do projeto, sem `..` (não sai dela).
+    fn file_path(&self, obj: &Map<String, Value>, field: &str) -> Result<String, String> {
+        let path = self.required(obj, "path", field)?;
+        if relative_inside(&path) {
+            Ok(path)
+        } else {
+            Err(fl!("ui-bad-file-path", field = at(field, "path"), path = path))
+        }
     }
 
     fn number(&self, obj: &Map<String, Value>, key: &str, field: &str) -> Result<Option<u64>, String> {
@@ -330,6 +361,16 @@ impl Reader {
                     label: self.string(obj, "label", field)?,
                     options: self.options(obj, field)?,
                     value: self.path(obj, "value", field)?,
+                },
+            ),
+            "file" => (
+                &["path", "line", "column", "label", "open"],
+                Kind::File {
+                    path: self.file_path(obj, field)?,
+                    line: self.number(obj, "line", field)?.unwrap_or(0),
+                    column: self.number(obj, "column", field)?.unwrap_or(0),
+                    label: self.string(obj, "label", field)?,
+                    open: self.boolean(obj, "open", field)?,
                 },
             ),
             "input" => (
@@ -497,6 +538,26 @@ mod tests {
             .contains("components[5].action"));
         assert!(parse(b"{ quebrado", &Limits::default()).is_err());
         assert!(parse(b"[]", &Limits::default()).is_err());
+    }
+
+    #[test]
+    fn file_component() {
+        let mut v = sample();
+        v["components"].as_array_mut().unwrap().push(json!({
+            "id": "f", "component": "file", "path": "docs/nota.md", "line": 3, "column": 2, "open": true
+        }));
+        let d = doc(v.clone()).unwrap();
+        assert!(d.warnings.is_empty(), "{:?}", d.warnings);
+        assert_eq!(d.components.last().unwrap().kind, Kind::File {
+            path: "docs/nota.md".into(), line: 3, column: 2, label: None, open: true
+        });
+        for bad in ["/etc/passwd", "../fora.txt", "a/../../b", "", "C:\\x", "\\\\srv\\x"] {
+            v["components"][7]["path"] = json!(bad);
+            assert!(doc(v.clone()).unwrap_err().contains("components[7].path"), "{bad}");
+        }
+        v["components"][7]["path"] = json!("./a.txt");
+        v["components"][7]["open"] = json!("sim");
+        assert!(doc(v).unwrap_err().contains("components[7].open"));
     }
 
     #[test]

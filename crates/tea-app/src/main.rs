@@ -109,6 +109,9 @@ fn main() -> iced::Result {
     }
 }
 
+/// Digitou há menos que isso: um arquivo pedido por uma extensão não abre por cima (ver `OpenFileWhenIdle`).
+const TYPING_PAUSE: std::time::Duration = std::time::Duration::from_secs(2);
+
 /// Um tique a cada 3 s, para as cópias de recuperação.
 fn backup_ticks() -> iced::futures::channel::mpsc::UnboundedReceiver<Message> {
     let (tx, rx) = iced::futures::channel::mpsc::unbounded();
@@ -390,6 +393,8 @@ struct App {
     file_actions: Vec<(usize, tea_core::FileAction)>,
     /// Quando a própria IDE salvou cada arquivo: o aviso de "mudou no disco" desse save não conta.
     own_saves: std::collections::HashMap<PathBuf, Instant>,
+    /// Última tecla que mudou o texto num editor (para não abrir arquivos por cima de quem está digitando).
+    last_typed: Option<Instant>,
     /// Última lista de arquivos do projeto (para `Ctrl+P` abrir na hora; é relida a cada abertura).
     file_list: std::sync::Arc<Vec<String>>,
     splash: Option<Splash>,
@@ -537,6 +542,7 @@ impl App {
             palette: None,
             file_list: Default::default(),
             own_saves: Default::default(),
+            last_typed: None,
             splash: show_splash.then(|| Splash::new(started)),
             pointer_over_panel: false,
             dialog: None,
@@ -665,6 +671,30 @@ impl App {
                 Request::OpenFileAt { path, line, column } => {
                     self.remember_spot(&path, Some(line));
                     tasks.push(self.open_file_at(path, line, column));
+                }
+                Request::OpenFileWhenIdle { path, line, column, busy_note } => {
+                    if self.last_typed.is_some_and(|t| t.elapsed() < TYPING_PAUSE) {
+                        tasks.push(self.notify(busy_note));
+                    } else if line == 0 {
+                        tasks.push(self.open_file(path));
+                    } else {
+                        self.remember_spot(&path, Some(line));
+                        tasks.push(self.open_file_at(path, line, column.max(1)));
+                    }
+                }
+                Request::SaveFiles { paths, then } => {
+                    let ids: Vec<u64> = self
+                        .tabs
+                        .iter()
+                        .filter(|t| t.editor.is_modified() && t.editor.path().is_some_and(|p| paths.iter().any(|q| q == p)))
+                        .map(|t| t.id)
+                        .collect();
+                    let (failed, saved) = self.save_tabs(&ids);
+                    tasks.push(saved);
+                    // Não salvou (o aviso já saiu): a extensão não segue com arquivos velhos no disco.
+                    if failed.is_empty() {
+                        tasks.push(Task::done(Message::Ext(ext, then)));
+                    }
                 }
                 Request::RegisterPanel { id, title, slot, visible } => {
                     let default_slot = slot;
@@ -3414,6 +3444,9 @@ impl App {
                     return Task::batch([task, self.no_lsp_note()]);
                 }
                 let hover = msg.is_mouse_hover();
+                if msg.is_typing() {
+                    self.last_typed = Some(Instant::now());
+                }
                 let toggled = msg.is_breakpoint_toggle();
                 let press = msg.is_press();
                 let task = self.tabs[i].editor.update(msg).map(move |m| Message::Editor(id, m));

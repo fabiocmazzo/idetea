@@ -23,7 +23,7 @@ use iced::{Element, Fill, Subscription, Task};
 use serde::{Deserialize, Serialize};
 use tea_core::icons::Icon;
 use tea_core::{ButtonKind, Context, Dialog, Extension, PanelId, Slot};
-use tea_declarative_ui::{Document, Limits, Response, State, UiMessage, timestamp};
+use tea_declarative_ui::{Document, Kind, Limits, Response, State, UiMessage, timestamp};
 
 use store::SurfaceFile;
 
@@ -36,6 +36,8 @@ pub enum Message {
     Snapshot(Arc<Vec<SurfaceFile>>),
     Select(String),
     Ui(String, UiMessage),
+    /// Os arquivos da interface já foram salvos: grava a resposta do botão (`interface`, `botão`).
+    Submit(String, String),
     /// Mostra o diálogo de "ensinar os agentes".
     AskTeach,
     /// Confirmado: grava as instruções.
@@ -106,6 +108,7 @@ impl UiExtension {
         let first = !self.loaded;
         self.loaded = true;
         let mut changed = None;
+        let mut opens = Vec::new();
         for f in files.iter() {
             let Ok(doc) = &f.doc else { continue };
             if f.tracked {
@@ -123,6 +126,7 @@ impl UiExtension {
             let waiting = first && f.pending.is_empty() && !self.saved[&f.name].state.locked(doc);
             if waiting || (!first && before != Some(doc.revision)) {
                 changed = Some((f.name.clone(), title(doc, &f.name).to_string(), before.is_none()));
+                opens.extend(file_components(doc).filter(|f| f.3).map(|(path, line, column, _)| (path.to_string(), line, column)));
             }
         }
         // Interface apagada pelo agente: acabou; o estado dela não serve mais.
@@ -133,13 +137,33 @@ impl UiExtension {
             ctx.show_panel(PANEL);
             self.selected = Some(name);
         }
+        for (path, line, column) in opens {
+            let note = fl!("ui-open-later", path = path.clone());
+            ctx.open_file_when_idle(self.root.join(path), line as usize, column as usize, note);
+        }
         if self.selected.as_ref().is_none_or(|s| self.file(s).is_none()) {
             self.selected = self.files.first().map(|f| f.name.clone());
         }
         self.save();
     }
 
+    /// Clique num botão. Se a interface aponta arquivos, a IDE salva os que estão com alterações antes de
+    /// gravar a resposta (o agente lê o arquivo logo depois).
     fn press(&mut self, name: &str, source: &str, ctx: &mut Context) {
+        let Some(f) = self.files.iter().find(|f| f.name == name && !f.tracked) else { return };
+        let Ok(doc) = &f.doc else { return };
+        if self.saved.get(name).is_none_or(|s| s.state.locked(doc)) {
+            return;
+        }
+        let paths: Vec<PathBuf> = file_components(doc).map(|(path, ..)| self.root.join(path)).collect();
+        if paths.is_empty() {
+            self.submit(name, source, ctx);
+        } else {
+            ctx.save_files(paths, Message::Submit(name.to_string(), source.to_string()));
+        }
+    }
+
+    fn submit(&mut self, name: &str, source: &str, ctx: &mut Context) {
         let Some(f) = self.files.iter().find(|f| f.name == name && !f.tracked) else { return };
         let Ok(doc) = &f.doc else { return };
         let Some(saved) = self.saved.get_mut(name) else { return };
@@ -269,6 +293,14 @@ fn project_key(root: &Path) -> String {
     format!("{name}-{hash:016x}.json")
 }
 
+/// Os componentes `file`: (caminho, linha, coluna, abrir sozinho).
+fn file_components(doc: &Document) -> impl Iterator<Item = (&str, u64, u64, bool)> {
+    doc.components.iter().filter_map(|c| match &c.kind {
+        Kind::File { path, line, column, open, .. } => Some((path.as_str(), *line, *column, *open)),
+        _ => None,
+    })
+}
+
 fn title<'a>(doc: &'a Document, name: &'a str) -> &'a str {
     doc.title.as_deref().unwrap_or(name)
 }
@@ -313,6 +345,15 @@ impl Extension for UiExtension {
                 }
             }
             Message::Ui(name, UiMessage::Press(source)) => self.press(&name, &source, ctx),
+            Message::Ui(_, UiMessage::Open { path, line, column }) => {
+                let path = self.root.join(path);
+                if line == 0 {
+                    ctx.open_file(path);
+                } else {
+                    ctx.open_file_at(path, line as usize, column.max(1) as usize);
+                }
+            }
+            Message::Submit(name, source) => self.submit(&name, &source, ctx),
             Message::AskTeach => self.ask_teach(ctx),
             Message::Teach => self.teach(ctx),
         }
@@ -393,6 +434,13 @@ mod tests {
         dir
     }
 
+    /// Estado da IDE numa pasta dos testes. O mesmo valor em todos: eles rodam em paralelo e o ambiente é um só.
+    fn test_state() {
+        let dir = std::env::temp_dir().join(format!("idetea-ext-ui-state-{}", std::process::id()));
+        // SAFETY: todos os testes gravam o mesmo valor; nenhum lê outra variável enquanto isso.
+        unsafe { std::env::set_var("XDG_STATE_HOME", dir) };
+    }
+
     const DOC: &str = r#"{
         "format": "idetea-ui", "version": 1, "revision": 1, "title": "Revisar migração",
         "data": { "ok": false },
@@ -409,9 +457,7 @@ mod tests {
     #[test]
     fn from_file_to_response() {
         let root = tmp_root("fluxo");
-        // Estado da IDE numa pasta só deste teste.
-        // SAFETY: o teste não roda outras threads que leiam o ambiente ao mesmo tempo.
-        unsafe { std::env::set_var("XDG_STATE_HOME", root.join("state")) };
+        test_state();
         let mut ext = UiExtension::new();
         let mut ctx = Context::new(&root, None);
         let _ = ext.activate(&mut ctx);
@@ -452,4 +498,66 @@ mod tests {
         assert!(!shows_panel(ctx.into_requests()), "já respondida: não abre o painel de novo");
         let _ = std::fs::remove_dir_all(&root);
     }
+
+    #[test]
+    fn files_open_on_arrival_and_are_saved_before_the_response() {
+        let root = tmp_root("arquivos");
+        test_state();
+        let mut ext = UiExtension::new();
+        let _ = ext.activate(&mut Context::new(&root, None));
+        let _ = ext.update(Message::Snapshot(Arc::new(store::scan(&root, &Limits::default()))), &mut Context::new(&root, None));
+        let doc = r#"{
+            "format": "idetea-ui", "version": 1, "revision": 1, "title": "Mensagem do commit",
+            "components": [
+                { "id": "msg", "component": "file", "path": "rascunho.md", "line": 3, "column": 1, "open": true, "label": "Edite a mensagem" },
+                { "id": "ver", "component": "file", "path": "src/lib.rs" },
+                { "id": "ok", "component": "button", "label": "Pronto", "action": { "name": "pronto" } }
+            ]
+        }"#;
+        std::fs::write(store::ui_dir(&root).join("commit.json"), doc).unwrap();
+
+        // Chegou: abre o arquivo marcado com `open` (sem roubar o foco de quem digita: o app decide).
+        let mut ctx = Context::new(&root, None);
+        let _ = ext.update(Message::Snapshot(Arc::new(store::scan(&root, &Limits::default()))), &mut ctx);
+        let opens: Vec<_> = ctx
+            .into_requests()
+            .into_iter()
+            .filter_map(|r| match r {
+                tea_core::Request::OpenFileWhenIdle { path, line, column, .. } => Some((path, line, column)),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(opens, [(root.join("rascunho.md"), 3, 1)], "só o arquivo com open");
+
+        // Clique no link: abre direto.
+        let mut ctx = Context::new(&root, None);
+        let msgs: Vec<Message> = {
+            let mut ui = simulator(ext.view(PANEL));
+            ui.click("src/lib.rs").unwrap();
+            ui.click("Pronto").unwrap();
+            ui.into_messages().collect()
+        };
+        for m in msgs {
+            let _ = ext.update(m, &mut ctx);
+        }
+        let requests = ctx.into_requests();
+        assert!(requests.iter().any(|r| matches!(r, tea_core::Request::OpenFile(p) if *p == root.join("src/lib.rs"))));
+        // O botão pede para salvar os arquivos antes; a resposta só sai quando o app devolve a mensagem.
+        let then = requests
+            .into_iter()
+            .find_map(|r| match r {
+                tea_core::Request::SaveFiles { paths, then } => {
+                    assert_eq!(paths, [root.join("rascunho.md"), root.join("src/lib.rs")]);
+                    Some(then)
+                }
+                _ => None,
+            })
+            .expect("pede para salvar");
+        assert!(store::pending(&store::ui_dir(&root), "commit").is_empty(), "ainda sem resposta");
+        let then = then.downcast_ref::<Message>().unwrap().clone();
+        let _ = ext.update(then, &mut Context::new(&root, None));
+        assert_eq!(store::pending(&store::ui_dir(&root), "commit").len(), 1, "resposta gravada depois de salvar");
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
 }

@@ -861,6 +861,18 @@ e grava a resposta do usuário em `.idetea/ui/responses/<nome>/`. Estudo, decis�
   - [x] Teste manual: num projeto sem `AGENTS.md`, o botão do painel vazio cria o arquivo e o abre; rodar de novo
     avisa "já atualizadas"; mudar o idioma da IDE e rodar troca o bloco sem mexer no resto do arquivo; com
     `CLAUDE.md` existente, o diálogo lista os dois. (aprovado)
+- [x] **Arquivos nas interfaces:** componente `file` (`path` relativo à raiz, sem `..`; `line`, `column`, `label`,
+  `open`) para o que não cabe num campo: mostrar um trecho de código, pedir um texto longo, ajustar um arquivo. O
+  link abre o arquivo na posição; `open: true` abre sozinho quando a revisão chega, **menos** se o usuário digitou
+  no editor nos últimos 2 s (aí só um aviso: o cursor não é roubado no meio de uma linha). Ao clicar num botão, a
+  IDE salva antes os arquivos dos componentes `file` com alterações (`Request::SaveFiles`) e só então grava a
+  resposta; se um não salvar, não há resposta. A IDE não cria arquivos: o agente cria (rascunhos em
+  `.idetea/ui/rascunhos/`, fora do git). Formato, schema, exemplo, instruções dos agentes (3 idiomas) e o painel
+  dos plugins também (o clique abre o arquivo).
+  - [x] Teste manual: `examples/interfaces/arquivos.sh` (cria um projeto em `/tmp`, abre a IDE e guia os
+    passos): o rascunho abre sozinho na linha 3; editar sem salvar e clicar "Commitar": o arquivo é salvo e a
+    resposta aparece. A revisão 2 chega enquanto digita noutro arquivo: não abre, aparece o aviso; os links do
+    painel abrem. Um `path` com `..` mostra o erro no painel. (aprovado)
 - Depois, só se o uso pedir: `Row`/`Column`, progresso, Markdown sem links, vários painéis (`PanelId` dinâmico no
   núcleo), adaptador A2UI v1.0, e a mesma crate nos painéis dos plugins WASM (Fase 4).
 

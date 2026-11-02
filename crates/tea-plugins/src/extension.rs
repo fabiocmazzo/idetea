@@ -83,12 +83,7 @@ impl PluginExtension {
                     }
                 }
                 HostRequest::OpenFile { path, line, column } => {
-                    let path = self.root.join(path);
-                    if line == 0 {
-                        ctx.open_file(path);
-                    } else {
-                        ctx.open_file_at(path, line as usize, column.max(1) as usize);
-                    }
+                    open(ctx, self.root.join(path), line.into(), column.into());
                 }
                 HostRequest::SetPanel(json) => {
                     let doc = tea_declarative_ui::parse(json.as_bytes(), &Limits::default());
@@ -112,6 +107,15 @@ impl PluginExtension {
 
     fn relative(&self, path: &Path) -> String {
         path.strip_prefix(&self.root).unwrap_or(path).to_string_lossy().into_owned()
+    }
+}
+
+/// Abre na linha e coluna (começando em 1; linha 0 = só abre).
+fn open(ctx: &mut Context, path: PathBuf, line: u64, column: u64) {
+    if line == 0 {
+        ctx.open_file(path);
+    } else {
+        ctx.open_file_at(path, line as usize, column.max(1) as usize);
     }
 }
 
@@ -176,6 +180,7 @@ impl Extension for PluginExtension {
     fn update(&mut self, message: Message, ctx: &mut Context) -> Task<Message> {
         match message {
             Message::Ui(UiMessage::Set { path, value }) => self.state.set(&path, value),
+            Message::Ui(UiMessage::Open { path, line, column }) => open(ctx, self.root.join(path), line, column),
             Message::Ui(UiMessage::Press(source)) => {
                 let Some(Ok(doc)) = &self.doc else { return Task::none() };
                 let Some((name, values)) = self.state.press(doc, &source) else { return Task::none() };

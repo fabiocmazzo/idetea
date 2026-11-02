@@ -92,6 +92,19 @@
           }
         },
         {
+          "if": { "properties": { "component": { "const": "file" } } },
+          "then": {
+            "required": ["path"],
+            "properties": {
+              "path": { "type": "string", "minLength": 1, "maxLength": 16384, "not": { "pattern": "(^[/\\\\])|(^.:)|(^|[/\\\\])\\.\\.([/\\\\]|$)" } },
+              "line": { "type": "integer", "minimum": 0 },
+              "column": { "type": "integer", "minimum": 0 },
+              "label": { "$ref": "#/$defs/text" },
+              "open": { "type": "boolean" }
+            }
+          }
+        },
+        {
           "if": { "properties": { "component": { "const": "input" } } },
           "then": {
             "required": ["value"],

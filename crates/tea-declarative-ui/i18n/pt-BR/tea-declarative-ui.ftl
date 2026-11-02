@@ -11,6 +11,7 @@ ui-too-long = "{ $field }" passa de { $max } bytes.
 ui-bad-id = "{ $field }": id inválido ("{ $id }"). Use letras, números, "_" e "-" (até 64).
 ui-duplicate-id = Id repetido: "{ $id }".
 ui-bad-path = "{ $field }": "{ $path }" não é um caminho válido (ex.: "/nome").
+ui-bad-file-path = "{ $field }": "{ $path }" tem que ser um caminho relativo à raiz do projeto, sem "..".
 ui-data-too-big = "data" passa de { $max } bytes.
 ui-data-too-deep = "data" tem mais de { $max } níveis.
 

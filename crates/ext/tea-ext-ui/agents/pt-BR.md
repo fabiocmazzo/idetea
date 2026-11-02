@@ -24,6 +24,12 @@ https://github.com/fabiocmazzo/idetea/blob/main/docs/interfaces/formato.md
    - Na resposta só vêm os caminhos listados no `context` do botão clicado; um campo nunca preenchido vem `null`.
    - `action.name` é um texto livre que volta na resposta para você saber qual botão foi clicado.
    - Depois de um clique, os botões ficam desligados até você escrever uma revisão nova.
+   - Para me mostrar um arquivo, ou pedir um texto longo (mensagem de commit, descrição de PR), use o componente
+     `file`: `{"id": "f", "component": "file", "path": ".idetea/ui/rascunhos/commit.md", "line": 3, "column": 1,
+     "label": "Edite a mensagem", "open": true}`. `path` é relativo à raiz; o link abre o arquivo na posição, e
+     `open: true` abre sozinho quando a revisão chega. Crie o arquivo antes (rascunhos em
+     `.idetea/ui/rascunhos/`, fora do git). Ao clicar num botão, a IDE salva o arquivo antes de gravar a
+     resposta: leia o arquivo do disco depois dela.
 2. Espere a resposta em `.idetea/ui/responses/<nome>/`. Use bash (no zsh, `compgen` não existe ou se comporta
    diferente):
    ```sh

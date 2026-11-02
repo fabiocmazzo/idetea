@@ -26,6 +26,12 @@ https://github.com/fabiocmazzo/idetea/blob/main/docs/interfaces/formato.md
      comes as `null`.
    - `action.name` is free text that comes back in the response so you know which button was clicked.
    - After a click, the buttons stay disabled until you write a new revision.
+   - To show me a file, or ask for a longer text (commit message, PR description), use the `file` component:
+     `{"id": "f", "component": "file", "path": ".idetea/ui/rascunhos/commit.md", "line": 3, "column": 1,
+     "label": "Edit the message", "open": true}`. `path` is relative to the root; the link opens the file at that
+     position, and `open: true` opens it by itself when the revision arrives. Create the file first (drafts in
+     `.idetea/ui/rascunhos/`, outside git). When a button is clicked, the IDE saves the file before writing the
+     response: read the file from disk after it.
 2. Wait for the response in `.idetea/ui/responses/<name>/`. Use bash (in zsh, `compgen` does not exist or
    behaves differently):
    ```sh

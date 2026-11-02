@@ -180,6 +180,12 @@ pub enum Request {
     OpenFile(PathBuf),
     /// Abre e posiciona o cursor. Linha e coluna começam em 1 (coluna em caracteres).
     OpenFileAt { path: PathBuf, line: usize, column: usize },
+    /// Como [`Request::OpenFileAt`], mas sem tirar o usuário do que ele está digitando: se ele digitou no editor
+    /// há pouco, o app só mostra `busy_note`.
+    OpenFileWhenIdle { path: PathBuf, line: usize, column: usize, busy_note: String },
+    /// Salva as abas destes arquivos que têm alterações e depois manda `then` de volta para a extensão. Se
+    /// alguma não puder ser salva, o app avisa e `then` não vai.
+    SaveFiles { paths: Vec<PathBuf>, then: ExtMessage },
     RegisterPanel { id: PanelId, title: String, slot: Slot, visible: bool },
     RegisterCommand { id: String, title: String },
     RunCommand(String),
@@ -319,6 +325,16 @@ impl<'a> Context<'a> {
 
     pub fn open_file_at(&mut self, path: impl Into<PathBuf>, line: usize, column: usize) {
         self.requests.push(Request::OpenFileAt { path: path.into(), line, column });
+    }
+
+    /// Abre como [`Context::open_file_at`] se o usuário não estiver digitando; senão só avisa com `busy_note`.
+    pub fn open_file_when_idle(&mut self, path: impl Into<PathBuf>, line: usize, column: usize, busy_note: impl Into<String>) {
+        self.requests.push(Request::OpenFileWhenIdle { path: path.into(), line, column, busy_note: busy_note.into() });
+    }
+
+    /// Salva as abas alteradas destes arquivos e então manda `then` para a extensão (ver [`Request::SaveFiles`]).
+    pub fn save_files<M: Any + Send + Sync>(&mut self, paths: Vec<PathBuf>, then: M) {
+        self.requests.push(Request::SaveFiles { paths, then: ExtMessage::new(then) });
     }
 
     pub fn register_panel(&mut self, id: PanelId, title: impl Into<String>, slot: Slot) {

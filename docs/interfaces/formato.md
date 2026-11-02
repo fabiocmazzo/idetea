@@ -27,6 +27,7 @@ Para o agente saber usar o painel, rode **Interfaces: ensinar os agentes deste p
 .idetea/ui/
 ├── .gitignore                       # criado pela IDE, com "*": nada daqui vai para o git
 ├── <nome>.json                      # o documento (escrito pelo agente)
+├── rascunhos/                       # opcional: arquivos que o agente cria para o usuário editar
 └── responses/<nome>/
     └── 000001-<event>.json          # as respostas (escritas pela IDE)
 ```
@@ -95,6 +96,7 @@ Todo componente tem `id` (`[A-Za-z0-9_-]`, até 64, único no documento) e `comp
 | `checkbox` | `label`, `value` | Valor booleano. |
 | `select` | `options`, `value`, `label` | `options`: até 500, cada uma `"x"` ou `{"value": "x", "label": "X"}`. Valor: o `value` escolhido. |
 | `input` | `value`, `label`, `placeholder` | Texto de uma linha. |
+| `file` | `path`, `line`, `column`, `label`, `open` | Um arquivo do projeto. Ver [Arquivos](#arquivos). |
 
 `value` é o lugar do valor em `data`: um ponteiro JSON (RFC 6901) como `"/usuario/nome"`, ou
 `{"path": "/usuario/nome"}`.
@@ -106,6 +108,30 @@ caminho do `context`.
 
 256 KB por arquivo, 200 componentes, 16 KB por texto, 500 opções, 64 KB e 16 níveis em `data`. Acima disso o
 documento é recusado e o erro aparece no painel com o campo (ex.: `components[3].value`).
+
+## Arquivos
+
+O componente `file` mostra um arquivo do projeto no painel. Serve para o que não cabe num campo: um trecho de
+código para olhar, um texto longo para escrever (mensagem de commit, descrição de PR, um rascunho) ou um arquivo de
+configuração para ajustar.
+
+```json
+{"id": "msg", "component": "file", "path": ".idetea/ui/rascunhos/commit.md", "line": 3, "column": 1,
+ "label": "Edite a mensagem do commit", "open": true}
+```
+
+- `path`: relativo à raiz do projeto, sem `..` nem caminho absoluto (o documento é recusado).
+- `line` e `column` começam em 1; sem eles (ou `0`), o arquivo abre no início.
+- `label`: o texto do link (o caminho aparece embaixo). Sem ele, o link é o caminho.
+- Um clique no link abre o arquivo na posição.
+- `open: true`: abre sozinho quando a revisão chega. Se o usuário digitou no editor nos últimos 2 segundos, não
+  abre (o cursor dele não é roubado no meio de uma linha): só aparece um aviso, e o link continua no painel.
+- **O arquivo é a resposta.** Ao clicar num botão, a IDE primeiro salva os arquivos dos componentes `file` que
+  estão abertos com alterações, e só então grava a resposta. Ao ver a resposta, leia o arquivo do disco. Se algum
+  não puder ser salvo, a resposta não é gravada e o usuário vê o erro.
+- A IDE não cria o arquivo: escreva-o antes do documento (um arquivo que não existe abre como aba nova, e é criado
+  quando o usuário salvar). Para rascunhos, use `.idetea/ui/rascunhos/`: fica fora do git (o `.gitignore` da
+  pasta) e a IDE não mexe nele. Apague-os ao terminar.
 
 ## A resposta
 

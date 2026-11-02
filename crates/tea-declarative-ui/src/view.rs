@@ -13,6 +13,8 @@ pub enum UiMessage {
     Set { path: String, value: Value },
     /// O botão com este id foi clicado (ver [`State::press`]).
     Press(String),
+    /// Clique num componente `file`: abrir `path` (relativo à raiz) na linha e coluna (0 = início).
+    Open { path: String, line: u64, column: u64 },
 }
 
 /// A interface. Quem chama põe título, rolagem e o status em volta.
@@ -93,6 +95,17 @@ fn component_view<'a>(doc: &'a Document, state: &'a State, c: &'a Component) -> 
                 .width(Fill);
             labeled(label.as_deref(), input)
         }
+        Kind::File { path, line, column, label, .. } => {
+            let place = if *line > 0 { format!("{path}:{line}") } else { path.clone() };
+            let open = UiMessage::Open { path: path.clone(), line: *line, column: *column };
+            let link = button(text(label.clone().unwrap_or_else(|| place.clone())).size(13))
+                .style(button::secondary)
+                .on_press(open);
+            match label {
+                Some(_) => column![link, text(place).size(12).style(text::secondary)].spacing(4).into(),
+                None => link.into(),
+            }
+        }
         Kind::Unknown { component } => {
             text(fl!("ui-unknown-component", component = component.clone())).size(13).style(text::warning).into()
         }
@@ -116,6 +129,7 @@ mod tests {
                 { "id": "n", "component": "input", "label": "Nome", "value": { "path": "/nome" } },
                 { "id": "c", "component": "checkbox", "label": "Concordo", "value": { "path": "/ok" } },
                 { "id": "x", "component": "grafico" },
+                { "id": "f", "component": "file", "path": "notas/rascunho.md", "line": 4, "label": "Escreva aqui" },
                 { "id": "enviar", "component": "button", "label": "Enviar", "action": { "name": "enviar", "context": ["/nome", "/ok"] } },
                 { "id": "cancelar", "component": "button", "label": "Cancelar", "style": "secondary", "action": { "name": "cancelar" } }
             ]
@@ -131,10 +145,13 @@ mod tests {
         assert!(ui.find("Confirme os dados").is_ok());
         let unknown = fl!("ui-unknown-component", component = "grafico");
         assert!(ui.find(unknown.as_str()).is_ok(), "aviso no lugar do componente desconhecido");
+        assert!(ui.find("notas/rascunho.md:4").is_ok(), "o caminho embaixo do rótulo");
+        ui.click("Escreva aqui").unwrap();
         ui.click("Concordo").unwrap();
         ui.click("Enviar").unwrap();
         let msgs: Vec<UiMessage> = ui.into_messages().collect();
         assert_eq!(msgs, vec![
+            UiMessage::Open { path: "notas/rascunho.md".into(), line: 4, column: 0 },
             UiMessage::Set { path: "/ok".into(), value: json!(true) },
             UiMessage::Press("enviar".into()),
         ]);

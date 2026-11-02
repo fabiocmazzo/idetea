@@ -12,6 +12,7 @@ ui-waiting = { $count ->
 ui-received = Resposta recebida pelo agente.
 ui-new = Nova interface do agente: { $title }
 ui-updated = Interface atualizada: { $title }
+ui-open-later = O agente pediu para abrir { $path }: está no painel Interfaces (não abri para não atrapalhar a digitação).
 ui-write-failed = Não deu para gravar a resposta: { $error }
 ui-prepare-failed = Não deu para preparar a pasta .idetea/ui: { $error }
 ui-not-a-file = não é um arquivo comum
