@@ -16,3 +16,16 @@ ui-write-failed = Could not write the response: { $error }
 ui-prepare-failed = Could not prepare the .idetea/ui folder: { $error }
 ui-not-a-file = not a regular file
 ui-surface-mismatch = the surface field is "{ $found }", but the file is named { $expected }.json
+# Language code of the agent instructions (agents/<code>.md).
+ui-agents-lang = en
+cmd-ui-teach = Interfaces: teach this project's agents
+ui-teach-hint = So that a coding agent knows how to use this panel, write the instructions to the project's AGENTS.md.
+ui-teach-button = Teach this project's agents
+ui-teach-title = Teach this project's agents?
+ui-teach-detail = The IDE will write the Interfaces panel instructions to: { $files }. The text stays between markers; running it again only updates that part and leaves the rest alone. These are project files: review them before committing.
+ui-teach-file-new = { $name } (new)
+ui-teach-write = Write
+ui-cancel = Cancel
+ui-teach-up-to-date = The agent instructions are already up to date.
+ui-teach-done = Instructions written to { $files }.
+ui-teach-failed = Could not write the instructions: { $error }

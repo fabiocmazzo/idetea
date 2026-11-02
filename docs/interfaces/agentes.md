@@ -1,6 +1,11 @@
 # Instruções para agentes
 
-Cole o bloco abaixo no `AGENTS.md` ou `CLAUDE.md` do projeto para que um agente de código saiba perguntar
+O jeito fácil: na IDE, rode **Interfaces: ensinar os agentes deste projeto** (paleta de comandos, ou o botão no
+painel vazio). A IDE grava o bloco abaixo no `AGENTS.md` (e no `CLAUDE.md`, se houver), no idioma da interface,
+entre marcadores `<!-- idetea-ui:begin … -->` e `<!-- idetea-ui:end -->`; rodar de novo só atualiza esse trecho.
+O texto vem de `crates/ext/tea-ext-ui/agents/` (um teste confere que o português abaixo é igual).
+
+À mão: cole o bloco abaixo no `AGENTS.md` ou `CLAUDE.md` do projeto para que um agente de código saiba perguntar
 coisas ao usuário pelo painel **Interfaces** da IDE TEA, em vez de só pelo chat. Serve quando a pergunta tem
 opções claras (escolher entre caminhos, confirmar uma ação arriscada, preencher alguns campos).
 

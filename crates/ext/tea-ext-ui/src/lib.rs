@@ -10,6 +10,7 @@ macro_rules! fl {
 }
 
 pub mod store;
+pub mod teach;
 
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
@@ -21,7 +22,7 @@ use iced::widget::{Column, button, column, row, scrollable, text};
 use iced::{Element, Fill, Subscription, Task};
 use serde::{Deserialize, Serialize};
 use tea_core::icons::Icon;
-use tea_core::{Context, Extension, PanelId, Slot};
+use tea_core::{ButtonKind, Context, Dialog, Extension, PanelId, Slot};
 use tea_declarative_ui::{Document, Limits, Response, State, UiMessage, timestamp};
 
 use store::SurfaceFile;
@@ -35,6 +36,10 @@ pub enum Message {
     Snapshot(Arc<Vec<SurfaceFile>>),
     Select(String),
     Ui(String, UiMessage),
+    /// Mostra o diálogo de "ensinar os agentes".
+    AskTeach,
+    /// Confirmado: grava as instruções.
+    Teach,
 }
 
 /// O que a IDE guarda de uma interface (sobrevive a reiniciar a IDE).
@@ -162,6 +167,46 @@ impl UiExtension {
         self.save();
     }
 
+    fn teach_text() -> &'static str {
+        teach::instructions(&fl!("ui-agents-lang"))
+    }
+
+    fn ask_teach(&self, ctx: &mut Context) {
+        match teach::plan(&self.root, Self::teach_text()) {
+            Ok(plan) if plan.is_empty() => ctx.notify(fl!("ui-teach-up-to-date")),
+            Ok(plan) => {
+                let files: Vec<String> = plan
+                    .iter()
+                    .map(|c| if c.new { fl!("ui-teach-file-new", name = c.name.clone()) } else { c.name.clone() })
+                    .collect();
+                ctx.show_dialog(
+                    Dialog::new(fl!("ui-teach-title"), fl!("ui-teach-detail", files = files.join(", ")))
+                        .button(fl!("ui-teach-write"), ButtonKind::Primary, Message::Teach)
+                        .cancel(fl!("ui-cancel")),
+                );
+            }
+            Err(e) => ctx.notify(fl!("ui-teach-failed", error = e.to_string())),
+        }
+    }
+
+    fn teach(&self, ctx: &mut Context) {
+        // Calcula de novo: o arquivo pode ter mudado enquanto o diálogo estava aberto.
+        let result = teach::plan(&self.root, Self::teach_text()).and_then(|plan| teach::apply(&plan).map(|()| plan));
+        match result {
+            Ok(plan) => {
+                for c in &plan {
+                    ctx.file_changed(c.path.clone());
+                }
+                if let Some(first) = plan.first() {
+                    ctx.open_file(first.path.clone());
+                    let names: Vec<&str> = plan.iter().map(|c| c.name.as_str()).collect();
+                    ctx.notify(fl!("ui-teach-done", files = names.join(", ")));
+                }
+            }
+            Err(e) => ctx.notify(fl!("ui-teach-failed", error = e.to_string())),
+        }
+    }
+
     fn surface_view<'a>(&'a self, f: &'a SurfaceFile) -> Element<'a, Message> {
         let path = format!(".idetea/ui/{}.json", f.name);
         if f.tracked {
@@ -240,6 +285,7 @@ impl Extension for UiExtension {
         ctx.register_panel_hidden(PANEL, fl!("ui-panel"), Slot::Right);
         ctx.panel_icon(PANEL, Icon::Preview);
         ctx.register_command("interfaces.show", fl!("cmd-ui-show"));
+        ctx.register_command("interfaces.teach", fl!("cmd-ui-teach"));
         if let Err(e) = store::prepare(&self.root) {
             self.problem = Some(fl!("ui-prepare-failed", error = e.to_string()));
         }
@@ -248,8 +294,10 @@ impl Extension for UiExtension {
     }
 
     fn on_command(&mut self, command: &str, ctx: &mut Context) -> Task<Message> {
-        if command == "interfaces.show" {
-            ctx.show_panel(PANEL);
+        match command {
+            "interfaces.show" => ctx.show_panel(PANEL),
+            "interfaces.teach" => self.ask_teach(ctx),
+            _ => {}
         }
         Task::none()
     }
@@ -265,6 +313,8 @@ impl Extension for UiExtension {
                 }
             }
             Message::Ui(name, UiMessage::Press(source)) => self.press(&name, &source, ctx),
+            Message::AskTeach => self.ask_teach(ctx),
+            Message::Teach => self.teach(ctx),
         }
         Task::none()
     }
@@ -276,6 +326,8 @@ impl Extension for UiExtension {
         }
         if self.files.is_empty() {
             out = out.push(text(fl!("ui-empty")).size(13).style(text::secondary).width(Fill));
+            out = out.push(text(fl!("ui-teach-hint")).size(13).style(text::secondary).width(Fill));
+            out = out.push(button(text(fl!("ui-teach-button")).size(13)).style(button::secondary).on_press(Message::AskTeach));
             return scrollable(out).height(Fill).into();
         }
         if self.files.len() > 1 {

@@ -16,3 +16,16 @@ ui-write-failed = No se pudo guardar la respuesta: { $error }
 ui-prepare-failed = No se pudo preparar la carpeta .idetea/ui: { $error }
 ui-not-a-file = no es un archivo común
 ui-surface-mismatch = el campo surface es "{ $found }", pero el archivo se llama { $expected }.json
+# Código del idioma de las instrucciones para agentes (agents/<código>.md).
+ui-agents-lang = es
+cmd-ui-teach = Interfaces: enseñar a los agentes de este proyecto
+ui-teach-hint = Para que un agente de código sepa usar este panel, guarda las instrucciones en el AGENTS.md del proyecto.
+ui-teach-button = Enseñar a los agentes de este proyecto
+ui-teach-title = ¿Enseñar a los agentes de este proyecto?
+ui-teach-detail = El IDE va a guardar las instrucciones del panel Interfaces en: { $files }. El texto queda entre marcadores; ejecutarlo de nuevo solo actualiza esa parte y no toca el resto. Son archivos del proyecto: revísalos antes del commit.
+ui-teach-file-new = { $name } (nuevo)
+ui-teach-write = Guardar
+ui-cancel = Cancelar
+ui-teach-up-to-date = Las instrucciones para agentes ya están actualizadas.
+ui-teach-done = Instrucciones guardadas en { $files }.
+ui-teach-failed = No se pudieron guardar las instrucciones: { $error }

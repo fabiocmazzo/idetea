@@ -18,6 +18,9 @@ interfaces = { enabled = true }
 
 Ou em Configurações → Extensões. Reinicie a IDE depois de mudar.
 
+Para o agente saber usar o painel, rode **Interfaces: ensinar os agentes deste projeto**: grava as instruções de
+[`agentes.md`](agentes.md) no `AGENTS.md` do projeto.
+
 ## Pastas
 
 ```

@@ -844,6 +844,13 @@ e grava a resposta do usuário em `.idetea/ui/responses/<nome>/`. Estudo, decis�
   ajustar o formato antes de considerar estável. (aprovado) O formato bastou; o texto para agentes ganhou os cinco
   componentes, o que volta na resposta, como esperar em bash e o que apagar no fim. A IDE passou a mostrar o painel
   ao abrir quando há pergunta sem resposta e a apagar a pasta de respostas vazia de interfaces fechadas.
+- [x] **Ensinar os agentes:** comando `interfaces.teach` (e botão no painel vazio) grava as instruções no
+  `AGENTS.md`/`CLAUDE.md` do projeto, no idioma da interface, entre marcadores (rodar de novo só troca o bloco).
+  Pergunta antes, dizendo quais arquivos; pula o `CLAUDE.md` que já importa `@AGENTS.md`; symlink entre os dois
+  conta uma vez e continua symlink; abre o arquivo depois.
+  - [x] Teste manual: num projeto sem `AGENTS.md`, o botão do painel vazio cria o arquivo e o abre; rodar de novo
+    avisa "já atualizadas"; mudar o idioma da IDE e rodar troca o bloco sem mexer no resto do arquivo; com
+    `CLAUDE.md` existente, o diálogo lista os dois. (aprovado)
 - Depois, só se o uso pedir: `Row`/`Column`, progresso, Markdown sem links, vários painéis (`PanelId` dinâmico no
   núcleo), adaptador A2UI v1.0, e a mesma crate nos painéis dos plugins WASM (Fase 4).
 
