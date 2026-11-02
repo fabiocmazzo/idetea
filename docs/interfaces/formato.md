@@ -6,8 +6,9 @@ código: o documento só descreve textos, botões, caixas de marcar, listas de e
 
 As decisões e o porquê estão em [`docs/rfc/0001-interfaces-declarativas.md`](../rfc/0001-interfaces-declarativas.md).
 O JSON Schema está em [`idetea-ui.schema.json`](idetea-ui.schema.json); a IDE grava uma cópia em
-`.idetea/ui/idetea-ui.schema.json`, ao lado do `FORMAT.md`, para validar o documento antes de publicar (ex.:
-`check-jsonschema --schemafile .idetea/ui/idetea-ui.schema.json .idetea/ui/<nome>.json`, se houver um validador).
+`.idetea/ui/idetea-ui.schema.json`, ao lado do `FORMAT.md`. Para conferir um documento antes de publicar, sem
+ferramenta de fora, use `.idetea/ui/check .idetea/ui/.<nome>.json.tmp` (o mesmo leitor do painel; ver
+[Conferir antes de publicar](#conferir-antes-de-publicar)); um validador de JSON Schema também serve.
 Os outros links deste texto (RFCs, exemplos) só funcionam no repositório da IDE.
 
 ## Ligar
@@ -31,6 +32,7 @@ Para o agente saber usar o painel, rode **Interfaces: ensinar os agentes deste p
 ├── .gitignore                       # criado pela IDE, com "*": nada daqui vai para o git
 ├── FORMAT.md                        # este texto, da versão da IDE aberta (a IDE regrava)
 ├── idetea-ui.schema.json            # o JSON Schema do documento, da mesma versão
+├── check                            # roda `idetea ui check` com o executável desta IDE
 ├── <nome>.json                      # o documento (escrito pelo agente)
 ├── rascunhos/                       # opcional: arquivos que o agente cria para o usuário editar
 └── responses/<nome>/
@@ -44,7 +46,7 @@ Para o agente saber usar o painel, rode **Interfaces: ensinar os agentes deste p
 - Escreva o documento num temporário e renomeie (`mv`): a IDE nunca vê metade do arquivo. Temporários que
   terminam em `.tmp` são ignorados (e apagados depois de uma hora).
 - Para fechar a interface, apague `<nome>.json`. O resto (`.gitignore`, `FORMAT.md`, `idetea-ui.schema.json`,
-  `responses/`) é da IDE: a pasta de
+  `check`, `responses/`) é da IDE: a pasta de
   respostas de uma interface fechada sai sozinha quando fica vazia.
 - Um documento só com `text`, sem botões, serve para mostrar algo sem esperar resposta.
 - Arquivos versionados no git (que vieram de um repositório clonado) são ignorados por segurança. Symlinks
@@ -266,6 +268,24 @@ Os links levam a quatro lugares; qualquer outro só mostra um aviso:
 
 Blocos de código (entre ```` ``` ````) ganham um botão **Copiar** no canto: ponha num bloco os comandos que o
 usuário deve rodar. Imagens não são carregadas (aparece o texto alternativo). Tabelas e HTML aparecem como texto.
+
+## Conferir antes de publicar
+
+```sh
+.idetea/ui/check .idetea/ui/.revisar.json.tmp && mv .idetea/ui/.revisar.json.tmp .idetea/ui/revisar.json
+```
+
+`.idetea/ui/check` roda `idetea ui check` com o executável da IDE aberta (o `idetea` do `PATH` pode ser outra
+versão). Lê cada arquivo como o painel lê e mostra:
+
+- `ok (N componentes)`, ou `erro: …` com o motivo pelo qual o painel recusaria o documento (JSON inválido, campo
+  obrigatório faltando, nome do arquivo ou `surface` que não vale, limite passado). O temporário `.<nome>.json.tmp`
+  vale pelo nome final;
+- `aviso: …`: o que o painel mostra como aviso (campo ou valor desconhecido) e continua;
+- `mídia: …`: imagem, sprite ou som que não dá para ler (falta, grande demais, quadro maior que a folha).
+
+Código de saída: 0 se todos passam, 1 se algum tem erro, 2 sem arquivos. Também dá para rodar direto:
+`idetea ui check <arquivo.json>…`.
 
 ## A resposta
 

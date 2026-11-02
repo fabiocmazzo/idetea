@@ -157,6 +157,24 @@ impl Media {
         self.pictures.get(path)
     }
 
+    /// O que não deu para ler, para mostrar fora do painel (`idetea ui check`): caminho (ou id do `sprite`) e
+    /// motivo, em ordem. Um som que só toca (sem duração) também entra.
+    pub fn problems(&self) -> Vec<(String, String)> {
+        let mut out: Vec<(String, String)> = Vec::new();
+        out.extend(self.pictures.iter().filter_map(|(p, r)| r.as_ref().err().map(|e| (p.clone(), e.clone()))));
+        out.extend(self.sprites.iter().filter_map(|(id, r)| r.as_ref().err().map(|e| (format!("#{id}"), e.clone()))));
+        for (p, r) in &self.sounds {
+            match r {
+                Err(e) => out.push((p.clone(), e.clone())),
+                Ok(Sound { note: Some(n), .. }) => out.push((p.clone(), n.clone())),
+                Ok(_) => {}
+            }
+        }
+        out.sort();
+        out.dedup();
+        out
+    }
+
     /// Tamanho e data do arquivo quando foi lido para a tela.
     pub fn file(&self, path: &str) -> Option<(u64, Option<SystemTime>)> {
         self.files.get(path).copied()

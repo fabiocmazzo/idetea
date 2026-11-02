@@ -76,6 +76,17 @@ fn main() -> iced::Result {
             println!("idetea {}", env!("CARGO_PKG_VERSION"));
             Ok(())
         }
+        cli::Cli::UiCheck(files) => {
+            tea_core::i18n::init("auto");
+            #[cfg(feature = "ext-ui")]
+            std::process::exit(tea_ext_ui::check::run(&files, &cwd));
+            #[cfg(not(feature = "ext-ui"))]
+            {
+                let _ = files;
+                eprintln!("idetea: compilada sem a extensão Interfaces (feature ext-ui)");
+                std::process::exit(2);
+            }
+        }
         cli::Cli::InstallDesktop => desktop::run(true),
         cli::Cli::UninstallDesktop => desktop::run(false),
         cli::Cli::Run(mut launch) => {

@@ -1064,6 +1064,12 @@ e grava a resposta do usuário em `.idetea/ui/responses/<nome>/`. Estudo, decis�
   - [x] Teste manual (aprovado, pelo painel): num documento com um WAV estourado, tocar e parar, tocar por cima,
     abrir um link `idetea:open/`; a resposta traz cada coisa; o `FORMAT.md` sem links quebrados (conferido neste
     projeto; o do jogo é regravado quando a IDE abrir lá).
+- [x] **`idetea ui check`** (lacuna 17, 5): confere documentos pela linha de comando com o mesmo leitor do painel:
+  `ok`, `erro` (o que o painel recusaria), `aviso` e `mídia` (imagem, sprite ou som que não dá para ler); saída 1
+  com erro. A IDE grava `.idetea/ui/check`, que chama o executável aberto (o do `PATH` pode ser velho e abriria uma
+  janela). O temporário `.<nome>.json.tmp` vale pelo nome final.
+  - [x] Teste manual (aprovado, pelo painel): `.idetea/ui/check` num documento bom, num quebrado e num com mídia
+    faltando (rodado neste projeto; no jogo o script aparece quando a IDE abrir lá).
 - [x] **Aba de imagem sempre em dia + schema junto do formato** (lacuna 16): as abas de imagem e PDF conferem
   tamanho e data do arquivo a cada segundo (além do observador) e recarregam quando mudam; o rodapé da aba mostra a
   hora em que o arquivo foi gravado, para conferir qual versão está na tela. A IDE grava também

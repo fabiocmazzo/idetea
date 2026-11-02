@@ -25,6 +25,9 @@ the panel, put every question that needs my answer there, not only in the chat: 
       {"id": "no", "component": "button", "label": "Cancel", "style": "secondary", "action": {"name": "cancel"}}
     ]}
    ```
+   Before the `mv`, you can check the file the way the panel reads it: `.idetea/ui/check .idetea/ui/.<name>.json.tmp`
+   (exit 1 on errors; it also prints warnings and media problems). The IDE writes that script for the version that
+   is open.
    - Components: `text` (`style`: `muted`, `warning`, `error`), `markdown` (`text`: lists, `code`, emphasis,
      links), `select`, `checkbox` (boolean), `input` (text) and `button` (`style`: `secondary`, `danger`).
      `value` is a JSON pointer to a value in `data`; `data` holds the initial values.
@@ -102,5 +105,5 @@ did not find.
 Do not put secrets in the document. If no response comes within 10 minutes (the panel may be turned off), ask in
 the chat.
 
-Instructions version: `dd57ade4`
+Instructions version: `978b5ec5`
 <!-- idetea-ui:end -->

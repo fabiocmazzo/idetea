@@ -297,6 +297,7 @@ cli-usage =
                      solta dele e o log vai para ~/.local/state/idetea/idetea.log)
       --install-desktop    põe a IDE no menu de aplicativos (com o ícone)
       --uninstall-desktop  tira do menu de aplicativos
+      ui check <arquivo.json>…  confere documentos do painel Interfaces (como o painel lê)
       -h, --help     mostra esta ajuda
       -V, --version  mostra a versão
 cli-unknown-option = opção desconhecida ignorada: { $option }

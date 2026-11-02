@@ -38,6 +38,8 @@ pub enum Cli {
     Version,
     InstallDesktop,
     UninstallDesktop,
+    /// `idetea ui check <arquivo>…`: confere documentos do painel Interfaces e sai (vazio: mostra o uso).
+    UiCheck(Vec<PathBuf>),
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -65,6 +67,15 @@ pub fn parse(args: impl IntoIterator<Item = OsString>, cwd: &Path, env_no_splash
         warnings: Vec::new(),
     };
     let mut flags_done = false;
+    let mut args = args.into_iter().peekable();
+    // Subcomando: só como primeiro argumento (uma pasta chamada `ui` precisa de `./ui`).
+    if args.peek().is_some_and(|a| a == "ui") {
+        args.next();
+        return match args.next() {
+            Some(c) if c == "check" => Cli::UiCheck(args.map(PathBuf::from).collect()),
+            _ => Cli::UiCheck(Vec::new()),
+        };
+    }
 
     for arg in args {
         if !flags_done && let Some(flag) = arg.to_str().filter(|a| a.starts_with('-') && a.len() > 1) {
@@ -213,6 +224,10 @@ mod tests {
         assert_eq!(menu_root(&[], &recent), Some(cwd.join("outro")), "o recente que ainda existe");
         assert_eq!(menu_root(&[], &[]), None);
         assert_eq!(parse([OsString::from("--install-desktop")], &cwd, false), Cli::InstallDesktop);
+        let ui = |a: &[&str]| parse(a.iter().map(OsString::from), &cwd, false);
+        assert_eq!(ui(&["ui", "check", "a.json", ".idetea/ui/b.json"]), Cli::UiCheck(vec!["a.json".into(), ".idetea/ui/b.json".into()]));
+        assert_eq!(ui(&["ui"]), Cli::UiCheck(Vec::new()), "sem o check: mostra o uso");
+        assert!(matches!(ui(&["a.rs", "ui"]), Cli::Run(_)), "só como primeiro argumento");
     }
 
     #[test]

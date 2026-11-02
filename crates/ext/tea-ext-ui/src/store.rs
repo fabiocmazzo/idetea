@@ -57,6 +57,24 @@ pub fn prepare(root: &Path) -> std::io::Result<()> {
     }
     write_if_changed(&ui.join("FORMAT.md"), &format!("{FORMAT_HEADER}{}", format_for_project(FORMAT_DOC)))?;
     write_if_changed(&ui.join("idetea-ui.schema.json"), SCHEMA)?;
+    if let Ok(exe) = std::env::current_exe()
+        && exe.file_stem().is_some_and(|n| n == "idetea")
+    {
+        write_check_script(&ui.join("check"), &exe)?;
+    }
+    Ok(())
+}
+
+/// `.idetea/ui/check`: roda `idetea ui check` com o executável desta IDE (o `idetea` do `PATH` pode ser outra
+/// versão, ou uma antiga que abriria uma janela com arquivos chamados `ui` e `check`).
+fn write_check_script(path: &Path, exe: &Path) -> std::io::Result<()> {
+    let quoted = exe.to_string_lossy().replace('\'', r"'\''");
+    let script = format!("#!/bin/sh\n# Written by the TEA IDE: checks interface documents like the panel reads them.\nexec '{quoted}' ui check \"$@\"\n");
+    write_if_changed(path, &script)?;
+    if !is_link(path) {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o755))?;
+    }
     Ok(())
 }
 
@@ -178,7 +196,7 @@ fn list_json(dir: &Path) -> Vec<(String, PathBuf)> {
         .collect()
 }
 
-fn read_document(path: &Path, name: &str, limits: &Limits) -> (Result<Document, String>, u64) {
+pub(crate) fn read_document(path: &Path, name: &str, limits: &Limits) -> (Result<Document, String>, u64) {
     let meta = match std::fs::symlink_metadata(path) {
         Ok(m) => m,
         Err(e) => return (Err(e.to_string()), 0),
@@ -451,5 +469,17 @@ mod tests {
         let left: Vec<&str> = doc.lines().filter(|l| l.replace("](../../AGENTS.md)", "").contains("](../")).collect();
         assert!(left.is_empty(), "nenhum link para fora do projeto: {left:?}");
         assert_eq!(format_for_project("a [b](c) d"), "a [b](c) d");
+    }
+
+    #[test]
+    fn check_script_runs_this_ide() {
+        let root = tmp_root("check-script");
+        let script = root.join("check");
+        write_check_script(&script, Path::new("/opt/it's/idetea")).unwrap();
+        let text = std::fs::read_to_string(&script).unwrap();
+        assert!(text.contains(r#"exec '/opt/it'\''s/idetea' ui check "$@""#), "{text}");
+        use std::os::unix::fs::PermissionsExt;
+        assert_eq!(std::fs::metadata(&script).unwrap().permissions().mode() & 0o777, 0o755);
+        let _ = std::fs::remove_dir_all(&root);
     }
 }

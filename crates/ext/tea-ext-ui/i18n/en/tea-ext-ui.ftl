@@ -30,3 +30,12 @@ ui-teach-done = Instructions written to { $files }.
 ui-teach-failed = Could not write the instructions: { $error }
 ui-outdated = This IDE is outdated (it was rebuilt after it opened): responses tell the agent. Palette: "Restart the IDE".
 ui-audio-failed = Could not play the sound: { $error }
+ui-check-ok = { $file }: ok ({ $count ->
+        [one] 1 component
+       *[other] { $count } components
+    })
+ui-check-error = { $file }: error: { $error }
+ui-check-warning = warning: { $warning }
+ui-check-media = media: { $path }: { $problem }
+ui-check-name = invalid file name ("{ $name }"): lowercase letters, digits, _ and -, ending in .json
+ui-check-usage = usage: idetea ui check <file.json>…

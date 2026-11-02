@@ -10,6 +10,7 @@ macro_rules! fl {
 }
 
 mod player;
+pub mod check;
 pub mod store;
 pub mod teach;
 
