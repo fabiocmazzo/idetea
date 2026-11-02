@@ -112,6 +112,7 @@ pub trait Extension: 'static {
   Com vários arquivos, abre todos e o último fica ativo.
 - A árvore de arquivos mostra a raiz **e** revela (expande e destaca) o arquivo ativo, quando ele está dentro dela.
 - Um caminho que não existe abre uma aba nova com esse nome, e o arquivo é criado ao salvar.
+- Aberta de um terminal, a IDE **solta dele** e devolve o prompt (como `code .`); `-f`/`--foreground` fica preso.
 
 | Comando | Raiz da árvore | Abas abertas |
 |---|---|---|
@@ -815,6 +816,15 @@ O que mais falta no uso diário. Cada item é uma entrega com teste manual; a or
   - [x] Teste manual (aprovado): abrir um arquivo de 50 MB (`cargo run --release -p tea-editor --example large_file --
     1500000 --write /tmp/grande.rs`) e um JSON de uma linha só de alguns MB: rolar com a barra até o fim, `Ctrl+End`,
     buscar e digitar sem travar; o JSON abre com o aviso do modo leve e "(modo leve)" na barra de status.
+- [x] **Soltar do terminal:** `idetea ./` devolve o prompt na hora. Aberta de um terminal (stdout ou stderr é um
+  terminal), a IDE roda de novo a si mesma numa sessão própria (`setsid`, sem terminal: nem o Ctrl+C nem fechar o
+  terminal a derrubam) e sai. A saída da cópia vai para `~/.local/state/idetea/idetea.log` (recomeça acima de 1 MB).
+  Não solta com `-f`/`--foreground`, em build de debug (`cargo run` mostra os logs) nem fora de um terminal (menu,
+  "Abrir pasta"). No AppImage, roda o `$APPIMAGE` de novo (a montagem some quando o primeiro processo sai). Linux e
+  macOS; no Windows nada muda. Medido: o prompt volta em ~20 ms.
+  - [x] Teste manual (aprovado): `cargo install --path crates/tea-app --locked` e `idetea .` num terminal: o prompt volta e a
+    IDE abre; fechar o terminal: a IDE continua. `idetea -f .`: fica presa (Ctrl+C fecha). `cargo run -p tea-app`
+    continua preso, com os logs. O AppImage (`just dist`) também solta e abre.
 
 ### Interfaces declarativas (antes dos plugins)
 

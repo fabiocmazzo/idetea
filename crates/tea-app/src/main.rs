@@ -14,6 +14,7 @@ mod cli;
 mod context_menu;
 mod debug;
 mod debug_build;
+mod detach;
 mod desktop;
 mod dialog;
 mod editorconfig;
@@ -77,6 +78,10 @@ fn main() -> iced::Result {
         cli::Cli::InstallDesktop => desktop::run(true),
         cli::Cli::UninstallDesktop => desktop::run(false),
         cli::Cli::Run(mut launch) => {
+            // Aberta de um terminal: devolve o prompt (a cópia solta segue com os mesmos argumentos).
+            if detach::wanted(launch.foreground) && detach::spawn().is_ok() {
+                return Ok(());
+            }
             if launch.menu && !launch.root_given {
                 let recent = recent::path().map(|p| recent::Recent::load(&p)).unwrap_or_default();
                 if let Some(root) = cli::menu_root(&launch.files, &recent.projects) {

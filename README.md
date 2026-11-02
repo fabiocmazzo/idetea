@@ -107,6 +107,8 @@ Linux x86_64. Escolha um:
 
 Para tirar do menu: `idetea --uninstall-desktop`.
 
+Num terminal, `idetea .` abre a IDE e devolve o prompt; `idetea -f .` fica preso ao terminal (com os logs à vista).
+
 ## Começando
 
 ```sh

@@ -292,6 +292,8 @@ cli-usage =
                      ou pasta para usar como raiz do projeto
       --no-splash    não mostra a splash screen (também: IDETEA_NO_SPLASH=1)
       --menu         aberta pelo menu: sem pasta, abre o projeto do arquivo ou o último projeto
+      -f, --foreground  fica preso ao terminal (sem isso, aberta de um terminal, a IDE
+                     solta dele e o log vai para ~/.local/state/idetea/idetea.log)
       --install-desktop    põe a IDE no menu de aplicativos (com o ícone)
       --uninstall-desktop  tira do menu de aplicativos
       -h, --help     mostra esta ajuda

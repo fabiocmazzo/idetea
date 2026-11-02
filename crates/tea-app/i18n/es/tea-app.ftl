@@ -292,6 +292,8 @@ cli-usage =
                      o carpeta a usar como raíz del proyecto
       --no-splash    no muestra la pantalla de inicio (también: IDETEA_NO_SPLASH=1)
       --menu         abierta desde el menú: sin carpeta, abre el proyecto del archivo o el último proyecto
+      -f, --foreground  queda atada a la terminal (si no, abierta desde una terminal, el IDE
+                     se suelta y el log va a ~/.local/state/idetea/idetea.log)
       --install-desktop    añade el IDE al menú de aplicaciones (con el icono)
       --uninstall-desktop  lo quita del menú de aplicaciones
       -h, --help     muestra esta ayuda

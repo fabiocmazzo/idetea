@@ -292,6 +292,8 @@ cli-usage =
                      or folder to use as the project root
       --no-splash    don't show the splash screen (also: IDETEA_NO_SPLASH=1)
       --menu         opened from the menu: without a folder, opens the file's project or the last project
+      -f, --foreground  stay attached to the terminal (otherwise, started from a terminal, the IDE
+                     detaches and logs go to ~/.local/state/idetea/idetea.log)
       --install-desktop    adds the IDE to the applications menu (with the icon)
       --uninstall-desktop  removes it from the applications menu
       -h, --help     show this help

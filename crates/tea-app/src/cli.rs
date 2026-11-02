@@ -1,9 +1,10 @@
-//! Linha de comando: `idetea [--no-splash] [--menu] [caminho...]`
+//! Linha de comando: `idetea [--no-splash] [--menu] [--foreground] [caminho...]`
 //!
 //! - Raiz do projeto = pasta atual, a menos que um argumento seja uma pasta.
 //! - Todo arquivo passado é aberto (mesmo fora da raiz ou ainda inexistente).
 //! - `--menu` (o `.desktop` usa): aberta pelo menu, a pasta atual é a home, que não é um projeto. Sem pasta
 //!   nos argumentos, a raiz vira o projeto do arquivo aberto (a pasta com `.git` acima dele) ou o último projeto.
+//! - `-f`/`--foreground`: não solta do terminal (ver `detach.rs`).
 //! - `--install-desktop` / `--uninstall-desktop`: atalho no menu de aplicativos e ícone (ver `desktop.rs`).
 
 use std::ffi::OsString;
@@ -46,6 +47,8 @@ pub struct Launch {
     pub no_splash: bool,
     /// Aberta pelo menu de aplicativos (`--menu`).
     pub menu: bool,
+    /// `--foreground`: fica preso ao terminal (logs à vista).
+    pub foreground: bool,
     /// Uma pasta veio nos argumentos (ela é a raiz, com ou sem `--menu`).
     pub root_given: bool,
     pub warnings: Vec<Warning>,
@@ -57,6 +60,7 @@ pub fn parse(args: impl IntoIterator<Item = OsString>, cwd: &Path, env_no_splash
         files: Vec::new(),
         no_splash: env_no_splash,
         menu: false,
+        foreground: false,
         root_given: false,
         warnings: Vec::new(),
     };
@@ -68,6 +72,7 @@ pub fn parse(args: impl IntoIterator<Item = OsString>, cwd: &Path, env_no_splash
                 "--" => flags_done = true,
                 "--no-splash" => launch.no_splash = true,
                 "--menu" => launch.menu = true,
+                "-f" | "--foreground" => launch.foreground = true,
                 "--install-desktop" => return Cli::InstallDesktop,
                 "--uninstall-desktop" => return Cli::UninstallDesktop,
                 "-h" | "--help" => return Cli::Help,
@@ -179,6 +184,8 @@ mod tests {
         let l = run(&cwd, &["a.rs", "./src/../a.rs", "src/novo/x.rs", "--no-splash"]);
         assert_eq!(l.files, [cwd.join("a.rs"), cwd.join("src/novo/x.rs")]);
         assert!(l.no_splash);
+        assert!(!l.foreground);
+        assert!(run(&cwd, &["-f"]).foreground && run(&cwd, &["--foreground"]).foreground);
     }
 
     #[test]
