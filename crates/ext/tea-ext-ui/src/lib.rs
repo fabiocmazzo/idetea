@@ -187,7 +187,12 @@ impl UiExtension {
         let comment = saved.state.comment.trim();
         response.comment = (!comment.is_empty()).then(|| comment.to_string());
         response.ide =
-            Some(Ide { pid: std::process::id(), version: env!("CARGO_PKG_VERSION").into(), outdated: self.outdated });
+            Some(Ide {
+                pid: std::process::id(),
+                version: env!("CARGO_PKG_VERSION").into(),
+                outdated: self.outdated,
+                instructions: Some(teach::version(teach::INSTRUCTIONS)),
+            });
         match store::write_response(&self.root, &response) {
             Ok(_) => {
                 saved.seq = seq;
@@ -522,6 +527,7 @@ mod tests {
         assert_eq!(response.values["/ok"], serde_json::json!(true));
         let ide = response.ide.expect("a resposta diz qual IDE respondeu");
         assert_eq!((ide.pid, ide.outdated), (std::process::id(), false));
+        assert_eq!(ide.instructions, Some(teach::version(teach::INSTRUCTIONS)));
 
         // Reiniciar a IDE: a revisão continua respondida (o estado foi salvo).
         let mut again = UiExtension::new();

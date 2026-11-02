@@ -42,6 +42,10 @@ pub struct Ide {
     pub version: String,
     /// O executável mudou no disco depois que esta IDE abriu (recompilada ou atualizada): ela roda o código antigo.
     pub outdated: bool,
+    /// Versão das instruções para agentes desta IDE (a linha "Instructions version" no fim do bloco do
+    /// `AGENTS.md`). Diferente da do arquivo: falta rodar "Ensinar os agentes".
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub instructions: Option<String>,
 }
 
 impl Response {
@@ -115,7 +119,7 @@ mod tests {
         assert!(!serde_json::to_string(&r).unwrap().contains("comment"), "sem comentário, sem o campo");
         r.comment = Some("pense de novo".into());
         assert!(serde_json::to_string(&r).unwrap().contains(r#""comment":"pense de novo""#));
-        r.ide = Some(Ide { pid: 42, version: "0.0.1".into(), outdated: true });
+        r.ide = Some(Ide { pid: 42, version: "0.0.1".into(), outdated: true, instructions: None });
         let json = serde_json::to_string(&r).unwrap();
         assert!(json.contains(r#""ide":{"pid":42,"version":"0.0.1","outdated":true}"#), "{json}");
         assert_eq!(serde_json::from_str::<Response>(&json).unwrap(), r);

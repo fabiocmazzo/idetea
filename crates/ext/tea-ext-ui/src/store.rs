@@ -34,6 +34,11 @@ fn is_link(path: &Path) -> bool {
     std::fs::symlink_metadata(path).map_or(true, |m| m.file_type().is_symlink())
 }
 
+/// O formato completo, da versão desta IDE. Fica em `.idetea/ui/FORMAT.md` para o agente ler sem internet (o
+/// repositório pode ser privado) e sem pegar uma versão diferente da IDE que está aberta.
+pub const FORMAT_DOC: &str = include_str!("../../../../docs/interfaces/formato.md");
+const FORMAT_HEADER: &str = "<!-- Written by the TEA IDE (the version that is open): the full interface format. Do not edit; the IDE rewrites it. -->\n\n";
+
 /// Cria `.idetea/ui/` e um `.gitignore` com `*` dentro (respostas podem ter o que o usuário digitou; não vão
 /// para o git mesmo se o projeto não ignorar a pasta). Recusa se `.idetea` ou `ui` for symlink.
 pub fn prepare(root: &Path) -> std::io::Result<()> {
@@ -47,6 +52,13 @@ pub fn prepare(root: &Path) -> std::io::Result<()> {
     let ignore = ui.join(".gitignore");
     if !ignore.exists() && !is_link(&ui) {
         std::fs::write(ignore, "# Criado pela IDE TEA: interfaces e respostas não vão para o git.\n*\n")?;
+    }
+    let format = ui.join("FORMAT.md");
+    let text = format!("{FORMAT_HEADER}{FORMAT_DOC}");
+    // Um symlink no lugar não é seguido (poderia apontar para fora do projeto).
+    let symlink = std::fs::symlink_metadata(&format).is_ok_and(|m| m.file_type().is_symlink());
+    if !symlink && std::fs::read_to_string(&format).ok().as_deref() != Some(text.as_str()) {
+        std::fs::write(format, text)?;
     }
     Ok(())
 }
@@ -273,6 +285,8 @@ mod tests {
         prepare(&root).unwrap();
         let ui = ui_dir(&root);
         assert!(std::fs::read_to_string(ui.join(".gitignore")).unwrap().contains('*'));
+        let format = std::fs::read_to_string(ui.join("FORMAT.md")).unwrap();
+        assert!(format.ends_with(FORMAT_DOC) && format.contains("## A resposta"), "o formato da versão desta IDE");
         std::fs::write(ui.join("boa.json"), DOC).unwrap();
         std::fs::write(ui.join("quebrada.json"), "{ nada").unwrap();
         std::fs::write(ui.join("outro-nome.json"), DOC.replace("{\"format\"", "{\"surface\":\"x\",\"format\"")).unwrap();

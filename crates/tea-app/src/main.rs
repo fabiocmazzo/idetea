@@ -1186,6 +1186,16 @@ impl App {
         let now = Instant::now();
         self.own_saves.retain(|_, t| now.duration_since(*t) < Duration::from_secs(2));
         let mut tasks = vec![self.reload_changed_tabs()];
+        // Abas de imagem e PDF: o `reload_changed_tabs` compara o texto, que elas não têm; recarrega pelo caminho.
+        let images: Vec<PathBuf> = self
+            .tabs
+            .iter()
+            .filter(|t| t.editor.is_image())
+            .filter_map(|t| t.editor.path())
+            .filter(|p| paths.iter().any(|c| c == p))
+            .map(Path::to_path_buf)
+            .collect();
+        tasks.extend(images.iter().map(|p| self.reload_from_disk(p)).collect::<Vec<_>>());
         let conflicts: Vec<String> = self
             .tabs
             .iter()

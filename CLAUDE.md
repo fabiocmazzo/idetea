@@ -2,8 +2,8 @@
 ## Questions through the IDE (Interfaces panel)
 
 When you need me to choose between options, confirm something or fill in a few fields, you can create an
-interface in the TEA IDE instead of asking in the chat. This text is enough; the full format is at
-https://github.com/fabiocmazzo/idetea/blob/main/docs/interfaces/formato.md
+interface in the TEA IDE instead of asking in the chat. This text is enough; the full format (in Portuguese) is
+in `.idetea/ui/FORMAT.md`, which the IDE writes for the version that is open.
 
 Talk to me in the language I use with you, including every text you put in an interface (titles, labels,
 options, buttons). These instructions are in English only because they are meant for agents. Once we are using
@@ -28,19 +28,22 @@ the panel, put every question that needs my answer there, not only in the chat: 
      links), `select`, `checkbox` (boolean), `input` (text) and `button` (`style`: `secondary`, `danger`).
      `value` is a JSON pointer to a value in `data`; `data` holds the initial values.
    - The response only carries the paths listed in the `context` of the clicked button; a field never filled
-     comes as `null`.
+     comes as `null`. A path to an object (`/review`) brings the whole object, with my changes to the fields
+     inside it.
    - `action.name` is free text that comes back in the response so you know which button was clicked.
    - After a click, the buttons stay disabled until you write a new revision.
    - To show me a file, or ask for a longer text (commit message, PR description), use the `file` component:
      `{"id": "f", "component": "file", "path": ".idetea/ui/rascunhos/commit.md", "line": 3, "column": 1,
      "label": "Edit the message", "open": true}`. `path` is relative to the root; the link opens the file at that
-     position, and `open: true` opens it by itself when the revision arrives. Create the file first (drafts in
+     position, and `open: true` opens it by itself when the revision arrives (several with `open`: one tab each,
+     the last one in front; use it on one file). Create the file first (drafts in
      `.idetea/ui/rascunhos/`, outside git). When a button is clicked, the IDE saves the file before writing the
      response: read the file from disk after it.
    - Media: a `file` (or a `markdown` link) to an image (png, jpg, gif, webp…) opens it in an image tab with zoom;
      a PDF opens in a PDF tab; SVG opens as text with a preview. Audio, video and other binary files do not open,
      and images inside `markdown` show only their alt text. To have me review audio, give me the command to play
-     it in a fenced code block (e.g. `paplay sound.wav`).
+     it in a fenced code block, with a player that exists here (`paplay`, `pw-play` or `aplay` on Linux, `afplay`
+     on macOS; check with `command -v`).
    - Links in `markdown` open the web (`https://…`), project files (`src/main.rs:42`) or the IDE config
      (`idetea:config`, `idetea:config-project`). Use a `markdown` for step lists and commands instead of one
      `text` per step. Put every command I should run in a fenced code block: the panel shows a Copy button on it.
@@ -62,7 +65,10 @@ the panel, put every question that needs my answer there, not only in the chat: 
    comment field by itself; don't add your own "notes" input. The response also says which IDE wrote it:
    `"ide": {"pid": …, "version": …, "outdated": false}`. `outdated: true` means the IDE was rebuilt after it opened
    and the click came from old code: when testing a change, ask me to restart it (palette: "Restart the IDE") and
-   repeat. Don't write claims about which IDE is open into the document; the panel shows that itself. Read the
+   repeat. Don't write claims about which IDE is open into the document; the panel shows that itself.
+   `ide.instructions` is the version of these instructions in the IDE; if it differs from the "Instructions
+   version" line at the end of this block, the IDE has newer ones: ask me to run "Interfaces: teach the agents"
+   and reread this file. Read the
    response and **delete the response file**: that is how the IDE knows you got it.
 3. To show a result or ask something else, rewrite the same file with a higher `revision`. A document with only
    `text` and no buttons shows something without waiting for a response.
@@ -77,4 +83,6 @@ did not find.
 
 Do not put secrets in the document. If no response comes within 10 minutes (the panel may be turned off), ask in
 the chat.
+
+Instructions version: `60bfcf4d`
 <!-- idetea-ui:end -->

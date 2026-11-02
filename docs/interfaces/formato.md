@@ -26,6 +26,7 @@ Para o agente saber usar o painel, rode **Interfaces: ensinar os agentes deste p
 ```
 .idetea/ui/
 ├── .gitignore                       # criado pela IDE, com "*": nada daqui vai para o git
+├── FORMAT.md                        # este texto, da versão da IDE aberta (a IDE regrava; os links não funcionam lá)
 ├── <nome>.json                      # o documento (escrito pelo agente)
 ├── rascunhos/                       # opcional: arquivos que o agente cria para o usuário editar
 └── responses/<nome>/
@@ -38,7 +39,7 @@ Para o agente saber usar o painel, rode **Interfaces: ensinar os agentes deste p
   apaga cada resposta depois de ler — é assim que a IDE sabe que ele recebeu.
 - Escreva o documento num temporário e renomeie (`mv`): a IDE nunca vê metade do arquivo. Temporários que
   terminam em `.tmp` são ignorados (e apagados depois de uma hora).
-- Para fechar a interface, apague `<nome>.json`. O resto (`.gitignore`, `responses/`) é da IDE: a pasta de
+- Para fechar a interface, apague `<nome>.json`. O resto (`.gitignore`, `FORMAT.md`, `responses/`) é da IDE: a pasta de
   respostas de uma interface fechada sai sozinha quando fica vazia.
 - Um documento só com `text`, sem botões, serve para mostrar algo sem esperar resposta.
 - Arquivos versionados no git (que vieram de um repositório clonado) são ignorados por segurança. Symlinks
@@ -140,7 +141,8 @@ configuração para ajustar.
 - `line` e `column` começam em 1; sem eles (ou `0`), o arquivo abre no início.
 - `label`: o texto do link (o caminho aparece embaixo). Sem ele, o link é o caminho.
 - Um clique no link abre o arquivo na posição.
-- `open: true`: abre sozinho quando a revisão chega. Se o usuário digitou no editor nos últimos 2 segundos, não
+- `open: true`: abre sozinho quando a revisão chega (vários com `open`: uma aba cada, a última na frente; use
+  em um só). Se o usuário digitou no editor nos últimos 2 segundos, não
   abre (o cursor dele não é roubado no meio de uma linha): só aparece um aviso, e o link continua no painel.
 - **O arquivo é a resposta.** Ao clicar num botão, a IDE primeiro salva os arquivos dos componentes `file` que
   estão abertos com alterações, e só então grava a resposta. Ao ver a resposta, leia o arquivo do disco. Se algum
@@ -160,7 +162,9 @@ configuração para ajustar.
 
 Dentro do painel não há imagem nem áudio: uma imagem no `markdown` aparece só como o texto alternativo. Para
 revisar imagens, ponha um `file` (ou um link) por imagem; para áudio, peça ao usuário para tocar o arquivo fora da
-IDE (um bloco de código com o comando, ex. `paplay som.wav`, tem o botão Copiar).
+IDE (um bloco de código com o comando tem o botão Copiar). Use um tocador que exista na máquina: `paplay`,
+`pw-play` ou `aplay` no Linux, `afplay` no macOS (`command -v` diz qual). Uma aba de imagem aberta recarrega
+quando o arquivo muda no disco: dá para regerar e olhar de novo.
 
 ## Markdown
 
@@ -199,7 +203,7 @@ Um clique grava `.idetea/ui/responses/<nome>/<seq>-<event>.json`:
   "time": "2026-11-01T20:41:07Z",
   "values": { "/ambiente": "prod", "/backup": true, "/nota": null },
   "comment": "faça o backup antes, mesmo em staging",
-  "ide": { "pid": 48213, "version": "0.0.1", "outdated": false }
+  "ide": { "pid": 48213, "version": "0.0.1", "outdated": false, "instructions": "4f2a9c1e" }
 }
 ```
 
@@ -208,7 +212,8 @@ Um clique grava `.idetea/ui/responses/<nome>/<seq>-<event>.json`:
 - `event` é único: se o agente vir o mesmo duas vezes, ignore a segunda.
 - `revision` é a revisão que o usuário via ao clicar. Se for menor que a atual, o usuário respondeu a uma versão
   antiga.
-- `values`: um valor nunca preenchido vem `null`.
+- `values`: um valor nunca preenchido vem `null`. Um caminho de objeto no `context` (`/ajustar`) traz o objeto
+  inteiro, com o que o usuário mudou nos campos de dentro (ex.: um `checkbox` por item em `/ajustar/<item>`).
 - `time` é só informativo.
 - `comment`: o que o usuário escreveu no campo de comentário, se escreveu (sem o campo quando vazio). Pode ser uma
   pergunta de volta ou uma ressalva: responda numa revisão nova ou no chat. Não ponha um campo "observação"
@@ -217,7 +222,9 @@ Um clique grava `.idetea/ui/responses/<nome>/<seq>-<event>.json`:
   recompilado (ou atualizado) depois que essa IDE abriu, então o clique veio do código antigo. Numa entrega de
   teste, uma resposta com `outdated: true` não vale: peça para reiniciar a IDE (paleta: "Reiniciar a IDE") e
   repetir. O painel mostra o mesmo aviso no topo; não escreva no documento avisos sobre qual IDE está aberta, eles
-  ficam falsos assim que o usuário reinicia.
+  ficam falsos assim que o usuário reinicia. `instructions` é a versão das instruções para agentes desta IDE; o
+  bloco do `AGENTS.md` termina com a linha "Instructions version" da versão que foi gravada. Diferentes: a IDE
+  tem instruções mais novas, e falta rodar "Interfaces: ensinar os agentes".
 
 Depois de ler, **apague o arquivo da resposta**. Enquanto ele existir, o painel mostra "aguardando o agente ler".
 

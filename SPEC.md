@@ -909,6 +909,13 @@ e grava a resposta do usuário em `.idetea/ui/responses/<nome>/`. Estudo, decis�
        e o teste falhou por isso. (RFC 0003, etapas A e C)
     13. No segundo projeto (o jogo), o agente novo foi ler o código da IDE para saber se o painel mostra imagem e
        áudio: nem o formato nem as instruções diziam o que o `file` faz com mídia. (resolvida: item abaixo)
+    14. Do `lacunas.md` do jogo (15 itens, conferidos no código): a aba de imagem não recarregava quando o PNG
+       mudava no disco; um `context` com caminho de objeto perdia o que o usuário mudou dentro dele; o link do
+       formato aponta para um repositório privado; o tocador de áudio sugerido era só o `paplay`; não dizia o que
+       `open` faz com vários arquivos; o agente não sabia que as instruções mudaram. (resolvidas: item abaixo)
+       Ficam para uma RFC 0004 de mídia: imagem dentro do painel e lado a lado, pixel art sem borrar e fundo
+       quadriculado, animar spritesheets, tocar áudio no painel (duração, loop), saber o que foi visto ou ouvido,
+       abrir no navegador.
     9. Os comandos que o agente sugere no painel (`cargo run -p tea-app -- .`) não são fáceis de copiar: o texto
        do painel não seleciona. Opção: botão de copiar nos blocos de código do `markdown`. (resolvida: item
        abaixo)
@@ -986,6 +993,21 @@ e grava a resposta do usuário em `.idetea/ui/responses/<nome>/`. Estudo, decis�
   `markdown` só mostra o texto alternativo) e como pedir revisão de áudio (o comando num bloco de código).
   - [x] Teste manual: "Ensinar os agentes" aqui e no `tea-jogo`: o `CLAUDE.md` daqui e o `AGENTS.md` do jogo
     ganham o parágrafo "Media". (aprovado, pelo painel)
+- [x] **Lacunas do jogo, as pequenas** (lacuna 14):
+  - A aba de imagem (e de PDF) recarrega quando o arquivo muda no disco (antes a checagem lia como texto, falhava e
+    achava que nada mudou).
+  - Um caminho de objeto no `context` traz o objeto com as mudanças do usuário nos campos de dentro (a resposta é
+    montada sobre o `data` com tudo o que o usuário mudou por cima).
+  - A IDE grava `.idetea/ui/FORMAT.md` com o formato da versão aberta; as instruções apontam para ele em vez do
+    GitHub (o repositório é privado).
+  - O bloco do `AGENTS.md` termina com "Instructions version" e as respostas trazem `ide.instructions`: diferentes,
+    o agente pede para rodar "Ensinar os agentes".
+  - Formato e instruções: tocadores de áudio por sistema, o que `open` faz com vários arquivos, caminho de objeto no
+    `context`.
+  - [x] Teste manual: no `tea-jogo`, com a IDE nova: `.idetea/ui/FORMAT.md` aparece; abrir um PNG, regerar pelo
+    script e a aba mostra a imagem nova; "Ensinar os agentes" põe a linha "Instructions version"; o agente do jogo
+    confere que a versão bate com a da resposta e manda uma revisão com caminho de objeto no `context`.
+    (aprovado, pelo painel)
 - Depois, só se o uso pedir: `Row`/`Column`, progresso, Markdown sem links, vários painéis (`PanelId` dinâmico no
   núcleo), adaptador A2UI v1.0, e a mesma crate nos painéis dos plugins WASM (Fase 4).
 

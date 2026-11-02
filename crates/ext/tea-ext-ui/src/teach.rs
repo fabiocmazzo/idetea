@@ -13,9 +13,16 @@ const CLAUDE_IMPORT: &str = "@AGENTS.md\n";
 /// usuário, então não depende do idioma da IDE.
 pub const INSTRUCTIONS: &str = include_str!("../agents/instructions.md");
 
+/// Versão de um texto de instruções: 8 dígitos hexadecimais (FNV-1a de 32 bits). Vai no fim do bloco e no `ide`
+/// de cada resposta; diferentes, o agente sabe que a IDE tem instruções mais novas que as do arquivo.
+pub fn version(text: &str) -> String {
+    let hash = text.trim_end().bytes().fold(0x811c_9dc5_u32, |h, b| (h ^ u32::from(b)).wrapping_mul(0x0100_0193));
+    format!("{hash:08x}")
+}
+
 /// O arquivo com o bloco novo: troca o bloco que já existir ou acrescenta no fim.
 pub fn merge(existing: &str, text: &str) -> String {
-    let block = format!("{BEGIN}\n{}\n{END}", text.trim_end());
+    let block = format!("{BEGIN}\n{}\n\nInstructions version: `{}`\n{END}", text.trim_end(), version(text));
     if let Some(b) = existing.find(BEGIN_PREFIX)
         && let Some(e) = existing[b..].find(END).map(|e| b + e)
     {
@@ -96,12 +103,16 @@ mod tests {
     #[test]
     fn merge_appends_then_replaces() {
         let first = merge("# Projeto\n\nRegras.\n", "texto 1\n");
-        assert_eq!(first, format!("# Projeto\n\nRegras.\n\n{BEGIN}\ntexto 1\n{END}\n"));
+        let v1 = format!("\n\nInstructions version: `{}`", version("texto 1"));
+        let v2 = format!("\n\nInstructions version: `{}`", version("texto 2"));
+        assert_eq!(first, format!("# Projeto\n\nRegras.\n\n{BEGIN}\ntexto 1{v1}\n{END}\n"));
         let edited = format!("{first}\n## Depois\nmais coisas\n");
         let second = merge(&edited, "texto 2");
-        assert_eq!(second, format!("# Projeto\n\nRegras.\n\n{BEGIN}\ntexto 2\n{END}\n\n## Depois\nmais coisas\n"));
+        assert_eq!(second, format!("# Projeto\n\nRegras.\n\n{BEGIN}\ntexto 2{v2}\n{END}\n\n## Depois\nmais coisas\n"));
         assert_eq!(merge(&second, "texto 2"), second, "rodar de novo não muda nada");
-        assert_eq!(merge("", "x"), format!("{BEGIN}\nx\n{END}\n"));
+        assert_eq!(merge("", "x"), format!("{BEGIN}\nx\n\nInstructions version: `{}`\n{END}\n", version("x")));
+        assert_ne!(version("texto 1"), version("texto 2"));
+        assert_eq!(version("x\n"), version("x"), "o fim da linha não conta");
     }
 
     #[test]

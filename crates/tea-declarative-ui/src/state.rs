@@ -99,11 +99,16 @@ impl State {
         if self.waiting(doc, &button.kind) > 0 {
             return None;
         }
-        let values = action
-            .context
-            .iter()
-            .map(|p| (p.clone(), self.value(doc, p).cloned().unwrap_or(Value::Null)))
-            .collect();
+        // Os dados como o usuário vê: o `data` do agente com o que ele mudou por cima. Assim um caminho de objeto
+        // (`/ajustar`) traz os campos de dentro já com as mudanças.
+        let mut seen = doc.data.clone();
+        let mut local: Vec<(&String, &Value)> = self.local.iter().collect();
+        local.sort_by_key(|(k, _)| k.len()); // pais antes dos filhos
+        for (path, value) in local {
+            pointer::set(&mut seen, path, value.clone());
+        }
+        let values =
+            action.context.iter().map(|p| (p.clone(), pointer::get(&seen, p).cloned().unwrap_or(Value::Null))).collect();
         self.answered = Some(doc.revision);
         Some((action.name.clone(), values))
     }
@@ -125,6 +130,26 @@ mod tests {
             ]
         });
         parse(v.to_string().as_bytes(), &Limits::default()).unwrap()
+    }
+
+    #[test]
+    fn object_paths_carry_the_user_changes() {
+        let v = json!({
+            "format": "idetea-ui", "version": 1, "revision": 1,
+            "data": { "ajustar": { "balao": false, "passaro": false } },
+            "components": [
+                { "id": "a", "component": "checkbox", "label": "Balão", "value": "/ajustar/balao" },
+                { "id": "b", "component": "checkbox", "label": "Pássaro", "value": "/ajustar/passaro" },
+                { "id": "ok", "component": "button", "label": "OK", "action": { "name": "ok", "context": ["/ajustar", "/ajustar/balao", "/nada"] } }
+            ]
+        });
+        let d = parse(v.to_string().as_bytes(), &Limits::default()).unwrap();
+        let mut s = State::new(&d);
+        s.set("/ajustar/balao", json!(true));
+        let (_, values) = s.press(&d, "ok").unwrap();
+        assert_eq!(values["/ajustar"], json!({ "balao": true, "passaro": false }));
+        assert_eq!(values["/ajustar/balao"], json!(true));
+        assert_eq!(values["/nada"], Value::Null);
     }
 
     #[test]
