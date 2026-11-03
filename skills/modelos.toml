@@ -1,0 +1,30 @@
+# Modelos do "Novo projeto" da IDE TEA (RFC 0005, etapa 3). Um modelo é um conjunto de skills: quem cria o projeto é
+# o agente, seguindo as skills. Uma skill sem fonte vem de `source` (este repositório); "dono/repo:nome" vem de
+# outra. `request` é o pedido inicial que vai no AGENTS.md do projeto novo (para o agente: em inglês).
+
+source = "fabiocmazzo/idetea"
+
+[[model]]
+id = "vazio"
+skills = ["novo-projeto"]
+request = "Ask me through the IDE panel what this project is and how to start it, then follow the novo-projeto skill."
+
+[[model]]
+id = "rust"
+skills = ["novo-projeto", "novo-projeto-rust"]
+request = "Create a Rust project in this folder, following the novo-projeto and novo-projeto-rust skills."
+
+[[model]]
+id = "site"
+skills = ["novo-projeto", "novo-projeto-site", "anthropics/skills:frontend-design"]
+request = "Create a website in this folder, following the novo-projeto, novo-projeto-site and frontend-design skills."
+
+[[model]]
+id = "python"
+skills = ["novo-projeto", "novo-projeto-python"]
+request = "Create a Python project in this folder, following the novo-projeto and novo-projeto-python skills."
+
+[[model]]
+id = "fastapi"
+skills = ["novo-projeto", "novo-projeto-python", "novo-projeto-fastapi"]
+request = "Create a FastAPI web API in this folder, following the novo-projeto, novo-projeto-python and novo-projeto-fastapi skills."
