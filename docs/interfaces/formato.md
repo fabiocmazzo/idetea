@@ -294,7 +294,11 @@ versão). Lê cada arquivo como o painel lê e mostra:
   obrigatório faltando, nome do arquivo ou `surface` que não vale, limite passado). O temporário `.<nome>.json.tmp`
   vale pelo nome final;
 - `aviso: …`: o que o painel mostra como aviso (campo ou valor desconhecido) e continua;
-- `mídia: …`: imagem, sprite ou som que não dá para ler (falta, grande demais, quadro maior que a folha).
+- `mídia: …`: imagem, sprite ou som que não dá para ler (falta, grande demais, quadro maior que a folha);
+- `instruções: …`: o bloco do `AGENTS.md` ou do `CLAUDE.md` do projeto não é o desta IDE (uma versão mais velha,
+  um bloco sem a linha de versão, ou uma versão de uma IDE mais nova). Mais velho: peça ao usuário para rodar
+  "Interfaces: ensinar os agentes deste projeto" e releia o arquivo antes de publicar. Assim o agente sabe antes de
+  publicar, e não só pelo `ide.instructions` da resposta. Arquivo sem bloco fica de fora.
 
 Código de saída: 0 se todos passam, 1 se algum tem erro, 2 sem arquivos. Também dá para rodar direto:
 `idetea ui check <arquivo.json>…`.
@@ -318,7 +322,7 @@ Um clique grava `.idetea/ui/responses/<nome>/<seq>-<event>.json`:
   "comment": "faça o backup antes, mesmo em staging",
   "ide": { "pid": 48213, "version": "0.0.1", "outdated": false, "instructions": "4f2a9c1e" },
   "media": {
-    "assets/sprites/balao.png": { "size": 515, "modified": "2026-11-01T20:39:52Z", "opened": 1, "stepped": 3 },
+    "assets/sprites/balao.png": { "size": 515, "modified": "2026-11-01T20:39:52Z", "shown": 1, "opened": 1, "stepped": 3 },
     "assets/sons/vento.wav": { "size": 61784, "modified": "2026-11-01T20:30:10Z", "seconds": 1.932, "peak_db": 0.0,
       "clips": true, "played": 3, "completed": 1, "stopped": 1, "interrupted": 1 },
     "index.html": { "size": 2048, "modified": "2026-11-01T19:02:44Z", "opened": 1 }
@@ -351,7 +355,8 @@ Um clique grava `.idetea/ui/responses/<nome>/<seq>-<event>.json`:
   quando passam de zero: `opened` (cliques que abriram a imagem na aba, ou o arquivo de um link `idetea:open/`; esse
   arquivo entra no `media` com a versão do disco na hora do clique), `played` (vezes que o som começou; cada volta
   do `loop` conta), `completed` (tocou até o fim), `stopped` (o usuário clicou em Parar), `interrupted` (outro som
-  começou por cima) e `stepped` (quadros passados à mão num `sprite`). Um som que não completou, não parou e não foi
+  começou por cima), `stepped` (quadros passados à mão num `sprite`) e `shown` (vezes que entrou na tela e ficou à
+  vista meio segundo: rolar até ela, abrir o painel; uma mídia abaixo da dobra que nunca foi rolada fica sem). Um som que não completou, não parou e não foi
   interrompido estava tocando no clique (ou a revisão mudou). É o que o usuário fez, não prova do que ele viu ou
   ouviu.
 

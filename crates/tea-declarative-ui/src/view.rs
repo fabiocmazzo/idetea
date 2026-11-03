@@ -1,9 +1,10 @@
 //! Desenho de uma interface em iced: os componentes um embaixo do outro; botões seguidos ficam na mesma linha.
 
 use iced::widget::{
-    Column, button, checkbox, column, container, image, markdown, pick_list, row, stack, text, text_input,
+    Column, button, checkbox, column, container, image, markdown, pick_list, row, sensor, stack, text, text_input,
 };
 use std::collections::HashMap;
+use std::time::Duration;
 
 use iced::{Element, Fill, Theme};
 use serde_json::Value;
@@ -34,6 +35,22 @@ pub enum UiMessage {
     SpritePause(String),
     /// Com o `sprite` pausado: o quadro seguinte.
     SpriteStep(String),
+    /// Uma imagem, sprite ou som (`path`) entrou na tela (`true`, depois de [`SHOWN_AFTER`] à vista) ou saiu.
+    Shown { path: String, visible: bool },
+}
+
+/// Quanto tempo uma mídia fica à vista para contar como vista (uma rolada rápida por cima não conta).
+pub const SHOWN_AFTER: Duration = Duration::from_millis(500);
+
+/// Avisa quando `content` (a mídia `path`) entra ou sai da tela. A chave é a revisão: numa nova, conta de novo.
+fn watched<'a>(content: impl Into<Element<'a, UiMessage>>, path: &str, revision: u64) -> Element<'a, UiMessage> {
+    let show = path.to_string();
+    sensor(content)
+        .on_show(move |_| UiMessage::Shown { path: show.clone(), visible: true })
+        .on_hide(UiMessage::Shown { path: path.to_string(), visible: false })
+        .delay(SHOWN_AFTER)
+        .key(revision)
+        .into()
 }
 
 /// O que anda, de quem chama: o som tocando (o painel Interfaces toca; o dos plugins, não) e o relógio dos
@@ -411,10 +428,14 @@ fn component_view<'a>(
         Kind::Image { path, label, look } => {
             let pic = picture_view(media, path, *look);
             let caption = text(label.clone().unwrap_or_else(|| path.clone())).size(12).style(text::secondary);
-            column![pic, caption].spacing(4).into()
+            watched(column![pic, caption].spacing(4), path, doc.revision)
         }
-        Kind::Sprite { path, label, fps, look, .. } => sprite_view(media, playback, &c.id, path, label.as_deref(), *fps, *look),
-        Kind::Audio { path, label, looped } => audio_view(media, playback, &c.id, path, label.as_deref(), *looped),
+        Kind::Sprite { path, label, fps, look, .. } => {
+            watched(sprite_view(media, playback, &c.id, path, label.as_deref(), *fps, *look), path, doc.revision)
+        }
+        Kind::Audio { path, label, looped } => {
+            watched(audio_view(media, playback, &c.id, path, label.as_deref(), *looped), path, doc.revision)
+        }
         Kind::Gallery { items, pick, value, look } => {
             let chosen: Vec<String> = match (pick, value) {
                 (Pick::One, Some(v)) => state.value(doc, v).and_then(Value::as_str).map(|s| vec![s.to_string()]).unwrap_or_default(),
@@ -443,7 +464,7 @@ fn component_view<'a>(
                     }
                     _ => text(label).size(12).style(text::secondary).into(),
                 };
-                column![picture_view(media, &item.path, *look), choose].spacing(4).into()
+                watched(column![picture_view(media, &item.path, *look), choose].spacing(4), &item.path, doc.revision)
             });
             row(cells).spacing(12).wrap().vertical_spacing(12).into()
         }

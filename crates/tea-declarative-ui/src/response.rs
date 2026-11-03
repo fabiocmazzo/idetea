@@ -57,6 +57,10 @@ pub struct Seen {
     pub peak_db: Option<f64>,
     #[serde(skip_serializing_if = "std::ops::Not::not")]
     pub clips: bool,
+    /// Vezes que entrou na tela e ficou à vista meio segundo (rolar até ela, abrir o painel). Mídia que ficou
+    /// abaixo da dobra e nunca foi rolada fica sem.
+    #[serde(skip_serializing_if = "is_zero")]
+    pub shown: u32,
     /// Cliques que abriram o arquivo: a imagem na aba, ou um link `idetea:open/` no app do sistema.
     #[serde(skip_serializing_if = "is_zero")]
     pub opened: u32,

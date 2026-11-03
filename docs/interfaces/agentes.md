@@ -48,7 +48,8 @@ the panel, put every question that needs my answer there, not only in the chat: 
    ```
    Before the `mv`, you can check the file the way the panel reads it: `.idetea/ui/check .idetea/ui/.<name>.json.tmp`
    (exit 1 on errors; it also prints warnings and media problems). The IDE writes that script for the version that
-   is open.
+   is open. If it says the instructions in `AGENTS.md`/`CLAUDE.md` are older than the IDE's, ask me to run the
+   "teach the agents" command and reread this file before publishing.
    - Components: `text` (`style`: `muted`, `warning`, `error`), `markdown` (`text`: lists, `code`, emphasis,
      links), `select`, `checkbox` (boolean), `input` (text) and `button` (`style`: `secondary`, `danger`).
      `value` is a JSON pointer to a value in `data`; `data` holds the initial values.
@@ -109,8 +110,8 @@ the panel, put every question that needs my answer there, not only in the chat: 
    `{"sfx/wind.wav": {"size": 61784, "modified": "…", "seconds": 1.9, "peak_db": -0.3, "played": 2, "completed": 1}}`
    (`size` and `modified` of the file that was on screen; for WAV, what the panel showed: `seconds`, `peak_db`,
    `clips: true` at 0 dBFS; counts in this revision: `opened` (also `idetea:open` links), `played`, `completed`,
-   `stopped` (I clicked Stop), `interrupted` (another sound started), `stepped`). It tells what I did, not what I
-   heard or saw. Read the
+   `stopped` (I clicked Stop), `interrupted` (another sound started), `stepped`, `shown` (it was on screen for
+   half a second; without it, I never scrolled to it)). It tells what I did, not what I heard or saw. Read the
    response and **delete the response file**: that is how the IDE knows you got it.
 3. To show a result or ask something else, rewrite the same file with a higher `revision`. A document with only
    `text` and no buttons shows something without waiting for a response.

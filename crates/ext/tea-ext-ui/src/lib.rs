@@ -597,6 +597,8 @@ impl Extension for UiExtension {
             }
             Message::Ui(name, UiMessage::SpritePause(id)) => self.sprite(&name, &id, false),
             Message::Ui(name, UiMessage::SpriteStep(id)) => self.sprite(&name, &id, true),
+            Message::Ui(name, UiMessage::Shown { path, visible: true }) => self.count(&name, &path, |s| s.shown += 1),
+            Message::Ui(_, UiMessage::Shown { visible: false, .. }) => {}
             Message::Frame => {
                 let start = *self.clock.get_or_insert_with(Instant::now);
                 self.clock_ms = start.elapsed().as_millis() as u64;
@@ -962,6 +964,9 @@ mod tests {
             let _ = ext.update(Message::Ui("ver".into(), m), &mut Context::new(&root, None));
         };
         ui(&mut ext, UiMessage::Open { path: "folha.png".into(), line: 0, column: 0 });
+        ui(&mut ext, UiMessage::Shown { path: "estouro.wav".into(), visible: true });
+        ui(&mut ext, UiMessage::Shown { path: "estouro.wav".into(), visible: false });
+        ui(&mut ext, UiMessage::Shown { path: "estouro.wav".into(), visible: true });
         ui(&mut ext, UiMessage::SpritePause("voo".into()));
         ui(&mut ext, UiMessage::SpriteStep("voo".into()));
         ui(&mut ext, UiMessage::SpriteStep("voo".into()));
@@ -989,6 +994,7 @@ mod tests {
         assert_eq!(response.media["falta.wav"], Seen::default(), "som que não existe: sem tamanho nem contagem");
         let wav = &response.media["estouro.wav"];
         assert_eq!((wav.played, wav.interrupted, wav.stopped, wav.completed), (2, 1, 1, 0));
+        assert_eq!((wav.shown, folha.shown), (2, 0), "entrou na tela duas vezes; a folha nunca");
         assert_eq!((wav.seconds, wav.peak_db, wav.clips), (Some(0.1), Some(0.0), true), "o que o painel mostrou");
         assert!(text.contains("\"peak_db\": 0.0"), "sem -0.0: {text}");
         let html = response.media.get("falta.html").unwrap_or_else(|| panic!("o link entra no media: {text}"));

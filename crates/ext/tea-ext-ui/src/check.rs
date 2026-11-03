@@ -8,7 +8,7 @@ use std::path::{Path, PathBuf};
 
 use tea_declarative_ui::{Limits, Media, MediaLimits};
 
-use crate::store;
+use crate::{store, teach};
 
 /// O resultado de um arquivo: linhas para mostrar e se o painel aceitaria.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -60,6 +60,15 @@ pub fn check(file: &Path, cwd: &Path) -> Report {
     let root = project_root(&full, cwd);
     for (path, problem) in Media::load(&root, &doc, &MediaLimits::default()).problems() {
         lines.push(fl!("ui-check-media", path = path, problem = problem));
+    }
+    // Instruções do projeto diferentes das desta IDE: o agente sabe antes de publicar, não pela resposta.
+    let ours = teach::version(teach::INSTRUCTIONS);
+    for (file, state) in teach::stale(&root, &ours) {
+        lines.push(match state {
+            teach::Stale::Older(found) => fl!("ui-check-instructions-older", file = file, found = found, ours = ours.clone()),
+            teach::Stale::Newer(found) => fl!("ui-check-instructions-newer", file = file, found = found, ours = ours.clone()),
+            teach::Stale::Unversioned => fl!("ui-check-instructions-unversioned", file = file, ours = ours.clone()),
+        });
     }
     Report { ok, lines }
 }
@@ -137,5 +146,29 @@ mod tests {
         let cwd = Path::new("/outro");
         assert_eq!(project_root(Path::new("/p/.idetea/ui/a.json"), cwd), PathBuf::from("/p"));
         assert_eq!(project_root(Path::new("/p/rascunho/a.json"), cwd), PathBuf::from("/outro"));
+    }
+
+    #[test]
+    fn says_when_the_instructions_are_not_this_ides() {
+        let root = project("versao");
+        let ui = store::ui_dir(&root);
+        std::fs::write(ui.join("a.json"), r#"{"format": "idetea-ui", "version": 1, "components": []}"#).unwrap();
+        let lines = || check(&ui.join("a.json"), &root).lines;
+        assert_eq!(lines().len(), 1, "sem AGENTS.md: nada a dizer");
+        std::fs::write(root.join("AGENTS.md"), teach::merge("# Projeto\n", teach::INSTRUCTIONS)).unwrap();
+        assert_eq!(lines().len(), 1, "o bloco desta IDE: nada a dizer");
+        let ours = teach::version(teach::INSTRUCTIONS);
+        let with = |v: &str| teach::merge("", teach::INSTRUCTIONS).replace(&format!("version: `{ours}`"), &format!("version: `{v}`"));
+        std::fs::write(root.join("AGENTS.md"), with("60bfcf4d")).unwrap();
+        let r = check(&ui.join("a.json"), &root);
+        assert!(r.ok, "aviso, não erro");
+        assert_eq!(r.lines[1], fl!("ui-check-instructions-older", file = "AGENTS.md", found = "60bfcf4d", ours = ours.clone()));
+        std::fs::write(root.join("CLAUDE.md"), with("ffff0000")).unwrap();
+        assert_eq!(lines()[2], fl!("ui-check-instructions-newer", file = "CLAUDE.md", found = "ffff0000", ours = ours.clone()));
+        std::fs::write(root.join("CLAUDE.md"), format!("{}\nold text\n{}\n", teach::BEGIN, teach::END)).unwrap();
+        assert_eq!(lines()[2], fl!("ui-check-instructions-unversioned", file = "CLAUDE.md", ours = ours.clone()));
+        std::fs::write(root.join("CLAUDE.md"), "@AGENTS.md\n").unwrap();
+        assert_eq!(lines().len(), 2, "o CLAUDE.md que só importa o AGENTS.md não conta");
+        let _ = std::fs::remove_dir_all(&root);
     }
 }

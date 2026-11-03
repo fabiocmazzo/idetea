@@ -1080,6 +1080,20 @@ e grava a resposta do usuário em `.idetea/ui/responses/<nome>/`. Estudo, decis�
   e o "ensinar" avisa que vai voltar atrás, com "Gravar mesmo assim". Bloco sem a linha de versão conta como velho.
   - [x] Teste manual: com o `AGENTS.md` de um projeto marcando uma versão inventada, o "ensinar" mostra o aviso;
     com uma versão velha da lista, grava sem aviso (aprovado, pelo painel).
+- [x] **Instruções desatualizadas antes de publicar** (lacuna 17, 6): o `check` diz quando o bloco do
+  `AGENTS.md`/`CLAUDE.md` do projeto não é o desta IDE (mais velho, sem versão ou de uma IDE mais nova); as
+  instruções pedem para reler antes de publicar.
+  - [x] Teste manual: com o `CLAUDE.md` marcando uma versão velha, `.idetea/ui/check` avisa; depois do "ensinar",
+    não avisa mais (aprovado, pelo painel).
+- [x] **Mídia vista na tela** (lacuna 17, 11): imagem, item de galeria, sprite e som contam `shown` no `media` da
+  resposta quando ficam meio segundo à vista (o `sensor` do iced, com a revisão como chave).
+  - [x] Teste manual: num documento comprido, uma imagem no fim; respondendo sem rolar, ela vem sem `shown`;
+    rolando até ela, com (aprovado, pelo painel).
+- [ ] **Analisar depois das lacunas** (comentário do usuário no painel): instalador de skills para o projeto (de um
+  repositório conhecido); painel "Novo projeto" que já escolhe as skills; agentes executados pelo agente principal
+  (no `AGENTS.md` e `CLAUDE.md`), primeiro num terminal a mais dentro da IDE, depois Firecracker ou OpenShell; mais
+  de um agente, um esperando a demanda do outro ser respondida, e a viabilidade disso; um "idetea-fix" que deixa
+  qualquer projeto usável de novo, mesmo perdendo algumas conversas pelo painel.
 - [x] **Aba de imagem sempre em dia + schema junto do formato** (lacuna 16): as abas de imagem e PDF conferem
   tamanho e data do arquivo a cada segundo (além do observador) e recarregam quando mudam; o rodapé da aba mostra a
   hora em que o arquivo foi gravado, para conferir qual versão está na tela. A IDE grava também

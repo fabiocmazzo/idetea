@@ -28,6 +28,44 @@ pub fn block_version(existing: &str) -> Option<&str> {
     line.strip_suffix('`')
 }
 
+/// Como estão as instruções gravadas num arquivo do projeto, comparadas com as desta IDE.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Stale {
+    /// Bloco sem a linha de versão: de uma IDE antiga.
+    Unversioned,
+    /// Uma versão que esta IDE já teve: o arquivo está atrasado.
+    Older(String),
+    /// Uma versão que esta IDE não conhece: gravado por uma IDE mais nova.
+    Newer(String),
+}
+
+/// Os `AGENTS.md`/`CLAUDE.md` do projeto cujo bloco não é o desta IDE (`ours`). Arquivo sem bloco fica de fora
+/// (o projeto pode não usar as instruções); um `CLAUDE.md` que só importa o `AGENTS.md` também.
+pub fn stale(root: &Path, ours: &str) -> Vec<(String, Stale)> {
+    let mut out = Vec::new();
+    for name in ["AGENTS.md", "CLAUDE.md"] {
+        let Ok(existing) = std::fs::read_to_string(root.join(name)) else { continue };
+        if !existing.contains(BEGIN_PREFIX) {
+            continue;
+        }
+        let state = match block_version(&existing) {
+            Some(v) if v == ours => continue,
+            Some(v) if known_versions().any(|k| k == v) => Stale::Older(v.to_string()),
+            Some(v) => Stale::Newer(v.to_string()),
+            None => Stale::Unversioned,
+        };
+        // Um symlink de um para o outro: o mesmo arquivo, conta uma vez.
+        if name == "CLAUDE.md"
+            && let (Ok(a), Ok(c)) = (root.join("AGENTS.md").canonicalize(), root.join(name).canonicalize())
+            && a == c
+        {
+            continue;
+        }
+        out.push((name.to_string(), state));
+    }
+    out
+}
+
 /// Versão de um texto de instruções: 8 dígitos hexadecimais (FNV-1a de 32 bits). Vai no fim do bloco e no `ide`
 /// de cada resposta; diferentes, o agente sabe que a IDE tem instruções mais novas que as do arquivo.
 pub fn version(text: &str) -> String {
