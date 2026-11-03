@@ -1142,6 +1142,15 @@ e grava a resposta do usuário em `.idetea/ui/responses/<nome>/`. Estudo, decis�
       fora do projeto → `invalid`), `recusar` (`refused`) e `Olá` (`exited` com código 3, depois de reiniciar a IDE:
       o pedido sem status voltou a ser perguntado). Um pedido já tratado volta a ser perguntado quando o arquivo
       muda ou o status some.
+  - [x] **Comandos permitidos sem confirmar:** `[agents] allow` no config do usuário (no do projeto é ignorado, com
+    aviso): o comando exato, ou `"começo *"` com só argumentos simples depois (sem `;`, `&`, `|`, `$`, crase,
+    redirecionamento, parênteses, chaves, `\` nem quebra de linha). Roda direto numa aba "Agente: …" e a IDE avisa
+    qual linha deixou passar. Doc: `docs/terminais-de-agente.md`.
+    - [x] Teste manual (aprovado, pelo painel): com `allow = ["echo *"]`, `echo rodou sem perguntar` rodou direto
+      (`exited` 0) e `echo x; echo preso` esperou na aba do pedido (`refused`). O teste achou um tropeço: sem
+      nenhum terminal medido ainda, o primeiro redesenho espremia o terminal novo em umas 10×2 células e a saída
+      curta sumia; agora todo terminal novo nasce com um tamanho estimado até o widget medir. O aviso de "rodou sem
+      confirmar" sai por último (antes era trocado pelo do pedido que espera).
 - [x] **Aba de imagem sempre em dia + schema junto do formato** (lacuna 16): as abas de imagem e PDF conferem
   tamanho e data do arquivo a cada segundo (além do observador) e recarregam quando mudam; o rodapé da aba mostra a
   hora em que o arquivo foi gravado, para conferir qual versão está na tela. A IDE grava também

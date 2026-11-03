@@ -85,6 +85,14 @@ preview = { enabled = true, slot = "right" }
 # Interfaces que um agente escreve em .idetea/ui/ (docs/interfaces/formato.md).
 interfaces = { enabled = true, slot = "right" }
 
+# Pedidos de terminal dos agentes (.idetea/agents/, docs/terminais-de-agente.md). Cada pedido é confirmado,
+# menos os desta lista, que rodam direto. Só vale neste arquivo (o do usuário): no config do projeto é ignorado,
+# porque um agente pode escrever lá. "comando exato", ou "começo *": o começo e argumentos simples depois
+# (sem ; & | $ ` < > ( ) { } \ nem quebra de linha).
+[agents]
+allow = []
+# allow = ["npm run dev", "claude *"]
+
 # Plugins (~/.local/share/idetea/plugins/<id>/): a config de cada um, no formato que o plugin pedir.
 # [plugins.contador]
 # comando = ["git", "status", "--short"]
@@ -235,6 +243,14 @@ impl Default for EditorConfig {
     }
 }
 
+/// Pedidos de terminal dos agentes (`[agents]`). Só vem do config do usuário.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct AgentsConfig {
+    /// Comandos que rodam sem confirmar: o comando exato, ou `"começo *"`.
+    pub allow: Vec<String>,
+}
+
 /// Como depurar o projeto (`[debug]`). Tudo opcional.
 #[derive(Debug, Clone, Default, Deserialize)]
 #[serde(default)]
@@ -256,6 +272,8 @@ pub struct Config {
     pub debug: DebugConfig,
     /// Tarefas do usuário: nome → comando.
     pub tasks: BTreeMap<String, String>,
+    /// `[agents]`, só do config do usuário (o do projeto é ignorado, com aviso).
+    pub agents: AgentsConfig,
     pub extensions: BTreeMap<String, ExtensionConfig>,
     /// Config de cada plugin (`[plugins.<id>]`): o plugin lê com `host.config` (formato livre).
     pub plugins: BTreeMap<String, toml::Table>,
@@ -285,24 +303,35 @@ impl Config {
     pub fn load(global: Option<&Path>, project: Option<&Path>) -> Self {
         let mut layers = vec![("padrão".to_string(), DEFAULT_CONFIG.to_string())];
         let mut errors = Vec::new();
-        for path in [global, project].into_iter().flatten() {
+        let mut project_layer = None;
+        for (path, is_project) in [(global, false), (project, true)].into_iter().filter_map(|(p, i)| p.map(|p| (p, i))) {
             match std::fs::read_to_string(path) {
-                Ok(text) => layers.push((path.display().to_string(), text)),
+                Ok(text) => {
+                    if is_project {
+                        project_layer = Some(layers.len());
+                    }
+                    layers.push((path.display().to_string(), text));
+                }
                 Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
                 Err(e) => errors.push(format!("{}: {e}", path.display())),
             }
         }
-        let mut config = Self::from_layers(&layers);
+        let mut config = Self::merge(&layers, project_layer);
         config.errors.splice(0..0, errors);
         config
     }
 
     /// Junta camadas de TOML `(nome, texto)`. As últimas sobrepõem as primeiras.
     pub fn from_layers(layers: &[(String, String)]) -> Self {
+        Self::merge(layers, None)
+    }
+
+    /// Como [`Config::from_layers`]; `project` é o índice da camada do projeto, que não pode ter `[agents]`.
+    fn merge(layers: &[(String, String)], project: Option<usize>) -> Self {
         let mut merged = toml::Table::new();
         let mut keys = Vec::new();
         let mut errors = Vec::new();
-        for (name, text) in layers {
+        for (i, (name, text)) in layers.iter().enumerate() {
             let mut table: toml::Table = match text.parse() {
                 Ok(t) => t,
                 Err(e) => {
@@ -310,6 +339,10 @@ impl Config {
                     continue;
                 }
             };
+            // Um agente escreve na pasta do projeto: lá ele não pode se dar permissão.
+            if project == Some(i) && table.remove("agents").is_some() {
+                errors.push(fl!("config-agents-project", layer = name.as_str()));
+            }
             // `keys` é juntado à parte para manter a ordem das camadas.
             if let Some(layer_keys) = table.remove("keys") {
                 match layer_keys {
@@ -334,11 +367,12 @@ impl Config {
         let lsp = take_section(&mut merged, "lsp", &mut errors);
         let debug = take_section(&mut merged, "debug", &mut errors);
         let tasks = take_section(&mut merged, "tasks", &mut errors);
+        let agents = take_section(&mut merged, "agents", &mut errors);
         let plugins = take_section(&mut merged, "plugins", &mut errors);
         for unknown in merged.keys() {
             errors.push(fl!("config-unknown-section", section = unknown.as_str()));
         }
-        Self { ui, editor, lsp, debug, tasks, extensions, plugins, keys, errors }
+        Self { ui, editor, lsp, debug, tasks, agents, extensions, plugins, keys, errors }
     }
 
     /// Config de uma extensão (padrão: ligada, slot escolhido pela extensão).
@@ -407,6 +441,23 @@ mod tests {
         assert_eq!(layers(&["[tasks]\nservidor = \"cargo run\""]).tasks["servidor"], "cargo run");
         assert_eq!(c.extension("filetree").slot, Some(Slot::Left));
         assert!(c.keys.iter().any(|(k, v)| k == "ctrl+s" && v == "file.save"));
+    }
+
+    #[test]
+    fn agents_allow_only_from_the_user_config() {
+        let dir = std::env::temp_dir().join(format!("idetea-config-agents-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let (global, project) = (dir.join("global.toml"), dir.join("project.toml"));
+        std::fs::write(&global, "[agents]\nallow = [\"npm run dev\"]\n").unwrap();
+        std::fs::write(&project, "[agents]\nallow = [\"rm -rf ~\"]\n").unwrap();
+        let c = Config::load(Some(&global), Some(&project));
+        assert_eq!(c.agents.allow, ["npm run dev"], "o do projeto não soma nem troca");
+        assert_eq!(c.errors.len(), 1, "{:?}", c.errors);
+        let c = Config::load(None, Some(&project));
+        assert!(c.agents.allow.is_empty());
+        assert!(layers(&[DEFAULT_CONFIG]).agents.allow.is_empty());
+        assert!(!layers(&["[agents]\nallows = []"]).errors.is_empty(), "campo desconhecido avisa");
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]

@@ -51,6 +51,29 @@ A IDE grava `.idetea/agents/<nome>.status.json`:
 `ide` é o pid da IDE que gravou. Com duas IDEs no mesmo projeto, a que viu primeiro fica com o pedido; um
 `pending` ou `running` de uma IDE que já fechou é tratado de novo (pergunta outra vez, ou vira `lost`).
 
+## Comandos que rodam sem confirmar
+
+No config **do usuário** (`~/.config/idetea/config.toml`), uma lista de comandos que não precisam de confirmação:
+
+```toml
+[agents]
+allow = ["npm run dev", "claude *"]
+```
+
+- `"comando exato"`: só esse comando, igual (espaços nas pontas não contam).
+- `"começo *"`: o começo igual (palavra inteira) e, depois, só argumentos simples. O resto não pode ter
+  `;`, `&`, `|`, `$`, crase, `<`, `>`, parênteses, chaves, `\` nem quebra de linha, então não dá para emendar outro comando, substituir nem
+  redirecionar. `"*"` sozinho não libera nada. Cuidado com o que o próprio programa aceita: `"claude *"` também
+  deixa passar `claude --dangerously-skip-permissions`.
+
+O pedido permitido assim vai direto para `running`, numa aba "Agente: …", e a IDE avisa qual linha da lista o
+deixou passar. A lista é lida de novo a cada pedido novo (não precisa reiniciar).
+
+`[agents]` no config **do projeto** (`.idetea/config.toml`) é ignorado, com aviso: um agente escreve na pasta do
+projeto e se daria permissão. O config do usuário também é um arquivo que um agente rodando com o seu usuário
+consegue escrever; a lista protege contra um pedido escrito por engano ou por outro processo do projeto, não
+contra um agente que já roda comandos livremente.
+
 ## Fim
 
 - Apagar o pedido encerra o terminal (o jeito de o agente parar o que pediu).

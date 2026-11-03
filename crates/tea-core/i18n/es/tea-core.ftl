@@ -47,3 +47,4 @@ chord-no-key = atajo sin tecla: { $chord }
 config-key-not-text = { $layer }: [keys] { $chord } debe ser texto, llegó { $value }
 config-keys-not-table = { $layer }: [keys] debe ser una tabla
 config-unknown-section = sección desconocida: [{ $section }]
+config-agents-project = { $layer }: [agents] solo vale en la config del usuario (~/.config/idetea/config.toml); ignorado aquí

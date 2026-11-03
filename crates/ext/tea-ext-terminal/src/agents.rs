@@ -231,6 +231,23 @@ pub fn ensure_gitignore(root: &Path) {
     }
 }
 
+/// O que faz do resto de um comando mais que argumentos simples: separar comandos, substituir, redirecionar.
+const SHELL_SPECIAL: [char; 14] = [';', '&', '|', '$', '`', '<', '>', '(', ')', '{', '}', '\\', '\n', '\r'];
+
+/// A linha do `[agents] allow` que deixa este comando rodar sem confirmar, se houver. `"comando exato"`, ou
+/// `"começo *"`: o começo igual e, depois, só argumentos simples (nada de [`SHELL_SPECIAL`]).
+pub fn allowed<'a>(command: &str, list: &'a [String]) -> Option<&'a str> {
+    let command = command.trim();
+    list.iter().map(|e| e.trim()).find(|entry| match entry.strip_suffix(" *") {
+        Some(start) => {
+            let start = start.trim_end();
+            !start.is_empty()
+                && command.strip_prefix(start).is_some_and(|rest| (rest.is_empty() || rest.starts_with(' ')) && !rest.contains(SHELL_SPECIAL))
+        }
+        None => !entry.is_empty() && *entry == command,
+    })
+}
+
 /// O processo ainda existe? Sem `/proc` (fora do Linux), supõe que sim: melhor não marcar como perdido o que roda.
 pub fn alive(pid: u32) -> bool {
     let proc = Path::new("/proc");
@@ -308,6 +325,24 @@ mod tests {
         assert!(found["vazio"].as_ref().unwrap_err().contains("vazio"));
         assert!(found["escondido"].as_ref().unwrap_err().contains("controle"));
         assert!(found["Maiuscula"].as_ref().unwrap_err().contains("nome"));
+    }
+
+    #[test]
+    fn the_allow_list_matches_whole_commands_or_simple_arguments() {
+        let list: Vec<String> = ["npm run dev", "claude *", "*", "  "].map(String::from).to_vec();
+        assert_eq!(allowed("npm run dev", &list), Some("npm run dev"));
+        assert_eq!(allowed("  npm run dev ", &list), Some("npm run dev"));
+        assert_eq!(allowed("npm run dev && rm -rf ~", &list), None, "o exato é exato");
+        assert_eq!(allowed("npm run devx", &list), None);
+        assert_eq!(allowed("claude", &list), Some("claude *"));
+        assert_eq!(allowed("claude 'review the last commit'", &list), Some("claude *"));
+        assert_eq!(allowed("claudex", &list), None, "o começo é uma palavra inteira");
+        for bad in ["claude x; rm -rf ~", "claude $(rm -rf ~)", "claude `id`", "claude x | sh", "claude x > ~/.bashrc",
+                    "claude x & sh", "claude \"$HOME\"", "claude x\nrm -rf ~", "claude x \\\nrm"] {
+            assert_eq!(allowed(bad, &list), None, "{bad:?}");
+        }
+        assert_eq!(allowed("ls", &list), None, "\"*\" sozinho não libera nada");
+        assert_eq!(allowed("", &list), None);
     }
 
     #[test]

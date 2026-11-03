@@ -168,7 +168,8 @@ documento).
 **O que foi feito (2026-11-03):** abas no terminal (aprovado pelo painel); pedido por arquivo como proposto, com a
 confirmação numa aba do próprio painel do terminal (não num diálogo: um Enter digitado em outro lugar não permite
 nada) e o status também com `refused`, `closed`, `invalid` e `lost`. Apagar o pedido encerra o terminal. Detalhes em
-`docs/terminais-de-agente.md`.
+`docs/terminais-de-agente.md`. Depois, a lista de comandos permitidos: `[agents] allow` só no config do usuário
+(no do projeto é ignorado), com o comando exato ou `"começo *"` seguido só de argumentos simples.
 
 ## 5. Vários agentes, um esperando o outro
 

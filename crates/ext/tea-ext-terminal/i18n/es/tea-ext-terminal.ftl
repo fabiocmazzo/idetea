@@ -22,6 +22,7 @@ terminal-tab-request = { $count ->
    *[other] { $count } pedidos de terminal
 }
 agent-request-notify = Un agente pide una terminal: { $title }. Míralo en el panel de la terminal.
+agent-request-auto = Pedido de terminal "{ $title }" ejecutándose sin confirmar: está en el [agents] allow de tu config ("{ $entry }").
 agent-request-someone = Un agente
 agent-request-title = { $who } pide una terminal: { $title }
 agent-request-command = Comando (ejecuta exactamente esto):

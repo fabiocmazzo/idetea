@@ -120,6 +120,24 @@ pub struct TerminalExtension {
     size: Option<iced::Size>,
     theme: Theme,
     font_size: f32,
+    /// De onde vem a lista de comandos que rodam sem confirmar (`[agents] allow`, só do config do usuário).
+    allow_list: fn() -> Vec<String>,
+}
+
+/// O tamanho da área do terminal antes de o widget medir (um painel de baixo comum); o widget corrige depois.
+const SIZE_GUESS: iced::Size = iced::Size::new(900.0, 260.0);
+
+/// O `[agents] allow` do config do usuário, lido de novo a cada pedido novo (sem esperar recarregar o config).
+#[cfg(not(test))]
+fn user_allow_list() -> Vec<String> {
+    let Some(global) = tea_core::config::global_config_path() else { return Vec::new() };
+    tea_core::config::Config::load(Some(&global), None).agents.allow
+}
+
+/// Nos testes, nada é permitido sem confirmar (o config de quem roda os testes não entra).
+#[cfg(test)]
+fn user_allow_list() -> Vec<String> {
+    Vec::new()
 }
 
 impl Default for TerminalExtension {
@@ -137,6 +155,7 @@ impl Default for TerminalExtension {
             size: None,
             theme: Theme::TokyoNight,
             font_size: 14.0,
+            allow_list: user_allow_list,
         }
     }
 }
@@ -314,6 +333,9 @@ impl TerminalExtension {
             }
         }
         let mut asked = None;
+        let mut allow: Option<Vec<String>> = None;
+        let mut auto = Vec::new();
+        let mut notes = Vec::new();
         for (name, request) in found {
             // Já tratado: só volta se o pedido mudou ou o status sumiu (e não está rodando aqui).
             let again = match self.handled.get(&name) {
@@ -363,16 +385,33 @@ impl TerminalExtension {
                 }
                 Ok(request) => {
                     let _ = agents::write_status(&self.root, &name, &agents::State::Pending);
-                    asked.get_or_insert_with(|| request.title.clone());
+                    let list = allow.get_or_insert_with(self.allow_list);
+                    if let Some(entry) = agents::allowed(&request.command, list) {
+                        // Na lista do usuário: roda sem perguntar, e o aviso diz por qual linha.
+                        notes.push(fl!("agent-request-auto", title = request.title.as_str(), entry = entry));
+                        auto.push(request.clone());
+                    } else {
+                        asked.get_or_insert_with(|| request.title.clone());
+                    }
                     self.pending.insert(name, request);
                 }
             }
         }
-        if let Some(title) = asked {
+        let started: Vec<Task<Message>> = auto.into_iter().map(|r| self.allow(r, ctx)).collect();
+        if let Some(title) = &asked {
             ctx.notify(fl!("agent-request-notify", title = title));
             self.shown = Shown::Request;
             ctx.show_panel(PANEL);
-            return Task::none();
+        }
+        // Por último: o pedido que espera já tem a aba dele; o que rodou sozinho só tem este aviso.
+        for note in notes {
+            ctx.notify(note);
+        }
+        if asked.is_some() {
+            return Task::batch(started);
+        }
+        if !started.is_empty() {
+            return Task::batch(started);
         }
         if removed || (self.shown == Shown::Request && self.pending.is_empty()) {
             return self.after_removal(ctx);
@@ -475,9 +514,10 @@ impl TerminalExtension {
     /// coisa antes disso (a saída do shell, um redesenho) o espremia em poucas colunas, quebrando o prompt.
     fn new_terminal(&mut self, settings: Settings) -> std::io::Result<Terminal> {
         let mut term = Terminal::new(self.next_id, settings)?;
-        if let Some(size) = self.size {
-            term.handle(iced_term::Command::ProxyToBackend(iced_term::BackendCommand::Resize(Some(size), None)));
-        }
+        // Sem medida ainda (nenhum terminal apareceu), o `iced_term` usaria uma área de 80×50 px: umas 10 colunas e
+        // 2 linhas, e a saída de um comando curto sumiria espremida antes de o widget medir. Uma estimativa até lá.
+        let size = self.size.unwrap_or(SIZE_GUESS);
+        term.handle(iced_term::Command::ProxyToBackend(iced_term::BackendCommand::Resize(Some(size), None)));
         Ok(term)
     }
 
@@ -869,6 +909,22 @@ mod tests {
         assert_eq!(ext.agents.len(), 1);
         assert_eq!(ext.shown, Shown::Agent(0));
         assert!(ext.pending.is_empty());
+
+        // Na lista do usuário: roda sem perguntar. Fora dela (mesmo começando igual), pergunta.
+        ext.allow_list = || vec!["echo *".into()];
+        put("livre", "echo livre");
+        put("preso", "echo x; touch nao");
+        let _ = ext.update(Message::Requests(agents::scan(&root)), &mut Context::new(&root, None));
+        assert!(ext.agents.iter().any(|a| a.name == "livre"), "permitido pela lista");
+        assert_ne!(status(&root, "livre"), "pending");
+        assert_eq!(ext.pending.keys().collect::<Vec<_>>(), ["preso"]);
+        assert_eq!(ext.shown, Shown::Request);
+        let _ = ext.update(Message::Refuse("preso".into()), &mut Context::new(&root, None));
+        for name in ["livre", "preso"] {
+            let _ = std::fs::remove_file(root.join(agents::DIR).join(format!("{name}.json")));
+        }
+        let _ = ext.update(Message::Requests(agents::scan(&root)), &mut Context::new(&root, None));
+        ext.allow_list = user_allow_list;
 
         // O agente apaga o pedido: o terminal fecha.
         std::fs::remove_file(root.join(agents::DIR).join("um.json")).unwrap();
