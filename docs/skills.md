@@ -32,14 +32,21 @@ Saída: 0 (feito), 1 (erro, ou atualização por aplicar), 2 (uso errado).
 ## Projeto novo
 
 "Projeto: novo…" (paleta) mostra um formulário no painel Interfaces: onde criar, o nome da pasta, o modelo, uma
-frase sobre o projeto e se cria o git. Pela linha de comando:
+frase sobre o projeto, se cria o git e qual agente abrir. Pela linha de comando:
 
 ```sh
-idetea new meu-app --modelo rust --descricao "um conversor de unidades"
+idetea new meu-app --modelo rust --descricao "um conversor de unidades" --agente claude
 ```
 
 A IDE cria a pasta, o git, as skills do modelo, o `AGENTS.md` com o **pedido inicial** e as instruções do painel, e
-um `CLAUDE.md` que importa o `AGENTS.md`. Quem cria o projeto é o agente: abra-o na pasta nova e peça para começar.
+um `CLAUDE.md` que importa o `AGENTS.md`. Quem cria o projeto é o agente.
+
+**O agente num terminal da IDE.** O formulário oferece os agentes que estão no `PATH` (`claude`, `codex`, `gemini`,
+`opencode`; o primeiro encontrado vem escolhido) e "Nenhum". Com um agente, a IDE grava no projeto novo um
+[pedido de terminal](terminais-de-agente.md) `.idetea/agents/agente.json` com o comando
+`<agente> 'Start with the initial request in AGENTS.md.'`. A janela nova mostra o pedido na aba "Pedido de
+terminal", como qualquer outro: o agente só abre depois de "Permitir e rodar". Com "Nenhum", abra-o você na pasta
+nova e peça para começar.
 
 | Modelo | Skills |
 |---|---|

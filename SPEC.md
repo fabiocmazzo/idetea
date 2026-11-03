@@ -1116,6 +1116,13 @@ e grava a resposta do usuário em `.idetea/ui/responses/<nome>/`. Estudo, decis�
   - [x] Teste manual (aprovado, pelo painel): "Projeto: novo…" com o modelo Rust; a janela nova abre com o
     `AGENTS.md` (pedido inicial e instruções), o `CLAUDE.md`, as skills nas duas pastas e o git; uma pasta que já
     tem arquivos é recusada.
+  - [x] **O agente num terminal da IDE** (o que ficou da etapa 3 para a 4): o formulário ganha "Agente a abrir"
+    (os de `claude`, `codex`, `gemini`, `opencode` que estão no `PATH`, ou nenhum; `--agente` na linha de comando);
+    a IDE grava o pedido de terminal `.idetea/agents/agente.json` no projeto novo, e a janela nova o mostra para
+    confirmar. Doc: `docs/skills.md`.
+    - [x] Teste manual (aprovado, pelo painel): "Projeto: novo…" com `claude` escolhido; a janela nova mostrou o
+      pedido "Agente: claude" e, permitido, o Claude Code abriu no terminal da IDE (status `running`); os arquivos
+      do pedido ficam fora do git.
 - [x] **Terminais de agente** (RFC 0005, etapa 4): abas no terminal; depois um agente pede um terminal por arquivo,
   e cada pedido é confirmado.
   - [x] **Abas no terminal:** vários shells no painel, "Terminal 1", "Terminal 2"… ao lado da aba da tarefa; `+` abre

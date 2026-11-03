@@ -137,6 +137,8 @@ Depende da etapa 2.
   `idetea new <pasta> [--modelo id] [--descricao texto] [--sem-git]`.
 - **Depois de criar,** a IDE abre o projeto numa janela nova. O pedido inicial fica no `AGENTS.md` (e o `CLAUDE.md`
   importa o `AGENTS.md`); o usuário abre o agente. Abrir o agente num terminal da IDE fica para a etapa 4.
+- **Depois da etapa 4 (2026-11-03):** o formulário tem "Agente a abrir"; a IDE grava um pedido de terminal no
+  projeto novo, e a janela nova o mostra para o usuário confirmar, como qualquer pedido.
 - Se as skills não vierem (rede, fonte), nada fica pela metade: a pasta criada é apagada.
 
 **Custo:** médio. É uma tela nativa (não um documento `idetea-ui`, porque ainda não há projeto onde gravar o
