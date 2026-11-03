@@ -42,6 +42,8 @@ pub enum Cli {
     UiCheck(Vec<PathBuf>),
     /// `idetea ui fix [--apply]`: mostra (e conserta) o que ficou para trás no projeto da pasta atual.
     UiFix(Vec<String>),
+    /// `idetea skills …`: instala skills de agentes no projeto da pasta atual.
+    Skills(Vec<String>),
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -71,6 +73,10 @@ pub fn parse(args: impl IntoIterator<Item = OsString>, cwd: &Path, env_no_splash
     let mut flags_done = false;
     let mut args = args.into_iter().peekable();
     // Subcomando: só como primeiro argumento (uma pasta chamada `ui` precisa de `./ui`).
+    if args.peek().is_some_and(|a| a == "skills") {
+        args.next();
+        return Cli::Skills(args.map(|a| a.to_string_lossy().into_owned()).collect());
+    }
     if args.peek().is_some_and(|a| a == "ui") {
         args.next();
         return match args.next() {
@@ -231,6 +237,8 @@ mod tests {
         assert_eq!(ui(&["ui", "check", "a.json", ".idetea/ui/b.json"]), Cli::UiCheck(vec!["a.json".into(), ".idetea/ui/b.json".into()]));
         assert_eq!(ui(&["ui"]), Cli::UiCheck(Vec::new()), "sem o check: mostra o uso");
         assert_eq!(ui(&["ui", "fix", "--apply"]), Cli::UiFix(vec!["--apply".into()]));
+        assert_eq!(ui(&["skills", "add", "a/b", "pdf"]), Cli::Skills(vec!["add".into(), "a/b".into(), "pdf".into()]));
+        assert!(matches!(ui(&["a.rs", "skills"]), Cli::Run(_)), "só como primeiro argumento");
         assert!(matches!(ui(&["a.rs", "ui"]), Cli::Run(_)), "só como primeiro argumento");
     }
 

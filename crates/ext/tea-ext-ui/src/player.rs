@@ -118,7 +118,18 @@ fn spawn(program: &Path, path: &Path) -> std::io::Result<Child> {
     let mut cmd = Command::new(program);
     cmd.arg(path).stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::null());
     std::os::unix::process::CommandExt::process_group(&mut cmd, 0);
-    cmd.spawn()
+    // "Text file busy": outra thread abriu um processo enquanto o executável ainda estava aberto para escrita
+    // (um script recém-gravado). Passa num instante; tenta de novo algumas vezes.
+    let mut tries = 0;
+    loop {
+        match cmd.spawn() {
+            Err(e) if e.kind() == std::io::ErrorKind::ExecutableFileBusy && tries < 20 => {
+                tries += 1;
+                std::thread::sleep(std::time::Duration::from_millis(10));
+            }
+            other => return other,
+        }
+    }
 }
 
 /// Mata o grupo inteiro (o tocador e o que ele tiver aberto) e espera, para não deixar zumbi.

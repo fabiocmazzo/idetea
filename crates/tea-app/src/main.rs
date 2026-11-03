@@ -62,13 +62,18 @@ static STARTED: OnceLock<Instant> = OnceLock::new();
 /// `idetea.desktop` com este mesmo nome (`idetea --install-desktop` ou `just desktop` instalam).
 const APP_ID: &str = "idetea";
 
+/// O idioma de um subcomando: o mesmo da IDE (`[ui] language` do config do usuário e do projeto da pasta atual).
+fn cli_language(cwd: &std::path::Path) {
+    tea_core::i18n::init(&config::peek_language(config::global_config_path().as_deref(), Some(&config::project_config_path(cwd))));
+}
+
 fn main() -> iced::Result {
     STARTED.get_or_init(Instant::now);
     let cwd = std::env::current_dir().unwrap_or_default();
     let env_no_splash = cli::env_flag(std::env::var_os("IDETEA_NO_SPLASH"));
     match cli::parse(std::env::args_os().skip(1), &cwd, env_no_splash) {
         cli::Cli::Help => {
-            tea_core::i18n::init("auto");
+            cli_language(&cwd);
             println!("{}", cli::usage());
             Ok(())
         }
@@ -77,7 +82,7 @@ fn main() -> iced::Result {
             Ok(())
         }
         cli::Cli::UiCheck(files) => {
-            tea_core::i18n::init("auto");
+            cli_language(&cwd);
             #[cfg(feature = "ext-ui")]
             std::process::exit(tea_ext_ui::check::run(&files, &cwd));
             #[cfg(not(feature = "ext-ui"))]
@@ -88,7 +93,7 @@ fn main() -> iced::Result {
             }
         }
         cli::Cli::UiFix(args) => {
-            tea_core::i18n::init("auto");
+            cli_language(&cwd);
             #[cfg(feature = "ext-ui")]
             std::process::exit(tea_ext_ui::fix::run(&args, &cwd));
             #[cfg(not(feature = "ext-ui"))]
@@ -97,6 +102,10 @@ fn main() -> iced::Result {
                 eprintln!("idetea: compilada sem a extensão Interfaces (feature ext-ui)");
                 std::process::exit(2);
             }
+        }
+        cli::Cli::Skills(args) => {
+            cli_language(&cwd);
+            std::process::exit(tea_skills::run(&args, &cwd));
         }
         cli::Cli::InstallDesktop => desktop::run(true),
         cli::Cli::UninstallDesktop => desktop::run(false),

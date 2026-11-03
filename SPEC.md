@@ -65,6 +65,7 @@ idetea/
 │   ├── tea-editor/      # fachada sobre o iced-code-editor
 │   ├── tea-lsp/         # cliente LSP (processo, JSON-RPC, posições), sem UI
 │   ├── tea-dap/         # cliente DAP (debug), sem UI
+│   ├── tea-skills/      # `idetea skills`: instala skills de agentes (SKILL.md) de um repositório git
 │   ├── tea-app/         # binário: janela iced, layout de slots, carrega extensões, gerencia LSP
 │   └── ext/
 │       ├── tea-ext-filetree/   # árvore de arquivos
@@ -1101,8 +1102,12 @@ e grava a resposta do usuário em `.idetea/ui/responses/<nome>/`. Estudo, decis�
   enquanto espera, e o painel diz se alguém está esperando.
   - [x] Teste manual: com uma espera em curso, o painel diz "o agente está esperando"; parada, "parou de esperar
     há N min"; "consertar" lista e apaga o que sobrou, e não apaga a resposta não lida (aprovado, pelo painel).
-- [ ] **Skills** (RFC 0005, etapa 2): conferir onde cada agente lê skills; instalar de um repositório git fixado num
-  commit, com diff antes de atualizar.
+- [x] **Skills** (RFC 0005, etapa 2): conferir onde cada agente lê skills; instalar de um repositório git fixado num
+  commit, com diff antes de atualizar. Feito: `idetea skills [list|add|update|remove]` (crate `tea-skills`,
+  [`docs/skills.md`](docs/skills.md)), uma cópia em `.agents/skills/` e outra em `.claude/skills/`, o registro em
+  `.idetea/skills.toml`; nada da skill roda; cópia mexida à mão só muda com `--force`.
+  - [x] Teste manual (aprovado, pelo painel): listar `anthropics/skills`, instalar duas, mexer numa cópia (o
+    `remove` recusa, "recusado (nada mudou)"), tirar com `--force`; os subcomandos falam o idioma da IDE.
 - [ ] **Novo projeto** (RFC 0005, etapa 3): modelos vazio, Rust, Site, Python e FastAPI, cada um um conjunto de
   skills.
 - [ ] **Terminais de agente** (RFC 0005, etapa 4): abas no terminal; depois um agente pede um terminal por arquivo,

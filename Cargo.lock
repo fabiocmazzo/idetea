@@ -5648,6 +5648,7 @@ dependencies = [
  "tea-ext-ui",
  "tea-lsp",
  "tea-plugins",
+ "tea-skills",
  "toml 1.1.8+spec-1.1.0",
 ]
 
@@ -5833,6 +5834,15 @@ dependencies = [
  "toml 1.1.8+spec-1.1.0",
  "wasmtime",
  "wasmtime-wasi",
+]
+
+[[package]]
+name = "tea-skills"
+version = "0.0.1"
+dependencies = [
+ "serde",
+ "tea-core",
+ "toml 1.1.8+spec-1.1.0",
 ]
 
 [[package]]

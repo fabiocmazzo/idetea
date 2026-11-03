@@ -71,8 +71,17 @@ Claude Code lê as skills do projeto em `.claude/skills/<nome>/` e as do usuári
 mais conhecido é o `anthropics/skills`. Já existem instaladores de terceiros (por exemplo `openskills`), que clonam
 um repositório, acham os `SKILL.md` e copiam as pastas escolhidas.
 
-**[Hipótese]** Outros agentes (Codex, OpenCode) têm pastas próprias ou leem skills por outro caminho; falta conferir
-um por um antes de prometer "para qualquer agente".
+### Onde cada agente lê (conferido em 2026-11-03)
+
+| Agente | Pasta do projeto | Fonte |
+|---|---|---|
+| Claude Code | `.claude/skills/` | docs da Anthropic **[Fato]** |
+| Codex | `.agents/skills/`, da pasta atual até a raiz do repositório | [docs oficiais](https://developers.openai.com/codex/skills) **[Fato]** |
+| OpenCode | `.opencode/skills/`; também lê `.claude/skills/` e `.agents/skills/` | [docs oficiais](https://opencode.ai/docs/skills) **[Fato]** |
+| Gemini CLI | `.gemini/skills/` ou `.agents/skills/` | [fontes de terceiros](https://github.com/vercel-labs/skills/wiki), que discordam **[Hipótese]** |
+| Copilot | `.github/skills/` ou `.agents/skills/` | idem **[Hipótese]** |
+
+`.agents/skills/` está virando o lugar comum; o Claude Code precisa de `.claude/skills/`.
 
 ### Proposta [Recomendação]
 
@@ -91,6 +100,19 @@ um por um antes de prometer "para qualquer agente".
 - Skills grandes ocupam contexto do agente. A descrição é o que ele lê sempre, então ela entra na lista.
 
 **Custo:** médio. Clonar e copiar é simples; o trabalho é a tela de escolha e o diff de atualização.
+
+### Decisões e o que foi feito (pelo painel, 2026-11-03)
+
+- **Uma cópia em `.agents/skills/` e outra em `.claude/skills/`** (funciona em todo sistema; symlink no Windows é
+  ruim). Os agentes que leem as duas (OpenCode) veem a mesma skill duas vezes, com o mesmo conteúdo.
+- **Linha de comando primeiro:** `idetea skills [list|add|update|remove]` (crate `tea-skills`, ver
+  [`docs/skills.md`](../skills.md)). O agente pergunta pelo painel quais skills o usuário quer e roda o comando. A
+  tela vem com o "Novo projeto".
+- A fonte vai para um cache (`~/.cache/idetea/skills/`) como repositório *bare*; tudo é lido do histórico
+  (`ls-tree`, `cat-file`), então a cópia de trabalho não existe e nada do repositório roda. Symlinks e submódulos
+  não são copiados. Uma cópia mexida à mão não é sobrescrita nem apagada sem `--force`.
+- Ainda não: fontes na config (`[skills] sources`), skills do usuário (`~/.agents/skills/`), escolher a ref
+  (`dono/repo@tag`).
 
 ## 3. Painel "Novo projeto"
 

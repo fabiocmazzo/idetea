@@ -1,0 +1,13 @@
+[package]
+name = "tea-skills"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+# `idetea skills`: instala skills de agentes (pastas com SKILL.md) de um repositório git no projeto, fixadas num
+# commit (docs/rfc/0005-agentes-e-projetos.md, etapa 2). Só copia arquivos: nada da skill é executado.
+
+[dependencies]
+serde.workspace = true
+tea-core.workspace = true
+toml.workspace = true

@@ -298,6 +298,7 @@ cli-usage =
       --install-desktop    añade el IDE al menú de aplicaciones (con el icono)
       --uninstall-desktop  lo quita del menú de aplicaciones
       ui check <archivo.json>…  revisa documentos del panel Interfaces (como los lee el panel)
+      skills [list|add|update|remove]  instala skills de agentes en el proyecto (idetea skills --help)
       ui fix [--apply]  muestra (y, con --apply, arregla) lo que quedó atrás en .idetea/ui/
       -h, --help     muestra esta ayuda
       -V, --version  muestra la versión

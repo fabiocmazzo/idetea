@@ -298,6 +298,7 @@ cli-usage =
       --install-desktop    adds the IDE to the applications menu (with the icon)
       --uninstall-desktop  removes it from the applications menu
       ui check <file.json>…  checks Interfaces panel documents (as the panel reads them)
+      skills [list|add|update|remove]  installs agent skills in the project (idetea skills --help)
       ui fix [--apply]  shows (and, with --apply, fixes) what was left behind in .idetea/ui/
       -h, --help     show this help
       -V, --version  show the version
