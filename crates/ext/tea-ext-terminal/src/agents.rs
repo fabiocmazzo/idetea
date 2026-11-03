@@ -31,8 +31,10 @@ pub struct Request {
     pub title: String,
     pub source: Option<String>,
     pub command: String,
-    /// Pasta onde roda (absoluta; dentro do projeto).
+    /// Pasta onde roda (absoluta; dentro do projeto). Com `worktree`, a mesma pasta relativa dentro dele.
     pub cwd: PathBuf,
+    /// Rodar num worktree próprio, com este branch (etapa 5).
+    pub worktree: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -47,6 +49,8 @@ struct Raw {
     command: String,
     #[serde(default)]
     cwd: Option<String>,
+    #[serde(default)]
+    worktree: Option<String>,
 }
 
 /// O andamento gravado em `<nome>.status.json`.
@@ -96,6 +100,23 @@ pub fn dir(root: &Path) -> PathBuf {
 
 pub fn status_path(root: &Path, name: &str) -> PathBuf {
     dir(root).join(format!("{name}.status.json"))
+}
+
+/// Onde o agente do terminal escreve a resposta (`IDETEA_ANSWER`): na raiz do projeto, mesmo rodando num worktree.
+pub fn answer_path(root: &Path, name: &str) -> PathBuf {
+    dir(root).join(format!("{name}.answer.md"))
+}
+
+/// O que o status diz além do estado, enquanto roda e no fim: o arquivo da resposta e, com worktree, a pasta e o
+/// branch (caminhos relativos à raiz).
+pub fn extra(name: &str, worktree: Option<&str>) -> serde_json::Map<String, serde_json::Value> {
+    let mut m = serde_json::Map::new();
+    m.insert("answer".into(), format!("{DIR}/{name}.answer.md").into());
+    if let Some(branch) = worktree {
+        m.insert("worktree".into(), format!("{}/{name}", crate::worktree::DIR).into());
+        m.insert("branch".into(), branch.into());
+    }
+    m
 }
 
 /// Os nomes dos pedidos na pasta (`<nome>.json`, sem os de status e os temporários).
@@ -192,7 +213,12 @@ fn read(root: &Path, name: &str, path: &Path) -> Result<Request, String> {
     if !cwd.is_dir() {
         return Err("cwd: não é uma pasta".into());
     }
-    Ok(Request { name: name.to_string(), title, source, command, cwd })
+    let worktree = match raw.worktree.as_deref().map(str::trim) {
+        None | Some("") => None,
+        Some(b) if crate::worktree::valid_branch(b) => Some(b.to_string()),
+        Some(b) => return Err(format!("worktree: nome de branch que não vale: {b}")),
+    };
+    Ok(Request { name: name.to_string(), title, source, command, cwd, worktree })
 }
 
 pub fn read_status(root: &Path, name: &str) -> Option<OnDisk> {
@@ -205,8 +231,11 @@ pub fn read_status(root: &Path, name: &str) -> Option<OnDisk> {
 }
 
 /// O JSON do status (o script do terminal grava o de `exited` igual, pelo `printf`).
-pub fn status_json(state: &State, ide: u32) -> String {
+pub fn status_json(state: &State, ide: u32, extra: &serde_json::Map<String, serde_json::Value>) -> String {
     let mut v = serde_json::json!({ "format": STATUS_FORMAT, "version": 1, "state": state.word(), "ide": ide });
+    for (k, val) in extra {
+        v[k] = val.clone();
+    }
     match state {
         State::Exited(code) => v["code"] = (*code).into(),
         State::Invalid(error) => v["error"] = error.clone().into(),
@@ -217,9 +246,14 @@ pub fn status_json(state: &State, ide: u32) -> String {
 
 /// Grava o status por um temporário (quem espera nunca lê pela metade).
 pub fn write_status(root: &Path, name: &str, state: &State) -> std::io::Result<()> {
+    write_status_with(root, name, state, &serde_json::Map::new())
+}
+
+/// [`write_status`] com os campos de [`extra`].
+pub fn write_status_with(root: &Path, name: &str, state: &State, extra: &serde_json::Map<String, serde_json::Value>) -> std::io::Result<()> {
     let path = status_path(root, name);
     let tmp = dir(root).join(format!(".{name}.status.json.tmp"));
-    std::fs::write(&tmp, status_json(state, std::process::id()))?;
+    std::fs::write(&tmp, status_json(state, std::process::id(), extra))?;
     std::fs::rename(tmp, path)
 }
 

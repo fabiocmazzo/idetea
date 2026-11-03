@@ -149,5 +149,21 @@ the IDE for a terminal instead of running it in the background. I confirm every 
 3. Deleting the request file stops the terminal. When you are done, delete the request and then the status.
    To ask again with the same name, delete both first.
 
+#### Asking another agent and waiting for it
+
+To hand a task to another agent (a review, a fix on the side), ask for a terminal with that agent and
+`"worktree": "<branch>"`. The IDE creates a git worktree in `.idetea/worktrees/<name>` on that branch (a new one
+from HEAD, or the existing branch) and runs the command there, so the two of you never edit the same files:
+```json
+{"format": "idetea-terminal", "version": 1, "title": "Reviewer", "source": "<your name>", "worktree": "agent/review",
+ "command": "claude -p 'Review the last commit. Write your findings to the file in $IDETEA_ANSWER.'"}
+```
+Every command gets `IDETEA_ANSWER`, the path of `.idetea/agents/<name>.answer.md` in the main project: tell the
+helper to write its answer there. The status says where things are (`"answer"`, and with a worktree `"worktree"`
+and `"branch"`). Wait for `exited`, read the answer, and bring code changes in from the branch with the usual
+flow (manual test and my approval before merging). When you are done, delete the request, the status and the
+answer: the IDE removes the worktree if it has nothing uncommitted (otherwise it stays and I am told); the branch
+always stays.
+
 Never put secrets in the command: I see it on screen, and it stays in the file.
 ````

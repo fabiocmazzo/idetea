@@ -51,6 +51,32 @@ A IDE grava `.idetea/agents/<nome>.status.json`:
 `ide` é o pid da IDE que gravou. Com duas IDEs no mesmo projeto, a que viu primeiro fica com o pedido; um
 `pending` ou `running` de uma IDE que já fechou é tratado de novo (pergunta outra vez, ou vira `lost`).
 
+## Um agente pede algo a outro (worktree e resposta)
+
+Etapa 5 da RFC 0005. O pedido aceita `"worktree": "<branch>"`:
+
+```json
+{"format": "idetea-terminal", "version": 1, "title": "Revisor", "source": "Claude", "worktree": "agente/revisao",
+ "command": "claude -p 'Review the last commit. Write your findings to the file in $IDETEA_ANSWER.'"}
+```
+
+- Ao permitir, a IDE cria um worktree do git em `.idetea/worktrees/<nome>` com esse branch: um branch novo a partir
+  do HEAD, ou o que já existe. Se a pasta já é um worktree com o mesmo branch, reusa; com outro branch, o pedido
+  vira `invalid`. O `cwd` vale dentro do worktree (a mesma pasta relativa). A pasta `.idetea/worktrees/` ganha um
+  `.gitignore` com `*`: o projeto não vê os worktrees no `git status`.
+- A tela de confirmação mostra o branch e a pasta.
+- Todo comando de pedido recebe `IDETEA_ANSWER`: o caminho de `.idetea/agents/<nome>.answer.md`, na raiz do projeto
+  (não no worktree). É onde o ajudante escreve a resposta; quem pediu lê depois do `exited`.
+- O status (`running` e `exited`) traz `"answer"` e, com worktree, `"worktree"` e `"branch"` (caminhos relativos à
+  raiz).
+- Apagar o pedido encerra o terminal e tira o worktree com `git worktree remove`, **sem** `--force`: com mudanças
+  por commitar ou arquivos novos, o git recusa, o worktree fica e a IDE avisa. O branch fica sempre. O código do
+  ajudante entra pelo fluxo de sempre (teste manual e aprovação antes do merge).
+- Isso só acontece com a IDE aberta: um pedido apagado com a IDE fechada deixa o worktree (tire com
+  `git worktree remove .idetea/worktrees/<nome>`).
+
+Quem espera quem (a fila de cada agente no painel) fica para quando o uso pedir.
+
 ## Comandos que rodam sem confirmar
 
 No config **do usuário** (`~/.config/idetea/config.toml`), uma lista de comandos que não precisam de confirmação:

@@ -1151,6 +1151,15 @@ e grava a resposta do usuário em `.idetea/ui/responses/<nome>/`. Estudo, decis�
       nenhum terminal medido ainda, o primeiro redesenho espremia o terminal novo em umas 10×2 células e a saída
       curta sumia; agora todo terminal novo nasce com um tamanho estimado até o widget medir. O aviso de "rodou sem
       confirmar" sai por último (antes era trocado pelo do pedido que espera).
+- [x] **Um agente pede algo a outro** (RFC 0005, etapa 5): `"worktree": "<branch>"` no pedido de terminal (worktree
+  em `.idetea/worktrees/<nome>`, novo a partir do HEAD ou do branch que já existe; sai ao apagar o pedido se não
+  houver nada por commitar, e o branch fica); `IDETEA_ANSWER` em todo comando (`.idetea/agents/<nome>.answer.md`,
+  na raiz); o status traz `answer`, `worktree` e `branch`. Instruções dos agentes com "Asking another agent and
+  waiting for it" (versão `bf39a976`). Doc: `docs/terminais-de-agente.md`.
+  - [x] Teste manual (aprovado, pelo painel): pedido "Ajudante" com `"worktree": "agente/ajudante"`; a tela mostrou
+    o branch e a pasta; permitido, rodou em `.idetea/worktrees/ajudante` e escreveu a pasta, o branch e o último
+    commit em `IDETEA_ANSWER`; o status `exited` trouxe `answer`, `worktree` e `branch`. Apagado o pedido, o
+    worktree saiu e o branch ficou.
 - [x] **Aba de imagem sempre em dia + schema junto do formato** (lacuna 16): as abas de imagem e PDF conferem
   tamanho e data do arquivo a cada segundo (além do observador) e recarregam quando mudam; o rodapé da aba mostra a
   hora em que o arquivo foi gravado, para conferir qual versão está na tela. A IDE grava também

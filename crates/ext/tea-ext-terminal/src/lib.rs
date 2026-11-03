@@ -11,6 +11,7 @@
 //! Um agente pode pedir um terminal (`agents`): o pedido aparece inteiro no painel e só roda se o usuário permitir.
 
 mod agents;
+mod worktree;
 
 tea_core::i18n_loader!();
 macro_rules! fl {
@@ -48,7 +49,7 @@ const AGENT_SCRIPT: &str = r#"trap true INT
 printf '\033[1m$ %s\033[0m\n' "$1"
 ( eval "$1" )
 c=$?
-printf '{"format":"idetea-terminal-status","version":1,"state":"exited","ide":%s,"code":%s}\n' "$3" "$c" > "$2.tmp" && mv -f "$2.tmp" "$2"
+printf '{"format":"idetea-terminal-status","version":1,"state":"exited","ide":%s,"code":%s%s}\n' "$3" "$c" "$6" > "$2.tmp" && mv -f "$2.tmp" "$2"
 printf '\n\033[2m%s%s%s\033[0m\n' "$4" "$c" "$5"
 read _"#;
 
@@ -320,6 +321,7 @@ impl TerminalExtension {
         // Apagar o pedido é o jeito de o agente encerrar o terminal.
         let gone: Vec<String> = self.handled.keys().chain(self.pending.keys()).filter(|n| !found.contains_key(*n)).cloned().collect();
         for name in gone {
+            let had_worktree = matches!(self.handled.get(&name), Some(Ok(r)) if r.worktree.is_some());
             self.handled.remove(&name);
             removed |= self.pending.remove(&name).is_some();
             if let Some(i) = self.agents.iter().position(|a| a.name == name) {
@@ -330,6 +332,10 @@ impl TerminalExtension {
                     self.shown = Shown::Agent(s - 1);
                 }
                 removed = true;
+            }
+            // O branch fica sempre; o worktree sai se estiver limpo (o git recusa se houver o que commitar).
+            if had_worktree && let Err(e) = worktree::remove(&self.root, &name) {
+                ctx.notify(fl!("agent-worktree-kept", path = worktree::path(&self.root, &name).display().to_string(), error = e));
             }
         }
         let mut asked = None;
@@ -431,10 +437,32 @@ impl TerminalExtension {
         let (before, after) = done.split_once("{code}").unwrap_or((&done, ""));
         let status = agents::status_path(&self.root, &request.name).to_string_lossy().into_owned();
         let pid = std::process::id().to_string();
-        let args = ["-c", AGENT_SCRIPT, "sh", &request.command, &status, &pid, before, after].map(str::to_string).to_vec();
+        // Com worktree: a mesma pasta relativa, dentro da cópia do agente.
+        let cwd = match &request.worktree {
+            None => request.cwd.clone(),
+            Some(branch) => match worktree::ensure(&self.root, &request.name, branch) {
+                Ok(dir) => {
+                    let base = self.root.canonicalize().unwrap_or_else(|_| self.root.clone());
+                    let rel = request.cwd.strip_prefix(&base).map(Path::to_path_buf).unwrap_or_default();
+                    dir.join(rel)
+                }
+                Err(e) => {
+                    let _ = agents::write_status(&self.root, &request.name, &agents::State::Invalid(e.clone()));
+                    ctx.notify(fl!("terminal-task-error", error = e));
+                    return self.after_removal(ctx);
+                }
+            },
+        };
+        let extra = agents::extra(&request.name, request.worktree.as_deref());
+        // O mesmo `extra` no `exited` que o script grava: `,"chave":valor,...` (JSON já escapado).
+        let tail: String = extra.iter().map(|(k, v)| format!(",{}:{v}", serde_json::Value::from(k.as_str()))).collect();
+        let args = ["-c", AGENT_SCRIPT, "sh", &request.command, &status, &pid, before, after, &tail].map(str::to_string).to_vec();
         // `running` antes de subir: o script grava `exited` por cima no fim.
-        let _ = agents::write_status(&self.root, &request.name, &agents::State::Running);
-        match self.new_terminal(self.settings("/bin/sh".into(), args, &request.cwd)) {
+        let _ = agents::write_status_with(&self.root, &request.name, &agents::State::Running, &extra);
+        let mut settings = self.settings("/bin/sh".into(), args, &cwd);
+        let answer = agents::answer_path(&self.root, &request.name).to_string_lossy().into_owned();
+        settings.backend.env.insert("IDETEA_ANSWER".into(), answer);
+        match self.new_terminal(settings) {
             Ok(term) => {
                 self.agents.push(AgentTerm { term, name: request.name, title: request.title });
                 self.shown = Shown::Agent(self.agents.len() - 1);
@@ -475,6 +503,14 @@ impl TerminalExtension {
                 .width(Fill)
                 .style(container::bordered_box),
             text(fl!("agent-request-cwd", cwd = cwd)).size(12),
+        ]
+        .spacing(8)
+        .padding(8);
+        if let Some(branch) = &request.worktree {
+            let path = format!("{}/{}", worktree::DIR, request.name);
+            col = col.push(text(fl!("agent-request-worktree", branch = branch.as_str(), path = path)).size(12));
+        }
+        col = col.push(column![
             text(fl!("agent-request-warning")).size(12).style(text::warning),
             row![
                 button(text(fl!("agent-request-allow")).size(13))
@@ -488,8 +524,7 @@ impl TerminalExtension {
             ]
             .spacing(8),
         ]
-        .spacing(8)
-        .padding(8);
+        .spacing(8));
         if self.pending.len() > 1 {
             let count = self.pending.len() - 1;
             col = col.push(text(fl!("agent-request-more", count = count)).size(12).style(text::secondary));
@@ -950,7 +985,7 @@ mod tests {
 
         // Outra IDE (esta, reaberta) vê um `running` de quem fechou: vira `lost`, sem perguntar.
         put("tres", "echo tres");
-        let doc = agents::status_json(&agents::State::Running, 4_194_400);
+        let doc = agents::status_json(&agents::State::Running, 4_194_400, &serde_json::Map::new());
         std::fs::write(agents::status_path(&root, "tres"), doc).unwrap();
         let _ = ext.update(Message::Requests(agents::scan(&root)), &mut Context::new(&root, None));
         assert_eq!(status(&root, "tres"), "lost");
@@ -994,12 +1029,60 @@ mod tests {
 
     /// O script do agente grava o status `exited` com o código, num JSON que a IDE lê.
     #[test]
+    fn a_helper_runs_in_its_worktree_and_answers_in_a_file() {
+        let root = std::env::temp_dir().join(format!("idetea-agent-worktree-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        std::fs::create_dir_all(root.join(agents::DIR)).unwrap();
+        let git = |args: &[&str]| {
+            assert!(std::process::Command::new("git").args(args).current_dir(&root).output().unwrap().status.success(), "{args:?}");
+        };
+        git(&["init", "-q"]);
+        git(&["-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "--allow-empty", "-m", "início"]);
+        let doc = serde_json::json!({"format": agents::FORMAT, "version": 1, "title": "Ajudante", "worktree": "agente/ajudante",
+                                     "command": "pwd > \"$IDETEA_ANSWER\""});
+        std::fs::write(root.join(agents::DIR).join("ajudante.json"), doc.to_string()).unwrap();
+        let mut ext = TerminalExtension::new();
+        let _ = ext.activate(&mut Context::new(&root, None));
+        let _ = ext.update(Message::Requests(agents::scan(&root)), &mut Context::new(&root, None));
+        let request = ext.pending["ajudante"].clone();
+        assert_eq!(request.worktree.as_deref(), Some("agente/ajudante"));
+        let _ = ext.update(Message::Allow(Box::new(request)), &mut Context::new(&root, None));
+        let dir = worktree::path(&root, "ajudante");
+        assert!(dir.join(".git").exists(), "a IDE criou o worktree");
+        let on_disk: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(agents::status_path(&root, "ajudante")).unwrap()).unwrap();
+        assert_eq!(on_disk["branch"], "agente/ajudante");
+        assert_eq!(on_disk["worktree"], ".idetea/worktrees/ajudante");
+        assert_eq!(on_disk["answer"], ".idetea/agents/ajudante.answer.md");
+        // O comando roda no worktree e escreve a resposta na raiz do projeto.
+        let answer = agents::answer_path(&root, "ajudante");
+        let deadline = std::time::Instant::now() + Duration::from_secs(10);
+        while !answer.exists() && std::time::Instant::now() < deadline {
+            std::thread::sleep(Duration::from_millis(50));
+        }
+        let pwd = std::fs::read_to_string(&answer).unwrap();
+        assert_eq!(Path::new(pwd.trim()).canonicalize().unwrap(), dir.canonicalize().unwrap());
+        // O agente apaga o pedido: o terminal fecha e o worktree (limpo) sai; o branch fica.
+        std::fs::remove_file(root.join(agents::DIR).join("ajudante.json")).unwrap();
+        let _ = ext.update(Message::Requests(agents::scan(&root)), &mut Context::new(&root, None));
+        assert!(ext.agents.is_empty());
+        assert!(!dir.exists());
+        let branches = std::process::Command::new("git").args(["branch", "--list"]).current_dir(&root).output().unwrap();
+        assert!(String::from_utf8_lossy(&branches.stdout).contains("agente/ajudante"));
+        // Um branch que não vale é recusado ao ler.
+        let bad = serde_json::json!({"format": agents::FORMAT, "version": 1, "worktree": "a;b", "command": "true"});
+        std::fs::write(root.join(agents::DIR).join("ruim.json"), bad.to_string()).unwrap();
+        let _ = ext.update(Message::Requests(agents::scan(&root)), &mut Context::new(&root, None));
+        assert_eq!(status(&root, "ruim"), "invalid");
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[test]
     fn agent_script_writes_the_exit_code() {
         let dir = std::env::temp_dir().join(format!("idetea-agent-script-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
         let status = dir.join("x.status.json");
         let out = std::process::Command::new("/bin/sh")
-            .args(["-c", AGENT_SCRIPT, "sh", "echo oi; exit 7", status.to_str().unwrap(), "4321", "[fim: ", "]"])
+            .args(["-c", AGENT_SCRIPT, "sh", "echo oi; exit 7", status.to_str().unwrap(), "4321", "[fim: ", "]", r#","branch":"a/b""#])
             .stdin(std::process::Stdio::null())
             .output()
             .unwrap();
@@ -1010,6 +1093,7 @@ mod tests {
         assert_eq!(v["code"], 7);
         assert_eq!(v["ide"], 4321);
         assert_eq!(v["format"], agents::STATUS_FORMAT);
+        assert_eq!(v["branch"], "a/b", "o script grava os campos extras do status");
         assert!(!dir.join("x.status.json.tmp").exists());
     }
 }

@@ -192,6 +192,12 @@ nada) e o status também com `refused`, `closed`, `invalid` e `lost`. Apagar o p
 
 **[Recomendação]** Não desenhar a coordenação antes de existir a etapa 4 em uso. O batimento pode entrar já.
 
+**Decisões e o que foi feito (pelo painel, 2026-11-03):** esperar a demanda do outro já funcionava com a etapa 4
+(o ajudante é um pedido de terminal, e quem pediu espera o `exited`). Entrou o que faltava: `"worktree": "<branch>"`
+no pedido (worktree em `.idetea/worktrees/<nome>`, que sai ao apagar o pedido se estiver limpo; o branch fica) e a
+resposta num arquivo (`IDETEA_ANSWER`, `.idetea/agents/<nome>.answer.md`). A fila de cada agente no painel fica para
+quando o uso pedir. Detalhes em `docs/terminais-de-agente.md`.
+
 ## 6. Sandbox: OpenShell ou Firecracker
 
 **[Fato]**
