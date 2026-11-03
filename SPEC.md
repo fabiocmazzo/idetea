@@ -1094,6 +1094,17 @@ e grava a resposta do usuário em `.idetea/ui/responses/<nome>/`. Estudo, decis�
   (no `AGENTS.md` e `CLAUDE.md`), primeiro num terminal a mais dentro da IDE, depois Firecracker ou OpenShell; mais
   de um agente, um esperando a demanda do outro ser respondida, e a viabilidade disso; um "idetea-fix" que deixa
   qualquer projeto usável de novo, mesmo perdendo algumas conversas pelo painel.
+  - [x] Análise: [RFC 0005](docs/rfc/0005-agentes-e-projetos.md), aprovada pelo painel com as decisões do fim.
+- [ ] **`idetea-fix` e batimento** (RFC 0005, etapas 1 e 5): "Interfaces: consertar este projeto" e
+  `idetea ui fix` mostram o que ficou para trás (documentos sem dono, respostas não lidas, temporários, `check`,
+  `FORMAT.md` e instruções velhos) e só consertam depois de confirmar; o agente mantém `.idetea/ui/<nome>.wait`
+  enquanto espera, e o painel diz se alguém está esperando.
+- [ ] **Skills** (RFC 0005, etapa 2): conferir onde cada agente lê skills; instalar de um repositório git fixado num
+  commit, com diff antes de atualizar.
+- [ ] **Novo projeto** (RFC 0005, etapa 3): modelos vazio, Rust, Site, Python e FastAPI, cada um um conjunto de
+  skills.
+- [ ] **Terminais de agente** (RFC 0005, etapa 4): abas no terminal; depois um agente pede um terminal por arquivo,
+  e cada pedido é confirmado.
 - [x] **Aba de imagem sempre em dia + schema junto do formato** (lacuna 16): as abas de imagem e PDF conferem
   tamanho e data do arquivo a cada segundo (além do observador) e recarregam quando mudam; o rodapé da aba mostra a
   hora em que o arquivo foi gravado, para conferir qual versão está na tela. A IDE grava também
