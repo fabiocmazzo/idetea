@@ -10,6 +10,11 @@ ui-waiting = { $count ->
    *[other] { $count } responses sent; waiting for the agent to read them.
 }
 ui-received = Response received by the agent.
+ui-agent-waiting = The agent is waiting for the answer.
+ui-agent-stopped = { $minutes ->
+    [0] The agent just stopped waiting: the answer is kept until it looks again.
+   *[other] The agent stopped waiting { $minutes } min ago: the answer is kept until it looks again.
+}
 ui-new = New interface from the agent: { $title }
 ui-updated = Interface updated: { $title }
 ui-open-later = The agent asked to open { $path }: it is in the Interfaces panel (not opened to avoid interrupting your typing).
@@ -28,6 +33,29 @@ ui-cancel = Cancel
 ui-teach-up-to-date = The agent instructions are already up to date.
 ui-teach-done = Instructions written to { $files }.
 ui-teach-failed = Could not write the instructions: { $error }
+cmd-ui-fix = Interfaces: fix this project
+ui-fix-title = Fix this project?
+ui-fix-will = The IDE will:
+ui-fix-wont = Just so you know (left as is):
+ui-fix-button = Fix
+ui-fix-nothing = Nothing to fix in this project's interfaces.
+ui-fix-done = { $count ->
+    [one] Fixed: 1 item.
+   *[other] Fixed: { $count } items.
+}
+ui-fix-failed = Could not fix: { $error }
+ui-fix-hint = To fix the items marked "-": idetea ui fix --apply
+ui-fix-usage = idetea ui fix: unknown argument "{ $arg }" (usage: idetea ui fix [--apply])
+ui-fix-abandoned = delete { $path }: nobody has been waiting for the answer for { $since }
+ui-fix-unread = { $path }: { $count ->
+    [one] 1 answer the agent has not read
+   *[other] { $count } answers the agent has not read
+} (kept; ask the agent to read it, or delete it by hand)
+ui-fix-leftover = delete { $path }: left over from a write or a wait that did not finish
+ui-fix-check = rewrite .idetea/ui/check: it calls { $target }, which no longer exists
+ui-fix-instructions-older = rewrite the instructions in { $file }: they are at version { $found }, older than this IDE's
+ui-fix-instructions-unversioned = rewrite the instructions in { $file }: they are from an old IDE, without the version line
+ui-fix-instructions-newer = { $file } has instructions from a newer IDE ({ $found }): open the project in it (I don't go back)
 ui-outdated = This IDE is outdated (it was rebuilt after it opened): responses tell the agent. Palette: "Restart the IDE".
 ui-audio-failed = Could not play the sound: { $error }
 ui-check-ok = { $file }: ok ({ $count ->

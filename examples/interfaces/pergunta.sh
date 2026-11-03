@@ -48,6 +48,7 @@ wait_response() { # mostra a primeira resposta que chegar e apaga (é a confirma
             rm -- "$f"
             return
         done
+        touch -- "$ui/$name.wait" # avisa o painel que ainda está esperando
         sleep 0.3
     done
 }
@@ -62,5 +63,5 @@ if [ "${1:-}" = revisao ]; then
 fi
 
 sleep 2
-rm -f -- "$ui/$name.json" # fecha a interface
+rm -f -- "$ui/$name.json" "$ui/$name.wait" # fecha a interface
 echo "Interface fechada."

@@ -10,6 +10,11 @@ ui-waiting = { $count ->
    *[other] { $count } respostas enviadas; aguardando o agente ler.
 }
 ui-received = Resposta recebida pelo agente.
+ui-agent-waiting = O agente está esperando a resposta.
+ui-agent-stopped = { $minutes ->
+    [0] O agente acabou de parar de esperar: a resposta fica guardada até ele voltar a olhar.
+   *[other] O agente parou de esperar há { $minutes } min: a resposta fica guardada até ele voltar a olhar.
+}
 ui-new = Nova interface do agente: { $title }
 ui-updated = Interface atualizada: { $title }
 ui-open-later = O agente pediu para abrir { $path }: está no painel Interfaces (não abri para não atrapalhar a digitação).
@@ -28,6 +33,29 @@ ui-cancel = Cancelar
 ui-teach-up-to-date = As instruções para agentes já estão atualizadas.
 ui-teach-done = Instruções gravadas em { $files }.
 ui-teach-failed = Não deu para gravar as instruções: { $error }
+cmd-ui-fix = Interfaces: consertar este projeto
+ui-fix-title = Consertar este projeto?
+ui-fix-will = A IDE vai:
+ui-fix-wont = Só para você saber (não mexo):
+ui-fix-button = Consertar
+ui-fix-nothing = Nada a consertar nas interfaces deste projeto.
+ui-fix-done = { $count ->
+    [one] Consertado: 1 item.
+   *[other] Consertado: { $count } itens.
+}
+ui-fix-failed = Não deu para consertar: { $error }
+ui-fix-hint = Para consertar os itens com "-": idetea ui fix --apply
+ui-fix-usage = idetea ui fix: argumento desconhecido "{ $arg }" (uso: idetea ui fix [--apply])
+ui-fix-abandoned = apagar { $path }: ninguém espera a resposta há { $since }
+ui-fix-unread = { $path }: { $count ->
+    [one] 1 resposta que o agente não leu
+   *[other] { $count } respostas que o agente não leu
+} (fica guardada; peça ao agente para ler, ou apague à mão)
+ui-fix-leftover = apagar { $path }: sobrou de uma escrita ou espera que não terminou
+ui-fix-check = regravar .idetea/ui/check: ele chama { $target }, que não existe mais
+ui-fix-instructions-older = regravar as instruções do { $file }: estão na versão { $found }, mais velha que a desta IDE
+ui-fix-instructions-unversioned = regravar as instruções do { $file }: são de uma IDE antiga, sem a linha de versão
+ui-fix-instructions-newer = { $file } tem instruções de uma IDE mais nova ({ $found }): abra o projeto nela (não volto atrás)
 ui-outdated = Esta IDE está desatualizada (foi recompilada depois de abrir): as respostas avisam o agente. Paleta: "Reiniciar a IDE".
 ui-audio-failed = Não deu para tocar o som: { $error }
 ui-check-ok = { $file }: ok ({ $count ->

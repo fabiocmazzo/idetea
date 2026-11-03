@@ -298,6 +298,7 @@ cli-usage =
       --install-desktop    põe a IDE no menu de aplicativos (com o ícone)
       --uninstall-desktop  tira do menu de aplicativos
       ui check <arquivo.json>…  confere documentos do painel Interfaces (como o painel lê)
+      ui fix [--apply]  mostra (e, com --apply, conserta) o que ficou para trás em .idetea/ui/
       -h, --help     mostra esta ajuda
       -V, --version  mostra a versão
 cli-unknown-option = opção desconhecida ignorada: { $option }

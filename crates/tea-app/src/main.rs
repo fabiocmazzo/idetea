@@ -87,6 +87,17 @@ fn main() -> iced::Result {
                 std::process::exit(2);
             }
         }
+        cli::Cli::UiFix(args) => {
+            tea_core::i18n::init("auto");
+            #[cfg(feature = "ext-ui")]
+            std::process::exit(tea_ext_ui::fix::run(&args, &cwd));
+            #[cfg(not(feature = "ext-ui"))]
+            {
+                let _ = args;
+                eprintln!("idetea: compilada sem a extensão Interfaces (feature ext-ui)");
+                std::process::exit(2);
+            }
+        }
         cli::Cli::InstallDesktop => desktop::run(true),
         cli::Cli::UninstallDesktop => desktop::run(false),
         cli::Cli::Run(mut launch) => {

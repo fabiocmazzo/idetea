@@ -1095,10 +1095,12 @@ e grava a resposta do usuário em `.idetea/ui/responses/<nome>/`. Estudo, decis�
   de um agente, um esperando a demanda do outro ser respondida, e a viabilidade disso; um "idetea-fix" que deixa
   qualquer projeto usável de novo, mesmo perdendo algumas conversas pelo painel.
   - [x] Análise: [RFC 0005](docs/rfc/0005-agentes-e-projetos.md), aprovada pelo painel com as decisões do fim.
-- [ ] **`idetea-fix` e batimento** (RFC 0005, etapas 1 e 5): "Interfaces: consertar este projeto" e
+- [x] **`idetea-fix` e batimento** (RFC 0005, etapas 1 e 5): "Interfaces: consertar este projeto" e
   `idetea ui fix` mostram o que ficou para trás (documentos sem dono, respostas não lidas, temporários, `check`,
   `FORMAT.md` e instruções velhos) e só consertam depois de confirmar; o agente mantém `.idetea/ui/<nome>.wait`
   enquanto espera, e o painel diz se alguém está esperando.
+  - [x] Teste manual: com uma espera em curso, o painel diz "o agente está esperando"; parada, "parou de esperar
+    há N min"; "consertar" lista e apaga o que sobrou, e não apaga a resposta não lida (aprovado, pelo painel).
 - [ ] **Skills** (RFC 0005, etapa 2): conferir onde cada agente lê skills; instalar de um repositório git fixado num
   commit, com diff antes de atualizar.
 - [ ] **Novo projeto** (RFC 0005, etapa 3): modelos vazio, Rust, Site, Python e FastAPI, cada um um conjunto de

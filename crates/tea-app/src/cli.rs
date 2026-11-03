@@ -40,6 +40,8 @@ pub enum Cli {
     UninstallDesktop,
     /// `idetea ui check <arquivo>…`: confere documentos do painel Interfaces e sai (vazio: mostra o uso).
     UiCheck(Vec<PathBuf>),
+    /// `idetea ui fix [--apply]`: mostra (e conserta) o que ficou para trás no projeto da pasta atual.
+    UiFix(Vec<String>),
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -73,6 +75,7 @@ pub fn parse(args: impl IntoIterator<Item = OsString>, cwd: &Path, env_no_splash
         args.next();
         return match args.next() {
             Some(c) if c == "check" => Cli::UiCheck(args.map(PathBuf::from).collect()),
+            Some(c) if c == "fix" => Cli::UiFix(args.map(|a| a.to_string_lossy().into_owned()).collect()),
             _ => Cli::UiCheck(Vec::new()),
         };
     }
@@ -227,6 +230,7 @@ mod tests {
         let ui = |a: &[&str]| parse(a.iter().map(OsString::from), &cwd, false);
         assert_eq!(ui(&["ui", "check", "a.json", ".idetea/ui/b.json"]), Cli::UiCheck(vec!["a.json".into(), ".idetea/ui/b.json".into()]));
         assert_eq!(ui(&["ui"]), Cli::UiCheck(Vec::new()), "sem o check: mostra o uso");
+        assert_eq!(ui(&["ui", "fix", "--apply"]), Cli::UiFix(vec!["--apply".into()]));
         assert!(matches!(ui(&["a.rs", "ui"]), Cli::Run(_)), "só como primeiro argumento");
     }
 

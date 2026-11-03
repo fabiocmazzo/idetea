@@ -34,6 +34,7 @@ Para o agente saber usar o painel, rode **Interfaces: ensinar os agentes deste p
 ├── idetea-ui.schema.json            # o JSON Schema do documento, da mesma versão
 ├── check                            # roda `idetea ui check` com o executável desta IDE
 ├── <nome>.json                      # o documento (escrito pelo agente)
+├── <nome>.wait                      # opcional: o agente toca enquanto espera a resposta
 ├── rascunhos/                       # opcional: arquivos que o agente cria para o usuário editar
 └── responses/<nome>/
     └── 000001-<event>.json          # as respostas (escritas pela IDE)
@@ -361,6 +362,32 @@ Um clique grava `.idetea/ui/responses/<nome>/<seq>-<event>.json`:
   ouviu.
 
 Depois de ler, **apague o arquivo da resposta**. Enquanto ele existir, o painel mostra "aguardando o agente ler".
+
+### Esperar avisando
+
+Enquanto espera, o agente toca `<nome>.wait` a cada segundo. O painel mostra "o agente está esperando a resposta"
+e, quando o arquivo passa de 5 segundos sem mudar, "o agente parou de esperar há N min: a resposta fica guardada
+até ele voltar a olhar". Assim o usuário sabe que a resposta não vai ser lida já. Sem o arquivo, o painel não diz
+nada. Não precisa apagar o `.wait` no fim: a IDE vê pela data, e o "consertar" apaga os que sobram.
+
+```sh
+timeout 600 bash -c 'until ls .idetea/ui/responses/<nome>/*.json >/dev/null 2>&1; do touch .idetea/ui/<nome>.wait; sleep 1; done'
+```
+
+## Consertar o projeto
+
+"Interfaces: consertar este projeto" (paleta) ou `idetea ui fix` na raiz do projeto mostram o que ficou para trás:
+
+- interfaces que ninguém espera (o `.wait` parou há mais de 10 min, ou sem `.wait` e paradas há mais de 24 h), sem
+  resposta por ler: apaga o documento;
+- respostas que o agente não leu: **só avisa**. Nunca apaga: pode ser a única cópia de uma decisão do usuário;
+- `.wait` de uma interface que não existe mais, e temporários `.tmp` com mais de 10 min: apaga;
+- `.idetea/ui/check` chamando um executável que não existe mais: regrava;
+- instruções do `AGENTS.md`/`CLAUDE.md` mais velhas que as desta IDE: regrava (o mesmo que "ensinar"). De uma IDE
+  mais nova: só avisa.
+
+Na IDE, um diálogo lista tudo e só conserta depois do "Consertar". Pela linha de comando, `idetea ui fix` lista
+(`-` para o que conserta, `!` para o que só avisa; saída 1 se há algo) e `idetea ui fix --apply` conserta.
 
 ## Revisões
 

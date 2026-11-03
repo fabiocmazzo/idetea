@@ -4,7 +4,7 @@
 //! `ui/<nome>.json`; a IDE escreve `ui/responses/<nome>/*.json` e o agente apaga cada resposta depois de ler
 //! (é a confirmação). Nada aqui segue symlinks, e nenhum caminho vindo do JSON é usado para abrir arquivo.
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
@@ -314,6 +314,45 @@ fn tracked_files(root: &Path) -> BTreeSet<String> {
     }
 }
 
+/// Um agente esperando a resposta de `<nome>.json` mantém `<nome>.wait` com a data em dia (`touch` a cada
+/// segundo). Mais velho que isto: ele parou de esperar.
+pub const WAIT_FRESH: Duration = Duration::from_secs(5);
+
+/// Se o agente de uma interface espera a resposta, pelo `<nome>.wait`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Wait {
+    /// O agente está esperando (o arquivo foi tocado há pouco).
+    Waiting,
+    /// Parou de esperar há tantos minutos.
+    Stopped { minutes: u64 },
+}
+
+/// Os `<nome>.wait` da pasta, pela data. Sem ocultos, symlinks e nomes inválidos.
+pub fn wait_files(root: &Path) -> BTreeMap<String, SystemTime> {
+    let Ok(entries) = std::fs::read_dir(ui_dir(root)) else { return BTreeMap::new() };
+    entries
+        .flatten()
+        .filter(|e| e.file_type().is_ok_and(|t| t.is_file()))
+        .filter_map(|e| {
+            let file = e.file_name().into_string().ok()?;
+            let name = file.strip_suffix(".wait").filter(|n| valid_name(n))?;
+            Some((name.to_string(), e.metadata().ok()?.modified().ok()?))
+        })
+        .collect()
+}
+
+/// Como está cada agente que usa o `.wait`, agora.
+pub fn waits(root: &Path, now: SystemTime) -> BTreeMap<String, Wait> {
+    wait_files(root)
+        .into_iter()
+        .map(|(name, t)| {
+            let age = now.duration_since(t).unwrap_or_default();
+            let wait = if age < WAIT_FRESH { Wait::Waiting } else { Wait::Stopped { minutes: age.as_secs() / 60 } };
+            (name, wait)
+        })
+        .collect()
+}
+
 /// Assinatura barata da pasta (nomes, tamanhos e datas): se não mudou, não precisa ler de novo.
 /// O que muda quando é preciso ler a pasta de novo: a pasta e as respostas ([`signature`]) e as imagens que os
 /// documentos da última leitura usam (regerar um sprite atualiza o painel).
@@ -337,6 +376,10 @@ pub fn signature(root: &Path) -> Vec<(PathBuf, u64, Option<SystemTime>)> {
     for dir in dirs {
         let Ok(entries) = std::fs::read_dir(&dir) else { continue };
         for e in entries.flatten() {
+            // O `.wait` muda a cada segundo enquanto o agente espera: tem observação própria ([`waits`]).
+            if e.path().extension().is_some_and(|x| x == "wait") {
+                continue;
+            }
             if let Ok(m) = e.metadata() {
                 out.push((e.path(), m.len(), m.modified().ok()));
             }
@@ -480,6 +523,30 @@ mod tests {
         assert!(text.contains(r#"exec '/opt/it'\''s/idetea' ui check "$@""#), "{text}");
         use std::os::unix::fs::PermissionsExt;
         assert_eq!(std::fs::metadata(&script).unwrap().permissions().mode() & 0o777, 0o755);
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn the_wait_file_says_who_is_waiting() {
+        let root = std::env::temp_dir().join(format!("idetea-wait-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        let ui = ui_dir(&root);
+        std::fs::create_dir_all(&ui).unwrap();
+        let ago = |f: &str, secs: u64| {
+            std::fs::write(ui.join(f), "").unwrap();
+            let t = SystemTime::now() - Duration::from_secs(secs);
+            std::fs::File::options().write(true).open(ui.join(f)).unwrap().set_modified(t).unwrap();
+        };
+        ago("agora.wait", 1);
+        ago("parou.wait", 3 * 60 + 5);
+        ago("Ruim.wait", 1); // nome inválido: ignorado
+        let w = waits(&root, SystemTime::now());
+        assert_eq!(w.get("agora"), Some(&Wait::Waiting));
+        assert_eq!(w.get("parou"), Some(&Wait::Stopped { minutes: 3 }));
+        assert_eq!(w.len(), 2);
+        let before = signature(&root);
+        ago("agora.wait", 0);
+        assert_eq!(signature(&root), before, "tocar o .wait não faz ler a pasta de novo");
         let _ = std::fs::remove_dir_all(&root);
     }
 }

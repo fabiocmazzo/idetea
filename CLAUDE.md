@@ -70,9 +70,10 @@ the panel, put every question that needs my answer there, not only in the chat: 
      `"requires": ["/pick", "/what"]` waits for a choice in the gallery and a non-empty input (the panel says what
      is missing).
 2. Wait for the response in `.idetea/ui/responses/<name>/`. Use bash (in zsh, `compgen` does not exist or
-   behaves differently):
+   behaves differently), and touch `<name>.wait` while you wait, so the panel can tell me whether you are still
+   waiting (no need to delete it afterwards):
    ```sh
-   timeout 600 bash -c 'until ls .idetea/ui/responses/<name>/*.json >/dev/null 2>&1; do sleep 1; done'
+   timeout 600 bash -c 'until ls .idetea/ui/responses/<name>/*.json >/dev/null 2>&1; do touch .idetea/ui/<name>.wait; sleep 1; done'
    ```
    Each file is one response:
    `{"action": "ok", "values": {"/option": "b", "/tests": true, "/name": null}, "revision": 1, "seq": 1, ...}`.
@@ -108,5 +109,5 @@ did not find.
 Do not put secrets in the document. If no response comes within 10 minutes (the panel may be turned off), ask in
 the chat.
 
-Instructions version: `c3fa7433`
+Instructions version: `491fe601`
 <!-- idetea-ui:end -->

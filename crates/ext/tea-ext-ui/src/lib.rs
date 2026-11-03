@@ -11,6 +11,7 @@ macro_rules! fl {
 
 mod player;
 pub mod check;
+pub mod fix;
 pub mod store;
 pub mod teach;
 
@@ -39,6 +40,8 @@ const WATCH_INTERVAL: Duration = Duration::from_millis(250);
 pub enum Message {
     /// A pasta como a thread de observação leu.
     Snapshot(Arc<Vec<SurfaceFile>>),
+    /// Os agentes que avisam que esperam (`<nome>.wait`), quando algo muda.
+    Waits(BTreeMap<String, store::Wait>),
     Select(String),
     Ui(String, UiMessage),
     /// Os arquivos da interface já foram salvos: grava a resposta do botão (`interface`, `botão`).
@@ -47,6 +50,10 @@ pub enum Message {
     AskTeach,
     /// Confirmado: grava as instruções.
     Teach,
+    /// Mostra o diálogo de "consertar este projeto".
+    AskFix,
+    /// Confirmado: conserta.
+    Fix,
     /// Olhar o tocador (enquanto um som toca).
     AudioTick,
     /// Relógio dos `sprite` (enquanto um deles anima na interface aberta).
@@ -93,6 +100,8 @@ pub struct UiExtension {
     /// O que o usuário fez com as imagens e os sons, por interface (revisão, caminho → contagem). Vai na resposta
     /// (`media`) e recomeça numa revisão nova.
     seen: BTreeMap<String, (u64, BTreeMap<String, Seen>)>,
+    /// Quem espera a resposta, pelos `<nome>.wait` (sem o arquivo: o agente não avisa, e o painel não diz nada).
+    waits: BTreeMap<String, store::Wait>,
 }
 
 impl UiExtension {
@@ -421,6 +430,44 @@ impl UiExtension {
         }
     }
 
+    /// O que "consertar" faria, num diálogo. O que não se conserta daqui (respostas não lidas, instruções de uma IDE
+    /// mais nova) aparece também, para o usuário saber.
+    fn ask_fix(&self, ctx: &mut Context) {
+        let found = fix::find(&self.root, std::time::SystemTime::now());
+        if found.is_empty() {
+            ctx.notify(fl!("ui-fix-nothing"));
+            return;
+        }
+        let list = |fixable: bool| -> Vec<String> {
+            found.iter().filter(|p| p.fixable() == fixable).map(|p| format!("• {}", p.describe())).collect()
+        };
+        let (will, wont) = (list(true), list(false));
+        let mut detail = String::new();
+        if !will.is_empty() {
+            detail.push_str(&format!("{}\n{}", fl!("ui-fix-will"), will.join("\n")));
+        }
+        if !wont.is_empty() {
+            if !detail.is_empty() {
+                detail.push_str("\n\n");
+            }
+            detail.push_str(&format!("{}\n{}", fl!("ui-fix-wont"), wont.join("\n")));
+        }
+        let mut dialog = Dialog::new(fl!("ui-fix-title"), detail);
+        if !will.is_empty() {
+            dialog = dialog.button(fl!("ui-fix-button"), ButtonKind::Primary, Message::Fix);
+        }
+        ctx.show_dialog(dialog.cancel(fl!("ui-cancel")));
+    }
+
+    fn fix(&self, ctx: &mut Context) {
+        let found = fix::find(&self.root, std::time::SystemTime::now());
+        match fix::apply(&self.root, &found) {
+            Ok(done) if done.is_empty() => ctx.notify(fl!("ui-fix-nothing")),
+            Ok(done) => ctx.notify(fl!("ui-fix-done", count = done.len())),
+            Err(e) => ctx.notify(fl!("ui-fix-failed", error = e.to_string())),
+        }
+    }
+
     fn teach(&self, ctx: &mut Context) {
         // Calcula de novo: o arquivo pode ter mudado enquanto o diálogo estava aberto.
         let result = teach::plan(&self.root, Self::teach_text()).and_then(|plan| teach::apply(&plan).map(|()| plan));
@@ -488,6 +535,15 @@ impl UiExtension {
         if let Some(status) = status {
             out = out.push(text(status).size(12).style(text::secondary));
         }
+        // Sem resposta lida ainda: dizer se o agente continua esperando.
+        let open = !f.pending.is_empty() || !saved.state.locked(doc);
+        match self.waits.get(&f.name) {
+            Some(store::Wait::Waiting) if open => out = out.push(text(fl!("ui-agent-waiting")).size(12).style(text::secondary)),
+            Some(store::Wait::Stopped { minutes }) if open => {
+                out = out.push(text(fl!("ui-agent-stopped", minutes = usize::try_from(*minutes).unwrap_or(usize::MAX))).size(12).style(text::warning).width(Fill));
+            }
+            _ => {}
+        }
         out.into()
     }
 }
@@ -531,6 +587,7 @@ impl Extension for UiExtension {
         ctx.panel_icon(PANEL, Icon::CommentDiscussion);
         ctx.register_command("interfaces.show", fl!("cmd-ui-show"));
         ctx.register_command("interfaces.teach", fl!("cmd-ui-teach"));
+        ctx.register_command("interfaces.fix", fl!("cmd-ui-fix"));
         if let Err(e) = store::prepare(&self.root) {
             self.problem = Some(fl!("ui-prepare-failed", error = e.to_string()));
         }
@@ -552,6 +609,7 @@ impl Extension for UiExtension {
         match command {
             "interfaces.show" => ctx.show_panel(PANEL),
             "interfaces.teach" => self.ask_teach(ctx),
+            "interfaces.fix" => self.ask_fix(ctx),
             _ => {}
         }
         Task::none()
@@ -560,6 +618,7 @@ impl Extension for UiExtension {
     fn update(&mut self, message: Message, ctx: &mut Context) -> Task<Message> {
         match message {
             Message::Snapshot(files) => self.snapshot(files, ctx),
+            Message::Waits(waits) => self.waits = waits,
             Message::Select(name) => self.selected = Some(name),
             Message::Ui(name, UiMessage::Set { path, value }) => {
                 if let Some(saved) = self.saved.get_mut(&name) {
@@ -617,6 +676,8 @@ impl Extension for UiExtension {
             Message::Submit(name, source) => self.submit(&name, &source, ctx),
             Message::AskTeach => self.ask_teach(ctx),
             Message::Teach => self.teach(ctx),
+            Message::AskFix => self.ask_fix(ctx),
+            Message::Fix => self.fix(ctx),
         }
         Task::none()
     }
@@ -707,9 +768,18 @@ fn watch(root: &PathBuf) -> mpsc::UnboundedReceiver<Message> {
         let limits = Limits::default();
         let mut last = None;
         let mut files: Arc<Vec<store::SurfaceFile>> = Arc::new(Vec::new());
+        let mut last_waits = BTreeMap::new();
         loop {
             if tx.is_closed() {
                 return;
+            }
+            // Só manda quando muda: "esperando", ou os minutos desde que parou.
+            let waits = store::waits(&root, std::time::SystemTime::now());
+            if waits != last_waits {
+                last_waits = waits.clone();
+                if tx.unbounded_send(Message::Waits(waits)).is_err() {
+                    return;
+                }
             }
             let now = store::signature_with_media(&root, &files);
             if last.as_ref() != Some(&now) {
