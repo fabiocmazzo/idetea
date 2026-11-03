@@ -1126,6 +1126,15 @@ e grava a resposta do usuário em `.idetea/ui/responses/<nome>/`. Estudo, decis�
       tarefa na própria aba, reiniciar, fechar todos. Dois tropeços do `iced_term` no caminho: o desenho fica
       guardado com a posição na tela (redesenha quando a aba muda) e o tamanho só chega quando o widget mede
       (cada terminal tem estado próprio no widget, e um terminal novo já nasce com o tamanho medido).
+  - [x] **Pedido por arquivo:** `.idetea/agents/<nome>.json` (`command`, `cwd`, `title`, `source`); o pedido aparece
+    inteiro numa aba "Pedido de terminal" com Permitir/Recusar (nada pega o teclado); roda numa aba "Agente: …";
+    status em `<nome>.status.json` (`pending`, `running`, `exited` com o código, `refused`, `closed`, `invalid`,
+    `lost`); apagar o pedido encerra. A tela e o que roda saem da mesma cópia em memória. Instruções dos agentes
+    com a seção nova (versão `8505779b`). Doc: `docs/terminais-de-agente.md`.
+    - [x] Teste manual (aprovado, pelo painel): pedidos `contador` (rodou e fechou com `×` → `closed`), `fora` (`cwd`
+      fora do projeto → `invalid`), `recusar` (`refused`) e `Olá` (`exited` com código 3, depois de reiniciar a IDE:
+      o pedido sem status voltou a ser perguntado). Um pedido já tratado volta a ser perguntado quando o arquivo
+      muda ou o status some.
 - [x] **Aba de imagem sempre em dia + schema junto do formato** (lacuna 16): as abas de imagem e PDF conferem
   tamanho e data do arquivo a cada segundo (além do observador) e recarregam quando mudam; o rodapé da aba mostra a
   hora em que o arquivo foi gravado, para conferir qual versão está na tela. A IDE grava também

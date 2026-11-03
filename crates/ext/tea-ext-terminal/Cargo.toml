@@ -8,3 +8,8 @@ license.workspace = true
 iced.workspace = true
 tea-core.workspace = true
 iced_term = "0.8"
+serde.workspace = true
+serde_json.workspace = true
+
+[dev-dependencies]
+iced_test = "0.14"

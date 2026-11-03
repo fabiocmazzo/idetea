@@ -163,6 +163,11 @@ documento).
 
 **Custo:** abas, médio; pedido por arquivo, médio; os dois juntos são uma RFC própria.
 
+**O que foi feito (2026-11-03):** abas no terminal (aprovado pelo painel); pedido por arquivo como proposto, com a
+confirmação numa aba do próprio painel do terminal (não num diálogo: um Enter digitado em outro lugar não permite
+nada) e o status também com `refused`, `closed`, `invalid` e `lost`. Apagar o pedido encerra o terminal. Detalhes em
+`docs/terminais-de-agente.md`.
+
 ## 5. Vários agentes, um esperando o outro
 
 ### O que já funciona [Fato]

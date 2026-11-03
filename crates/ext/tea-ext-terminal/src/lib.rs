@@ -7,15 +7,22 @@
 //! Tarefas (`CoreEvent::RunTask`) rodam num terminal só delas, ao lado do shell: não digitam por cima do que
 //! estiver rodando nele. No fim, o código de saída aparece e o terminal espera o Enter para fechar; rodar outra
 //! tarefa substitui a anterior. `Ctrl+C` para só o comando (o resto do script continua e mostra o código).
+//!
+//! Um agente pode pedir um terminal (`agents`): o pedido aparece inteiro no painel e só roda se o usuário permitir.
+
+mod agents;
 
 tea_core::i18n_loader!();
 macro_rules! fl {
     ($($t:tt)*) => { tea_core::i18n::fl!(crate::LOADER, $($t)*) };
 }
 
+use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
+use std::time::Duration;
 
-use iced::widget::{button, column, container, keyed_column, row, space, text};
+use iced::futures::channel::mpsc;
+use iced::widget::{button, column, container, keyed_column, row, scrollable, space, text};
 use iced::{Color, Element, Fill, Font, Subscription, Task, Theme};
 use iced_term::actions::Action;
 use iced_term::settings::{BackendSettings, FontSettings, Settings, ThemeSettings};
@@ -35,6 +42,19 @@ c=$?
 printf '\n\033[2m%s%s%s\033[0m\n' "$2" "$c" "$3"
 read _"#;
 
+/// Como o `TASK_SCRIPT`, para o terminal de um agente; antes de mostrar o fim, grava o status `exited` com o código
+/// (`$2` o arquivo, `$3` o pid da IDE) pelo mesmo caminho do temporário. `$4` código `$5` é o texto do fim.
+const AGENT_SCRIPT: &str = r#"trap true INT
+printf '\033[1m$ %s\033[0m\n' "$1"
+( eval "$1" )
+c=$?
+printf '{"format":"idetea-terminal-status","version":1,"state":"exited","ide":%s,"code":%s}\n' "$3" "$c" > "$2.tmp" && mv -f "$2.tmp" "$2"
+printf '\n\033[2m%s%s%s\033[0m\n' "$4" "$c" "$5"
+read _"#;
+
+/// De quanto em quanto tempo olhar a pasta dos pedidos (só `stat`).
+const AGENTS_POLL: Duration = Duration::from_millis(500);
+
 #[derive(Debug, Clone)]
 pub enum Message {
     Term(iced_term::Event),
@@ -46,6 +66,13 @@ pub enum Message {
     CloseTask,
     /// Fecha o terminal na tela (encerra o processo).
     CloseCurrent,
+    /// Os pedidos de terminal na pasta dos agentes (vem quando algo muda).
+    Requests(BTreeMap<String, Result<agents::Request, String>>),
+    ShowAgent(usize),
+    ShowRequest,
+    /// O usuário permitiu este pedido (a cópia que estava na tela).
+    Allow(Box<agents::Request>),
+    Refuse(String),
 }
 
 struct TaskTerm {
@@ -59,17 +86,33 @@ struct Shell {
     number: u32,
 }
 
+/// Um terminal pedido por um agente e permitido pelo usuário.
+struct AgentTerm {
+    term: Terminal,
+    name: String,
+    title: String,
+}
+
 /// O que está na tela.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Shown {
     Shell(usize),
     Task,
+    Agent(usize),
+    /// O pedido de um agente, esperando o usuário.
+    Request,
 }
 
 pub struct TerminalExtension {
     root: PathBuf,
     shells: Vec<Shell>,
     task: Option<TaskTerm>,
+    agents: Vec<AgentTerm>,
+    /// Pedidos esperando o usuário, por nome: o que aparece e o que roda.
+    pending: BTreeMap<String, agents::Request>,
+    /// Pedidos já tratados nesta sessão (ou por outra IDE), com o conteúdo de quando foram tratados. Voltam a valer
+    /// quando o arquivo some, muda (um `invalid` corrigido) ou quando o agente apaga o status.
+    handled: BTreeMap<String, Result<agents::Request, String>>,
     shown: Shown,
     next_id: u64,
     next_number: u32,
@@ -85,6 +128,9 @@ impl Default for TerminalExtension {
             root: PathBuf::new(),
             shells: Vec::new(),
             task: None,
+            agents: Vec::new(),
+            pending: BTreeMap::new(),
+            handled: BTreeMap::new(),
             shown: Shown::Shell(0),
             next_id: 0,
             next_number: 0,
@@ -183,7 +229,22 @@ impl TerminalExtension {
         match self.shown {
             Shown::Task => self.task.as_ref().map(|t| &t.term),
             Shown::Shell(i) => self.shells.get(i).map(|s| &s.term),
+            Shown::Agent(i) => self.agents.get(i).map(|a| &a.term),
+            Shown::Request => None,
         }
+    }
+
+    /// Há algo na tela (um terminal, ou um pedido esperando).
+    fn showing(&self) -> bool {
+        self.current().is_some() || (self.shown == Shown::Request && !self.pending.is_empty())
+    }
+
+    fn all_terms_mut(&mut self) -> impl Iterator<Item = &mut Terminal> + '_ {
+        self.shells
+            .iter_mut()
+            .map(|s| &mut s.term)
+            .chain(self.task.iter_mut().map(|t| &mut t.term))
+            .chain(self.agents.iter_mut().map(|a| &mut a.term))
     }
 
     fn focus_current(&self) -> Task<Message> {
@@ -197,12 +258,16 @@ impl TerminalExtension {
     fn after_removal(&mut self, ctx: &mut Context) -> Task<Message> {
         self.shown = match self.shown {
             Shown::Task if self.task.is_some() => Shown::Task,
+            Shown::Request if !self.pending.is_empty() => Shown::Request,
             Shown::Shell(i) if !self.shells.is_empty() => Shown::Shell(i.min(self.shells.len() - 1)),
+            Shown::Agent(i) if !self.agents.is_empty() => Shown::Agent(i.min(self.agents.len() - 1)),
+            _ if !self.pending.is_empty() => Shown::Request,
             _ if !self.shells.is_empty() => Shown::Shell(self.shells.len() - 1),
+            _ if !self.agents.is_empty() => Shown::Agent(self.agents.len() - 1),
             _ if self.task.is_some() => Shown::Task,
             _ => Shown::Shell(0),
         };
-        if self.current().is_none() {
+        if !self.showing() {
             ctx.hide_panel(PANEL);
             return Task::none();
         }
@@ -216,9 +281,181 @@ impl TerminalExtension {
             Shown::Shell(i) if i < self.shells.len() => {
                 self.shells.remove(i);
             }
-            Shown::Shell(_) => {}
+            Shown::Agent(i) if i < self.agents.len() => {
+                let agent = self.agents.remove(i);
+                // Fechado antes do fim: quem pediu fica sabendo.
+                if agents::read_status(&self.root, &agent.name).is_some_and(|d| d.state == "running") {
+                    let _ = agents::write_status(&self.root, &agent.name, &agents::State::Closed);
+                }
+            }
+            Shown::Shell(_) | Shown::Agent(_) | Shown::Request => {}
         }
         self.after_removal(ctx)
+    }
+
+    /// Os pedidos mudaram na pasta: os que sumiram encerram o terminal (ou deixam de esperar); os novos aparecem.
+    fn requests(&mut self, found: BTreeMap<String, Result<agents::Request, String>>, ctx: &mut Context) -> Task<Message> {
+        agents::ensure_gitignore(&self.root);
+        let ours = std::process::id();
+        let mut removed = false;
+        // Apagar o pedido é o jeito de o agente encerrar o terminal.
+        let gone: Vec<String> = self.handled.keys().chain(self.pending.keys()).filter(|n| !found.contains_key(*n)).cloned().collect();
+        for name in gone {
+            self.handled.remove(&name);
+            removed |= self.pending.remove(&name).is_some();
+            if let Some(i) = self.agents.iter().position(|a| a.name == name) {
+                self.agents.remove(i);
+                if let Shown::Agent(s) = self.shown
+                    && s > i
+                {
+                    self.shown = Shown::Agent(s - 1);
+                }
+                removed = true;
+            }
+        }
+        let mut asked = None;
+        for (name, request) in found {
+            // Já tratado: só volta se o pedido mudou ou o status sumiu (e não está rodando aqui).
+            let again = match self.handled.get(&name) {
+                None => false,
+                Some(before) => {
+                    let running_here = self.agents.iter().any(|a| a.name == name);
+                    let status_gone = agents::read_status(&self.root, &name).is_none();
+                    if running_here || (*before == request && !status_gone) {
+                        continue;
+                    }
+                    self.handled.remove(&name);
+                    true
+                }
+            };
+            let waiting = self.pending.contains_key(&name);
+            if !waiting {
+                let disk = agents::read_status(&self.root, &name);
+                let decision = if again && !agents::owned_by_other(disk.as_ref(), ours) {
+                    agents::Decision::Ask
+                } else {
+                    agents::decide(disk.as_ref(), ours)
+                };
+                match decision {
+                    agents::Decision::Ask => {}
+                    agents::Decision::Leave => {
+                        self.handled.insert(name, request);
+                        continue;
+                    }
+                    agents::Decision::Lost => {
+                        let _ = agents::write_status(&self.root, &name, &agents::State::Lost);
+                        self.handled.insert(name, request);
+                        continue;
+                    }
+                }
+            }
+            match request {
+                Err(error) => {
+                    removed |= self.pending.remove(&name).is_some();
+                    let _ = agents::write_status(&self.root, &name, &agents::State::Invalid(error.clone()));
+                    self.handled.insert(name, Err(error));
+                }
+                // Regravado enquanto espera: a tela mostra a versão nova (é ela que roda).
+                Ok(request) if waiting => {
+                    if self.pending.get(&name) != Some(&request) {
+                        self.pending.insert(name, request);
+                    }
+                }
+                Ok(request) => {
+                    let _ = agents::write_status(&self.root, &name, &agents::State::Pending);
+                    asked.get_or_insert_with(|| request.title.clone());
+                    self.pending.insert(name, request);
+                }
+            }
+        }
+        if let Some(title) = asked {
+            ctx.notify(fl!("agent-request-notify", title = title));
+            self.shown = Shown::Request;
+            ctx.show_panel(PANEL);
+            return Task::none();
+        }
+        if removed || (self.shown == Shown::Request && self.pending.is_empty()) {
+            return self.after_removal(ctx);
+        }
+        Task::none()
+    }
+
+    /// Roda o pedido permitido, se a cópia na tela ainda é a que espera.
+    fn allow(&mut self, request: agents::Request, ctx: &mut Context) -> Task<Message> {
+        if self.pending.get(&request.name) != Some(&request) {
+            return Task::none();
+        }
+        self.pending.remove(&request.name);
+        self.handled.insert(request.name.clone(), Ok(request.clone()));
+        self.next_id += 1;
+        let done = fl!("agent-done", code = "{code}");
+        let (before, after) = done.split_once("{code}").unwrap_or((&done, ""));
+        let status = agents::status_path(&self.root, &request.name).to_string_lossy().into_owned();
+        let pid = std::process::id().to_string();
+        let args = ["-c", AGENT_SCRIPT, "sh", &request.command, &status, &pid, before, after].map(str::to_string).to_vec();
+        // `running` antes de subir: o script grava `exited` por cima no fim.
+        let _ = agents::write_status(&self.root, &request.name, &agents::State::Running);
+        match self.new_terminal(self.settings("/bin/sh".into(), args, &request.cwd)) {
+            Ok(term) => {
+                self.agents.push(AgentTerm { term, name: request.name, title: request.title });
+                self.shown = Shown::Agent(self.agents.len() - 1);
+                ctx.show_panel(PANEL);
+                self.focus_current()
+            }
+            Err(e) => {
+                let _ = agents::write_status(&self.root, &request.name, &agents::State::Invalid(e.to_string()));
+                ctx.notify(fl!("terminal-task-error", error = e.to_string()));
+                self.after_removal(ctx)
+            }
+        }
+    }
+
+    fn refuse(&mut self, name: &str, ctx: &mut Context) -> Task<Message> {
+        if let Some(request) = self.pending.remove(name) {
+            let _ = agents::write_status(&self.root, name, &agents::State::Refused);
+            self.handled.insert(name.to_string(), Ok(request));
+        }
+        self.after_removal(ctx)
+    }
+
+    /// A tela do pedido: tudo o que vai rodar, e os dois botões.
+    fn request_view(&self) -> Element<'_, Message> {
+        let Some(request) = self.pending.values().next() else { return space::vertical().into() };
+        let who = request.source.as_deref().map_or_else(|| fl!("agent-request-someone"), str::to_string);
+        let cwd = request
+            .cwd
+            .strip_prefix(self.root.canonicalize().unwrap_or_else(|_| self.root.clone()))
+            .ok()
+            .map(|p| if p.as_os_str().is_empty() { ".".to_string() } else { p.display().to_string() })
+            .unwrap_or_else(|| request.cwd.display().to_string());
+        let mut col = column![
+            text(fl!("agent-request-title", who = who, title = request.title.as_str())).size(14),
+            text(fl!("agent-request-command")).size(12).style(text::secondary),
+            container(text(request.command.as_str()).font(Font::MONOSPACE).size(13))
+                .padding(8)
+                .width(Fill)
+                .style(container::bordered_box),
+            text(fl!("agent-request-cwd", cwd = cwd)).size(12),
+            text(fl!("agent-request-warning")).size(12).style(text::warning),
+            row![
+                button(text(fl!("agent-request-allow")).size(13))
+                    .on_press(Message::Allow(Box::new(request.clone())))
+                    .padding([3, 12])
+                    .style(button::primary),
+                button(text(fl!("agent-request-refuse")).size(13))
+                    .on_press(Message::Refuse(request.name.clone()))
+                    .padding([3, 12])
+                    .style(button::secondary),
+            ]
+            .spacing(8),
+        ]
+        .spacing(8)
+        .padding(8);
+        if self.pending.len() > 1 {
+            let count = self.pending.len() - 1;
+            col = col.push(text(fl!("agent-request-more", count = count)).size(12).style(text::secondary));
+        }
+        scrollable(col).height(Fill).into()
     }
 
     /// Mostra um shell (abre um, se não houver) e pega o teclado.
@@ -246,7 +483,7 @@ impl TerminalExtension {
 
     /// O que muda o lugar do terminal na tela: qual está à vista e se há barra de abas.
     fn layout(&self) -> (Shown, bool) {
-        (self.shown, self.current().is_some())
+        (self.shown, self.showing())
     }
 
     /// O `iced_term` guarda o desenho com a posição na tela dentro; quando a barra aparece ou some, ou outra aba
@@ -257,8 +494,7 @@ impl TerminalExtension {
             return;
         }
         let font = self.font();
-        let terms = self.shells.iter_mut().map(|s| &mut s.term).chain(self.task.iter_mut().map(|t| &mut t.term));
-        for term in terms {
+        for term in self.all_terms_mut() {
             term.handle(iced_term::Command::ChangeFont(font.clone()));
         }
     }
@@ -266,8 +502,10 @@ impl TerminalExtension {
     fn on_event_inner(&mut self, event: &CoreEvent, ctx: &mut Context) -> Task<Message> {
         // Aberto pela barra de ícones: já sobe o shell e pega o teclado.
         if let CoreEvent::PanelShown(_) = event {
-            if self.current().is_none() {
-                if !self.shells.is_empty() {
+            if !self.showing() {
+                if !self.pending.is_empty() {
+                    self.shown = Shown::Request;
+                } else if !self.shells.is_empty() {
                     self.shown = Shown::Shell(self.shells.len() - 1);
                 } else if self.task.is_some() {
                     self.shown = Shown::Task;
@@ -284,8 +522,7 @@ impl TerminalExtension {
             self.theme = theme.clone();
             self.font_size = *font_size;
             let font = self.font();
-            let terms = self.shells.iter_mut().map(|s| &mut s.term).chain(self.task.iter_mut().map(|t| &mut t.term));
-            for term in terms {
+            for term in self.all_terms_mut() {
                 term.handle(iced_term::Command::ChangeTheme(Box::new(palette_for(theme))));
                 term.handle(iced_term::Command::ChangeFont(font.clone()));
             }
@@ -340,6 +577,20 @@ impl TerminalExtension {
                 return self.after_removal(ctx);
             }
             Message::CloseCurrent => return self.close_current(ctx),
+            Message::Requests(found) => return self.requests(found, ctx),
+            Message::ShowAgent(i) => {
+                if i < self.agents.len() {
+                    self.shown = Shown::Agent(i);
+                }
+                return self.focus_current();
+            }
+            Message::ShowRequest => {
+                if !self.pending.is_empty() {
+                    self.shown = Shown::Request;
+                }
+            }
+            Message::Allow(request) => return self.allow(*request, ctx),
+            Message::Refuse(name) => return self.refuse(&name, ctx),
             Message::Term(iced_term::Event::BackendCall(id, cmd)) => {
                 if let iced_term::BackendCommand::Resize(Some(size), _) = &cmd {
                     self.size = Some(*size);
@@ -348,6 +599,19 @@ impl TerminalExtension {
                     // A tarefa terminou e o Enter fechou: volta para um shell.
                     if task.term.handle(iced_term::Command::ProxyToBackend(cmd)) == Action::Shutdown {
                         self.task = None;
+                        return self.after_removal(ctx);
+                    }
+                    return Task::none();
+                }
+                if let Some(i) = self.agents.iter().position(|a| a.term.id == id) {
+                    // Terminou e o Enter fechou (o script já gravou o código no status).
+                    if self.agents[i].term.handle(iced_term::Command::ProxyToBackend(cmd)) == Action::Shutdown {
+                        self.agents.remove(i);
+                        if let Shown::Agent(s) = self.shown
+                            && s > i
+                        {
+                            self.shown = Shown::Agent(s - 1);
+                        }
                         return self.after_removal(ctx);
                     }
                     return Task::none();
@@ -413,6 +677,7 @@ impl Extension for TerminalExtension {
 
     fn view(&self, _panel: PanelId) -> Element<'_, Message> {
         let body: Element<'_, Message> = match self.current() {
+            None if self.showing() => self.request_view(),
             // Com chave: cada terminal tem o próprio estado no widget (o tamanho que já avisou ao shell). Sem ela,
             // o terminal que entra herdava o tamanho do anterior e nunca recebia o seu.
             Some(term) => keyed_column([(term.id, TerminalView::show(term).map(Message::Term))]).height(Fill).into(),
@@ -428,7 +693,7 @@ impl Extension for TerminalExtension {
             .into(),
         };
         // Sem terminal: só o botão de iniciar. Com um ou mais, a barra (o `+` fica sempre à mão).
-        if self.current().is_none() {
+        if !self.showing() {
             return body;
         }
         let tab = |label: String, on: bool, msg: Message| -> Element<'_, Message> {
@@ -441,17 +706,60 @@ impl Extension for TerminalExtension {
         if let Some(task) = &self.task {
             bar = bar.push(tab(fl!("terminal-tab-task", name = task.name.as_str()), self.shown == Shown::Task, Message::ShowTask));
         }
+        for (i, a) in self.agents.iter().enumerate() {
+            bar = bar.push(tab(fl!("terminal-tab-agent", title = a.title.as_str()), self.shown == Shown::Agent(i), Message::ShowAgent(i)));
+        }
+        if !self.pending.is_empty() {
+            let on = self.shown == Shown::Request;
+            bar = bar.push(
+                button(text(fl!("terminal-tab-request", count = self.pending.len())).size(12))
+                    .on_press(Message::ShowRequest)
+                    .padding([2, 10])
+                    .style(if on { button::primary } else { button::secondary }),
+            );
+        }
         bar = bar.push(icons::icon_button(Icon::Add, fl!("cmd-terminal-new"), Some(Message::Start)));
         bar = bar.push(space::horizontal());
-        let close = if self.shown == Shown::Task { fl!("terminal-close-task") } else { fl!("terminal-close") };
-        bar = bar.push(icons::icon_button(Icon::Close, close, Some(Message::CloseCurrent)));
+        // O pedido se recusa pelo botão dele, não pelo ×.
+        if self.shown != Shown::Request {
+            let close = if self.shown == Shown::Task { fl!("terminal-close-task") } else { fl!("terminal-close") };
+            bar = bar.push(icons::icon_button(Icon::Close, close, Some(Message::CloseCurrent)));
+        }
         column![bar, body].spacing(2).into()
     }
 
     fn subscription(&self) -> Subscription<Message> {
-        let terms = self.shells.iter().map(|s| &s.term).chain(self.task.iter().map(|t| &t.term));
-        Subscription::batch(terms.map(|t| t.subscription().map(Message::Term)))
+        let terms = self.shells.iter().map(|s| &s.term).chain(self.task.iter().map(|t| &t.term)).chain(self.agents.iter().map(|a| &a.term));
+        let mut subs: Vec<Subscription<Message>> = terms.map(|t| t.subscription().map(Message::Term)).collect();
+        if !self.root.as_os_str().is_empty() {
+            subs.push(Subscription::run_with(self.root.clone(), watch_requests));
+        }
+        Subscription::batch(subs)
     }
+}
+
+/// Olha a pasta dos pedidos (só `stat`); quando algo muda, lê tudo e manda. Termina quando a subscription some.
+#[allow(clippy::ptr_arg)] // `Subscription::run_with` exige `fn(&D)` com o mesmo tipo dos dados.
+fn watch_requests(root: &PathBuf) -> mpsc::UnboundedReceiver<Message> {
+    let (tx, rx) = mpsc::unbounded();
+    let root = root.clone();
+    std::thread::spawn(move || {
+        let mut last = None;
+        loop {
+            if tx.is_closed() {
+                return;
+            }
+            let now = agents::signature(&root);
+            if last.as_ref() != Some(&now) {
+                last = Some(now);
+                if tx.unbounded_send(Message::Requests(agents::scan(&root))).is_err() {
+                    return;
+                }
+            }
+            std::thread::sleep(AGENTS_POLL);
+        }
+    });
+    rx
 }
 
 fn hex(c: Color) -> String {
@@ -513,5 +821,139 @@ mod tests {
         assert!(text.contains("$ X=oi; echo $X && exit 3"), "{text}");
         assert!(text.contains("oi\n"), "{text}");
         assert!(text.contains("[fim: 3]"), "{text}");
+    }
+
+    fn status(root: &Path, name: &str) -> String {
+        agents::read_status(root, name).map(|d| d.state).unwrap_or_default()
+    }
+
+    /// Pedido chega, espera o usuário (status `pending`), é recusado ou permitido; apagar o pedido encerra o terminal;
+    /// um pedido regravado enquanto espera troca o que aparece, e a cópia velha na tela não roda mais.
+    #[test]
+    fn agent_requests_wait_for_the_user() {
+        let root = std::env::temp_dir().join(format!("idetea-agent-flow-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        std::fs::create_dir_all(root.join(agents::DIR)).unwrap();
+        let put = |name: &str, command: &str| {
+            let doc = serde_json::json!({"format": agents::FORMAT, "version": 1, "title": name, "command": command});
+            std::fs::write(root.join(agents::DIR).join(format!("{name}.json")), doc.to_string()).unwrap();
+        };
+        let mut ext = TerminalExtension::new();
+        let _ = ext.activate(&mut Context::new(&root, None));
+
+        put("um", "echo um");
+        put("dois", "echo dois");
+        let _ = ext.update(Message::Requests(agents::scan(&root)), &mut Context::new(&root, None));
+        assert_eq!(ext.shown, Shown::Request);
+        assert_eq!(ext.pending.len(), 2);
+        assert_eq!((status(&root, "um"), status(&root, "dois")), ("pending".into(), "pending".into()));
+        assert!(root.join(agents::DIR).join(".gitignore").exists());
+
+        // Recusado: não volta a perguntar enquanto o arquivo existir.
+        let _ = ext.update(Message::Refuse("dois".into()), &mut Context::new(&root, None));
+        assert_eq!(status(&root, "dois"), "refused");
+        let _ = ext.update(Message::Requests(agents::scan(&root)), &mut Context::new(&root, None));
+        assert_eq!(ext.pending.keys().collect::<Vec<_>>(), ["um"]);
+
+        // Regravado enquanto espera: a cópia antiga (a que estava na tela) não roda.
+        let old = ext.pending["um"].clone();
+        put("um", "echo outro");
+        let _ = ext.update(Message::Requests(agents::scan(&root)), &mut Context::new(&root, None));
+        assert_eq!(ext.pending["um"].command, "echo outro");
+        let _ = ext.update(Message::Allow(Box::new(old)), &mut Context::new(&root, None));
+        assert!(ext.agents.is_empty());
+        assert_eq!(status(&root, "um"), "pending");
+
+        let new = ext.pending["um"].clone();
+        let _ = ext.update(Message::Allow(Box::new(new)), &mut Context::new(&root, None));
+        assert_eq!(ext.agents.len(), 1);
+        assert_eq!(ext.shown, Shown::Agent(0));
+        assert!(ext.pending.is_empty());
+
+        // O agente apaga o pedido: o terminal fecha.
+        std::fs::remove_file(root.join(agents::DIR).join("um.json")).unwrap();
+        let _ = ext.update(Message::Requests(agents::scan(&root)), &mut Context::new(&root, None));
+        assert!(ext.agents.is_empty());
+
+        // Pedido recusado e regravado igual, sem a IDE ver o arquivo sumir: apagar o status basta para perguntar de novo.
+        assert_eq!(status(&root, "dois"), "refused");
+        std::fs::remove_file(agents::status_path(&root, "dois")).unwrap();
+        let _ = ext.update(Message::Requests(agents::scan(&root)), &mut Context::new(&root, None));
+        assert!(ext.pending.contains_key("dois"));
+        assert_eq!(status(&root, "dois"), "pending");
+        let _ = ext.update(Message::Refuse("dois".into()), &mut Context::new(&root, None));
+
+        // Um `invalid` corrigido (regravado, sem apagar o status) é perguntado.
+        put("quatro", "");
+        let _ = ext.update(Message::Requests(agents::scan(&root)), &mut Context::new(&root, None));
+        assert_eq!(status(&root, "quatro"), "invalid");
+        put("quatro", "echo quatro");
+        let _ = ext.update(Message::Requests(agents::scan(&root)), &mut Context::new(&root, None));
+        assert_eq!(status(&root, "quatro"), "pending");
+        let _ = ext.update(Message::Refuse("quatro".into()), &mut Context::new(&root, None));
+
+        // Outra IDE (esta, reaberta) vê um `running` de quem fechou: vira `lost`, sem perguntar.
+        put("tres", "echo tres");
+        let doc = agents::status_json(&agents::State::Running, 4_194_400);
+        std::fs::write(agents::status_path(&root, "tres"), doc).unwrap();
+        let _ = ext.update(Message::Requests(agents::scan(&root)), &mut Context::new(&root, None));
+        assert_eq!(status(&root, "tres"), "lost");
+        assert!(ext.pending.is_empty());
+        // Sem mudança, uma nova olhada não pergunta nada de novo.
+        let _ = ext.update(Message::Requests(agents::scan(&root)), &mut Context::new(&root, None));
+        assert!(ext.pending.is_empty());
+    }
+
+    /// Clicar na tela do pedido: "Permitir" roda o pedido que está na tela, "Recusar" recusa esse mesmo.
+    #[test]
+    fn the_buttons_act_on_the_request_on_screen() {
+        let root = std::env::temp_dir().join(format!("idetea-agent-click-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        std::fs::create_dir_all(root.join(agents::DIR)).unwrap();
+        for name in ["ola", "recusar"] {
+            let doc = serde_json::json!({"format": agents::FORMAT, "version": 1, "title": name, "command": "true"});
+            std::fs::write(root.join(agents::DIR).join(format!("{name}.json")), doc.to_string()).unwrap();
+        }
+        let mut ext = TerminalExtension::new();
+        let _ = ext.activate(&mut Context::new(&root, None));
+        let _ = ext.update(Message::Requests(agents::scan(&root)), &mut Context::new(&root, None));
+
+        let click = |ext: &TerminalExtension, label: String| -> Vec<Message> {
+            let mut ui = iced_test::simulator(ext.view(PANEL));
+            ui.click(label.as_str()).unwrap();
+            ui.into_messages().collect()
+        };
+        let msgs = click(&ext, fl!("agent-request-allow"));
+        assert!(matches!(msgs.as_slice(), [Message::Allow(r)] if r.name == "ola"), "{msgs:?}");
+        for m in msgs {
+            let _ = ext.update(m, &mut Context::new(&root, None));
+        }
+        // `true` termina logo: o script pode já ter gravado `exited`.
+        assert!(["running", "exited"].contains(&status(&root, "ola").as_str()));
+
+        let _ = ext.update(Message::ShowRequest, &mut Context::new(&root, None));
+        let msgs = click(&ext, fl!("agent-request-refuse"));
+        assert!(matches!(msgs.as_slice(), [Message::Refuse(n)] if n == "recusar"), "{msgs:?}");
+    }
+
+    /// O script do agente grava o status `exited` com o código, num JSON que a IDE lê.
+    #[test]
+    fn agent_script_writes_the_exit_code() {
+        let dir = std::env::temp_dir().join(format!("idetea-agent-script-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let status = dir.join("x.status.json");
+        let out = std::process::Command::new("/bin/sh")
+            .args(["-c", AGENT_SCRIPT, "sh", "echo oi; exit 7", status.to_str().unwrap(), "4321", "[fim: ", "]"])
+            .stdin(std::process::Stdio::null())
+            .output()
+            .unwrap();
+        let text = String::from_utf8_lossy(&out.stdout);
+        assert!(text.contains("oi\n") && text.contains("[fim: 7]"), "{text}");
+        let v: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(&status).unwrap()).unwrap();
+        assert_eq!(v["state"], "exited");
+        assert_eq!(v["code"], 7);
+        assert_eq!(v["ide"], 4321);
+        assert_eq!(v["format"], agents::STATUS_FORMAT);
+        assert!(!dir.join("x.status.json.tmp").exists());
     }
 }

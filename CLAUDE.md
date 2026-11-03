@@ -109,5 +109,26 @@ did not find.
 Do not put secrets in the document. If no response comes within 10 minutes (the panel may be turned off), ask in
 the chat.
 
-Instructions version: `491fe601`
+### Running a command in an IDE terminal
+
+To run something I should be able to watch and type into (another agent, a dev server, an interactive tool), ask
+the IDE for a terminal instead of running it in the background. I confirm every request, seeing the whole command.
+
+1. Write `.idetea/agents/<name>.json` (same name rules; temporary file and `mv`, as above):
+   ```json
+   {"format": "idetea-terminal", "version": 1, "title": "Reviewer", "source": "<your name>",
+    "command": "claude 'review the last commit'", "cwd": "."}
+   ```
+   `command` runs with `/bin/sh -c` (`&&`, pipes and variables work); `cwd` is relative to the project root
+   (default: the root) and must stay inside it.
+2. The IDE writes `.idetea/agents/<name>.status.json`: `{"state": "pending", ...}` while I decide, then `running`,
+   and at the end `exited` with `"code": <exit code>`. Other states: `refused` (I said no), `closed` (I closed the
+   tab before it ended), `invalid` (with `"error"`: fix the request and write it again) and `lost` (the IDE closed
+   while it ran). Wait with the same kind of loop, checking `state`; there is no `.wait` file here.
+3. Deleting the request file stops the terminal. When you are done, delete the request and then the status.
+   To ask again with the same name, delete both first.
+
+Never put secrets in the command: I see it on screen, and it stays in the file.
+
+Instructions version: `8505779b`
 <!-- idetea-ui:end -->

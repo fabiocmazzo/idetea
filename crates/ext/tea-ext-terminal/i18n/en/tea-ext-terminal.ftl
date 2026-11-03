@@ -14,3 +14,23 @@ terminal-tab-n = Terminal { $number }
 terminal-close = Close the terminal
 terminal-tab-task = Task: { $name }
 terminal-close-task = Close task
+
+## Terminais pedidos por agentes
+terminal-tab-agent = Agent: { $title }
+terminal-tab-request = { $count ->
+    [one] Terminal request
+   *[other] { $count } terminal requests
+}
+agent-request-notify = An agent asks for a terminal: { $title }. See the terminal panel.
+agent-request-someone = An agent
+agent-request-title = { $who } asks for a terminal: { $title }
+agent-request-command = Command (runs exactly this):
+agent-request-cwd = In the folder: { $cwd }
+agent-request-warning = It runs with your permissions, as if you typed it. Only allow what you recognize.
+agent-request-allow = Allow and run
+agent-request-refuse = Refuse
+agent-request-more = { $count ->
+    [one] One more request after this one.
+   *[other] { $count } more requests after this one.
+}
+agent-done = Finished with code { $code }. Enter closes the tab.
