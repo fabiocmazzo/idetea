@@ -246,9 +246,10 @@ arrastar painéis, encodings além de UTF-8.
 - [x] Extensão `problems` (painel inferior) + contagem de erros/avisos na barra de status.
 - [x] Teste manual do LSP na tela (hover, menu de autocomplete, Ctrl+Clique): aprovado.
 - [x] Extensão `terminal` (painel inferior, crate `iced_term` = `alacritty_terminal` + widget iced):
-      `Ctrl+Shift+T` abre e foca, "Terminal: reiniciar o shell". Usa `$SHELL` na pasta do projeto,
+      `Ctrl+Shift+T` abre e foca, "Terminal: novo terminal" (aba nova), "Terminal: fechar o terminal",
+      "Terminal: reiniciar o shell". Usa `$SHELL` na pasta do projeto,
       cores e fonte seguem o tema. O shell só sobe na primeira vez que o painel abre (não pesa no boot).
-      Digitar `exit` fecha o painel.
+      Digitar `exit` fecha a aba; sem nenhuma, o painel se esconde.
 - [x] Teste manual do terminal na tela: aprovado.
 
 #### Decisões do terminal
@@ -1117,6 +1118,14 @@ e grava a resposta do usuário em `.idetea/ui/responses/<nome>/`. Estudo, decis�
     tem arquivos é recusada.
 - [ ] **Terminais de agente** (RFC 0005, etapa 4): abas no terminal; depois um agente pede um terminal por arquivo,
   e cada pedido é confirmado.
+  - [x] **Abas no terminal:** vários shells no painel, "Terminal 1", "Terminal 2"… ao lado da aba da tarefa; `+` abre
+    outro, `×` fecha o da tela (encerra o processo); `exit` fecha a aba e mostra a vizinha; sem nenhuma, o painel
+    se esconde. A barra aparece já com um shell (o `+` sempre à mão). "Terminal: reiniciar o shell" troca o da tela
+    por um novo, na mesma aba.
+    - [x] Teste manual (aprovado, pelo painel): abrir vários com `+` e pela paleta, trocar, fechar com `×` e `exit`,
+      tarefa na própria aba, reiniciar, fechar todos. Dois tropeços do `iced_term` no caminho: o desenho fica
+      guardado com a posição na tela (redesenha quando a aba muda) e o tamanho só chega quando o widget mede
+      (cada terminal tem estado próprio no widget, e um terminal novo já nasce com o tamanho medido).
 - [x] **Aba de imagem sempre em dia + schema junto do formato** (lacuna 16): as abas de imagem e PDF conferem
   tamanho e data do arquivo a cada segundo (além do observador) e recarregam quando mudam; o rodapé da aba mostra a
   hora em que o arquivo foi gravado, para conferir qual versão está na tela. A IDE grava também

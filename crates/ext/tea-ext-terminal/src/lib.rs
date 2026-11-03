@@ -15,12 +15,12 @@ macro_rules! fl {
 
 use std::path::{Path, PathBuf};
 
-use iced::widget::{button, column, container, row, space, text};
+use iced::widget::{button, column, container, keyed_column, row, space, text};
 use iced::{Color, Element, Fill, Font, Subscription, Task, Theme};
 use iced_term::actions::Action;
 use iced_term::settings::{BackendSettings, FontSettings, Settings, ThemeSettings};
 use iced_term::{ColorPalette, Terminal, TerminalView};
-use tea_core::icons::Icon;
+use tea_core::icons::{self, Icon};
 use tea_core::{Context, CoreEvent, Extension, PanelId, Slot};
 
 const PANEL: PanelId = PanelId("terminal");
@@ -38,10 +38,14 @@ read _"#;
 #[derive(Debug, Clone)]
 pub enum Message {
     Term(iced_term::Event),
+    /// Abre um shell novo (numa aba nova).
     Start,
-    ShowShell,
+    /// Mostra o shell da aba `n` (posição na lista).
+    ShowShell(usize),
     ShowTask,
     CloseTask,
+    /// Fecha o terminal na tela (encerra o processo).
+    CloseCurrent,
 }
 
 struct TaskTerm {
@@ -49,13 +53,28 @@ struct TaskTerm {
     name: String,
 }
 
+/// Um shell numa aba: o número fica o mesmo enquanto a aba existir ("Terminal 2").
+struct Shell {
+    term: Terminal,
+    number: u32,
+}
+
+/// O que está na tela.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Shown {
+    Shell(usize),
+    Task,
+}
+
 pub struct TerminalExtension {
     root: PathBuf,
-    shell: Option<Terminal>,
+    shells: Vec<Shell>,
     task: Option<TaskTerm>,
-    /// O painel mostra a tarefa (senão, o shell).
-    show_task: bool,
+    shown: Shown,
     next_id: u64,
+    next_number: u32,
+    /// O tamanho da área do terminal, como o widget mediu por último.
+    size: Option<iced::Size>,
     theme: Theme,
     font_size: f32,
 }
@@ -64,10 +83,12 @@ impl Default for TerminalExtension {
     fn default() -> Self {
         Self {
             root: PathBuf::new(),
-            shell: None,
+            shells: Vec::new(),
             task: None,
-            show_task: false,
+            shown: Shown::Shell(0),
             next_id: 0,
+            next_number: 0,
+            size: None,
             theme: Theme::TokyoNight,
             font_size: 14.0,
         }
@@ -96,16 +117,19 @@ impl TerminalExtension {
         FontSettings { size: self.font_size, font_type: Font::MONOSPACE, ..FontSettings::default() }
     }
 
-    /// Inicia o shell (substituindo um anterior, se houver).
+    /// Abre um shell numa aba nova e mostra.
     fn start(&mut self, ctx: &mut Context) -> bool {
         self.next_id += 1;
-        // Soltar o anterior encerra o processo dele.
-        self.shell = None;
         let shell = std::env::var("SHELL").ok().filter(|s| !s.is_empty()).unwrap_or_else(|| "/bin/sh".into());
-        match Terminal::new(self.next_id, self.settings(shell, Vec::new(), &self.root.clone())) {
+        match self.new_terminal(self.settings(shell, Vec::new(), &self.root.clone())) {
             Ok(term) => {
-                self.shell = Some(term);
-                self.show_task = false;
+                // A numeração recomeça quando não sobra nenhum.
+                if self.shells.is_empty() {
+                    self.next_number = 0;
+                }
+                self.next_number += 1;
+                self.shells.push(Shell { term, number: self.next_number });
+                self.shown = Shown::Shell(self.shells.len() - 1);
                 true
             }
             Err(e) => {
@@ -115,18 +139,37 @@ impl TerminalExtension {
         }
     }
 
+    /// Troca o shell na tela por um novo, na mesma aba (o processo anterior é encerrado).
+    fn restart(&mut self, ctx: &mut Context) -> bool {
+        let Shown::Shell(i) = self.shown else { return self.start(ctx) };
+        if i >= self.shells.len() {
+            return self.start(ctx);
+        }
+        let number = self.shells[i].number;
+        self.shells.remove(i);
+        if !self.start(ctx) {
+            return false;
+        }
+        // O novo foi para o fim: volta para o lugar do antigo, com o mesmo número.
+        let mut shell = self.shells.pop().expect("acabou de entrar");
+        shell.number = number;
+        self.shells.insert(i, shell);
+        self.shown = Shown::Shell(i);
+        true
+    }
+
     /// Roda uma tarefa num terminal novo (a anterior, se ainda rodava, é encerrada).
     fn run_task(&mut self, name: &str, command: &str, cwd: &Path, done: &str, ctx: &mut Context) -> Task<Message> {
         self.next_id += 1;
         self.task = None;
         let (before, after) = done.split_once("{code}").unwrap_or((done, ""));
         let args = ["-c", TASK_SCRIPT, "sh", command, before, after].map(str::to_string).to_vec();
-        match Terminal::new(self.next_id, self.settings("/bin/sh".into(), args, cwd)) {
+        match self.new_terminal(self.settings("/bin/sh".into(), args, cwd)) {
             Ok(term) => {
                 self.task = Some(TaskTerm { term, name: name.to_string() });
-                self.show_task = true;
+                self.shown = Shown::Task;
                 ctx.show_panel(PANEL);
-                self.focus_task()
+                self.focus_current()
             }
             Err(e) => {
                 ctx.notify(fl!("terminal-task-error", error = e.to_string()));
@@ -137,17 +180,195 @@ impl TerminalExtension {
 
     /// O terminal na tela agora.
     fn current(&self) -> Option<&Terminal> {
-        match (&self.task, self.show_task) {
-            (Some(t), true) => Some(&t.term),
-            _ => self.shell.as_ref(),
+        match self.shown {
+            Shown::Task => self.task.as_ref().map(|t| &t.term),
+            Shown::Shell(i) => self.shells.get(i).map(|s| &s.term),
         }
     }
 
-    fn focus_task(&self) -> Task<Message> {
+    fn focus_current(&self) -> Task<Message> {
         match self.current() {
             Some(t) => TerminalView::focus(t.widget_id().clone()),
             None => Task::none(),
         }
+    }
+
+    /// Depois de um terminal sair: mostra o vizinho; sem nenhum, esconde o painel.
+    fn after_removal(&mut self, ctx: &mut Context) -> Task<Message> {
+        self.shown = match self.shown {
+            Shown::Task if self.task.is_some() => Shown::Task,
+            Shown::Shell(i) if !self.shells.is_empty() => Shown::Shell(i.min(self.shells.len() - 1)),
+            _ if !self.shells.is_empty() => Shown::Shell(self.shells.len() - 1),
+            _ if self.task.is_some() => Shown::Task,
+            _ => Shown::Shell(0),
+        };
+        if self.current().is_none() {
+            ctx.hide_panel(PANEL);
+            return Task::none();
+        }
+        self.focus_current()
+    }
+
+    fn close_current(&mut self, ctx: &mut Context) -> Task<Message> {
+        // Soltar o terminal encerra o processo.
+        match self.shown {
+            Shown::Task => self.task = None,
+            Shown::Shell(i) if i < self.shells.len() => {
+                self.shells.remove(i);
+            }
+            Shown::Shell(_) => {}
+        }
+        self.after_removal(ctx)
+    }
+
+    /// Mostra um shell (abre um, se não houver) e pega o teclado.
+    fn show_shell(&mut self, ctx: &mut Context) -> Task<Message> {
+        if !matches!(self.shown, Shown::Shell(i) if i < self.shells.len()) {
+            if self.shells.is_empty() && !self.start(ctx) {
+                return Task::none();
+            }
+            self.shown = Shown::Shell(self.shells.len() - 1);
+        }
+        ctx.show_panel(PANEL);
+        self.focus_current()
+    }
+
+    /// Cria um terminal já com o tamanho da área. Todo comando ao `iced_term` recalcula linhas e colunas com o
+    /// último tamanho recebido; um terminal novo só tem o provisório (80×50 pixels) até o widget medir, e qualquer
+    /// coisa antes disso (a saída do shell, um redesenho) o espremia em poucas colunas, quebrando o prompt.
+    fn new_terminal(&mut self, settings: Settings) -> std::io::Result<Terminal> {
+        let mut term = Terminal::new(self.next_id, settings)?;
+        if let Some(size) = self.size {
+            term.handle(iced_term::Command::ProxyToBackend(iced_term::BackendCommand::Resize(Some(size), None)));
+        }
+        Ok(term)
+    }
+
+    /// O que muda o lugar do terminal na tela: qual está à vista e se há barra de abas.
+    fn layout(&self) -> (Shown, bool) {
+        (self.shown, self.current().is_some())
+    }
+
+    /// O `iced_term` guarda o desenho com a posição na tela dentro; quando a barra aparece ou some, ou outra aba
+    /// volta, o desenho velho sairia no lugar antigo (por cima da barra). Reaplicar a fonte limpa esse cache.
+    fn redraw_if_moved(&mut self, before: (Shown, bool)) {
+        // Sem medida ainda, não há desenho velho; e reaplicar a fonte recalcularia o tamanho com o provisório.
+        if self.layout() == before || self.size.is_none() {
+            return;
+        }
+        let font = self.font();
+        let terms = self.shells.iter_mut().map(|s| &mut s.term).chain(self.task.iter_mut().map(|t| &mut t.term));
+        for term in terms {
+            term.handle(iced_term::Command::ChangeFont(font.clone()));
+        }
+    }
+
+    fn on_event_inner(&mut self, event: &CoreEvent, ctx: &mut Context) -> Task<Message> {
+        // Aberto pela barra de ícones: já sobe o shell e pega o teclado.
+        if let CoreEvent::PanelShown(_) = event {
+            if self.current().is_none() {
+                if !self.shells.is_empty() {
+                    self.shown = Shown::Shell(self.shells.len() - 1);
+                } else if self.task.is_some() {
+                    self.shown = Shown::Task;
+                } else if !self.start(ctx) {
+                    return Task::none();
+                }
+            }
+            return self.focus_current();
+        }
+        if let CoreEvent::RunTask { name, command, cwd, done } = event {
+            return self.run_task(name, command, cwd, done, ctx);
+        }
+        if let CoreEvent::Appearance { theme, font_size } = event {
+            self.theme = theme.clone();
+            self.font_size = *font_size;
+            let font = self.font();
+            let terms = self.shells.iter_mut().map(|s| &mut s.term).chain(self.task.iter_mut().map(|t| &mut t.term));
+            for term in terms {
+                term.handle(iced_term::Command::ChangeTheme(Box::new(palette_for(theme))));
+                term.handle(iced_term::Command::ChangeFont(font.clone()));
+            }
+        }
+        Task::none()
+    }
+
+    fn on_command_inner(&mut self, command: &str, ctx: &mut Context) -> Task<Message> {
+        match command {
+            "terminal.focus" => self.show_shell(ctx),
+            "terminal.new" => {
+                if !self.start(ctx) {
+                    return Task::none();
+                }
+                ctx.show_panel(PANEL);
+                self.focus_current()
+            }
+            "terminal.close" => self.close_current(ctx),
+            "terminal.restart" => {
+                if !self.restart(ctx) {
+                    return Task::none();
+                }
+                ctx.show_panel(PANEL);
+                self.focus_current()
+            }
+            _ => Task::none(),
+        }
+    }
+
+    fn update_inner(&mut self, message: Message, ctx: &mut Context) -> Task<Message> {
+        match message {
+            Message::Start => {
+                if self.start(ctx) {
+                    return self.focus_current();
+                }
+            }
+            Message::ShowShell(i) => {
+                if i < self.shells.len() {
+                    self.shown = Shown::Shell(i);
+                }
+                return self.focus_current();
+            }
+            Message::ShowTask => {
+                if self.task.is_some() {
+                    self.shown = Shown::Task;
+                }
+                return self.focus_current();
+            }
+            Message::CloseTask => {
+                // Soltar o terminal encerra a tarefa, se ainda rodava.
+                self.task = None;
+                return self.after_removal(ctx);
+            }
+            Message::CloseCurrent => return self.close_current(ctx),
+            Message::Term(iced_term::Event::BackendCall(id, cmd)) => {
+                if let iced_term::BackendCommand::Resize(Some(size), _) = &cmd {
+                    self.size = Some(*size);
+                }
+                if let Some(task) = self.task.as_mut().filter(|t| t.term.id == id) {
+                    // A tarefa terminou e o Enter fechou: volta para um shell.
+                    if task.term.handle(iced_term::Command::ProxyToBackend(cmd)) == Action::Shutdown {
+                        self.task = None;
+                        return self.after_removal(ctx);
+                    }
+                    return Task::none();
+                }
+                // Evento atrasado de um shell que já saiu: nenhum com esse id.
+                let Some(i) = self.shells.iter().position(|s| s.term.id == id) else { return Task::none() };
+                if self.shells[i].term.handle(iced_term::Command::ProxyToBackend(cmd)) == Action::Shutdown {
+                    let number = self.shells[i].number;
+                    self.shells.remove(i);
+                    // A aba que estava na tela à direita desta escorrega uma posição.
+                    if let Shown::Shell(s) = self.shown
+                        && s > i
+                    {
+                        self.shown = Shown::Shell(s - 1);
+                    }
+                    ctx.notify(fl!("terminal-ended-n", number = number));
+                    return self.after_removal(ctx);
+                }
+            }
+        }
+        Task::none()
     }
 }
 
@@ -164,110 +385,37 @@ impl Extension for TerminalExtension {
         ctx.panel_icon(PANEL, Icon::Terminal);
         ctx.register_command("terminal.focus", fl!("cmd-terminal-focus"));
         ctx.register_command("terminal.new", fl!("cmd-terminal-new"));
+        ctx.register_command("terminal.close", fl!("cmd-terminal-close"));
+        ctx.register_command("terminal.restart", fl!("cmd-terminal-restart"));
         Task::none()
     }
 
     fn on_event(&mut self, event: &CoreEvent, ctx: &mut Context) -> Task<Message> {
-        // Aberto pela barra de ícones: já sobe o shell e pega o teclado.
-        if let CoreEvent::PanelShown(_) = event {
-            if self.current().is_none() && !self.start(ctx) {
-                return Task::none();
-            }
-            return self.focus_task();
-        }
-        if let CoreEvent::RunTask { name, command, cwd, done } = event {
-            return self.run_task(name, command, cwd, done, ctx);
-        }
-        if let CoreEvent::Appearance { theme, font_size } = event {
-            self.theme = theme.clone();
-            self.font_size = *font_size;
-            let font = self.font();
-            let terms = self.shell.iter_mut().chain(self.task.iter_mut().map(|t| &mut t.term));
-            for term in terms {
-                term.handle(iced_term::Command::ChangeTheme(Box::new(palette_for(theme))));
-                term.handle(iced_term::Command::ChangeFont(font.clone()));
-            }
-        }
-        Task::none()
+        let before = self.layout();
+        let task = self.on_event_inner(event, ctx);
+        self.redraw_if_moved(before);
+        task
     }
 
     fn on_command(&mut self, command: &str, ctx: &mut Context) -> Task<Message> {
-        match command {
-            "terminal.focus" => {
-                if self.shell.is_none() && !self.start(ctx) {
-                    return Task::none();
-                }
-                self.show_task = false;
-                ctx.show_panel(PANEL);
-                self.focus_task()
-            }
-            "terminal.new" => {
-                if !self.start(ctx) {
-                    return Task::none();
-                }
-                ctx.show_panel(PANEL);
-                self.focus_task()
-            }
-            _ => Task::none(),
-        }
+        let before = self.layout();
+        let task = self.on_command_inner(command, ctx);
+        self.redraw_if_moved(before);
+        task
     }
 
     fn update(&mut self, message: Message, ctx: &mut Context) -> Task<Message> {
-        match message {
-            Message::Start => {
-                if self.start(ctx) {
-                    return self.focus_task();
-                }
-            }
-            Message::ShowShell => {
-                if self.shell.is_none() && !self.start(ctx) {
-                    return Task::none();
-                }
-                self.show_task = false;
-                return self.focus_task();
-            }
-            Message::ShowTask => {
-                self.show_task = self.task.is_some();
-                return self.focus_task();
-            }
-            Message::CloseTask => {
-                // Soltar o terminal encerra a tarefa, se ainda rodava.
-                self.task = None;
-                self.show_task = false;
-                return self.focus_task();
-            }
-            Message::Term(iced_term::Event::BackendCall(id, cmd)) => {
-                if let Some(task) = self.task.as_mut().filter(|t| t.term.id == id) {
-                    // A tarefa terminou e o Enter fechou: volta para o shell.
-                    if task.term.handle(iced_term::Command::ProxyToBackend(cmd)) == Action::Shutdown {
-                        self.task = None;
-                        self.show_task = false;
-                        if self.shell.is_none() {
-                            ctx.hide_panel(PANEL);
-                        }
-                        return self.focus_task();
-                    }
-                    return Task::none();
-                }
-                let Some(term) = self.shell.as_mut().filter(|t| t.id == id) else {
-                    // Evento atrasado de um shell que já foi substituído.
-                    return Task::none();
-                };
-                if term.handle(iced_term::Command::ProxyToBackend(cmd)) == Action::Shutdown {
-                    self.shell = None;
-                    if self.task.is_none() {
-                        ctx.hide_panel(PANEL);
-                    }
-                    ctx.notify(fl!("terminal-ended"));
-                }
-            }
-        }
-        Task::none()
+        let before = self.layout();
+        let task = self.update_inner(message, ctx);
+        self.redraw_if_moved(before);
+        task
     }
 
     fn view(&self, _panel: PanelId) -> Element<'_, Message> {
         let body: Element<'_, Message> = match self.current() {
-            Some(term) => TerminalView::show(term).map(Message::Term),
+            // Com chave: cada terminal tem o próprio estado no widget (o tamanho que já avisou ao shell). Sem ela,
+            // o terminal que entra herdava o tamanho do anterior e nunca recebia o seu.
+            Some(term) => keyed_column([(term.id, TerminalView::show(term).map(Message::Term))]).height(Fill).into(),
             None => container(
                 column![
                     text(fl!("terminal-not-running")).size(13).style(text::secondary),
@@ -279,24 +427,29 @@ impl Extension for TerminalExtension {
             .center(Fill)
             .into(),
         };
-        let Some(task) = &self.task else { return body };
-        // Com uma tarefa: abas "Terminal" e "Tarefa: nome" em cima.
-        let tab = |label: String, on: bool, msg: Message| {
-            button(text(label).size(12)).on_press(msg).padding([2, 10]).style(if on { button::secondary } else { button::text })
+        // Sem terminal: só o botão de iniciar. Com um ou mais, a barra (o `+` fica sempre à mão).
+        if self.current().is_none() {
+            return body;
+        }
+        let tab = |label: String, on: bool, msg: Message| -> Element<'_, Message> {
+            button(text(label).size(12)).on_press(msg).padding([2, 10]).style(if on { button::secondary } else { button::text }).into()
         };
-        let bar = row![
-            tab(fl!("terminal-tab-shell"), !self.show_task, Message::ShowShell),
-            tab(fl!("terminal-tab-task", name = task.name.as_str()), self.show_task, Message::ShowTask),
-            space::horizontal(),
-            button(text(fl!("terminal-close-task")).size(12)).on_press(Message::CloseTask).padding([2, 10]).style(button::text),
-        ]
-        .spacing(4)
-        .align_y(iced::Center);
+        let mut bar = row![].spacing(4).align_y(iced::Center);
+        for (i, s) in self.shells.iter().enumerate() {
+            bar = bar.push(tab(fl!("terminal-tab-n", number = s.number), self.shown == Shown::Shell(i), Message::ShowShell(i)));
+        }
+        if let Some(task) = &self.task {
+            bar = bar.push(tab(fl!("terminal-tab-task", name = task.name.as_str()), self.shown == Shown::Task, Message::ShowTask));
+        }
+        bar = bar.push(icons::icon_button(Icon::Add, fl!("cmd-terminal-new"), Some(Message::Start)));
+        bar = bar.push(space::horizontal());
+        let close = if self.shown == Shown::Task { fl!("terminal-close-task") } else { fl!("terminal-close") };
+        bar = bar.push(icons::icon_button(Icon::Close, close, Some(Message::CloseCurrent)));
         column![bar, body].spacing(2).into()
     }
 
     fn subscription(&self) -> Subscription<Message> {
-        let terms = self.shell.iter().chain(self.task.iter().map(|t| &t.term));
+        let terms = self.shells.iter().map(|s| &s.term).chain(self.task.iter().map(|t| &t.term));
         Subscription::batch(terms.map(|t| t.subscription().map(Message::Term)))
     }
 }
