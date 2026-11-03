@@ -1160,6 +1160,11 @@ e grava a resposta do usuário em `.idetea/ui/responses/<nome>/`. Estudo, decis�
     o branch e a pasta; permitido, rodou em `.idetea/worktrees/ajudante` e escreveu a pasta, o branch e o último
     commit em `IDETEA_ANSWER`; o status `exited` trouxe `answer`, `worktree` e `branch`. Apagado o pedido, o
     worktree saiu e o branch ficou.
+- [ ] **A IDE como CLI para agentes** ([RFC 0006](docs/rfc/0006-ide-como-cli-para-agentes.md), aprovada pelo painel):
+  etapa 1 sem LSP: `idetea ask` (pergunta no painel e devolve a resposta), `idetea run` (pedido de terminal,
+  devolve código e resposta), `idetea status` (`.idetea/state.json`: abertos, não salvos, seleção) e `idetea open
+  arquivo:linha`; instruções dos agentes ensinando os comandos. Depois, pelo LSP: leitura, edições, sem janela e
+  mais linguagens portadas do SolidLSP (MIT).
 - [x] **Aba de imagem sempre em dia + schema junto do formato** (lacuna 16): as abas de imagem e PDF conferem
   tamanho e data do arquivo a cada segundo (além do observador) e recarregam quando mudam; o rodapé da aba mostra a
   hora em que o arquivo foi gravado, para conferir qual versão está na tela. A IDE grava também
