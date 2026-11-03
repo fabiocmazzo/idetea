@@ -175,7 +175,7 @@ mod tests {
         let mut f = ConfigFile::open_global(&path).unwrap();
         f.set_theme("Nord");
         f.set_font_size(16.0);
-        f.set_splash(false);
+        f.set_splash(true);
         f.set_extension_enabled("git", false);
         f.set_extension_slot("search", Slot::Right);
         f.set_extension_enabled("nova", true);
@@ -189,7 +189,7 @@ mod tests {
         let c = parse(&text);
         assert!(c.errors.is_empty(), "{:?}", c.errors);
         assert_eq!(c.ui.theme, "Nord");
-        assert!(!c.ui.splash);
+        assert!(c.ui.splash);
         assert!(!c.extension("git").enabled);
         assert_eq!(c.extension("search").slot, Some(Slot::Right));
         assert!(c.extension("nova").enabled);

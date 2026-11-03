@@ -16,8 +16,9 @@ pub const DEFAULT_CONFIG: &str = r#"# Configuração da IDE TEA.
 # Config de projeto: <projeto>/.idetea/config.toml (sobrepõe este).
 
 [ui]
-# Splash screen ao abrir (mínimo de 2 s). Também desliga com --no-splash ou IDETEA_NO_SPLASH=1.
-splash = true
+# Splash screen ao abrir (mínimo de 2 s). Desligada por padrão; ligada, --no-splash ou IDETEA_NO_SPLASH=1
+# desligam numa execução.
+splash = false
 # "dark", "light" ou o nome de um tema do iced (ex.: "Tokyo Night", "Nord", "Dracula").
 theme = "dark"
 font_size = 14
@@ -166,7 +167,7 @@ pub struct UiConfig {
 impl Default for UiConfig {
     fn default() -> Self {
         Self {
-            splash: true,
+            splash: false,
             theme: "dark".into(),
             font_size: 14.0,
             activity_bar: true,
@@ -434,7 +435,7 @@ mod tests {
     fn defaults_parse_cleanly() {
         let c = layers(&[DEFAULT_CONFIG]);
         assert!(c.errors.is_empty(), "{:?}", c.errors);
-        assert!(c.ui.splash);
+        assert!(!c.ui.splash, "a splash vem desligada");
         assert_eq!(c.editor, EditorConfig::default(), "o texto e o Default dizem o mesmo");
         assert_eq!(layers(&["[editor]\ntab_size = 0"]).editor.tab_size, 1);
         assert!(c.tasks.is_empty());
@@ -464,11 +465,11 @@ mod tests {
     fn later_layers_win() {
         let c = layers(&[
             DEFAULT_CONFIG,
-            "[ui]\nsplash = false\n[extensions]\nfiletree = { slot = \"right\" }",
+            "[ui]\nsplash = true\n[extensions]\nfiletree = { slot = \"right\" }",
             "[ui]\ntheme = \"light\"\n[keys]\n\"ctrl+s\" = \"\"",
         ]);
         assert!(c.errors.is_empty(), "{:?}", c.errors);
-        assert!(!c.ui.splash);
+        assert!(c.ui.splash);
         assert_eq!(c.ui.theme, "light");
         // Merge profundo: `enabled` continua true, só o slot mudou.
         let ft = c.extension("filetree");
@@ -481,7 +482,7 @@ mod tests {
     fn broken_layer_is_reported_not_fatal() {
         let c = layers(&[DEFAULT_CONFIG, "[ui\nsplash = ", "[ui]\nsplash = \"sim\"\n[outra]\nx = 1"]);
         assert_eq!(c.errors.len(), 3, "{:?}", c.errors);
-        assert!(c.ui.splash); // [ui] inválido cai no padrão
+        assert!(!c.ui.splash); // [ui] inválido cai no padrão
     }
 
     #[test]

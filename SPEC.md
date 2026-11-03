@@ -130,11 +130,11 @@ pub trait Extension: 'static {
 - Fica na tela **no mínimo 2 segundos** e some com fade. Se o carregamento demorar mais, ela fica até tudo estar pronto
   (config lida, extensões ativadas, arquivos da linha de comando abertos).
 - O carregamento acontece **por trás** da splash. Os 2 segundos não somam ao tempo de boot, e a IDE já está pronta quando a splash some.
-- Pode ser desligada, para testes e desenvolvimento:
+- Liga com `[ui] splash = true` (ou nas Configurações). Ligada, desliga numa execução com:
   - flag `--no-splash`;
-  - variável de ambiente `IDETEA_NO_SPLASH=1`;
-  - config: `[ui] splash = false`.
-- O padrão é ligada.
+  - variável de ambiente `IDETEA_NO_SPLASH=1`.
+- O padrão é **desligada** (decisão do usuário pelo painel, 2026-11-03: abrir direto combina com "rápida e
+  silenciosa").
 
 ## Configuração
 
@@ -148,7 +148,7 @@ pub trait Extension: 'static {
 
 ```toml
 [ui]
-splash = true
+splash = false
 theme = "dark"        # "dark", "light" ou nome de tema do iced ("Nord", "Dracula"...)
 font_size = 14
 
