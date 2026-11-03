@@ -33,6 +33,38 @@ ui-cancel = Cancelar
 ui-teach-up-to-date = As instruções para agentes já estão atualizadas.
 ui-teach-done = Instruções gravadas em { $files }.
 ui-teach-failed = Não deu para gravar as instruções: { $error }
+cmd-ui-new-project = Projeto: novo…
+new-title = Novo projeto
+new-intro = A IDE cria a pasta, o git, as skills do modelo e as instruções do painel, e abre o projeto numa janela nova. Quem cria o projeto de verdade é o seu agente: o pedido inicial fica no **AGENTS.md**; abra o agente lá e peça para começar.
+new-field-parent = Criar dentro de
+new-field-name = Nome da pasta
+new-field-name-hint = ex.: meu-app
+new-field-model = Modelo
+new-field-description = O que é o projeto (opcional)
+new-field-description-hint = uma frase; vai no pedido inicial para o agente
+new-field-git = Criar o repositório git
+new-create = Criar e abrir
+new-model = { $model ->
+    [vazio] Vazio (o agente pergunta o que é)
+    [rust] Rust
+    [site] Site
+    [python] Python
+    [fastapi] FastAPI (API web em Python)
+   *[other] { $model }
+}
+new-creating = Criando { $dir } (as skills vêm pela rede)…
+new-created = Projeto criado em { $dir }; abrindo numa janela nova.
+new-open-failed = Projeto criado em { $dir }, mas não deu para abrir a janela: { $error }
+new-failed = Não deu para criar o projeto: { $error }
+new-bad-model = modelo desconhecido: { $model }
+new-bad-dir = pasta que não vale: { $dir } (use um caminho completo)
+new-bad-name = nome de pasta que não vale: "{ $name }"
+new-not-empty = { $dir } já existe e tem arquivos: escolha outro nome
+new-done-dir = pasta: { $dir }
+new-done-git = git: repositório criado
+new-done-agents = AGENTS.md (com o pedido inicial) e CLAUDE.md, com as instruções do painel
+new-open-hint = Pronto. Abra com: idetea { $dir }
+new-usage = idetea new: "{ $arg }" não vale. Uso: idetea new <pasta> [--modelo id] [--descricao texto] [--sem-git]; modelos: { $models }
 cmd-ui-fix = Interfaces: consertar este projeto
 ui-fix-title = Consertar este projeto?
 ui-fix-will = A IDE vai:

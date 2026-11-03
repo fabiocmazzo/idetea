@@ -125,6 +125,20 @@ novo é só uma lista de skills (de qual fonte e qual commit); não exige códig
 
 Depende da etapa 2.
 
+**Decisões e o que foi feito (pelo painel, 2026-11-03):**
+
+- As skills dos modelos são **escritas por nós, neste repositório** (`skills/`), que fica público para servir de fonte
+  (`fabiocmazzo/idetea`). O `anthropics/skills` não tem skills de Rust, Python nem FastAPI. Uma skill comum,
+  `novo-projeto` (perguntar pelo painel, primeiro commit, teste manual), e uma por pilha: `novo-projeto-rust`,
+  `-python`, `-fastapi` e `-site`. O Site também leva a `frontend-design` do `anthropics/skills`.
+- Os modelos ficam em `skills/modelos.toml` (embutido no binário): as skills de cada um e o pedido inicial.
+- **A tela é o próprio painel Interfaces:** "Projeto: novo…" (paleta) faz a IDE escrever o formulário
+  `idetea-novo-projeto` e tratar o clique ela mesma (sem arquivo de resposta). Pela linha de comando:
+  `idetea new <pasta> [--modelo id] [--descricao texto] [--sem-git]`.
+- **Depois de criar,** a IDE abre o projeto numa janela nova. O pedido inicial fica no `AGENTS.md` (e o `CLAUDE.md`
+  importa o `AGENTS.md`); o usuário abre o agente. Abrir o agente num terminal da IDE fica para a etapa 4.
+- Se as skills não vierem (rede, fonte), nada fica pela metade: a pasta criada é apagada.
+
 **Custo:** médio. É uma tela nativa (não um documento `idetea-ui`, porque ainda não há projeto onde gravar o
 documento).
 

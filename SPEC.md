@@ -1108,8 +1108,13 @@ e grava a resposta do usuário em `.idetea/ui/responses/<nome>/`. Estudo, decis�
   `.idetea/skills.toml`; nada da skill roda; cópia mexida à mão só muda com `--force`.
   - [x] Teste manual (aprovado, pelo painel): listar `anthropics/skills`, instalar duas, mexer numa cópia (o
     `remove` recusa, "recusado (nada mudou)"), tirar com `--force`; os subcomandos falam o idioma da IDE.
-- [ ] **Novo projeto** (RFC 0005, etapa 3): modelos vazio, Rust, Site, Python e FastAPI, cada um um conjunto de
-  skills.
+- [x] **Novo projeto** (RFC 0005, etapa 3): modelos vazio, Rust, Site, Python e FastAPI, cada um um conjunto de
+  skills. Feito: as skills em `skills/` (deste repositório, que fica público), os modelos em `skills/modelos.toml`;
+  "Projeto: novo…" mostra o formulário no painel Interfaces e a IDE trata o clique; `idetea new <pasta>`; abre o
+  projeto numa janela nova, com o pedido inicial no `AGENTS.md`.
+  - [x] Teste manual (aprovado, pelo painel): "Projeto: novo…" com o modelo Rust; a janela nova abre com o
+    `AGENTS.md` (pedido inicial e instruções), o `CLAUDE.md`, as skills nas duas pastas e o git; uma pasta que já
+    tem arquivos é recusada.
 - [ ] **Terminais de agente** (RFC 0005, etapa 4): abas no terminal; depois um agente pede um terminal por arquivo,
   e cada pedido é confirmado.
 - [x] **Aba de imagem sempre em dia + schema junto do formato** (lacuna 16): as abas de imagem e PDF conferem

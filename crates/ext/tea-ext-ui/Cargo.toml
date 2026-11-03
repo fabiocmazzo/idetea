@@ -13,6 +13,7 @@ serde.workspace = true
 serde_json.workspace = true
 tea-core.workspace = true
 tea-declarative-ui.workspace = true
+tea-skills.workspace = true
 
 [dev-dependencies]
 iced_test = "0.14"

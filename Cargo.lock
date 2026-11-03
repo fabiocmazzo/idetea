@@ -5811,6 +5811,7 @@ dependencies = [
  "serde_json",
  "tea-core",
  "tea-declarative-ui",
+ "tea-skills",
 ]
 
 [[package]]

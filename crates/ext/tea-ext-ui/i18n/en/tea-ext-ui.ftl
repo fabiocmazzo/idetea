@@ -33,6 +33,38 @@ ui-cancel = Cancel
 ui-teach-up-to-date = The agent instructions are already up to date.
 ui-teach-done = Instructions written to { $files }.
 ui-teach-failed = Could not write the instructions: { $error }
+cmd-ui-new-project = Project: new…
+new-title = New project
+new-intro = The IDE creates the folder, git, the template's skills and the panel instructions, and opens the project in a new window. Your agent creates the actual project: the initial request goes in **AGENTS.md**; open the agent there and ask it to start.
+new-field-parent = Create inside
+new-field-name = Folder name
+new-field-name-hint = e.g. my-app
+new-field-model = Template
+new-field-description = What the project is (optional)
+new-field-description-hint = one sentence; it goes in the initial request for the agent
+new-field-git = Create the git repository
+new-create = Create and open
+new-model = { $model ->
+    [vazio] Empty (the agent asks what it is)
+    [rust] Rust
+    [site] Website
+    [python] Python
+    [fastapi] FastAPI (Python web API)
+   *[other] { $model }
+}
+new-creating = Creating { $dir } (the skills come over the network)…
+new-created = Project created in { $dir }; opening it in a new window.
+new-open-failed = Project created in { $dir }, but the window could not be opened: { $error }
+new-failed = Could not create the project: { $error }
+new-bad-model = unknown template: { $model }
+new-bad-dir = invalid folder: { $dir } (use a full path)
+new-bad-name = invalid folder name: "{ $name }"
+new-not-empty = { $dir } already exists and has files: choose another name
+new-done-dir = folder: { $dir }
+new-done-git = git: repository created
+new-done-agents = AGENTS.md (with the initial request) and CLAUDE.md, with the panel instructions
+new-open-hint = Done. Open it with: idetea { $dir }
+new-usage = idetea new: "{ $arg }" is not valid. Usage: idetea new <folder> [--modelo id] [--descricao text] [--sem-git]; templates: { $models }
 cmd-ui-fix = Interfaces: fix this project
 ui-fix-title = Fix this project?
 ui-fix-will = The IDE will:

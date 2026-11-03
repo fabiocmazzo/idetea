@@ -44,6 +44,8 @@ pub enum Cli {
     UiFix(Vec<String>),
     /// `idetea skills …`: instala skills de agentes no projeto da pasta atual.
     Skills(Vec<String>),
+    /// `idetea new <pasta> [--modelo id] …`: cria um projeto novo (pasta, git, skills, instruções).
+    New(Vec<String>),
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -73,6 +75,10 @@ pub fn parse(args: impl IntoIterator<Item = OsString>, cwd: &Path, env_no_splash
     let mut flags_done = false;
     let mut args = args.into_iter().peekable();
     // Subcomando: só como primeiro argumento (uma pasta chamada `ui` precisa de `./ui`).
+    if args.peek().is_some_and(|a| a == "new") {
+        args.next();
+        return Cli::New(args.map(|a| a.to_string_lossy().into_owned()).collect());
+    }
     if args.peek().is_some_and(|a| a == "skills") {
         args.next();
         return Cli::Skills(args.map(|a| a.to_string_lossy().into_owned()).collect());
@@ -239,6 +245,7 @@ mod tests {
         assert_eq!(ui(&["ui", "fix", "--apply"]), Cli::UiFix(vec!["--apply".into()]));
         assert_eq!(ui(&["skills", "add", "a/b", "pdf"]), Cli::Skills(vec!["add".into(), "a/b".into(), "pdf".into()]));
         assert!(matches!(ui(&["a.rs", "skills"]), Cli::Run(_)), "só como primeiro argumento");
+        assert_eq!(ui(&["new", "app", "--modelo", "rust"]), Cli::New(vec!["app".into(), "--modelo".into(), "rust".into()]));
         assert!(matches!(ui(&["a.rs", "ui"]), Cli::Run(_)), "só como primeiro argumento");
     }
 

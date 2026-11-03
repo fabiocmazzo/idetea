@@ -33,6 +33,38 @@ ui-cancel = Cancelar
 ui-teach-up-to-date = Las instrucciones para agentes ya están actualizadas.
 ui-teach-done = Instrucciones guardadas en { $files }.
 ui-teach-failed = No se pudieron guardar las instrucciones: { $error }
+cmd-ui-new-project = Proyecto: nuevo…
+new-title = Nuevo proyecto
+new-intro = El IDE crea la carpeta, git, las skills del modelo y las instrucciones del panel, y abre el proyecto en una ventana nueva. Quien crea el proyecto de verdad es tu agente: el pedido inicial queda en **AGENTS.md**; abre el agente allí y pídele que empiece.
+new-field-parent = Crear dentro de
+new-field-name = Nombre de la carpeta
+new-field-name-hint = p. ej.: mi-app
+new-field-model = Modelo
+new-field-description = Qué es el proyecto (opcional)
+new-field-description-hint = una frase; va en el pedido inicial para el agente
+new-field-git = Crear el repositorio git
+new-create = Crear y abrir
+new-model = { $model ->
+    [vazio] Vacío (el agente pregunta qué es)
+    [rust] Rust
+    [site] Sitio web
+    [python] Python
+    [fastapi] FastAPI (API web en Python)
+   *[other] { $model }
+}
+new-creating = Creando { $dir } (las skills vienen por la red)…
+new-created = Proyecto creado en { $dir }; abriéndolo en una ventana nueva.
+new-open-failed = Proyecto creado en { $dir }, pero no se pudo abrir la ventana: { $error }
+new-failed = No se pudo crear el proyecto: { $error }
+new-bad-model = modelo desconocido: { $model }
+new-bad-dir = carpeta no válida: { $dir } (usa una ruta completa)
+new-bad-name = nombre de carpeta no válido: "{ $name }"
+new-not-empty = { $dir } ya existe y tiene archivos: elige otro nombre
+new-done-dir = carpeta: { $dir }
+new-done-git = git: repositorio creado
+new-done-agents = AGENTS.md (con el pedido inicial) y CLAUDE.md, con las instrucciones del panel
+new-open-hint = Listo. Ábrelo con: idetea { $dir }
+new-usage = idetea new: "{ $arg }" no vale. Uso: idetea new <carpeta> [--modelo id] [--descricao texto] [--sem-git]; modelos: { $models }
 cmd-ui-fix = Interfaces: arreglar este proyecto
 ui-fix-title = ¿Arreglar este proyecto?
 ui-fix-will = El IDE va a:

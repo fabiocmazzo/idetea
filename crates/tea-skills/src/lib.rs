@@ -11,6 +11,7 @@ macro_rules! fl {
     ($($t:tt)*) => { tea_core::i18n::fl!(crate::LOADER, $($t)*) };
 }
 
+pub mod models;
 pub mod repo;
 
 use std::path::{Path, PathBuf};

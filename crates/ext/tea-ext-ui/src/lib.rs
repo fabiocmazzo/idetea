@@ -12,6 +12,7 @@ macro_rules! fl {
 mod player;
 pub mod check;
 pub mod fix;
+pub mod novo;
 pub mod store;
 pub mod teach;
 
@@ -20,7 +21,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
-use iced::futures::channel::mpsc;
+use iced::futures::channel::{mpsc, oneshot};
 use iced::widget::{Column, button, column, row, scrollable, text};
 use iced::{Element, Fill, Subscription, Task, Theme};
 use serde::{Deserialize, Serialize};
@@ -54,6 +55,8 @@ pub enum Message {
     AskFix,
     /// Confirmado: conserta.
     Fix,
+    /// Terminou de criar um projeto novo: a pasta, ou o erro (com os valores do formulário para mostrar de novo).
+    NewProjectDone(Result<PathBuf, (String, serde_json::Value)>),
     /// Olhar o tocador (enquanto um som toca).
     AudioTick,
     /// Relógio dos `sprite` (enquanto um deles anima na interface aberta).
@@ -468,6 +471,68 @@ impl UiExtension {
         }
     }
 
+    /// Mostra o formulário do "Novo projeto" no painel (`error`: a tentativa anterior e os valores dela).
+    fn ask_new_project(&mut self, error: Option<(String, serde_json::Value)>, ctx: &mut Context) {
+        let revision = self.file(novo::DOC_NAME).and_then(|f| f.doc.as_ref().ok()).map_or(0, |d| d.revision) + 1;
+        let (values, message) = match error {
+            Some((e, values)) => (values, Some(e)),
+            None => (novo::initial_values(&self.root), None),
+        };
+        match novo::write_form(&self.root, &novo::form(revision, &values, message.as_deref())) {
+            Ok(()) => {
+                self.selected = Some(novo::DOC_NAME.to_string());
+                ctx.show_panel(PANEL);
+            }
+            Err(e) => ctx.notify(fl!("ui-write-failed", error = e.to_string())),
+        }
+    }
+
+    /// Um botão do formulário do "Novo projeto": a IDE é o agente desta interface. Criar roda numa thread (as
+    /// skills vêm pela rede).
+    fn new_project(&mut self, source: &str, ctx: &mut Context) -> Task<Message> {
+        let Some(f) = self.files.iter().find(|f| f.name == novo::DOC_NAME) else { return Task::none() };
+        let Ok(doc) = &f.doc else { return Task::none() };
+        let Some(saved) = self.saved.get_mut(novo::DOC_NAME) else { return Task::none() };
+        let Some((action, values)) = saved.state.press(doc, source) else { return Task::none() };
+        self.save();
+        if action != "criar" {
+            let _ = std::fs::remove_file(store::ui_dir(&self.root).join(format!("{}.json", novo::DOC_NAME)));
+            return Task::none();
+        }
+        // Os valores sem a barra, como no `data` do formulário (para mostrar de novo se der errado).
+        let shown: serde_json::Map<String, serde_json::Value> =
+            values.iter().map(|(k, v)| (k.trim_start_matches('/').to_string(), v.clone())).collect();
+        let shown = serde_json::Value::Object(shown);
+        let request = match novo::request_from(&values) {
+            Ok(r) => r,
+            Err(e) => {
+                self.ask_new_project(Some((e, shown)), ctx);
+                return Task::none();
+            }
+        };
+        let Some(cache) = tea_skills::cache_dir() else { return Task::none() };
+        ctx.notify(fl!("new-creating", dir = request.dir.display().to_string()));
+        let (tx, rx) = oneshot::channel();
+        std::thread::spawn(move || {
+            let result = novo::create(&request, &cache).map(|_| request.dir.clone()).map_err(|e| (e, shown));
+            let _ = tx.send(result);
+        });
+        Task::future(async move { rx.await.ok() }).and_then(|r| Task::done(Message::NewProjectDone(r)))
+    }
+
+    fn new_project_done(&mut self, result: Result<PathBuf, (String, serde_json::Value)>, ctx: &mut Context) {
+        match result {
+            Ok(dir) => {
+                let _ = std::fs::remove_file(store::ui_dir(&self.root).join(format!("{}.json", novo::DOC_NAME)));
+                match novo::open_window(&dir) {
+                    Ok(()) => ctx.notify(fl!("new-created", dir = dir.display().to_string())),
+                    Err(e) => ctx.notify(fl!("new-open-failed", dir = dir.display().to_string(), error = e.to_string())),
+                }
+            }
+            Err((e, values)) => self.ask_new_project(Some((fl!("new-failed", error = e), values)), ctx),
+        }
+    }
+
     fn teach(&self, ctx: &mut Context) {
         // Calcula de novo: o arquivo pode ter mudado enquanto o diálogo estava aberto.
         let result = teach::plan(&self.root, Self::teach_text()).and_then(|plan| teach::apply(&plan).map(|()| plan));
@@ -588,6 +653,7 @@ impl Extension for UiExtension {
         ctx.register_command("interfaces.show", fl!("cmd-ui-show"));
         ctx.register_command("interfaces.teach", fl!("cmd-ui-teach"));
         ctx.register_command("interfaces.fix", fl!("cmd-ui-fix"));
+        ctx.register_command("interfaces.new_project", fl!("cmd-ui-new-project"));
         if let Err(e) = store::prepare(&self.root) {
             self.problem = Some(fl!("ui-prepare-failed", error = e.to_string()));
         }
@@ -610,6 +676,7 @@ impl Extension for UiExtension {
             "interfaces.show" => ctx.show_panel(PANEL),
             "interfaces.teach" => self.ask_teach(ctx),
             "interfaces.fix" => self.ask_fix(ctx),
+            "interfaces.new_project" => self.ask_new_project(None, ctx),
             _ => {}
         }
         Task::none()
@@ -626,6 +693,8 @@ impl Extension for UiExtension {
                     self.save();
                 }
             }
+            // O formulário do "Novo projeto" é da própria IDE: o clique não vira arquivo de resposta.
+            Message::Ui(name, UiMessage::Press(source)) if name == novo::DOC_NAME => return self.new_project(&source, ctx),
             Message::Ui(name, UiMessage::Press(source)) => self.press(&name, &source, ctx),
             Message::Ui(name, UiMessage::Comment(text)) => {
                 if let Some(saved) = self.saved.get_mut(&name) {
@@ -674,6 +743,7 @@ impl Extension for UiExtension {
                 }
             }
             Message::Submit(name, source) => self.submit(&name, &source, ctx),
+            Message::NewProjectDone(result) => self.new_project_done(result, ctx),
             Message::AskTeach => self.ask_teach(ctx),
             Message::Teach => self.teach(ctx),
             Message::AskFix => self.ask_fix(ctx),
@@ -1071,6 +1141,32 @@ mod tests {
         assert_eq!((html.opened, html.size), (1, None), "aberto por idetea:open: entra com a versão do disco");
         assert!(!text.contains("\"stepped\": 0"), "contagens zeradas não aparecem: {text}");
         assert!(!text.contains("\"clips\": false"), "{text}");
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn the_new_project_form_is_handled_by_the_ide() {
+        let root = tmp_root("novo-form");
+        test_state();
+        let mut ext = UiExtension::new();
+        let _ = ext.activate(&mut Context::new(&root, None));
+        let _ = ext.on_command("interfaces.new_project", &mut Context::new(&root, None));
+        let doc = store::ui_dir(&root).join(format!("{}.json", novo::DOC_NAME));
+        assert!(doc.is_file(), "o comando escreve o formulário");
+        let _ = ext.update(Message::Snapshot(Arc::new(store::scan(&root, &Limits::default()))), &mut Context::new(&root, None));
+        // Um nome que não vale: o formulário volta com o erro, e nenhuma resposta é gravada.
+        let ui = |ext: &mut UiExtension, m: UiMessage| {
+            let _ = ext.update(Message::Ui(novo::DOC_NAME.into(), m), &mut Context::new(&root, None));
+        };
+        ui(&mut ext, UiMessage::Set { path: "/nome".into(), value: serde_json::json!("a/b") });
+        ui(&mut ext, UiMessage::Press("criar".into()));
+        assert!(store::pending(&store::ui_dir(&root), novo::DOC_NAME).is_empty(), "o clique não vira arquivo de resposta");
+        let text = std::fs::read_to_string(&doc).unwrap();
+        assert!(text.contains("\"revision\": 2") && text.contains("a/b"), "revisão nova com o erro: {text}");
+        // Cancelar fecha o formulário.
+        let _ = ext.update(Message::Snapshot(Arc::new(store::scan(&root, &Limits::default()))), &mut Context::new(&root, None));
+        ui(&mut ext, UiMessage::Press("cancelar".into()));
+        assert!(!doc.exists());
         let _ = std::fs::remove_dir_all(&root);
     }
 }

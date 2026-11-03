@@ -28,3 +28,26 @@ idetea skills remove pdf
   pasta com o mesmo nome que não veio da IDE também só é trocada com `--force`.
 
 Saída: 0 (feito), 1 (erro, ou atualização por aplicar), 2 (uso errado).
+
+## Projeto novo
+
+"Projeto: novo…" (paleta) mostra um formulário no painel Interfaces: onde criar, o nome da pasta, o modelo, uma
+frase sobre o projeto e se cria o git. Pela linha de comando:
+
+```sh
+idetea new meu-app --modelo rust --descricao "um conversor de unidades"
+```
+
+A IDE cria a pasta, o git, as skills do modelo, o `AGENTS.md` com o **pedido inicial** e as instruções do painel, e
+um `CLAUDE.md` que importa o `AGENTS.md`. Quem cria o projeto é o agente: abra-o na pasta nova e peça para começar.
+
+| Modelo | Skills |
+|---|---|
+| `vazio` | `novo-projeto` (o agente pergunta o que é o projeto) |
+| `rust` | `novo-projeto`, `novo-projeto-rust` |
+| `site` | `novo-projeto`, `novo-projeto-site`, `frontend-design` (do `anthropics/skills`) |
+| `python` | `novo-projeto`, `novo-projeto-python` |
+| `fastapi` | `novo-projeto`, `novo-projeto-python`, `novo-projeto-fastapi` |
+
+As skills ficam em [`skills/`](../skills/) neste repositório, e os modelos em
+[`skills/modelos.toml`](../skills/modelos.toml): um modelo novo é só uma entrada lá.
