@@ -1116,7 +1116,7 @@ e grava a resposta do usuário em `.idetea/ui/responses/<nome>/`. Estudo, decis�
   - [x] Teste manual (aprovado, pelo painel): "Projeto: novo…" com o modelo Rust; a janela nova abre com o
     `AGENTS.md` (pedido inicial e instruções), o `CLAUDE.md`, as skills nas duas pastas e o git; uma pasta que já
     tem arquivos é recusada.
-- [ ] **Terminais de agente** (RFC 0005, etapa 4): abas no terminal; depois um agente pede um terminal por arquivo,
+- [x] **Terminais de agente** (RFC 0005, etapa 4): abas no terminal; depois um agente pede um terminal por arquivo,
   e cada pedido é confirmado.
   - [x] **Abas no terminal:** vários shells no painel, "Terminal 1", "Terminal 2"… ao lado da aba da tarefa; `+` abre
     outro, `×` fecha o da tela (encerra o processo); `exit` fecha a aba e mostra a vizinha; sem nenhuma, o painel
