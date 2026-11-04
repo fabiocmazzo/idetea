@@ -303,6 +303,8 @@ cli-usage =
       ui fix [--apply]  muestra (y, con --apply, arregla) lo que quedó atrás en .idetea/ui/
       ask …          pregunta en el panel Interfaces y espera la respuesta (idetea ask solo: el uso)
       run … -- <comando>  pide una terminal al IDE y espera el final (idetea run solo: el uso)
+      status [--json]  lo que muestra el IDE abierto en este proyecto (pestañas, cambios, cursor)
+      open <archivo[:línea[:columna]]>  el IDE abierto muestra el archivo, con el cursor en su lugar
       -h, --help     muestra esta ayuda
       -V, --version  muestra la versión
 cli-unknown-option = opción desconocida ignorada: { $option }
@@ -494,3 +496,24 @@ lsp-light-mode = archivo en modo ligero (línea muy larga): sin servidor de leng
 binary-changed = El IDE fue recompilado: ejecute "Reiniciar el IDE" (paleta) para usar la versión nueva.
 binary-changed-title = [versión nueva: reinicie]
 binary-restart-error = No se pudo reiniciar: { $error }
+
+## idetea status / idetea open (RFC 0006)
+status-usage =
+    Uso: idetea status [--json]
+    
+    Lo que muestra el IDE abierto en este proyecto: la pestaña activa con el cursor y los archivos
+    abiertos (con "sin guardar" en los que tienen cambios). --json: lo mismo en JSON, con "open".
+    Códigos: 0 abierto, 2 argumento inválido, 3 el IDE no está abierto en este proyecto.
+status-bad-arg = argumento desconocido: { $arg }
+status-not-open = el IDE no está abierto en este proyecto ({ $root })
+status-active = activo: { $path }
+status-no-active = ningún archivo activo
+status-modified = {" "}(sin guardar)
+open-usage =
+    Uso: idetea open <archivo[:línea[:columna]]>
+    
+    El IDE abierto en este proyecto muestra el archivo, con el cursor en la línea y la columna.
+    Códigos: 0 mostrado, 2 ruta inválida o fuera del proyecto, 3 el IDE no está abierto (o no tomó el pedido).
+open-outside = { $path } no está dentro del proyecto ({ $root })
+open-write-error = no se pudo escribir { $path }
+open-not-taken = el IDE no tomó el pedido en 3 segundos

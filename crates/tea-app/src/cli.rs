@@ -50,6 +50,10 @@ pub enum Cli {
     Ask(Vec<String>),
     /// `idetea run … -- <comando>`: um pedido de terminal, esperando o fim (RFC 0006).
     RunAgent(Vec<String>),
+    /// `idetea status`: o que a IDE aberta neste projeto mostra (RFC 0006).
+    Status(Vec<String>),
+    /// `idetea open arquivo[:linha[:coluna]]`: a IDE aberta mostra o arquivo (RFC 0006).
+    Open(Vec<String>),
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -90,6 +94,14 @@ pub fn parse(args: impl IntoIterator<Item = OsString>, cwd: &Path, env_no_splash
     if args.peek().is_some_and(|a| a == "run") {
         args.next();
         return Cli::RunAgent(args.map(|a| a.to_string_lossy().into_owned()).collect());
+    }
+    if args.peek().is_some_and(|a| a == "status") {
+        args.next();
+        return Cli::Status(args.map(|a| a.to_string_lossy().into_owned()).collect());
+    }
+    if args.peek().is_some_and(|a| a == "open") {
+        args.next();
+        return Cli::Open(args.map(|a| a.to_string_lossy().into_owned()).collect());
     }
     if args.peek().is_some_and(|a| a == "skills") {
         args.next();

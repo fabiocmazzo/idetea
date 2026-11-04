@@ -21,6 +21,7 @@ mod dialog;
 mod editorconfig;
 mod divider;
 mod help;
+mod ide_state;
 mod overlay;
 mod lsp;
 mod nav;
@@ -136,6 +137,14 @@ fn main() -> iced::Result {
                 std::process::exit(2);
             }
         }
+        cli::Cli::Status(args) => {
+            cli_language(&cwd);
+            std::process::exit(ide_state::run_status(&args, &cwd));
+        }
+        cli::Cli::Open(args) => {
+            cli_language(&cwd);
+            std::process::exit(ide_state::run_open(&args, &cwd));
+        }
         cli::Cli::Skills(args) => {
             cli_language(&cwd);
             std::process::exit(tea_skills::run(&args, &cwd));
@@ -184,6 +193,19 @@ fn backup_ticks() -> iced::futures::channel::mpsc::UnboundedReceiver<Message> {
         loop {
             std::thread::sleep(std::time::Duration::from_secs(3));
             if tx.unbounded_send(Message::BackupTick).is_err() {
+                return;
+            }
+        }
+    });
+    rx
+}
+
+fn ide_state_ticks() -> iced::futures::channel::mpsc::UnboundedReceiver<Message> {
+    let (tx, rx) = iced::futures::channel::mpsc::unbounded();
+    std::thread::spawn(move || {
+        loop {
+            std::thread::sleep(ide_state::MIN_GAP);
+            if tx.unbounded_send(Message::IdeStateTick).is_err() {
                 return;
             }
         }
@@ -512,6 +534,11 @@ struct App {
     /// edições esperando a confirmação na prévia.
     rename_target: Option<(u64, usize, usize, String)>,
     rename_edits: Option<(String, Vec<tea_lsp::FileEdits>)>,
+    /// O que foi gravado em `.idetea/state.json` (para `idetea status`), quando, e se há mudança esperando o
+    /// intervalo mínimo.
+    ide_state: Option<ide_state::State>,
+    ide_state_at: Option<Instant>,
+    ide_state_due: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -560,6 +587,10 @@ enum Message {
     BinaryChanged,
     /// Hora de conferir se o arquivo de uma aba de imagem ou PDF mudou no disco.
     MediaTick,
+    /// Hora de gravar o `state.json` que esperava o intervalo mínimo.
+    IdeStateTick,
+    /// `idetea open`: mostrar o arquivo com o cursor no lugar.
+    OpenRequest(ide_state::OpenRequest),
     /// Passou a espera depois de digitar: pede a estrutura de novo (se for a última espera).
     OutlineDue(u64),
     /// Hora de mandar o texto do arquivo ativo (só a última espera vale).
@@ -654,6 +685,9 @@ impl App {
             pending_recovery: Vec::new(),
             rename_target: None,
             rename_edits: None,
+            ide_state: None,
+            ide_state_at: None,
+            ide_state_due: false,
             last_status: EditorStatus::default(),
             nav: nav::History::default(),
             outline_seen: (u64::MAX, 0),
@@ -2710,6 +2744,7 @@ impl App {
         }
         self.lsp.shutdown_all();
         self.debug.stop();
+        ide_state::remove(&self.root, std::process::id());
         if self.restart
             && let Some(stamp) = &self.binary
             && let Err(e) = binary::restart(stamp)
@@ -3546,7 +3581,49 @@ impl App {
     fn update(&mut self, message: Message) -> Task<Message> {
         let task = self.handle(message);
         self.save_session(false);
+        self.publish_ide_state();
         task
+    }
+
+    /// O que a IDE mostra agora, para `idetea status`.
+    fn ide_state_snapshot(&self) -> ide_state::State {
+        let files = self
+            .tabs
+            .iter()
+            .filter_map(|t| {
+                let path = t.editor.path()?;
+                let (line, column) = t.editor.cursor();
+                Some(ide_state::FileState { path: ide_state::shown_path(&self.root, path), modified: t.editor.is_modified(), line, column })
+            })
+            .collect();
+        let active = self.active_path().map(|p| ide_state::shown_path(&self.root, p));
+        let cursor = active.as_ref().map(|_| self.editor().cursor());
+        ide_state::State {
+            format: ide_state::FORMAT.into(),
+            version: 1,
+            pid: std::process::id(),
+            active,
+            line: cursor.map(|c| c.0),
+            column: cursor.map(|c| c.1),
+            files,
+        }
+    }
+
+    /// Grava o `state.json` se mudou, no máximo a cada `MIN_GAP` (o resto espera o `IdeStateTick`).
+    fn publish_ide_state(&mut self) {
+        let now = self.ide_state_snapshot();
+        if self.ide_state.as_ref() == Some(&now) {
+            self.ide_state_due = false;
+            return;
+        }
+        if self.ide_state_at.is_some_and(|at| at.elapsed() < ide_state::MIN_GAP) {
+            self.ide_state_due = true;
+            return;
+        }
+        ide_state::write(&self.root, &now);
+        self.ide_state = Some(now);
+        self.ide_state_at = Some(Instant::now());
+        self.ide_state_due = false;
     }
 
     fn handle(&mut self, message: Message) -> Task<Message> {
@@ -3689,6 +3766,13 @@ impl App {
                 self.backup_tick();
                 Task::none()
             }
+            // `update` grava o estado depois de cada mensagem.
+            Message::IdeStateTick => Task::none(),
+            Message::OpenRequest(request) => {
+                let open = self.open_file_at(request.path, request.line, request.column);
+                // Traz a janela para a frente (o compositor pode só marcar a janela, como no Wayland).
+                Task::batch([open, window::latest().and_then(window::gain_focus)])
+            }
             Message::MediaTick => {
                 let changed: Vec<PathBuf> = self
                     .tabs
@@ -3792,7 +3876,9 @@ impl App {
         } else {
             Subscription::none()
         };
-        Subscription::batch([input, close, frames, extensions, resized, disk, backups, binary, media])
+        let state = if self.ide_state_due { Subscription::run(ide_state_ticks) } else { Subscription::none() };
+        let open = Subscription::run_with(self.root.clone(), ide_state::watch_open).map(Message::OpenRequest);
+        Subscription::batch([input, close, frames, extensions, resized, disk, backups, binary, media, state, open])
     }
 
     fn view(&self) -> Element<'_, Message> {

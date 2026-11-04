@@ -1174,6 +1174,14 @@ e grava a resposta do usuário em `.idetea/ui/responses/<nome>/`. Estudo, decis�
     fica com a saída e o código até o usuário fechar; o worktree sai nessa hora.
     - [x] Teste manual: `idetea ask` publicou e esperou (prazo de 10 min com código 4 e `--resume`), `idetea run`
       pediu, esperou, mostrou a resposta e saiu com 5; a aba ficou aberta até o Enter (aprovado pelo painel).
+  - [x] **`idetea status` e `idetea open`; instruções ensinando os comandos:** a IDE grava `.idetea/state.json`
+    (aba ativa com o cursor, arquivos abertos e quais têm mudança; pelo temporário, no máximo a cada 200 ms; apagado
+    ao sair; fora do git) e o `idetea status` lê (código 3 sem IDE aberta, conferindo o processo). `idetea open
+    arquivo:linha:coluna` grava `.idetea/requests/open-<n>.json`, a IDE pega, apaga, abre a aba e chama a janela
+    (só dentro da raiz). A seleção fica para depois: o editor não a expõe. `idetea ask` respeita a `revision` do
+    documento quando é maior. Instruções dos agentes começam pelos comandos (versão `1e2f7175`).
+    - [x] Teste manual: "ensinar" gravou a versão nova; `idetea status` mostrou a aba ativa, o cursor e o "(não
+      salvo)"; `idetea open SPEC.md:1170:5` abriu no lugar; nada de `.idetea/` no `git status` (aprovado pelo painel).
 - [x] **Aba de imagem sempre em dia + schema junto do formato** (lacuna 16): as abas de imagem e PDF conferem
   tamanho e data do arquivo a cada segundo (além do observador) e recarregam quando mudam; o rodapé da aba mostra a
   hora em que o arquivo foi gravado, para conferir qual versão está na tela. A IDE grava também

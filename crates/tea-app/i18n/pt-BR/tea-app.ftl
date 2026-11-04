@@ -303,6 +303,8 @@ cli-usage =
       ui fix [--apply]  mostra (e, com --apply, conserta) o que ficou para trás em .idetea/ui/
       ask …          pergunta no painel Interfaces e espera a resposta (idetea ask sem nada: o uso)
       run … -- <comando>  pede um terminal à IDE e espera o fim (idetea run sem nada: o uso)
+      status [--json]  o que a IDE aberta neste projeto mostra (abas, mudanças, cursor)
+      open <arquivo[:linha[:coluna]]>  a IDE aberta mostra o arquivo, com o cursor no lugar
       -h, --help     mostra esta ajuda
       -V, --version  mostra a versão
 cli-unknown-option = opção desconhecida ignorada: { $option }
@@ -494,3 +496,24 @@ lsp-light-mode = arquivo no modo leve (linha muito longa): sem servidor de lingu
 binary-changed = A IDE foi recompilada: rode "Reiniciar a IDE" (paleta) para usar a versão nova.
 binary-changed-title = [versão nova: reinicie]
 binary-restart-error = Não deu para reiniciar: { $error }
+
+## idetea status / idetea open (RFC 0006)
+status-usage =
+    Uso: idetea status [--json]
+    
+    O que a IDE aberta neste projeto mostra: a aba ativa com o cursor e os arquivos abertos
+    (com "não salvo" nos que têm mudança). --json: o mesmo em JSON, com "open".
+    Códigos: 0 aberta, 2 argumento inválido, 3 a IDE não está aberta neste projeto.
+status-bad-arg = argumento desconhecido: { $arg }
+status-not-open = a IDE não está aberta neste projeto ({ $root })
+status-active = ativo: { $path }
+status-no-active = nenhum arquivo ativo
+status-modified = {" "}(não salvo)
+open-usage =
+    Uso: idetea open <arquivo[:linha[:coluna]]>
+    
+    A IDE aberta neste projeto mostra o arquivo, com o cursor na linha e na coluna.
+    Códigos: 0 aberto, 2 caminho inválido ou fora do projeto, 3 a IDE não está aberta (ou não pegou o pedido).
+open-outside = { $path } não fica dentro do projeto ({ $root })
+open-write-error = não deu para gravar { $path }
+open-not-taken = a IDE não pegou o pedido em 3 segundos

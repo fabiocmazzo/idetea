@@ -440,6 +440,24 @@ idetea ask --input "Nome do branch"
   <nome>` volta a esperar, `idetea ask --close <nome>` tira. Respondida, a pergunta sai do painel (`--keep` deixa,
   para mostrar o resultado numa revisão seguinte).
 
+## O que está aberto e mostrar um arquivo: `idetea status` e `idetea open`
+
+```sh
+idetea status            # aba ativa com o cursor; arquivos abertos, com "(não salvo)" nos que têm mudança
+idetea status --json     # o mesmo em JSON, com "open": true
+idetea open src/main.rs:42:5
+```
+
+- A IDE aberta grava `.idetea/state.json` (`format: "idetea-state"`, `pid`, `active`, `line`, `column`, `files` com
+  `path`, `modified`, `line`, `column`; caminhos relativos à raiz) quando muda, no máximo a cada 200 ms, e apaga ao
+  sair. Fica fora do git (a IDE põe `/state.json` em `.idetea/.gitignore`). Sem `.idetea/`, a IDE não grava nada.
+- `idetea status` confere se o processo do `pid` ainda existe: sem IDE aberta (ou com o arquivo de uma que travou),
+  sai com **3**.
+- `idetea open` grava `.idetea/requests/open-<n>.json` (`{"format": "idetea-open", "version": 1, "path": "…",
+  "line": 42, "column": 5}`, pelo temporário); a IDE pega, apaga, abre a aba com o cursor no lugar e pede para a
+  janela vir para a frente. Só caminhos dentro da raiz. Sem IDE aberta, ou se ela não pegar em 3 segundos, sai com 3.
+- A seleção do usuário ainda não vai no `state.json` (o editor não a expõe).
+
 ## Um ciclo completo em shell
 
 Veja [`examples/interfaces/pergunta.sh`](../../examples/interfaces/pergunta.sh): escreve uma pergunta, espera a

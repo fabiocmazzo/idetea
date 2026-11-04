@@ -188,7 +188,8 @@ fn publish(root: &Path, name: &str, text: &str) -> Result<u64, String> {
     }
     store::prepare(root).map_err(|e| e.to_string())?;
     let ui = store::ui_dir(root);
-    let revision = last_revision(&ui, name) + 1;
+    // A do documento vale se for maior (quem já usou o nome sem o `ask` sabe a dele).
+    let revision = (last_revision(&ui, name) + 1).max(doc["revision"].as_u64().unwrap_or(0));
     doc["revision"] = revision.into();
     // Resposta velha nunca é tomada pela nova.
     clear_responses(&ui, name);
@@ -409,9 +410,14 @@ mod tests {
         close(&root, "q");
         assert!(!ui.join("q.json").exists());
         assert_eq!(publish(&root, "q", &doc).unwrap(), 9);
+        // Uma revisão maior no documento vale.
+        assert_eq!(publish(&root, "q", &doc.replace("\"revision\":1", "\"revision\":40")).unwrap(), 40);
+        assert_eq!(publish(&root, "q", &doc).unwrap(), 41);
+        close(&root, "q");
+        assert_eq!(publish(&root, "q", &doc).unwrap(), 42);
 
         // Sem resposta: volta `None` no prazo e o documento fica.
-        assert!(wait(&root, "q", 9, Duration::from_millis(300)).is_none());
+        assert!(wait(&root, "q", 42, Duration::from_millis(300)).is_none());
         assert!(ui.join("q.json").exists());
         assert!(ui.join("q.wait").exists(), "tocou o .wait enquanto esperava");
 

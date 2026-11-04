@@ -303,6 +303,8 @@ cli-usage =
       ui fix [--apply]  shows (and, with --apply, fixes) what was left behind in .idetea/ui/
       ask …          asks in the Interfaces panel and waits for the answer (idetea ask alone: usage)
       run … -- <command>  asks the IDE for a terminal and waits for the end (idetea run alone: usage)
+      status [--json]  what the IDE open in this project shows (tabs, changes, cursor)
+      open <file[:line[:column]]>  the open IDE shows the file, with the cursor in place
       -h, --help     show this help
       -V, --version  show the version
 cli-unknown-option = unknown option ignored: { $option }
@@ -494,3 +496,24 @@ lsp-light-mode = file in light mode (very long line): no language server
 binary-changed = The IDE was rebuilt: run "Restart the IDE" (palette) to use the new version.
 binary-changed-title = [new version: restart]
 binary-restart-error = Could not restart: { $error }
+
+## idetea status / idetea open (RFC 0006)
+status-usage =
+    Usage: idetea status [--json]
+    
+    What the IDE open in this project shows: the active tab with the cursor and the open files
+    (with "unsaved" on those with changes). --json: the same as JSON, with "open".
+    Exit codes: 0 open, 2 bad argument, 3 the IDE is not open in this project.
+status-bad-arg = unknown argument: { $arg }
+status-not-open = the IDE is not open in this project ({ $root })
+status-active = active: { $path }
+status-no-active = no active file
+status-modified = {" "}(unsaved)
+open-usage =
+    Usage: idetea open <file[:line[:column]]>
+    
+    The IDE open in this project shows the file, with the cursor at the line and column.
+    Exit codes: 0 shown, 2 bad path or outside the project, 3 the IDE is not open (or did not take the request).
+open-outside = { $path } is not inside the project ({ $root })
+open-write-error = could not write { $path }
+open-not-taken = the IDE did not take the request within 3 seconds

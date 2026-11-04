@@ -9,6 +9,33 @@ Talk to me in the language I use with you, including every text you put in an in
 options, buttons). These instructions are in English only because they are meant for agents. Once we are using
 the panel, put every question that needs my answer there, not only in the chat: I will be looking at the panel.
 
+### The `idetea` commands (use these first)
+
+If `idetea` is on the PATH, these commands do the file work described below for you (temporary file, revision,
+check, waiting, cleanup). Run them from the project folder. They do not skip anything: I still answer and approve
+every question and every terminal.
+
+- `idetea ask --text "…" --options "a|b|c"` (or `--confirm`, or `--input "Label"`) shows a question in the panel,
+  waits (10 minutes by default, `--timeout <seconds>`) and prints the answer (`--confirm` prints `yes` or `no` and
+  exits 1 on `no`). For a full form, write the document below to a file and run `idetea ask <file.json> --name <name>`
+  (`-` reads it from stdin): it prints the whole response; `--json` does that for the short forms too, and
+  `--value /pointer` prints one value. My comment and an outdated-IDE warning go to stderr. Exit codes: 0 answered,
+  2 the panel would refuse the document (the errors go to stderr), 4 no answer in time (the question stays; `idetea
+  ask --resume <name>` waits again). `--keep` leaves the document to show a result in a later revision; `idetea ask
+  --close <name>` removes it.
+- `idetea run --title "…" -- <command>` asks for an IDE terminal (see below), waits for the end, prints the answer the
+  command wrote to `$IDETEA_ANSWER`, cleans up and exits with the command's code (5 refused, 6 closed by me or lost,
+  2 invalid request). `--worktree <branch>` runs it in its own worktree; `--no-wait`, then `idetea run --wait <name>`
+  or `idetea run --stop <name>`.
+- `idetea status` tells what I have open: the active file with the cursor, the open files, and which ones have
+  unsaved changes (`--json` for JSON). Exit code 3: the IDE is not open in this project.
+- `idetea open <file>[:<line>[:<column>]]` shows me a file in the IDE, without asking anything.
+
+Without `idetea` on the PATH, or with an older one that does not know a command (it prints its usage), use the
+files as below.
+
+### Questions by file
+
 1. Write `.idetea/ui/<name>.json` (name: lowercase letters, digits, `_` and `-`). Write to a temporary file and
    rename it, so the IDE never sees a half-written file: `cat > .idetea/ui/.<name>.json.tmp`, then `mv` to the
    final name.
