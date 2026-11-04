@@ -301,6 +301,8 @@ cli-usage =
       new <pasta> [--modelo id]  cria um projeto novo: pasta, git, skills do modelo e instruções
       skills [list|add|update|remove]  instala skills de agentes no projeto (idetea skills --help)
       ui fix [--apply]  mostra (e, com --apply, conserta) o que ficou para trás em .idetea/ui/
+      ask …          pergunta no painel Interfaces e espera a resposta (idetea ask sem nada: o uso)
+      run … -- <comando>  pede um terminal à IDE e espera o fim (idetea run sem nada: o uso)
       -h, --help     mostra esta ajuda
       -V, --version  mostra a versão
 cli-unknown-option = opção desconhecida ignorada: { $option }

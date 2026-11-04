@@ -46,6 +46,10 @@ pub enum Cli {
     Skills(Vec<String>),
     /// `idetea new <pasta> [--modelo id] …`: cria um projeto novo (pasta, git, skills, instruções).
     New(Vec<String>),
+    /// `idetea ask …`: uma pergunta no painel Interfaces, esperando a resposta (RFC 0006).
+    Ask(Vec<String>),
+    /// `idetea run … -- <comando>`: um pedido de terminal, esperando o fim (RFC 0006).
+    RunAgent(Vec<String>),
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -78,6 +82,14 @@ pub fn parse(args: impl IntoIterator<Item = OsString>, cwd: &Path, env_no_splash
     if args.peek().is_some_and(|a| a == "new") {
         args.next();
         return Cli::New(args.map(|a| a.to_string_lossy().into_owned()).collect());
+    }
+    if args.peek().is_some_and(|a| a == "ask") {
+        args.next();
+        return Cli::Ask(args.map(|a| a.to_string_lossy().into_owned()).collect());
+    }
+    if args.peek().is_some_and(|a| a == "run") {
+        args.next();
+        return Cli::RunAgent(args.map(|a| a.to_string_lossy().into_owned()).collect());
     }
     if args.peek().is_some_and(|a| a == "skills") {
         args.next();

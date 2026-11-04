@@ -51,6 +51,23 @@ A IDE grava `.idetea/agents/<nome>.status.json`:
 `ide` é o pid da IDE que gravou. Com duas IDEs no mesmo projeto, a que viu primeiro fica com o pedido; um
 `pending` ou `running` de uma IDE que já fechou é tratado de novo (pergunta outra vez, ou vira `lost`).
 
+## Pela linha de comando: `idetea run`
+
+O jeito fácil ([RFC 0006](rfc/0006-ide-como-cli-para-agentes.md)): uma chamada escreve o pedido, espera o fim e limpa.
+
+```sh
+idetea run --title "Servidor" -- npm run dev
+idetea run --title "Revisor" --worktree agente/revisao -- "claude -p 'Review the last commit. Write to \$IDETEA_ANSWER.'"
+```
+
+- Depois de `--`: um argumento só é a linha de shell inteira; vários são palavras, cada uma posta entre aspas.
+- Imprime a resposta (`IDETEA_ANSWER`) no stdout e o que aconteceu no stderr. Sai com o código do comando, ou
+  **5** (recusado), **6** (fechado ou perdido), **2** (pedido inválido ou uso errado), **4** (`--timeout` vencido;
+  o terminal segue).
+- Limpa na ordem certa: o pedido, e só depois o status e a resposta. `--keep` deixa tudo.
+- `--no-wait` só pede (imprime o nome); `--wait <nome>` espera depois; `--stop <nome>` encerra.
+- Um nome que já tem pedido ou status é recusado (não troca o pedido de outro agente).
+
 ## Um agente pede algo a outro (worktree e resposta)
 
 Etapa 5 da RFC 0005. O pedido aceita `"worktree": "<branch>"`:
@@ -69,7 +86,8 @@ Etapa 5 da RFC 0005. O pedido aceita `"worktree": "<branch>"`:
   (não no worktree). É onde o ajudante escreve a resposta; quem pediu lê depois do `exited`.
 - O status (`running` e `exited`) traz `"answer"` e, com worktree, `"worktree"` e `"branch"` (caminhos relativos à
   raiz).
-- Apagar o pedido encerra o terminal e tira o worktree com `git worktree remove`, **sem** `--force`: com mudanças
+- Apagar o pedido encerra o terminal e tira o worktree com `git worktree remove` (se o comando já terminou, isso
+  espera o usuário fechar a aba), **sem** `--force`: com mudanças
   por commitar ou arquivos novos, o git recusa, o worktree fica e a IDE avisa. O branch fica sempre. O código do
   ajudante entra pelo fluxo de sempre (teste manual e aprovação antes do merge).
 - Isso só acontece com a IDE aberta: um pedido apagado com a IDE fechada deixa o worktree (tire com
@@ -102,7 +120,8 @@ contra um agente que já roda comandos livremente.
 
 ## Fim
 
-- Apagar o pedido encerra o terminal (o jeito de o agente parar o que pediu).
+- Apagar o pedido encerra o terminal (o jeito de o agente parar o que pediu). Se o comando já terminou, a aba
+  fica com a saída e o código até o usuário fechar.
 - Terminado, a aba mostra o código e fecha com Enter. O agente apaga o pedido e depois o status.
 - Para pedir de novo com o mesmo nome, apagar os dois antes. Um pedido já tratado também volta a ser perguntado
   quando o status é apagado ou quando o pedido muda (o jeito de corrigir um `invalid`), mesmo que a IDE não tenha

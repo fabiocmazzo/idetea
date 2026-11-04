@@ -417,6 +417,29 @@ O que o uso mostrou ([RFC 0003](../rfc/0003-interfaces-pelo-uso.md)) sobre pedir
   encontrou.
 - Nada de avisos sobre qual IDE está aberta: o painel mostra isso (e a resposta traz `ide`).
 
+## Pela linha de comando: `idetea ask`
+
+O jeito fácil ([RFC 0006](../rfc/0006-ide-como-cli-para-agentes.md)): uma chamada publica, espera e limpa.
+
+```sh
+idetea ask pergunta.json --name proximo --value /passo     # o documento inteiro (ou pelo stdin: idetea ask -)
+idetea ask --title "Próximo passo" --text "O que fazer agora?" --options "lacunas|melhorias|outra"
+idetea ask --title "Apagar 3 arquivos?" --confirm          # sai 0 (sim) ou 1 (não)
+idetea ask --input "Nome do branch"
+```
+
+- Escolhe o nome (`ask-…`, ou `--name`) e a revisão (maior que qualquer uma já usada com o nome: a do documento,
+  a das respostas que sobraram e a que o `ask` anota em `.idetea/ui/.ask-revisions.json`). Apaga resposta velha
+  antes de publicar, confere como o `check` (erro: sai 2 sem publicar), grava pelo temporário e espera tocando o
+  `.wait`.
+- Só conta a resposta da revisão que publicou (um clique numa tela velha é apagado). Avisa no stderr o `comment` e
+  um `ide.outdated`.
+- Imprime: nas formas curtas, o valor escolhido (`--confirm`: `yes`/`no`); com `--value /ponteiro`, esse valor; com
+  `--json` (ou um documento sem `--value`), a resposta inteira.
+- Espera 10 minutos (`--timeout` muda). Sem resposta, sai **4** e a pergunta fica no painel; `idetea ask --resume
+  <nome>` volta a esperar, `idetea ask --close <nome>` tira. Respondida, a pergunta sai do painel (`--keep` deixa,
+  para mostrar o resultado numa revisão seguinte).
+
 ## Um ciclo completo em shell
 
 Veja [`examples/interfaces/pergunta.sh`](../../examples/interfaces/pergunta.sh): escreve uma pergunta, espera a

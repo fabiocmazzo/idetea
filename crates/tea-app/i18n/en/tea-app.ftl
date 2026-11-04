@@ -301,6 +301,8 @@ cli-usage =
       new <folder> [--modelo id]  creates a new project: folder, git, the template's skills and instructions
       skills [list|add|update|remove]  installs agent skills in the project (idetea skills --help)
       ui fix [--apply]  shows (and, with --apply, fixes) what was left behind in .idetea/ui/
+      ask …          asks in the Interfaces panel and waits for the answer (idetea ask alone: usage)
+      run … -- <command>  asks the IDE for a terminal and waits for the end (idetea run alone: usage)
       -h, --help     show this help
       -V, --version  show the version
 cli-unknown-option = unknown option ignored: { $option }

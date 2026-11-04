@@ -1165,6 +1165,15 @@ e grava a resposta do usuário em `.idetea/ui/responses/<nome>/`. Estudo, decis�
   devolve código e resposta), `idetea status` (`.idetea/state.json`: abertos, não salvos, seleção) e `idetea open
   arquivo:linha`; instruções dos agentes ensinando os comandos. Depois, pelo LSP: leitura, edições, sem janela e
   mais linguagens portadas do SolidLSP (MIT).
+  - [x] **`idetea ask` e `idetea run`:** pergunta no painel e pedido de terminal numa chamada (nome e revisão
+    escolhidos, resposta velha apagada antes, conferido como o `check`, `.wait` tocado, só a resposta da revisão
+    publicada, limpeza na ordem certa); formas curtas (`--options`, `--confirm`, `--input`); códigos de saída
+    próprios (2 inválido, 4 prazo, 5 recusado, 6 fechado). Doc: `docs/interfaces/formato.md` e
+    `docs/terminais-de-agente.md`.
+    Aba de agente que já terminou não fecha quando o pedido some (o `idetea run` limpa logo depois do `exited`):
+    fica com a saída e o código até o usuário fechar; o worktree sai nessa hora.
+    - [x] Teste manual: `idetea ask` publicou e esperou (prazo de 10 min com código 4 e `--resume`), `idetea run`
+      pediu, esperou, mostrou a resposta e saiu com 5; a aba ficou aberta até o Enter (aprovado pelo painel).
 - [x] **Aba de imagem sempre em dia + schema junto do formato** (lacuna 16): as abas de imagem e PDF conferem
   tamanho e data do arquivo a cada segundo (além do observador) e recarregam quando mudam; o rodapé da aba mostra a
   hora em que o arquivo foi gravado, para conferir qual versão está na tela. A IDE grava também

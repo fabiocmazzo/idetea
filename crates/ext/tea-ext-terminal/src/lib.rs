@@ -10,13 +10,14 @@
 //!
 //! Um agente pode pedir um terminal (`agents`): o pedido aparece inteiro no painel e só roda se o usuário permitir.
 
-mod agents;
-mod worktree;
-
 tea_core::i18n_loader!();
 macro_rules! fl {
     ($($t:tt)*) => { tea_core::i18n::fl!(crate::LOADER, $($t)*) };
 }
+
+mod agents;
+pub mod cli;
+mod worktree;
 
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
@@ -92,6 +93,12 @@ struct AgentTerm {
     term: Terminal,
     name: String,
     title: String,
+    /// O comando terminou (status `exited`): apagar o pedido não fecha mais a aba, quem fecha é o usuário.
+    ended: bool,
+    /// O pedido sumiu com a aba ainda aberta: ela não pertence mais a nenhum pedido.
+    detached: bool,
+    /// Worktree a remover quando o usuário fechar a aba (o pedido já sumiu).
+    worktree_on_close: bool,
 }
 
 /// O que está na tela.
@@ -304,8 +311,11 @@ impl TerminalExtension {
             Shown::Agent(i) if i < self.agents.len() => {
                 let agent = self.agents.remove(i);
                 // Fechado antes do fim: quem pediu fica sabendo.
-                if agents::read_status(&self.root, &agent.name).is_some_and(|d| d.state == "running") {
+                if !agent.detached && agents::read_status(&self.root, &agent.name).is_some_and(|d| d.state == "running") {
                     let _ = agents::write_status(&self.root, &agent.name, &agents::State::Closed);
+                }
+                if agent.worktree_on_close && let Err(e) = worktree::remove(&self.root, &agent.name) {
+                    ctx.notify(fl!("agent-worktree-kept", path = worktree::path(&self.root, &agent.name).display().to_string(), error = e));
                 }
             }
             Shown::Shell(_) | Shown::Agent(_) | Shown::Request => {}
@@ -318,13 +328,24 @@ impl TerminalExtension {
         agents::ensure_gitignore(&self.root);
         let ours = std::process::id();
         let mut removed = false;
-        // Apagar o pedido é o jeito de o agente encerrar o terminal.
+        // Quem já terminou fica marcado antes de o pedido sumir (o `idetea run` apaga logo depois do `exited`).
+        for agent in self.agents.iter_mut().filter(|a| !a.ended && !a.detached) {
+            agent.ended = agents::read_status(&self.root, &agent.name).is_some_and(|d| d.state == "exited");
+        }
+        // Apagar o pedido é o jeito de o agente encerrar o terminal; se o comando já terminou, a aba fica até o
+        // usuário fechar (para ver a saída e o código).
         let gone: Vec<String> = self.handled.keys().chain(self.pending.keys()).filter(|n| !found.contains_key(*n)).cloned().collect();
         for name in gone {
             let had_worktree = matches!(self.handled.get(&name), Some(Ok(r)) if r.worktree.is_some());
             self.handled.remove(&name);
             removed |= self.pending.remove(&name).is_some();
-            if let Some(i) = self.agents.iter().position(|a| a.name == name) {
+            if let Some(i) = self.agents.iter().position(|a| a.name == name && !a.detached) {
+                if self.agents[i].ended {
+                    let agent = &mut self.agents[i];
+                    agent.detached = true;
+                    agent.worktree_on_close = had_worktree;
+                    continue;
+                }
                 self.agents.remove(i);
                 if let Shown::Agent(s) = self.shown
                     && s > i
@@ -347,7 +368,7 @@ impl TerminalExtension {
             let again = match self.handled.get(&name) {
                 None => false,
                 Some(before) => {
-                    let running_here = self.agents.iter().any(|a| a.name == name);
+                    let running_here = self.agents.iter().any(|a| a.name == name && !a.detached);
                     let status_gone = agents::read_status(&self.root, &name).is_none();
                     if running_here || (*before == request && !status_gone) {
                         continue;
@@ -464,7 +485,7 @@ impl TerminalExtension {
         settings.backend.env.insert("IDETEA_ANSWER".into(), answer);
         match self.new_terminal(settings) {
             Ok(term) => {
-                self.agents.push(AgentTerm { term, name: request.name, title: request.title });
+                self.agents.push(AgentTerm { term, name: request.name, title: request.title, ended: false, detached: false, worktree_on_close: false });
                 self.shown = Shown::Agent(self.agents.len() - 1);
                 ctx.show_panel(PANEL);
                 self.focus_current()
@@ -932,9 +953,9 @@ mod tests {
 
         // Regravado enquanto espera: a cópia antiga (a que estava na tela) não roda.
         let old = ext.pending["um"].clone();
-        put("um", "echo outro");
+        put("um", "sleep 30");
         let _ = ext.update(Message::Requests(agents::scan(&root)), &mut Context::new(&root, None));
-        assert_eq!(ext.pending["um"].command, "echo outro");
+        assert_eq!(ext.pending["um"].command, "sleep 30");
         let _ = ext.update(Message::Allow(Box::new(old)), &mut Context::new(&root, None));
         assert!(ext.agents.is_empty());
         assert_eq!(status(&root, "um"), "pending");
@@ -960,11 +981,41 @@ mod tests {
         }
         let _ = ext.update(Message::Requests(agents::scan(&root)), &mut Context::new(&root, None));
         ext.allow_list = user_allow_list;
+        // `echo livre` pode ter terminado antes: aí a aba ficou e quem fecha é o usuário.
+        while let Some(i) = ext.agents.iter().position(|a| a.name == "livre") {
+            ext.shown = Shown::Agent(i);
+            let _ = ext.close_current(&mut Context::new(&root, None));
+        }
 
         // O agente apaga o pedido: o terminal fecha.
         std::fs::remove_file(root.join(agents::DIR).join("um.json")).unwrap();
         let _ = ext.update(Message::Requests(agents::scan(&root)), &mut Context::new(&root, None));
         assert!(ext.agents.is_empty());
+
+        // Já terminou quando o pedido some (o `idetea run` limpa logo): a aba fica até o usuário fechar.
+        put("cinco", "sleep 30");
+        let _ = ext.update(Message::Requests(agents::scan(&root)), &mut Context::new(&root, None));
+        let req = ext.pending["cinco"].clone();
+        let _ = ext.update(Message::Allow(Box::new(req)), &mut Context::new(&root, None));
+        let doc = agents::status_json(&agents::State::Exited(0), std::process::id(), &serde_json::Map::new());
+        std::fs::write(agents::status_path(&root, "cinco"), doc).unwrap();
+        let _ = ext.update(Message::Requests(agents::scan(&root)), &mut Context::new(&root, None));
+        std::fs::remove_file(root.join(agents::DIR).join("cinco.json")).unwrap();
+        std::fs::remove_file(agents::status_path(&root, "cinco")).unwrap();
+        let _ = ext.update(Message::Requests(agents::scan(&root)), &mut Context::new(&root, None));
+        assert_eq!(ext.agents.len(), 1, "a aba fica");
+        assert!(ext.agents[0].detached);
+        // O mesmo nome pedido de novo é outro pedido (a aba velha não o segura).
+        put("cinco", "sleep 30");
+        let _ = ext.update(Message::Requests(agents::scan(&root)), &mut Context::new(&root, None));
+        assert!(ext.pending.contains_key("cinco"));
+        let _ = ext.update(Message::Refuse("cinco".into()), &mut Context::new(&root, None));
+        ext.shown = Shown::Agent(0);
+        let _ = ext.close_current(&mut Context::new(&root, None));
+        assert!(ext.agents.is_empty());
+        assert_eq!(status(&root, "cinco"), "refused", "fechar a aba velha não mexe no pedido novo");
+        std::fs::remove_file(root.join(agents::DIR).join("cinco.json")).unwrap();
+        let _ = ext.update(Message::Requests(agents::scan(&root)), &mut Context::new(&root, None));
 
         // Pedido recusado e regravado igual, sem a IDE ver o arquivo sumir: apagar o status basta para perguntar de novo.
         assert_eq!(status(&root, "dois"), "refused");
@@ -1061,9 +1112,18 @@ mod tests {
         }
         let pwd = std::fs::read_to_string(&answer).unwrap();
         assert_eq!(Path::new(pwd.trim()).canonicalize().unwrap(), dir.canonicalize().unwrap());
-        // O agente apaga o pedido: o terminal fecha e o worktree (limpo) sai; o branch fica.
+        // O agente apaga o pedido depois do fim: a aba fica para o usuário ver; ao fechá-la, o worktree (limpo) sai e
+        // o branch fica.
+        while status(&root, "ajudante") != "exited" && std::time::Instant::now() < deadline {
+            std::thread::sleep(Duration::from_millis(50));
+        }
+        let _ = ext.update(Message::Requests(agents::scan(&root)), &mut Context::new(&root, None));
         std::fs::remove_file(root.join(agents::DIR).join("ajudante.json")).unwrap();
         let _ = ext.update(Message::Requests(agents::scan(&root)), &mut Context::new(&root, None));
+        assert_eq!(ext.agents.len(), 1);
+        assert!(dir.exists(), "o worktree espera a aba fechar");
+        ext.shown = Shown::Agent(0);
+        let _ = ext.close_current(&mut Context::new(&root, None));
         assert!(ext.agents.is_empty());
         assert!(!dir.exists());
         let branches = std::process::Command::new("git").args(["branch", "--list"]).current_dir(&root).output().unwrap();

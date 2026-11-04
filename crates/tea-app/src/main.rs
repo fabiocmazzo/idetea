@@ -114,6 +114,28 @@ fn main() -> iced::Result {
                 std::process::exit(2);
             }
         }
+        cli::Cli::Ask(args) => {
+            cli_language(&cwd);
+            #[cfg(feature = "ext-ui")]
+            std::process::exit(tea_ext_ui::ask::run(&args, &cwd));
+            #[cfg(not(feature = "ext-ui"))]
+            {
+                let _ = args;
+                eprintln!("idetea: compilada sem a extensão Interfaces (feature ext-ui)");
+                std::process::exit(2);
+            }
+        }
+        cli::Cli::RunAgent(args) => {
+            cli_language(&cwd);
+            #[cfg(feature = "ext-terminal")]
+            std::process::exit(tea_ext_terminal::cli::run(&args, &cwd));
+            #[cfg(not(feature = "ext-terminal"))]
+            {
+                let _ = args;
+                eprintln!("idetea: compilada sem a extensão do terminal (feature ext-terminal)");
+                std::process::exit(2);
+            }
+        }
         cli::Cli::Skills(args) => {
             cli_language(&cwd);
             std::process::exit(tea_skills::run(&args, &cwd));

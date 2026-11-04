@@ -10,6 +10,7 @@ macro_rules! fl {
 }
 
 mod player;
+pub mod ask;
 pub mod check;
 pub mod fix;
 pub mod novo;

@@ -78,7 +78,7 @@ All of it is plain files in the project's `.idetea/` folder, so any agent that r
 - **Agent terminals** (`.idetea/agents/<name>.json`): the agent asks for a terminal with a command; the IDE shows
   the whole request in a "terminal request" tab and runs it only after you allow it. Progress goes to
   `<name>.status.json` (`pending`, `running`, `exited` with the code, `refused`, `closed`, `invalid`, `lost`);
-  deleting the request stops the terminal.
+  deleting the request stops the terminal (if the command already ended, the tab stays until you close it).
 - **Allow list:** `[agents] allow = ["npm run dev", "claude *"]` in your user config runs those commands without
   asking: the exact command, or a prefix followed only by plain arguments (no `;`, `&`, `|`, `$`, backticks,
   redirections…). In a project config it is ignored, with a warning.

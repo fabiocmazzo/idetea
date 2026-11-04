@@ -37,3 +37,13 @@ agent-request-more = { $count ->
    *[other] { $count } more requests after this one.
 }
 agent-done = Finished with code { $code }. Enter closes the tab.
+run-bad-arg = idetea run: "{ $arg }" is not valid.
+run-usage = Usage: idetea run [--title T] [--name name] [--cwd folder] [--worktree branch] [--keep] [--no-wait] [--timeout seconds] -- <command>; idetea run --wait <name>; idetea run --stop <name>
+run-busy = idetea run: there is already a request "{ $name }" (or its status); pick another --name or wait with idetea run --wait { $name }
+run-asked = idetea run: request "{ $name }" is in the terminal panel; waiting for the user to allow it and for the command to end
+run-exited = idetea run: "{ $name }" ended with code { $code }
+run-refused = idetea run: the user refused "{ $name }"
+run-invalid = idetea run: request "{ $name }" is invalid: { $error }
+run-ended = idetea run: "{ $name }" ended without a code ({ $state })
+run-branch = idetea run: the work is on branch { $branch }
+run-timeout = idetea run: time is up and "{ $name }" is still in the terminal (idetea run --wait { $name } waits again; --stop ends it)

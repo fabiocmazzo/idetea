@@ -37,3 +37,13 @@ agent-request-more = { $count ->
    *[other] E mais { $count } pedidos depois deste.
 }
 agent-done = Terminou com código { $code }. Enter fecha a aba.
+run-bad-arg = idetea run: "{ $arg }" não vale.
+run-usage = Uso: idetea run [--title T] [--name nome] [--cwd pasta] [--worktree branch] [--keep] [--no-wait] [--timeout segundos] -- <comando>; idetea run --wait <nome>; idetea run --stop <nome>
+run-busy = idetea run: já existe um pedido "{ $name }" (ou o status dele); escolha outro --name ou espere com idetea run --wait { $name }
+run-asked = idetea run: pedido "{ $name }" no painel do terminal; esperando o usuário permitir e o comando terminar
+run-exited = idetea run: "{ $name }" terminou com código { $code }
+run-refused = idetea run: o usuário recusou "{ $name }"
+run-invalid = idetea run: pedido "{ $name }" inválido: { $error }
+run-ended = idetea run: "{ $name }" acabou sem código ({ $state })
+run-branch = idetea run: o trabalho ficou no branch { $branch }
+run-timeout = idetea run: o prazo acabou e "{ $name }" segue no terminal (idetea run --wait { $name } volta a esperar; --stop encerra)
