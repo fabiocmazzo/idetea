@@ -38,6 +38,9 @@ cp packaging/AppRun "$appdir/AppRun"
 chmod 755 "$appdir/AppRun"
 sed 's|@EXEC@|idetea|' assets/idetea.desktop > "$appdir/idetea.desktop"
 cp assets/idetea.svg "$appdir/idetea.svg"
+# PNG de 256 px (gerado do SVG: `rsvg-convert -w 256 -h 256 assets/idetea.svg -o assets/idetea.png`): o
+# appimagetool faz o `.DirIcon` com ele.
+cp assets/idetea.png "$appdir/idetea.png"
 tool="${APPIMAGETOOL:-target/appimagetool-$arch.AppImage}"
 if [ ! -x "$tool" ]; then
     curl -fsSL -o "$tool" "https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-$arch.AppImage"

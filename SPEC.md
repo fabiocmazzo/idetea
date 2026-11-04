@@ -1182,10 +1182,13 @@ e grava a resposta do usuário em `.idetea/ui/responses/<nome>/`. Estudo, decis�
     documento quando é maior. Instruções dos agentes começam pelos comandos (versão `1e2f7175`).
     - [x] Teste manual: "ensinar" gravou a versão nova; `idetea status` mostrou a aba ativa, o cursor e o "(não
       salvo)"; `idetea open SPEC.md:1170:5` abriu no lugar; nada de `.idetea/` no `git status` (aprovado pelo painel).
-- [ ] **Versão com executáveis para Linux:** o workflow `release.yml` gera `.tar.gz` e AppImage para x86_64
+- [x] **Versão com executáveis para Linux:** o workflow `release.yml` gera `.tar.gz` e AppImage para x86_64
   (`ubuntu-22.04`) e aarch64 (`ubuntu-22.04-arm`), confere que o executável roda e, numa tag `v*`, publica a versão
   com `SHA256SUMS` (pré-lançamento antes da 1.0). "Run workflow" na aba Actions só gera os pacotes como artefatos,
   sem publicar. READMEs com a seção de download.
+  O AppImage leva um PNG de 256 px (`assets/idetea.png`) para o `appimagetool` fazer o `.DirIcon`.
+  - [x] Execução de teste pelo "Run workflow" passou nas duas arquiteturas; a `v0.1.0` foi publicada com os quatro
+    pacotes e o `SHA256SUMS`, como pré-lançamento.
 - [x] **Cores em mais tipos de arquivo:** o `iced-code-editor` com o `two-face` (as sintaxes do `bat`): TOML, `.env`,
   INI, Dockerfile, `.gitignore`, TypeScript/TSX, Kotlin, Dart, Vue, Svelte, Zig, Nix, Terraform, GraphQL… Nomes que a
   extensão não diz: `.env.*` é `.env`, `Cargo.lock`/`poetry.lock`/`uv.lock`/`Pipfile` são TOML, `.jsonc`/`.json5`
