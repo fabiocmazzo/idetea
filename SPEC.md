@@ -1182,6 +1182,10 @@ e grava a resposta do usuário em `.idetea/ui/responses/<nome>/`. Estudo, decis�
     documento quando é maior. Instruções dos agentes começam pelos comandos (versão `1e2f7175`).
     - [x] Teste manual: "ensinar" gravou a versão nova; `idetea status` mostrou a aba ativa, o cursor e o "(não
       salvo)"; `idetea open SPEC.md:1170:5` abriu no lugar; nada de `.idetea/` no `git status` (aprovado pelo painel).
+- [ ] **Site no GitHub Pages:** `site/` em HTML e CSS à mão (início, primeiros passos, agentes passo a passo,
+  recursos), montado por `site/build.py` (só a biblioteca padrão: traz o ícone e o GIF de `assets/` e gera a página
+  de recursos do `docs/features.md`) e publicado pelo workflow `site.yml`. Em inglês; português e espanhol depois.
+  READMEs com o link.
 - [x] **Versão com executáveis para Linux:** o workflow `release.yml` gera `.tar.gz` e AppImage para x86_64
   (`ubuntu-22.04`) e aarch64 (`ubuntu-22.04-arm`), confere que o executável roda e, numa tag `v*`, publica a versão
   com `SHA256SUMS` (pré-lançamento antes da 1.0). "Run workflow" na aba Actions só gera os pacotes como artefatos,

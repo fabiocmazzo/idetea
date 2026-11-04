@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Getting started · IDE TEA</title>
+<meta name="description" content="Install IDE TEA, open a project, and learn the few shortcuts that get you everywhere.">
+<link rel="icon" href="img/idetea.svg" type="image/svg+xml">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="top"><div class="wrap">
+  <a class="brand" href="./"><img src="img/idetea.svg" alt="">IDE TEA</a>
+  <nav class="main">
+    <a href="./">Home</a>
+    <a href="start.html" aria-current="page">Getting started</a>
+    <a href="agents.html">Working with agents</a>
+    <a href="features.html">Features</a>
+    <a href="https://github.com/fabiocmazzo/idetea">GitHub</a>
+  </nav>
+</div></header>
+
+<main class="wrap narrow">
+<div class="page-head">
+  <h1>Getting started</h1>
+  <p>From download to a comfortable setup in about ten minutes.</p>
+</div>
+
+<div class="toc"><strong>On this page</strong>
+  <ol>
+    <li><a href="#install">Install</a></li>
+    <li><a href="#open">Open a project</a></li>
+    <li><a href="#find">Find anything: three shortcuts</a></li>
+    <li><a href="#languages">Language servers</a></li>
+    <li><a href="#terminal">Terminal and tasks</a></li>
+    <li><a href="#git">Git</a></li>
+    <li><a href="#settings">Settings</a></li>
+    <li><a href="#shortcuts">Main shortcuts</a></li>
+  </ol>
+</div>
+
+<section id="install">
+  <h2>1. Install</h2>
+  <ol class="steps">
+    <li>Download the <code>.tar.gz</code> for your machine (x86_64 or aarch64) from
+      <a href="https://github.com/fabiocmazzo/idetea/releases/latest">the latest release</a>.
+      <code>SHA256SUMS</code> has the checksums.</li>
+    <li>Unpack it and run the installer. It puts <code>idetea</code> in <code>~/.local/bin</code> and adds IDE TEA to
+      your app menu:
+<pre><code>tar -xzf idetea-*-linux.tar.gz
+cd idetea-*-linux
+./install.sh</code></pre></li>
+    <li>If the installer says <code>~/.local/bin</code> is not on your <code>PATH</code>, add it (for example in
+      <code>~/.profile</code>), so you and your agents can run <code>idetea</code> from a terminal.</li>
+  </ol>
+  <p>Prefer a single file? The AppImage runs as is: <code>chmod +x IDE_TEA-*.AppImage</code> and open it;
+    <code>--install-desktop</code> adds it to the menu. Building from source is one command:
+    <code>cargo install --locked --git https://github.com/fabiocmazzo/idetea tea-app</code>.</p>
+  <div class="callout">Optional extras: <code>git</code> for the git panel, <code>gdb</code> 14+ for debugging, and the
+    language servers you use (next steps).</div>
+</section>
+
+<section id="open">
+  <h2>2. Open a project</h2>
+  <p>A project is just a folder. From a terminal:</p>
+<pre><code>idetea                # the current folder
+idetea ~/code/my-app  # another folder
+idetea src/main.rs    # current folder, with this file open</code></pre>
+  <p>The IDE gives the prompt back right away. From the app menu, it reopens your last project. The tabs, the active
+    file and the open panels come back the way you left them.</p>
+  <p>The layout: the file tree on the left, the editor in the middle, panels on the right (outline, preview,
+    Interfaces) and at the bottom (terminal, search, problems, git). The icon bar on the left edge shows and hides
+    each panel; drag a border to resize it.</p>
+</section>
+
+<section id="find">
+  <h2>3. Find anything: three shortcuts</h2>
+  <ol class="steps">
+    <li><kbd>Ctrl</kbd>+<kbd>P</kbd> opens a file by name. Type parts of the name; <code>main.rs:42</code> jumps to the
+      line.</li>
+    <li><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>P</kbd> is the command palette: every command, with its shortcut next to
+      it. If you remember one shortcut, make it this one.</li>
+    <li><kbd>F1</kbd> lists every shortcut you have now, plus a short guide.</li>
+  </ol>
+  <p>Search the whole project with <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>F</kbd> (as you type, respecting
+    <code>.gitignore</code>, with regex and replace).</p>
+</section>
+
+<section id="languages">
+  <h2>4. Language servers</h2>
+  <p>Errors, completion, hover, go to definition (<kbd>F12</kbd>), references (<kbd>Shift</kbd>+<kbd>F12</kbd>) and the
+    outline come from language servers. These are already set up; install the ones you need and they start on their
+    own:</p>
+  <div class="table-scroll"><table>
+    <tr><th>Language</th><th>Server</th></tr>
+    <tr><td>Rust</td><td><code>rust-analyzer</code></td></tr>
+    <tr><td>C, C++</td><td><code>clangd</code></td></tr>
+    <tr><td>Python</td><td><code>pyright</code></td></tr>
+    <tr><td>TypeScript, JavaScript</td><td><code>typescript-language-server</code></td></tr>
+    <tr><td>Go</td><td><code>gopls</code></td></tr>
+    <tr><td>Lua</td><td><code>lua-language-server</code></td></tr>
+  </table></div>
+  <p>Others can be added in the config (<code>[lsp]</code> section).</p>
+</section>
+
+<section id="terminal">
+  <h2>5. Terminal and tasks</h2>
+  <ul>
+    <li><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>T</kbd> opens the terminal. <code>+</code> adds another shell in a tab;
+      <code>exit</code> closes it. The IDE's <kbd>Ctrl</kbd>+<kbd>Shift</kbd> shortcuts keep working while you type in
+      it.</li>
+    <li><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>B</kbd> runs a task: what the IDE finds in the project (cargo,
+      <code>package.json</code> scripts, Makefile targets) plus your own, from the config:
+<pre><code># .idetea/config.toml in the project
+[tasks]
+"server" = "cargo run -- --port 8080"</code></pre></li>
+  </ul>
+</section>
+
+<section id="git">
+  <h2>6. Git</h2>
+  <p><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>G</kbd> opens the git panel: stage and unstage, colored diff, commit, discard
+    (with confirmation), push, pull and fetch. It uses your installed <code>git</code>, so your config, hooks, ssh agent
+    and credential helper apply. The branch and the number of changes are on the status bar.</p>
+</section>
+
+<section id="settings">
+  <h2>7. Settings</h2>
+  <p><kbd>Ctrl</kbd>+<kbd>,</kbd> opens the settings screen: appearance, extensions, shortcuts (press the keys you want)
+    and language servers. Everything is also in plain TOML:</p>
+  <ul>
+    <li><code>~/.config/idetea/config.toml</code> for you;</li>
+    <li><code>.idetea/config.toml</code> in a project, for that project (it wins over yours).</li>
+  </ul>
+<pre><code>[ui]
+theme = "dark"          # "light", or an iced theme such as "Nord" or "Dracula"
+font_size = 14
+language = "auto"       # "en", "pt-BR", "es"
+
+[editor]
+wrap = true
+format_on_save = false
+
+[keys]
+"ctrl+shift+p" = "palette.open"</code></pre>
+</section>
+
+<section id="shortcuts">
+  <h2>8. Main shortcuts</h2>
+  <div class="table-scroll"><table>
+    <tr><th>Shortcut</th><th>What</th></tr>
+    <tr><td><kbd>Ctrl</kbd>+<kbd>P</kbd></td><td>Open a file by name</td></tr>
+    <tr><td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>P</kbd></td><td>Command palette</td></tr>
+    <tr><td><kbd>F1</kbd></td><td>Every shortcut and the guide</td></tr>
+    <tr><td><kbd>Ctrl</kbd>+<kbd>,</kbd></td><td>Settings</td></tr>
+    <tr><td><kbd>Ctrl</kbd>+<kbd>B</kbd></td><td>Show or hide the file tree</td></tr>
+    <tr><td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>F</kbd></td><td>Search in the project</td></tr>
+    <tr><td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>T</kbd></td><td>Terminal</td></tr>
+    <tr><td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>B</kbd></td><td>Run a task</td></tr>
+    <tr><td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>G</kbd></td><td>Git</td></tr>
+    <tr><td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>M</kbd> / <kbd>F8</kbd></td><td>Problems / next problem</td></tr>
+    <tr><td><kbd>F12</kbd> / <kbd>Shift</kbd>+<kbd>F12</kbd></td><td>Go to definition / find references</td></tr>
+    <tr><td><kbd>Alt</kbd>+<kbd>←</kbd> / <kbd>Alt</kbd>+<kbd>→</kbd></td><td>Back / forward after a jump</td></tr>
+    <tr><td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>V</kbd></td><td>Markdown or SVG preview</td></tr>
+    <tr><td><kbd>F5</kbd> / <kbd>F9</kbd></td><td>Debug / toggle breakpoint</td></tr>
+  </table></div>
+  <div class="next">
+    <a class="btn" href="./">← Home</a>
+    <a class="btn primary" href="agents.html">Next: working with agents →</a>
+  </div>
+</section>
+</main>
+
+<footer><div class="wrap">
+  <span>IDE TEA · Apache 2.0 · made with <a href="https://github.com/iced-rs/iced">iced</a></span>
+  <span><a href="https://github.com/fabiocmazzo/idetea/issues">Report a bug</a> ·
+    <a href="https://github.com/fabiocmazzo/idetea">GitHub</a></span>
+</div></footer>
+</body>
+</html>

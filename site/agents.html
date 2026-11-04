@@ -1,0 +1,201 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Working with agents · IDE TEA</title>
+<meta name="description" content="Step by step: teach your coding agent to ask questions in the IDE, approve the terminals it asks for, and hand work to helper agents.">
+<link rel="icon" href="img/idetea.svg" type="image/svg+xml">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="top"><div class="wrap">
+  <a class="brand" href="./"><img src="img/idetea.svg" alt="">IDE TEA</a>
+  <nav class="main">
+    <a href="./">Home</a>
+    <a href="start.html">Getting started</a>
+    <a href="agents.html" aria-current="page">Working with agents</a>
+    <a href="features.html">Features</a>
+    <a href="https://github.com/fabiocmazzo/idetea">GitHub</a>
+  </nav>
+</div></header>
+
+<main class="wrap narrow">
+<div class="page-head">
+  <h1>Working with agents, step by step</h1>
+  <p>Your coding agent keeps running in a terminal. IDE TEA gives it a way to ask you things properly, and makes sure
+    nothing runs without your say.</p>
+</div>
+
+<div class="toc"><strong>On this page</strong>
+  <ol>
+    <li><a href="#before">Before you start</a></li>
+    <li><a href="#teach">Teach the project's agents</a></li>
+    <li><a href="#run">Run your agent inside the IDE</a></li>
+    <li><a href="#answer">Answer a question</a></li>
+    <li><a href="#approve">Approve a terminal</a></li>
+    <li><a href="#allow">Skip the question for commands you trust</a></li>
+    <li><a href="#helpers">Hand work to a helper agent</a></li>
+    <li><a href="#commands">The <code>idetea</code> commands</a></li>
+    <li><a href="#new">Start a new project with an agent</a></li>
+    <li><a href="#files">Under the hood</a></li>
+  </ol>
+</div>
+
+<section id="before">
+  <h2>1. Before you start</h2>
+  <ul>
+    <li>A coding agent that reads <code>AGENTS.md</code> or <code>CLAUDE.md</code>: Claude Code, Codex, and others.</li>
+    <li><code>idetea</code> on your <code>PATH</code> (the <a href="start.html#install">installer</a> does it). Agents
+      use the <code>idetea</code> commands when they find them, and fall back to writing the files themselves.</li>
+    <li>A project open in IDE TEA.</li>
+  </ul>
+</section>
+
+<section id="teach">
+  <h2>2. Teach the project's agents</h2>
+  <ol class="steps">
+    <li>Open the command palette (<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>P</kbd>).</li>
+    <li>Run <strong>Interfaces: teach this project's agents</strong>.</li>
+    <li>The IDE writes a short block of instructions into the <code>AGENTS.md</code> and <code>CLAUDE.md</code> you
+      already have, leaving the rest of each file alone. With neither, it creates an <code>AGENTS.md</code> and a
+      <code>CLAUDE.md</code> that imports it. Commit them with the project, or keep them to yourself: your choice.</li>
+  </ol>
+  <div class="callout">The block carries a version. When a newer IDE has newer instructions, the panel tells you; run the
+    same command again.</div>
+</section>
+
+<section id="run">
+  <h2>3. Run your agent inside the IDE</h2>
+  <p>Open the terminal (<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>T</kbd>) and start your agent there, as you would anywhere
+    else:</p>
+<pre><code>claude        # or codex, or your agent of choice</code></pre>
+  <p>Ask for what you want as usual. When the agent needs a decision, it uses the panel instead of the chat. You can
+    also say it outright: <em>"ask me in the IDE panel"</em>.</p>
+</section>
+
+<section id="answer">
+  <h2>4. Answer a question</h2>
+  <p>When the agent asks something, the <strong>Interfaces</strong> panel opens with a real form, and the status bar
+    says a new question arrived.</p>
+  <figure>
+    <img src="img/panel-question.png" width="886" height="448" loading="lazy"
+      alt="The Interfaces panel on the right shows 'Cache backend': a question, a Backend choice set to In-memory, a 'Write tests for it' checkbox, a comment field and Confirm / Not now buttons. The agent waits in the terminal below.">
+    <figcaption>The agent asked which cache backend to use, and waits in the terminal below.</figcaption>
+  </figure>
+  <ol class="steps">
+    <li>Fill in the form: choices, checkboxes, text fields. A button that needs something first says what is missing.</li>
+    <li>Optional: write a comment for the agent (a caveat, a question back). It goes with the button you click.</li>
+    <li>Click a button. The answer goes back to the agent, which carries on.</li>
+  </ol>
+  <p>Agents can also show you images, galleries to pick from, animated sprites, sounds with their waveform, files to
+    edit (a commit message, a PR description), and step lists for a manual test, with an approve button that waits
+    until you have done the steps.</p>
+</section>
+
+<section id="approve">
+  <h2>5. Approve a terminal</h2>
+  <p>To run something you should be able to watch (tests, a dev server, another agent), the agent asks the IDE for a
+    terminal. A <strong>Terminal request</strong> tab shows exactly what would run, and where.</p>
+  <figure>
+    <img src="img/terminal-request.png" width="886" height="448" loading="lazy"
+      alt="A 'Terminal request' tab in the bottom panel: 'agent asks for a terminal: Tests', the command 'cargo test', the folder, a warning that it runs with your permissions, and the buttons 'Allow and run' and 'Refuse'.">
+    <figcaption>Nothing runs until you click <strong>Allow and run</strong>.</figcaption>
+  </figure>
+  <ol class="steps">
+    <li>Read the command. It runs exactly that, with your permissions, as if you typed it.</li>
+    <li>Click <strong>Allow and run</strong>, or <strong>Refuse</strong>. The agent learns which one you chose.</li>
+    <li>The command runs in its own tab. When it ends, the tab keeps the output and the exit code until you press
+      <kbd>Enter</kbd>; the agent gets the code (and, if the command wrote one, an answer file).</li>
+  </ol>
+  <figure>
+    <img src="img/terminal-tests.png" width="886" height="448" loading="lazy"
+      alt="The agent's terminal tab shows cargo test output with 3 tests passing and 'Finished with code 0. Enter closes the tab.'">
+    <figcaption>The tests passed; the agent got code 0.</figcaption>
+  </figure>
+  <p>Closing the tab before the end stops the command, and the agent is told.</p>
+</section>
+
+<section id="allow">
+  <h2>6. Skip the question for commands you trust</h2>
+  <p>Put them in <strong>your</strong> config, <code>~/.config/idetea/config.toml</code>:</p>
+<pre><code>[agents]
+allow = ["npm run dev", "cargo test", "claude *"]</code></pre>
+  <p>An entry is the exact command, or a start followed by <code>*</code>: that start plus plain arguments, with no
+    <code>;</code> <code>&amp;</code> <code>|</code> <code>$</code>, backticks or redirections.</p>
+  <div class="callout warn">This list is read only from your own config. In a project's <code>.idetea/config.toml</code>
+    it is ignored (with a warning): an agent can write project files, and a project must never be able to give itself
+    permission.</div>
+</section>
+
+<section id="helpers">
+  <h2>7. Hand work to a helper agent</h2>
+  <p>Your agent can start another one, for a review or a fix on the side, in its own git worktree, so the two never
+    edit the same files:</p>
+<pre><code>idetea run --title "Reviewer" --worktree agent/review -- \
+  claude -p 'Review the last commit. Write your findings to the file in $IDETEA_ANSWER.'</code></pre>
+  <ol class="steps">
+    <li>You approve the request, as in step 5. The tab shows the branch it will use.</li>
+    <li>The IDE creates <code>.idetea/worktrees/&lt;name&gt;</code> on that branch and runs the helper there.</li>
+    <li>The helper writes its answer to <code>$IDETEA_ANSWER</code>; your main agent reads it and brings code in from
+      the branch the usual way (with your test and approval).</li>
+    <li>When it is done, the worktree is removed if it has nothing uncommitted. The branch always stays.</li>
+  </ol>
+</section>
+
+<section id="commands">
+  <h2>8. The <code>idetea</code> commands</h2>
+  <p>Agents use these when <code>idetea</code> is on the <code>PATH</code>. Each does the whole round trip in one call.
+    You can try them yourself in the IDE terminal.</p>
+  <div class="table-scroll"><table>
+    <tr><th>Command</th><th>What it does</th></tr>
+    <tr><td><code>idetea ask --text "Deploy now?" --confirm</code></td>
+      <td>Shows a question in the panel and waits (10 minutes by default). Short forms: <code>--options "a|b|c"</code>,
+        <code>--confirm</code>, <code>--input "Name"</code>; or a full form from a JSON file. Prints the answer.</td></tr>
+    <tr><td><code>idetea run --title "Tests" -- cargo test</code></td>
+      <td>Asks for a terminal, waits for the end, prints the helper's answer and exits with the command's code (5 if
+        you refused).</td></tr>
+    <tr><td><code>idetea status</code></td>
+      <td>What you have open: the active file with the cursor, the open files, and which have unsaved changes
+        (<code>--json</code> too).</td></tr>
+    <tr><td><code>idetea open src/main.rs:42</code></td>
+      <td>Shows you a file in the IDE, at that line, without asking anything.</td></tr>
+  </table></div>
+  <p>Run any of them alone to see all the options.</p>
+</section>
+
+<section id="new">
+  <h2>9. Start a new project with an agent</h2>
+  <p><strong>Project: new…</strong> in the palette (or <code>idetea new</code>) creates the folder, runs
+    <code>git init</code>, installs the agent skills of a template (empty, Rust, website, Python, FastAPI), writes
+    an initial request into <code>AGENTS.md</code>, and can open your agent in an IDE terminal for you to approve:</p>
+<pre><code>idetea new my-app --modelo rust --descricao "a unit converter" --agente claude</code></pre>
+</section>
+
+<section id="files">
+  <h2>10. Under the hood</h2>
+  <p>Everything is plain files in the project's <code>.idetea/</code> folder. These ones stay out of git:</p>
+  <ul>
+    <li><code>.idetea/ui/&lt;name&gt;.json</code>: a question; your answer lands in <code>.idetea/ui/responses/</code>.</li>
+    <li><code>.idetea/agents/&lt;name&gt;.json</code>: a terminal request; its progress in
+      <code>&lt;name&gt;.status.json</code>.</li>
+    <li><code>.idetea/state.json</code>: what you have open, for <code>idetea status</code>.</li>
+  </ul>
+  <p>So any agent that can read and write files can use it, and you can read every message yourself. The full formats
+    (in Portuguese for now): <a href="https://github.com/fabiocmazzo/idetea/blob/main/docs/interfaces/formato.md">the
+    Interfaces format</a> and <a href="https://github.com/fabiocmazzo/idetea/blob/main/docs/terminais-de-agente.md">agent
+    terminals</a>.</p>
+  <div class="next">
+    <a class="btn" href="start.html">← Getting started</a>
+    <a class="btn primary" href="features.html">All features →</a>
+  </div>
+</section>
+</main>
+
+<footer><div class="wrap">
+  <span>IDE TEA · Apache 2.0 · made with <a href="https://github.com/iced-rs/iced">iced</a></span>
+  <span><a href="https://github.com/fabiocmazzo/idetea/issues">Report a bug</a> ·
+    <a href="https://github.com/fabiocmazzo/idetea">GitHub</a></span>
+</div></footer>
+</body>
+</html>

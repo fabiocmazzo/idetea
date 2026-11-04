@@ -12,7 +12,8 @@
 </p>
 
 <p align="center">
-  <a href="README.md">English</a> · <b>Português</b> · <a href="README.es.md">Español</a>
+  <a href="README.md">English</a> · <b>Português</b> · <a href="README.es.md">Español</a><br>
+  <a href="https://fabiocmazzo.github.io/idetea/"><b>Site e guias</b></a> (em inglês)
 </p>
 
 <p align="center"><img src="assets/demo.gif" width="886" alt="Um agente faz uma pergunta no painel Interfaces e depois pede um terminal para rodar os testes; o usuário responde e permite."></p>
