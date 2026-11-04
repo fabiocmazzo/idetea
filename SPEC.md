@@ -1182,6 +1182,13 @@ e grava a resposta do usuário em `.idetea/ui/responses/<nome>/`. Estudo, decis�
     documento quando é maior. Instruções dos agentes começam pelos comandos (versão `1e2f7175`).
     - [x] Teste manual: "ensinar" gravou a versão nova; `idetea status` mostrou a aba ativa, o cursor e o "(não
       salvo)"; `idetea open SPEC.md:1170:5` abriu no lugar; nada de `.idetea/` no `git status` (aprovado pelo painel).
+- [x] **Cores em mais tipos de arquivo:** o `iced-code-editor` com o `two-face` (as sintaxes do `bat`): TOML, `.env`,
+  INI, Dockerfile, `.gitignore`, TypeScript/TSX, Kotlin, Dart, Vue, Svelte, Zig, Nix, Terraform, GraphQL… Nomes que a
+  extensão não diz: `.env.*` é `.env`, `Cargo.lock`/`poetry.lock`/`uv.lock`/`Pipfile` são TOML, `.jsonc`/`.json5`
+  são JSON, `.mdx` é Markdown. Custo: a carga das sintaxes fica em ~13 ms (com o disco em cache, igual à de antes) e o
+  binário release cresce ~0,8 MB.
+  - [x] Teste manual: `.env`, `.env.local`, TOML, INI, Dockerfile e TypeScript coloridos, com a linguagem na barra;
+    Rust e Markdown como antes; abertura tão rápida quanto antes (aprovado pelo painel).
 - [x] **Aba de imagem sempre em dia + schema junto do formato** (lacuna 16): as abas de imagem e PDF conferem
   tamanho e data do arquivo a cada segundo (além do observador) e recarregam quando mudam; o rodapé da aba mostra a
   hora em que o arquivo foi gravado, para conferir qual versão está na tela. A IDE grava também

@@ -10,7 +10,7 @@ iced = { workspace = true, features = ["advanced", "image"] }
 image = "0.25"
 # Desenha páginas de PDF (puro Rust, Apache/MIT).
 hayro = "0.8"
-iced-code-editor = { workspace = true, features = ["lsp-process"] }
+iced-code-editor = { workspace = true, features = ["lsp-process", "two-face"] }
 tea-lsp.workspace = true
 tea-core.workspace = true
 similar.workspace = true

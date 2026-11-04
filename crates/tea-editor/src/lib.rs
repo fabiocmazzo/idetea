@@ -1134,13 +1134,27 @@ impl Drop for Editor {
     }
 }
 
-/// Nome de sintaxe para o syntect: a extensão do arquivo ou, sem ela, o nome (ex.: `Makefile`).
+/// Nome de sintaxe para o syntect (com as sintaxes extras do `two-face`): a extensão do arquivo ou, sem ela, o nome
+/// (ex.: `Makefile`, `.env`). Alguns nomes que a extensão não diz: `.env.local` é `.env`, `Cargo.lock` é TOML.
 fn syntax_for(path: Option<&Path>) -> String {
     let Some(path) = path else { return "txt".into() };
-    path.extension()
+    let name = path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
+    if name.starts_with(".env.") {
+        return ".env".into();
+    }
+    if ["Cargo.lock", "poetry.lock", "uv.lock", "Pipfile"].contains(&name.as_str()) {
+        return "toml".into();
+    }
+    let key = path
+        .extension()
         .or_else(|| path.file_name())
         .map(|e| e.to_string_lossy().into_owned())
-        .unwrap_or_else(|| "txt".into())
+        .unwrap_or_else(|| "txt".into());
+    match key.as_str() {
+        "jsonc" | "json5" => "json".into(),
+        "mdx" => "md".into(),
+        _ => key,
+    }
 }
 
 /// Bytes iguais no começo (em fronteira de caractere).
@@ -1208,6 +1222,31 @@ fn file_stamp(path: &Path) -> Option<(u64, Option<std::time::SystemTime>)> {
 
 #[cfg(test)]
 mod tests {
+    /// Arquivos comuns que não eram coloridos (config, `.env`, TypeScript…) acham a sintaxe certa.
+    #[test]
+    fn common_files_get_a_syntax() {
+        let name = |f: &str| CodeEditor::new("", &syntax_for(Some(Path::new(f)))).syntax_name();
+        for (file, syntax) in [
+            ("Cargo.toml", "TOML"),
+            ("Cargo.lock", "TOML"),
+            (".env", "DotENV"),
+            (".env.local", "DotENV"),
+            ("config.ini", "INI"),
+            (".editorconfig", "INI"),
+            ("Dockerfile", "Dockerfile"),
+            (".gitignore", "Git Ignore"),
+            ("a.ts", "TypeScript"),
+            ("a.tsx", "TypeScriptReact"),
+            ("a.jsonc", "JSON"),
+            ("a.yaml", "YAML"),
+            ("main.rs", "Rust"),
+            ("Makefile", "Makefile"),
+            ("notas.txt", "Plain Text"),
+        ] {
+            assert_eq!(name(file), syntax, "{file}");
+        }
+    }
+
     use super::*;
 
     #[test]
