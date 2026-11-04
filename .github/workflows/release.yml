@@ -1,26 +1,42 @@
-# A cada tag `v*` (ex.: `git tag v0.1.0 && git push origin v0.1.0`): testa, gera o .tar.gz e o AppImage e
-# publica uma versão no GitHub com os dois. A tag precisa bater com a versão do Cargo.toml.
+# Versão com executáveis para Linux (x86_64 e aarch64): .tar.gz, AppImage e SHA256SUMS.
+#
+# - Tag `v*` (ex.: `git tag v0.1.0 && git push origin v0.1.0`): testa, gera os pacotes e publica a versão no GitHub.
+#   A tag precisa bater com a versão do Cargo.toml.
+# - "Run workflow" na aba Actions (workflow_dispatch): só gera os pacotes, como artefatos da execução, sem publicar
+#   nada. Serve para conferir antes da primeira tag.
 name: Versão
 
 on:
   push:
     tags: ["v*"]
+  workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  release:
-    # Ubuntu mais antigo = glibc mais antiga: o executável roda em mais distros.
-    runs-on: ubuntu-22.04
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        # Ubuntu mais antigo = glibc mais antiga: o executável roda em mais distros.
+        include:
+          - arch: x86_64
+            runner: ubuntu-22.04
+          - arch: aarch64
+            runner: ubuntu-22.04-arm
+    runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
+        with:
+          key: dist-${{ matrix.arch }}
       - name: Tag igual à versão
+        if: startsWith(github.ref, 'refs/tags/')
         run: |
           version=$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -n 1)
           if [ "v$version" != "$GITHUB_REF_NAME" ]; then
@@ -28,12 +44,38 @@ jobs:
             exit 1
           fi
       - name: Testes
+        # Os testes com clangd, gdb e plugins WASM se pulam quando faltam as ferramentas.
         run: cargo test --locked --workspace
       - name: Pacotes
         run: packaging/dist.sh
-      - uses: softprops/action-gh-release@v2
+      - name: Executável roda
+        run: |
+          tar -xzf dist/*.tar.gz -C "$RUNNER_TEMP"
+          "$RUNNER_TEMP"/idetea-*/idetea --version
+      - uses: actions/upload-artifact@v4
         with:
-          files: |
+          name: idetea-linux-${{ matrix.arch }}
+          path: |
             dist/*.tar.gz
             dist/*.AppImage
+          if-no-files-found: error
+
+  publish:
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - name: SHA256SUMS
+        run: cd dist && sha256sum -- * > SHA256SUMS && cat SHA256SUMS
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*
           generate_release_notes: true
+          # Antes da 1.0, toda versão sai como pré-lançamento.
+          prerelease: ${{ startsWith(github.ref_name, 'v0.') }}

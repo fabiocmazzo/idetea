@@ -62,7 +62,12 @@ una extensión que puedes desactivar.
 
 ## Instalación
 
-Necesitas [Rust](https://rustup.rs) (estable). Después:
+**Linux, listo para usar:** descarga el `.tar.gz` o el AppImage de tu máquina (x86_64 o aarch64) en
+[Releases](https://github.com/fabiocmazzo/idetea/releases). En el `.tar.gz`, `./install.sh` pone `idetea` en
+`~/.local/bin` y en el menú de aplicaciones. El AppImage funciona tal cual (antes, `chmod +x`); `--install-desktop`
+lo pone en el menú. `SHA256SUMS` tiene las sumas de verificación.
+
+**Desde el código fuente:** necesitas [Rust](https://rustup.rs) (estable). Después:
 
 ```sh
 cargo install --locked --git https://github.com/fabiocmazzo/idetea tea-app
