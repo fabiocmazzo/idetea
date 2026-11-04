@@ -15,6 +15,8 @@
   <a href="README.md">English</a> · <b>Português</b> · <a href="README.es.md">Español</a>
 </p>
 
+<p align="center"><img src="assets/demo.gif" width="886" alt="Um agente faz uma pergunta no painel Interfaces e depois pede um terminal para rodar os testes; o usuário responde e permite."></p>
+
 ---
 
 A IDE TEA abre num piscar de olhos, não atrapalha e diz o que está fazendo. Sem conta, sem telemetria, sem

@@ -15,6 +15,8 @@
   <b>English</b> · <a href="README.pt-BR.md">Português</a> · <a href="README.es.md">Español</a>
 </p>
 
+<p align="center"><img src="assets/demo.gif" width="886" alt="An agent asks a question in the Interfaces panel, then asks for a terminal to run the tests; the user answers and allows it."></p>
+
 ---
 
 IDE TEA is an IDE that opens in a blink, stays out of your way and tells you what it is doing. No account, no
