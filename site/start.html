@@ -5,6 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Getting started · IDE TEA</title>
 <meta name="description" content="Install IDE TEA, open a project, and learn the few shortcuts that get you everywhere.">
+<link rel="alternate" hreflang="en" href="https://fabiocmazzo.github.io/idetea/start.html">
+<link rel="alternate" hreflang="pt-BR" href="https://fabiocmazzo.github.io/idetea/pt-br/start.html">
+<link rel="alternate" hreflang="es" href="https://fabiocmazzo.github.io/idetea/es/start.html">
 <link rel="icon" href="img/idetea.svg" type="image/svg+xml">
 <link rel="stylesheet" href="style.css">
 </head>
@@ -18,6 +21,7 @@
     <a href="features.html">Features</a>
     <a href="https://github.com/fabiocmazzo/idetea">GitHub</a>
   </nav>
+  <nav class="lang" aria-label="Language"><a href="start.html" aria-current="true">EN</a><a href="pt-br/start.html" hreflang="pt-BR">PT</a><a href="es/start.html" hreflang="es">ES</a></nav>
 </div></header>
 
 <main class="wrap narrow">
@@ -69,7 +73,8 @@ idetea src/main.rs    # current folder, with this file open</code></pre>
   <p>The IDE gives the prompt back right away. From the app menu, it reopens your last project. The tabs, the active
     file and the open panels come back the way you left them.</p>
   <p>The layout: the file tree on the left, the editor in the middle, panels on the right (outline, preview,
-    Interfaces) and at the bottom (terminal, search, problems, git). The icon bar on the left edge shows and hides
+    Interfaces) and at the bottom (terminal, search, problems, git). Above the editor, breadcrumbs show the file's path and the symbol
+    where the cursor is. The icon bar on the left edge shows and hides
     each panel; drag a border to resize it.</p>
 </section>
 
@@ -140,6 +145,7 @@ language = "auto"       # "en", "pt-BR", "es"
 [editor]
 wrap = true
 format_on_save = false
+breadcrumbs = true
 
 [keys]
 "ctrl+shift+p" = "palette.open"</code></pre>

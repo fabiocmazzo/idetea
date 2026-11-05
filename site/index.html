@@ -8,6 +8,9 @@
 <meta property="og:title" content="IDE TEA">
 <meta property="og:description" content="A fast, quiet IDE in pure Rust where coding agents ask before they act.">
 <meta property="og:image" content="https://fabiocmazzo.github.io/idetea/img/idetea.png">
+<link rel="alternate" hreflang="en" href="https://fabiocmazzo.github.io/idetea/">
+<link rel="alternate" hreflang="pt-BR" href="https://fabiocmazzo.github.io/idetea/pt-br/">
+<link rel="alternate" hreflang="es" href="https://fabiocmazzo.github.io/idetea/es/">
 <link rel="icon" href="img/idetea.svg" type="image/svg+xml">
 <link rel="stylesheet" href="style.css">
 </head>
@@ -21,6 +24,7 @@
     <a href="features.html">Features</a>
     <a href="https://github.com/fabiocmazzo/idetea">GitHub</a>
   </nav>
+  <nav class="lang" aria-label="Language"><a href="./" aria-current="true">EN</a><a href="pt-br/" hreflang="pt-BR">PT</a><a href="es/" hreflang="es">ES</a></nav>
 </div></header>
 
 <main>
@@ -70,8 +74,10 @@
       it runs, and nothing runs until you allow it.</p></div>
     <div class="card"><h3>Helpers in their own worktree</h3><p>Hand a review or a side fix to another agent. It works on
       its own branch and leaves its answer in a file.</p></div>
-    <div class="card"><h3>One command each</h3><p><code>idetea ask</code>, <code>run</code>, <code>status</code> and
-      <code>open</code> do the file work for the agent, with the same approvals.</p></div>
+    <div class="card"><h3>One command each</h3><p><code>idetea ask</code>, <code>run</code>, <code>status</code>,
+      <code>open</code> and <code>history</code> do the file work for the agent, with the same approvals.</p></div>
+    <div class="card"><h3>A history of it all</h3><p>Every question and your answer are kept, with when the agent read
+      it. A panel shows the open ones and the answered ones, with search.</p></div>
   </div>
   <p style="margin-top:22px"><a href="agents.html">Working with agents, step by step →</a></p>
 </div></section>

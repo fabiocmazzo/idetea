@@ -1184,8 +1184,11 @@ e grava a resposta do usuário em `.idetea/ui/responses/<nome>/`. Estudo, decis�
       salvo)"; `idetea open SPEC.md:1170:5` abriu no lugar; nada de `.idetea/` no `git status` (aprovado pelo painel).
 - [x] **Site no GitHub Pages:** `site/` em HTML e CSS à mão (início, primeiros passos, agentes passo a passo,
   recursos), montado por `site/build.py` (só a biblioteca padrão: traz o ícone e o GIF de `assets/` e gera a página
-  de recursos do `docs/features.md`) e publicado pelo workflow `site.yml`. Em inglês; português e espanhol depois.
-  READMEs com o link.
+  de recursos do `docs/features.md`) e publicado pelo workflow `site.yml`. Em inglês, português (`site/pt-br/`) e
+  espanhol (`site/es/`): início, primeiros passos e agentes; a lista de recursos fica só em inglês (sai do
+  `docs/features.md`) e o menu diz "(em inglês)". Seletor EN · PT · ES em todas as páginas, com `hreflang`.
+  READMEs com o link (cada um para o site no seu idioma).
+  - [x] Português e espanhol aprovados pelo painel: texto em português lido, seletor, espanhol, recursos e celular.
   - [x] No ar em https://fabiocmazzo.github.io/idetea/ (Pages ligado pelo usuário; o deploy passou e todas as
     páginas e imagens respondem).
 - [x] **Histórico das interfaces** ([RFC 0007](docs/rfc/0007-historico-das-interfaces.md), aprovada pelo painel):
