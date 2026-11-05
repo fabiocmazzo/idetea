@@ -1203,6 +1203,13 @@ e grava a resposta do usuário em `.idetea/ui/responses/<nome>/`. Estudo, decis�
   Interfaces, no histórico e nos painéis de plugins.
   - [x] Teste manual pelo painel (0.2.0): selecionar com o mouse, Ctrl+C, digitar não muda nada, voltar ao
     formatado, e o mesmo numa entrada do histórico.
+- [x] **Breadcrumbs** (pedido pelo painel; forma B, ligado por padrão): uma linha entre as abas e o editor com a
+  pasta do projeto, as pastas e o arquivo e, na aba ativa, os símbolos onde o cursor está (da estrutura que a IDE já
+  pede ao LSP), com o ícone de cada tipo. Pasta: mostra o arquivo na árvore; símbolo: vai até ele. `[editor]
+  breadcrumbs = false` (também em Configurações → Editor). Depois, se fizer falta: menus em cada parte (forma C).
+  - [x] Teste manual pelo painel: caminho, símbolos que acompanham o cursor, cliques (pasta na árvore, símbolo),
+    tela dividida. Na primeira rodada o primeiro caractere ficava cortado no editor da esquerda (linha colada na
+    borda): ganhou 6 px de cada lado.
 - [x] **Versão com executáveis para Linux:** o workflow `release.yml` gera `.tar.gz` e AppImage para x86_64
   (`ubuntu-22.04`) e aarch64 (`ubuntu-22.04-arm`), confere que o executável roda e, numa tag `v*`, publica a versão
   com `SHA256SUMS` (pré-lançamento antes da 1.0). "Run workflow" na aba Actions só gera os pacotes como artefatos,

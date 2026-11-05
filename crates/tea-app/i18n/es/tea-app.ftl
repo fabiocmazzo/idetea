@@ -444,6 +444,8 @@ settings-final-newline = Salto de línea al final del archivo al guardar
 settings-final-newline-detail = Asegura que la última línea termine con un salto de línea.
 settings-format-on-save = Formatear al guardar
 settings-format-on-save-detail = Ctrl+S formatea con el servidor de lenguaje antes de guardar (espera hasta 2 s). Guardar todos no formatea.
+settings-breadcrumbs = Breadcrumbs
+settings-breadcrumbs-detail = Encima del editor: la ruta del archivo y el símbolo donde está el cursor. Clic en una carpeta para mostrarla en el árbol, en un símbolo para ir a él.
 settings-editorconfig-note = Un .editorconfig en el proyecto prevalece sobre estas opciones (sangría, tabs o espacios, limpieza al guardar).
 
 guide-config-5 = Editor: la pestaña Editor de la configuración ({ $settings-open }) tiene ajuste de línea, espacios visibles, guías de sangría, tamaño de la sangría y qué hacer al guardar (quitar espacios al final, salto de línea final, formatear). Un .editorconfig en el proyecto prevalece; sin él, un archivo que ya usa tabs sigue con tabs.

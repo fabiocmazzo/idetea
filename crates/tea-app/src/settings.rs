@@ -413,6 +413,7 @@ fn editor_view(config: &Config) -> Element<'_, Msg> {
         ),
         flag(fl!("settings-final-newline"), fl!("settings-final-newline-detail"), "insert_final_newline", e.insert_final_newline),
         flag(fl!("settings-format-on-save"), fl!("settings-format-on-save-detail"), "format_on_save", e.format_on_save),
+        flag(fl!("settings-breadcrumbs"), fl!("settings-breadcrumbs-detail"), "breadcrumbs", e.breadcrumbs),
         text(fl!("settings-editorconfig-note")).size(11).style(text::secondary),
     ]
     .spacing(4)

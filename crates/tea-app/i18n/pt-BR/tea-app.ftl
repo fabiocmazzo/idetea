@@ -444,6 +444,8 @@ settings-final-newline = Quebra de linha no fim do arquivo ao salvar
 settings-final-newline-detail = Garante que a última linha termina com quebra de linha.
 settings-format-on-save = Formatar ao salvar
 settings-format-on-save-detail = Ctrl+S formata com o servidor de linguagem antes de gravar (espera até 2 s). Salvar todos não formata.
+settings-breadcrumbs = Breadcrumbs
+settings-breadcrumbs-detail = Acima do editor: o caminho do arquivo e o símbolo onde está o cursor. Clique numa pasta para mostrar na árvore, num símbolo para ir até ele.
 settings-editorconfig-note = Um .editorconfig no projeto vale mais que estas opções (recuo, tabs ou espaços, limpar ao salvar).
 
 guide-config-5 = Editor: na aba Editor das configurações ({ $settings-open }) ficam quebra de linha, espaços visíveis, guias de recuo, tamanho do recuo e o que fazer ao salvar (tirar espaços no fim, quebra de linha final, formatar). Um .editorconfig no projeto vale mais; sem ele, arquivo que já recua com tabs continua com tabs.

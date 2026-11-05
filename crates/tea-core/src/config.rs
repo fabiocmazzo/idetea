@@ -46,6 +46,8 @@ insert_spaces = true
 trim_trailing_whitespace = false
 insert_final_newline = false
 format_on_save = false
+# Acima do editor, o caminho do arquivo e o símbolo onde está o cursor (pasta › arquivo › impl › fn).
+breadcrumbs = true
 
 # Tarefas (Ctrl+Shift+B): "nome" = "comando", rodam na raiz do projeto com a saída no terminal. Além destas,
 # a lista traz o que achar no projeto (cargo, scripts do package.json, alvos do Makefile).
@@ -227,6 +229,8 @@ pub struct EditorConfig {
     pub trim_trailing_whitespace: bool,
     pub insert_final_newline: bool,
     pub format_on_save: bool,
+    /// Caminho do arquivo e símbolo do cursor acima do editor.
+    pub breadcrumbs: bool,
 }
 
 impl Default for EditorConfig {
@@ -240,6 +244,7 @@ impl Default for EditorConfig {
             trim_trailing_whitespace: false,
             insert_final_newline: false,
             format_on_save: false,
+            breadcrumbs: true,
         }
     }
 }

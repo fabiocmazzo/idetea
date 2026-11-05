@@ -444,6 +444,8 @@ settings-final-newline = Final newline on save
 settings-final-newline-detail = Makes sure the last line ends with a newline.
 settings-format-on-save = Format on save
 settings-format-on-save-detail = Ctrl+S formats with the language server before writing (waits up to 2 s). Save all does not format.
+settings-breadcrumbs = Breadcrumbs
+settings-breadcrumbs-detail = Above the editor: the file's path and the symbol where the cursor is. Click a folder to show it in the tree, a symbol to jump to it.
 settings-editorconfig-note = A .editorconfig in the project overrides these options (indent, tabs or spaces, cleanup on save).
 
 guide-config-5 = Editor: the Editor tab in settings ({ $settings-open }) has line wrap, visible whitespace, indent guides, indent size and what to do on save (trim trailing spaces, final newline, format). A .editorconfig in the project overrides them; without one, a file already indented with tabs keeps tabs.

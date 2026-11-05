@@ -560,6 +560,10 @@ enum Message {
     /// Vinda da subscription de uma extensão.
     ExtSub(usize, ExtMessage),
     SelectTab(u64),
+    /// Breadcrumbs: pasta clicada (mostra o arquivo da aba na árvore).
+    BreadcrumbReveal(u64),
+    /// Breadcrumbs: símbolo clicado (arquivo, linha, coluna).
+    BreadcrumbSymbol(PathBuf, usize, usize),
     /// Botão de uma extensão na barra de abas: roda o comando.
     RunCommand(String),
     /// Botão direito numa aba.
@@ -3681,6 +3685,12 @@ impl App {
             // O foco do editor sai por clique no painel (`MousePressed`) ou por comando,
             // não aqui: painéis também mandam mensagens sozinhos (ex.: terminal ao mudar de tamanho).
             Message::Ext(i, msg) | Message::ExtSub(i, msg) => self.call_ext(i, |e, ctx| e.update(msg, ctx)),
+            Message::BreadcrumbReveal(id) => {
+                let Some(i) = self.tab_index(id) else { return Task::none() };
+                let activate = self.set_active(i);
+                Task::batch([activate, self.run_command("filetree.reveal")])
+            }
+            Message::BreadcrumbSymbol(path, line, column) => self.open_file_at(path, line, column),
             Message::SelectTab(id) => match self.tab_index(id) {
                 Some(i) => self.set_active(i),
                 None => Task::none(),
@@ -3967,7 +3977,61 @@ impl App {
             }
             None => iced::widget::space().into(),
         };
-        column![tabs, editor].spacing(4).width(Fill).height(Fill).into()
+        let mut side = column![tabs].spacing(4).width(Fill).height(Fill);
+        if self.config.editor.breadcrumbs
+            && let Some(crumbs) = shown.and_then(|i| self.breadcrumbs_view(i))
+        {
+            side = side.push(crumbs);
+        }
+        side.push(editor).into()
+    }
+
+    /// Breadcrumbs da aba `i`: a pasta do projeto, as pastas, o arquivo e, na aba ativa, os símbolos onde o cursor
+    /// está (da última estrutura). Pasta: mostra na árvore; símbolo: vai até ele.
+    fn breadcrumbs_view(&self, i: usize) -> Option<Element<'_, Message>> {
+        let tab = &self.tabs[i];
+        let path = tab.editor.path()?;
+        let id = tab.id;
+        let mut parts: Vec<Element<'_, Message>> = Vec::new();
+        let sep = || -> Element<'_, Message> { text("›").size(12).style(text::secondary).into() };
+        let crumb = |label: String, on: Message| -> Element<'_, Message> {
+            button(text(label).size(12).style(text::secondary)).style(button::text).padding([0, 2]).on_press(on).into()
+        };
+        let (names, file) = crumb_names(&self.root, path);
+        for name in names {
+            parts.push(crumb(name, Message::BreadcrumbReveal(id)));
+            parts.push(sep());
+        }
+        parts.push(text(file).size(12).into());
+        // Símbolos: só da aba ativa, e só se a estrutura guardada é deste arquivo.
+        if i == self.active && self.last_outline.0.as_deref() == Some(path) {
+            let (line, _) = tab.editor.cursor();
+            for s in symbol_chain(&self.last_outline.1, line) {
+                let (glyph, color) = s.kind.icon();
+                let label = row![
+                    tea_core::icons::icon(glyph).size(12).color_maybe(color),
+                    text(s.name.clone()).size(12).style(text::secondary)
+                ]
+                .spacing(3)
+                .align_y(iced::Center);
+                parts.push(sep());
+                parts.push(
+                    button(label)
+                        .style(button::text)
+                        .padding([0, 2])
+                        .on_press(Message::BreadcrumbSymbol(path.to_path_buf(), s.line, s.column))
+                        .into(),
+                );
+            }
+        }
+        // Um respiro à esquerda: colado na borda do painel, o primeiro caractere fica cortado.
+        let line = row(parts).spacing(2).align_y(iced::Center).padding(iced::Padding { left: 6.0, right: 6.0, ..iced::Padding::ZERO });
+        Some(
+            scrollable(line)
+                .direction(scrollable::Direction::Horizontal(scrollable::Scrollbar::new().width(2).scroller_width(2)))
+                .width(Fill)
+                .into(),
+        )
     }
 
     fn workspace_view(&self) -> Element<'_, Message> {
@@ -4115,6 +4179,35 @@ impl App {
     }
 }
 
+/// Breadcrumbs: as pastas (a do projeto primeiro) e o nome do arquivo. Fora do projeto, o caminho todo.
+fn crumb_names(root: &Path, path: &Path) -> (Vec<String>, String) {
+    let name = |c: std::path::Component<'_>| c.as_os_str().to_string_lossy().into_owned();
+    let file = path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
+    match path.strip_prefix(root) {
+        Ok(rel) => {
+            let project = root.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
+            let mut names = vec![project];
+            names.extend(rel.parent().into_iter().flat_map(Path::components).map(name));
+            (names, file)
+        }
+        Err(_) => {
+            let names = path.parent().into_iter().flat_map(Path::components).map(name).filter(|c| c != "/").collect();
+            (names, file)
+        }
+    }
+}
+
+/// Os símbolos onde a linha está, do mais de fora para o mais de dentro (`impl App` › `fn update`).
+fn symbol_chain(symbols: &[tea_core::outline::Symbol], line: usize) -> Vec<&tea_core::outline::Symbol> {
+    let mut out = Vec::new();
+    let mut level = symbols;
+    while let Some(s) = level.iter().find(|s| s.start_line <= line && line <= s.end_line) {
+        out.push(s);
+        level = &s.children;
+    }
+    out
+}
+
 /// "dark", "light" ou o nome de um tema do iced (sem diferenciar maiúsculas).
 fn resolve_theme(name: &str) -> (Theme, Option<String>) {
     match name.trim().to_lowercase().as_str() {
@@ -4173,6 +4266,36 @@ fn display_rel(path: &Path, root: &Path) -> String {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn breadcrumbs_path_and_symbols() {
+        use tea_core::outline::{Kind, Symbol, Visibility};
+        let (names, file) = crumb_names(Path::new("/p/idetea"), Path::new("/p/idetea/crates/tea-app/src/main.rs"));
+        assert_eq!(names, ["idetea", "crates", "tea-app", "src"]);
+        assert_eq!(file, "main.rs");
+        let (names, file) = crumb_names(Path::new("/p/idetea"), Path::new("/p/idetea/README.md"));
+        assert_eq!((names, file.as_str()), (vec!["idetea".to_string()], "README.md"));
+        let (names, _) = crumb_names(Path::new("/p/idetea"), Path::new("/etc/hosts"));
+        assert_eq!(names, ["etc"], "fora do projeto: o caminho todo, sem a raiz /");
+
+        let sym = |name: &str, start: usize, end: usize, children: Vec<Symbol>| Symbol {
+            name: name.into(),
+            kind: Kind::Function,
+            detail: None,
+            visibility: Visibility::Unknown,
+            line: start,
+            column: 1,
+            start_line: start,
+            end_line: end,
+            children,
+        };
+        let symbols = vec![sym("A", 1, 3, vec![]), sym("impl App", 5, 40, vec![sym("new", 6, 10, vec![]), sym("update", 12, 39, vec![])])];
+        let names = |line| symbol_chain(&symbols, line).iter().map(|s| s.name.clone()).collect::<Vec<_>>();
+        assert_eq!(names(20), ["impl App", "update"]);
+        assert_eq!(names(5), ["impl App"]);
+        assert_eq!(names(2), ["A"]);
+        assert!(names(4).is_empty());
+    }
+
     #[test]
     fn translations_are_complete() {
         // Todos os crates com textos: inglês e espanhol têm as mesmas mensagens e valores que o português.
