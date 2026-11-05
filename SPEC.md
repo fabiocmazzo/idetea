@@ -1220,6 +1220,14 @@ e grava a resposta do usuário em `.idetea/ui/responses/<nome>/`. Estudo, decis�
   estende do mesmo começo; Shift+clique e arrastar continua estendendo.
   - [x] Teste `shift_click_extends_the_selection` e teste manual pelo painel: selecionar, estender para cima e para
     baixo, copiar, ponto fora da tela, clique sem Shift só move o cursor.
+- [x] **Fonte do código:** a JetBrains Mono 2.304 (OFL 1.1, regular e negrito) vem embutida e é o padrão. `[editor]
+  font` (qualquer fonte instalada, ou `"monospace"`), `font_weight` e `line_height` (1.0 a 2.5), também em
+  Configurações → Aparência (lista das monoespaçadas instaladas). Valem no editor (o widget desenha os números de
+  linha com a mesma), no terminal (altura na mesma proporção: 1.45 no editor = 1.3 no terminal), na caixa do git e
+  na dica de parâmetros. Fonte não instalada ou peso desconhecido: aviso no config e a embutida. Os pacotes levam as
+  licenças. Espaço entre letras não dá: o motor de texto do iced não tem.
+  - [x] Testes `config_resolves_to_a_font` e `embedded_font_is_truetype`; teste manual pelo painel: ligaduras,
+    trocar fonte, peso e altura (editor e terminal), clique certo depois de mudar a altura, fonte inexistente.
 - [x] **Versão com executáveis para Linux:** o workflow `release.yml` gera `.tar.gz` e AppImage para x86_64
   (`ubuntu-22.04`) e aarch64 (`ubuntu-22.04-arm`), confere que o executável roda e, numa tag `v*`, publica a versão
   com `SHA256SUMS` (pré-lançamento antes da 1.0). "Run workflow" na aba Actions só gera os pacotes como artefatos,

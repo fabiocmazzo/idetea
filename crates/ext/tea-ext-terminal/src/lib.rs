@@ -128,6 +128,7 @@ pub struct TerminalExtension {
     size: Option<iced::Size>,
     theme: Theme,
     font_size: f32,
+    code_font: tea_core::fonts::CodeFont,
     /// De onde vem a lista de comandos que rodam sem confirmar (`[agents] allow`, só do config do usuário).
     allow_list: fn() -> Vec<String>,
 }
@@ -163,6 +164,7 @@ impl Default for TerminalExtension {
             size: None,
             theme: Theme::TokyoNight,
             font_size: 14.0,
+            code_font: tea_core::fonts::CodeFont::default(),
             allow_list: user_allow_list,
         }
     }
@@ -187,7 +189,13 @@ impl TerminalExtension {
     }
 
     fn font(&self) -> FontSettings {
-        FontSettings { size: self.font_size, font_type: Font::MONOSPACE, ..FontSettings::default() }
+        FontSettings {
+            size: self.font_size,
+            // A altura padrão do terminal (1.3) é mais justa que a do editor (1.45): acompanha a do
+            // config na mesma proporção.
+            scale_factor: self.code_font.line_height * 1.3 / tea_core::fonts::LINE_HEIGHT_DEFAULT,
+            font_type: self.code_font.font,
+        }
     }
 
     /// Abre um shell numa aba nova e mostra.
@@ -614,9 +622,10 @@ impl TerminalExtension {
         if let CoreEvent::RunTask { name, command, cwd, done } = event {
             return self.run_task(name, command, cwd, done, ctx);
         }
-        if let CoreEvent::Appearance { theme, font_size } = event {
+        if let CoreEvent::Appearance { theme, font_size, code_font } = event {
             self.theme = theme.clone();
             self.font_size = *font_size;
+            self.code_font = *code_font;
             let font = self.font();
             for term in self.all_terms_mut() {
                 term.handle(iced_term::Command::ChangeTheme(Box::new(palette_for(theme))));

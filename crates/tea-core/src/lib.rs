@@ -23,6 +23,7 @@ pub mod calls;
 pub mod config;
 pub mod config_edit;
 pub mod debug;
+pub mod fonts;
 pub mod i18n;
 pub mod icons;
 pub mod menu;
@@ -66,7 +67,7 @@ pub enum CoreEvent {
     /// Trabalho em segundo plano (ex.: "rust-analyzer: indexando 40%"). `text: None` = terminou.
     Activity { source: String, text: Option<String> },
     /// Tema ou tamanho da fonte mudou. Também é enviado logo depois da ativação.
-    Appearance { theme: Theme, font_size: f32 },
+    Appearance { theme: Theme, font_size: f32, code_font: crate::fonts::CodeFont },
     /// Um painel desta extensão foi aberto pelo usuário (barra de ícones). Só o dono recebe.
     PanelShown(PanelId),
     /// Status de controle de versão dos arquivos (vindo da extensão git). Substitui o anterior.

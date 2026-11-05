@@ -214,6 +214,8 @@ pub struct Editor {
     /// Onde começa a seleção feita com o mouse: o último clique sem Shift. Shift+clique estende a
     /// partir daqui; teclas que mexem o cursor ou o texto esquecem (aí vale o cursor).
     click_anchor: Option<(usize, usize)>,
+    /// Fonte do código (`[editor] font`...). Começa com a do widget, que [`Self::set_code_font`] troca.
+    code_font: tea_core::fonts::CodeFont,
 }
 
 /// Mensagens que mexem no cursor ou no texto sem o mouse: depois delas, Shift+clique estende a
@@ -330,6 +332,7 @@ impl Editor {
             light: None,
             shift_press: false,
             click_anchor: None,
+            code_font: tea_core::fonts::CodeFont { font: iced::Font::MONOSPACE, line_height: 20.0 / 14.0 },
         };
         if has_long_line(&text) {
             editor.enter_light_mode();
@@ -551,8 +554,21 @@ impl Editor {
     }
 
     pub fn set_font_size(&mut self, size: f32) {
+        self.set_code_font(size, self.code_font);
+    }
+
+    /// Fonte, tamanho e altura da linha do código (os números de linha vêm junto: o widget usa a mesma).
+    pub fn set_code_font(&mut self, size: f32, font: tea_core::fonts::CodeFont) {
+        if font.font != self.code_font.font {
+            self.inner.set_font(font.font);
+        }
         if (self.inner.font_size() - size).abs() > f32::EPSILON {
-            self.inner.set_font_size(size, true);
+            self.inner.set_font_size(size, false);
+        }
+        self.code_font = font;
+        let line = font.line_px(size);
+        if (self.inner.line_height() - line).abs() > f32::EPSILON {
+            self.inner.set_line_height(line);
         }
     }
 
@@ -901,7 +917,7 @@ impl Editor {
         };
         let row_y = rows.iter().find(|r| r.line == end_line).map(|r| r.y)?;
         let fs = self.inner.font_size();
-        let mono = iced::Font::MONOSPACE;
+        let mono = self.code_font.font;
         let title = match h.kind {
             quick_diff::HunkKind::Added => fl!("hunk-added", count = h.len),
             quick_diff::HunkKind::Modified => fl!("hunk-modified", count = h.len),
@@ -980,14 +996,14 @@ impl Editor {
         let chars: Vec<char> = help.label.chars().collect();
         let (s, e) = help.active.unwrap_or((0, 0));
         let piece = |a: usize, b: usize| chars[a.min(chars.len())..b.min(chars.len())].iter().collect::<String>();
-        let bold = iced::Font { weight: iced::font::Weight::Bold, ..iced::Font::MONOSPACE };
+        let bold = self.code_font.bold();
         let mut spans: Vec<Span<'_, (), iced::Font>> = Vec::new();
         if help.count > 1 {
             spans.push(span(format!("{}/{}  ", help.index + 1, help.count)).color(palette.background.strong.text));
         }
-        spans.push(span(piece(0, s)).font(iced::Font::MONOSPACE));
+        spans.push(span(piece(0, s)).font(self.code_font.font));
         spans.push(span(piece(s, e)).font(bold).color(palette.primary.strong.color).underline(true));
-        spans.push(span(piece(e, chars.len())).font(iced::Font::MONOSPACE));
+        spans.push(span(piece(e, chars.len())).font(self.code_font.font));
         let mut body = column![rich_text(spans).size(fs)].spacing(4);
         if let Some(doc) = &help.doc {
             body = body.push(text(doc.as_str()).size(fs * 0.85).style(text::secondary));

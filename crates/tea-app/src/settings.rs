@@ -12,6 +12,7 @@ use iced::{Element, Fill, Font, Theme};
 use tea_core::Slot;
 use tea_core::i18n::{self, Language};
 use tea_core::config::Config;
+use tea_core::fonts;
 use tea_core::icons::{Icon, icon_button};
 use tea_core::keymap::Keymap;
 
@@ -39,6 +40,10 @@ pub enum Msg {
     Target(Target),
     Theme(ThemeChoice),
     FontSize(f32),
+    /// `[editor] font`, `font_weight` e `line_height`.
+    CodeFont(String),
+    FontWeight(String),
+    LineHeight(f32),
     Splash(bool),
     RestoreSession(bool),
     /// Opção de `[editor]` que liga/desliga: a chave no config e o valor.
@@ -92,6 +97,8 @@ pub fn filter_id() -> Id {
 
 pub const FONT_MIN: f32 = 8.0;
 pub const FONT_MAX: f32 = 32.0;
+/// Passo do − e + da altura da linha.
+const LINE_STEP: f32 = 0.05;
 
 impl Settings {
     pub fn new(servers: Vec<ServerRow>, extensions: Vec<ExtRow>, project_path: PathBuf) -> Self {
@@ -341,6 +348,30 @@ fn appearance(config: &Config) -> Element<'_, Msg> {
     ]
     .spacing(6)
     .align_y(iced::Center);
+    let e = &config.editor;
+    let families = fonts::monospace_families();
+    let chosen_font = families.iter().find(|f| f.eq_ignore_ascii_case(e.font.trim())).cloned();
+    let code_font = pick_list(families, chosen_font, Msg::CodeFont)
+        .placeholder(e.font.clone())
+        .text_size(13)
+        .width(220);
+    let weights: Vec<String> = fonts::WEIGHTS.iter().map(ToString::to_string).collect();
+    let chosen_weight = fonts::weight(&e.font_weight)
+        .and_then(|w| fonts::WEIGHTS.iter().find(|n| fonts::weight(n) == Some(w)))
+        .map(ToString::to_string);
+    let weight = pick_list(weights, chosen_weight, Msg::FontWeight).text_size(13).width(220);
+    let lh = (e.line_height * 100.0).round() / 100.0;
+    let line_height = row![
+        button(text("−").size(14))
+            .on_press_maybe((lh > fonts::LINE_HEIGHT_MIN).then_some(Msg::LineHeight(lh - LINE_STEP)))
+            .padding([2, 10]),
+        text(format!("{lh:.2}")).size(14).width(44).align_x(iced::Center),
+        button(text("+").size(14))
+            .on_press_maybe((lh < fonts::LINE_HEIGHT_MAX).then_some(Msg::LineHeight(lh + LINE_STEP)))
+            .padding([2, 10]),
+    ]
+    .spacing(6)
+    .align_y(iced::Center);
     let current = theme_choices().into_iter().find(|t| t.0.eq_ignore_ascii_case(config.ui.theme.trim()));
     // O idioma só muda ao reiniciar: avisa quando o escolhido não é o que está na tela.
     let chosen = i18n::resolve(&config.ui.language, i18n::system_locale().as_deref());
@@ -362,6 +393,9 @@ fn appearance(config: &Config) -> Element<'_, Msg> {
         ),
         setting_owned(fl!("settings-language"), language_detail, language.into()),
         setting_owned(fl!("settings-font-size"), fl!("settings-font-size-detail"), font.into()),
+        setting_owned(fl!("settings-code-font"), fl!("settings-code-font-detail"), code_font.into()),
+        setting_owned(fl!("settings-font-weight"), fl!("settings-font-weight-detail"), weight.into()),
+        setting_owned(fl!("settings-line-height"), fl!("settings-line-height-detail"), line_height.into()),
         setting_owned(
             fl!("settings-activity-bar"),
             fl!("settings-activity-bar-detail"),

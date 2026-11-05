@@ -91,6 +91,17 @@ impl ConfigFile {
         self.section("editor")[key] = value(on);
     }
 
+    /// `[editor] font` e `font_weight` (texto).
+    pub fn set_editor_text(&mut self, key: &str, text: &str) {
+        self.section("editor")[key] = value(text);
+    }
+
+    /// `[editor] line_height`, com duas casas (1.45, não 1.4500000476837158).
+    pub fn set_line_height(&mut self, height: f32) {
+        let rounded = (f64::from(height) * 100.0).round() / 100.0;
+        self.section("editor")["line_height"] = value(rounded);
+    }
+
     pub fn set_tab_size(&mut self, size: u8) {
         self.section("editor")["tab_size"] = value(i64::from(size));
     }

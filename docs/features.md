@@ -43,6 +43,10 @@ The full list, for the technical reader. For the short version, see the [README]
   restricted (`pub(crate)`, `protected`…), with the symbol under the cursor highlighted.
 - Breadcrumbs above the editor: `project › folder › file › impl App › fn update`, the path and the symbols where the
   cursor is. A folder shows the file in the tree; a symbol jumps to it. `[editor] breadcrumbs = false` turns them off.
+- Code font: JetBrains Mono comes built in; any installed font works (`[editor] font = "Fira Code"`), with its
+  ligatures. Weight and line height too (`font_weight`, `line_height`), also in Settings → Appearance. The editor,
+  its line numbers and the terminal use the same font.
+- Shift+click extends the selection from the last click (or from the cursor, after moving it with the keyboard).
 - Already set up: rust-analyzer, clangd, pyright, typescript-language-server, gopls and lua-language-server. Just
   install the server; you can change the command or add others in the config.
 

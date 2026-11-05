@@ -48,6 +48,14 @@ insert_final_newline = false
 format_on_save = false
 # Acima do editor, o caminho do arquivo e o símbolo onde está o cursor (pasta › arquivo › impl › fn).
 breadcrumbs = true
+# Fonte do código (editor, números de linha e terminal). A JetBrains Mono vem com a IDE; vale qualquer fonte
+# instalada pelo nome (ex.: "Fira Code", "Cascadia Code", "DejaVu Sans Mono") ou "monospace" (a do sistema).
+# Ligaduras (=>, !=) aparecem quando a fonte tem.
+font = "JetBrains Mono"
+# thin, extra-light, light, normal, medium, semibold, bold, extra-bold, black.
+font_weight = "normal"
+# Altura da linha, em múltiplos do tamanho da fonte (1.0 a 2.5).
+line_height = 1.45
 
 # Tarefas (Ctrl+Shift+B): "nome" = "comando", rodam na raiz do projeto com a saída no terminal. Além destas,
 # a lista traz o que achar no projeto (cargo, scripts do package.json, alvos do Makefile).
@@ -218,7 +226,7 @@ pub struct LspServerConfig {
 }
 
 /// Editor (`[editor]`).
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(default)]
 pub struct EditorConfig {
     pub wrap: bool,
@@ -231,6 +239,11 @@ pub struct EditorConfig {
     pub format_on_save: bool,
     /// Caminho do arquivo e símbolo do cursor acima do editor.
     pub breadcrumbs: bool,
+    /// Fonte do código (editor e terminal). Vazio = a embutida (ver [`crate::fonts`]).
+    pub font: String,
+    pub font_weight: String,
+    /// Altura da linha, em múltiplos do tamanho da fonte.
+    pub line_height: f32,
 }
 
 impl Default for EditorConfig {
@@ -245,6 +258,9 @@ impl Default for EditorConfig {
             insert_final_newline: false,
             format_on_save: false,
             breadcrumbs: true,
+            font: crate::fonts::DEFAULT_FAMILY.into(),
+            font_weight: "normal".into(),
+            line_height: crate::fonts::LINE_HEIGHT_DEFAULT,
         }
     }
 }

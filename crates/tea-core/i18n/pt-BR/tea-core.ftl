@@ -48,3 +48,5 @@ config-key-not-text = { $layer }: [keys] { $chord } deve ser texto, veio { $valu
 config-keys-not-table = { $layer }: [keys] deve ser uma tabela
 config-unknown-section = seção desconhecida: [{ $section }]
 config-agents-project = { $layer }: [agents] só vale no config do usuário (~/.config/idetea/config.toml); ignorado aqui
+config-font-missing = [editor] font = "{ $name }": fonte não instalada, usando { $default }
+config-font-weight = [editor] font_weight = "{ $name }": use um destes: { $choices }

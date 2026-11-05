@@ -182,7 +182,7 @@ impl Extension for PreviewExtension {
                 self.path = Some(path.clone());
                 self.set_text(path, text);
             }
-            CoreEvent::Appearance { theme, font_size } => {
+            CoreEvent::Appearance { theme, font_size, .. } => {
                 self.theme = theme.clone();
                 self.font_size = *font_size;
             }

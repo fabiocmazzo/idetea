@@ -180,6 +180,8 @@ fn main() -> iced::Result {
                 .subscription(App::subscription)
                 .theme(App::theme)
                 .font(tea_core::icons::FONT_BYTES)
+                .font(tea_core::fonts::EMBEDDED[0])
+                .font(tea_core::fonts::EMBEDDED[1])
                 .window(window::Settings {
                     size: saved.window().unwrap_or(window::Settings::default().size),
                     platform_specific: window::settings::PlatformSpecific {
@@ -751,6 +753,7 @@ impl App {
         problems.extend(app.config.errors.iter().cloned());
         problems.extend(key_errors);
         problems.extend(theme_error);
+        problems.extend(tea_core::fonts::problem(&app.config.editor));
         if !problems.is_empty() {
             for p in &problems {
                 eprintln!("[idetea] {p}");
@@ -918,8 +921,17 @@ impl App {
         Task::batch(tasks)
     }
 
+    /// Fonte do código, do `[editor]` do config.
+    fn code_font(&self) -> tea_core::fonts::CodeFont {
+        tea_core::fonts::CodeFont::from_config(&self.config.editor)
+    }
+
     fn broadcast_appearance(&mut self) -> Task<Message> {
-        self.broadcast(CoreEvent::Appearance { theme: self.theme.clone(), font_size: self.config.ui.font_size })
+        self.broadcast(CoreEvent::Appearance {
+            theme: self.theme.clone(),
+            font_size: self.config.ui.font_size,
+            code_font: self.code_font(),
+        })
     }
 
     fn notify(&mut self, msg: impl Into<String>) -> Task<Message> {
@@ -954,7 +966,7 @@ impl App {
             editor.set_diff_base(Some(base.clone()));
         }
         editor.set_theme(&self.theme);
-        editor.set_font_size(self.config.ui.font_size);
+        editor.set_code_font(self.config.ui.font_size, self.code_font());
         editor.set_options(&self.editor_options(editor));
     }
 
@@ -2444,13 +2456,14 @@ impl App {
         let mut problems = config.errors.clone();
         problems.extend(key_errors);
         problems.extend(theme_error);
+        problems.extend(tea_core::fonts::problem(&config.editor));
         self.keymap = keymap;
         self.lsp.update_config(&config.lsp);
         self.config = config;
         self.set_theme(theme);
-        let font_size = self.config.ui.font_size;
+        let (font_size, code_font) = (self.config.ui.font_size, self.code_font());
         for tab in &mut self.tabs {
-            tab.editor.set_font_size(font_size);
+            tab.editor.set_code_font(font_size, code_font);
         }
         self.refresh_editor_options();
         self.apply_panel_slots();
@@ -3175,6 +3188,12 @@ impl App {
                 Task::none()
             }
             M::Theme(t) => self.edit_config(|f| f.set_theme(&t.0)),
+            M::CodeFont(name) => self.edit_config(|f| f.set_editor_text("font", &name)),
+            M::FontWeight(w) => self.edit_config(|f| f.set_editor_text("font_weight", &w)),
+            M::LineHeight(v) => {
+                let v = v.clamp(tea_core::fonts::LINE_HEIGHT_MIN, tea_core::fonts::LINE_HEIGHT_MAX);
+                self.edit_config(|f| f.set_line_height(v))
+            }
             M::FontSize(v) => {
                 let v = v.clamp(settings::FONT_MIN, settings::FONT_MAX);
                 self.edit_config(|f| f.set_font_size(v))
