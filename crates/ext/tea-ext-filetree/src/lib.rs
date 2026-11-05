@@ -589,10 +589,16 @@ impl FileTreeExtension {
             space::horizontal().width(depth as f32 * INDENT),
             container(chevron).width(16),
             container(icon(kind).size(14).style(text::secondary)).width(20),
-            text(name).size(13).width(Fill).style(move |theme: &iced::Theme| text::Style {
-                color: status_color(theme, status)
-                    .or_else(|| is_active.then_some(theme.extended_palette().primary.strong.color)),
-            }),
+            // Nome comprido fica numa linha só, cortado na borda: quebrado em duas, passava por cima da
+            // linha de baixo (a altura da linha é fixa). O iced 0.14 não tem reticências.
+            container(text(name).size(13).wrapping(text::Wrapping::None).style(move |theme: &iced::Theme| {
+                text::Style {
+                    color: status_color(theme, status)
+                        .or_else(|| is_active.then_some(theme.extended_palette().primary.strong.color)),
+                }
+            }))
+            .width(Fill)
+            .clip(true),
             text(badge).size(11).style(move |theme: &iced::Theme| text::Style { color: status_color(theme, status) }),
             space::horizontal().width(4),
         ]

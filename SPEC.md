@@ -1228,6 +1228,9 @@ e grava a resposta do usuário em `.idetea/ui/responses/<nome>/`. Estudo, decis�
   licenças. Espaço entre letras não dá: o motor de texto do iced não tem.
   - [x] Testes `config_resolves_to_a_font` e `embedded_font_is_truetype`; teste manual pelo painel: ligaduras,
     trocar fonte, peso e altura (editor e terminal), clique certo depois de mudar a altura, fonte inexistente.
+- [x] **Nomes longos na árvore:** quebravam em duas linhas e, com a altura fixa da linha, passavam por cima do item
+  de baixo. Agora ficam numa linha só, cortados na borda do painel (o iced 0.14 não tem reticências).
+  - [x] Teste manual pelo painel: `docs/rfc` com o painel estreito, letra do git visível, painel largo mostra tudo.
 - [x] **Versão com executáveis para Linux:** o workflow `release.yml` gera `.tar.gz` e AppImage para x86_64
   (`ubuntu-22.04`) e aarch64 (`ubuntu-22.04-arm`), confere que o executável roda e, numa tag `v*`, publica a versão
   com `SHA256SUMS` (pré-lançamento antes da 1.0). "Run workflow" na aba Actions só gera os pacotes como artefatos,
