@@ -1214,6 +1214,12 @@ e grava a resposta do usuário em `.idetea/ui/responses/<nome>/`. Estudo, decis�
   - [x] Teste manual pelo painel: caminho, símbolos que acompanham o cursor, cliques (pasta na árvore, símbolo),
     tela dividida. Na primeira rodada o primeiro caractere ficava cortado no editor da esquerda (linha colada na
     borda): ganhou 6 px de cada lado.
+- [x] **Shift+clique seleciona no editor:** o `iced-code-editor` não tem (todo clique limpava a seleção). A fachada
+  (`tea-editor`) faz: o `KeyGate` avisa do clique com Shift antes do widget, e o clique vira um arraste da âncora (o
+  último clique sem Shift, ou o cursor depois de teclas) até o ponto clicado, sem rolar a tela. Outro Shift+clique
+  estende do mesmo começo; Shift+clique e arrastar continua estendendo.
+  - [x] Teste `shift_click_extends_the_selection` e teste manual pelo painel: selecionar, estender para cima e para
+    baixo, copiar, ponto fora da tela, clique sem Shift só move o cursor.
 - [x] **Versão com executáveis para Linux:** o workflow `release.yml` gera `.tar.gz` e AppImage para x86_64
   (`ubuntu-22.04`) e aarch64 (`ubuntu-22.04-arm`), confere que o executável roda e, numa tag `v*`, publica a versão
   com `SHA256SUMS` (pré-lançamento antes da 1.0). "Run workflow" na aba Actions só gera os pacotes como artefatos,

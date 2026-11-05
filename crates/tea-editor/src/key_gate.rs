@@ -5,6 +5,8 @@
 //!
 //! Algumas teclas são da IDE e não chegam ao widget: Alt+←/→ (voltar/avançar) e Ctrl+Shift+V (prévia).
 //!
+//! Shift+clique: avisa antes do widget ver o clique (ele não sabe estender a seleção com o mouse).
+//!
 //! Também mostra a mãozinha com Ctrl sobre o texto (Ctrl+clique vai para a definição): o widget
 //! de edição só sublinha a palavra, sem trocar o ponteiro.
 
@@ -18,11 +20,13 @@ pub struct KeyGate<'a, Message, Theme, Renderer> {
     content: Element<'a, Message, Theme, Renderer>,
     /// `None` = deixa a tecla passar.
     intercept: Option<Box<dyn Fn(Named) -> Option<Message> + 'a>>,
+    /// Publicada antes do clique com Shift (sem Ctrl e sem Alt) sobre o conteúdo.
+    on_shift_press: Option<Message>,
 }
 
 impl<'a, Message, Theme, Renderer> KeyGate<'a, Message, Theme, Renderer> {
     pub fn new(content: impl Into<Element<'a, Message, Theme, Renderer>>) -> Self {
-        Self { content: content.into(), intercept: None }
+        Self { content: content.into(), intercept: None, on_shift_press: None }
     }
 
     /// Liga a interceptação (só quando `active`).
@@ -30,6 +34,12 @@ impl<'a, Message, Theme, Renderer> KeyGate<'a, Message, Theme, Renderer> {
         if active {
             self.intercept = Some(Box::new(f));
         }
+        self
+    }
+
+    /// Mensagem publicada logo antes de um clique com Shift chegar ao conteúdo.
+    pub fn on_shift_press(mut self, message: Message) -> Self {
+        self.on_shift_press = Some(message);
         self
     }
 }
@@ -89,6 +99,17 @@ where
                 shell.request_redraw();
             }
             *held = *m;
+        }
+        // Shift+clique: a mensagem vai antes da do widget (as duas saem do mesmo evento, em ordem).
+        if let Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Left)) = event
+            && let held = tree.state.downcast_ref::<keyboard::Modifiers>()
+            && held.shift()
+            && !held.control()
+            && !held.alt()
+            && cursor.is_over(layout.bounds())
+            && let Some(message) = self.on_shift_press.take()
+        {
+            shell.publish(message);
         }
         // Alt+←/→ são da IDE (voltar/avançar na navegação): o editor não os vê, então o evento
         // chega ao app sem estar "capturado".
