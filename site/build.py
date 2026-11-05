@@ -114,7 +114,7 @@ def features_page() -> str:
     lines = text.splitlines()
     lines = [l for l in lines if not l.startswith("# ")]
     text = "\n".join(lines).replace("For the short version, see the [README](../README.md).",
-                                    "For the short version, see the [home page](https://fabiocmazzo.github.io/idetea/).")
+                                    "For the short version, see the [home page](https://idetea.belabs.cloud/).")
     body = markdown(text, "docs")
     template = (SITE / "features.template.html").read_text(encoding="utf-8")
     return template.replace("<!-- FEATURES -->", body)

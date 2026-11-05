@@ -1189,7 +1189,8 @@ e grava a resposta do usuário em `.idetea/ui/responses/<nome>/`. Estudo, decis�
   `docs/features.md`) e o menu diz "(em inglês)". Seletor EN · PT · ES em todas as páginas, com `hreflang`.
   READMEs com o link (cada um para o site no seu idioma).
   - [x] Português e espanhol aprovados pelo painel: texto em português lido, seletor, espanhol, recursos e celular.
-  - [x] No ar em https://fabiocmazzo.github.io/idetea/ (Pages ligado pelo usuário; o deploy passou e todas as
+  - [x] No ar em https://idetea.belabs.cloud/ (domínio configurado pelo usuário no Pages; o endereço antigo
+    https://fabiocmazzo.github.io/idetea/ redireciona). Pages ligado pelo usuário; o deploy passou e todas as
     páginas e imagens respondem).
 - [x] **Histórico das interfaces** ([RFC 0007](docs/rfc/0007-historico-das-interfaces.md), aprovada pelo painel):
   a IDE grava em `.idetea/history/` (fora do git, até o usuário apagar) cada pergunta respondida (documento da

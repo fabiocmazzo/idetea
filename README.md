@@ -13,7 +13,7 @@
 
 <p align="center">
   <b>English</b> · <a href="README.pt-BR.md">Português</a> · <a href="README.es.md">Español</a><br>
-  <a href="https://fabiocmazzo.github.io/idetea/"><b>Website and guides</b></a>
+  <a href="https://idetea.belabs.cloud/"><b>Website and guides</b></a>
 </p>
 
 <p align="center"><img src="assets/demo.gif" width="886" alt="An agent asks a question in the Interfaces panel, then asks for a terminal to run the tests; the user answers and allows it."></p>
