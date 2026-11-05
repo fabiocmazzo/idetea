@@ -1,7 +1,8 @@
 //! Desenho de uma interface em iced: os componentes um embaixo do outro; botões seguidos ficam na mesma linha.
 
 use iced::widget::{
-    Column, button, checkbox, column, container, image, markdown, pick_list, row, sensor, stack, text, text_input,
+    Column, button, checkbox, column, container, image, markdown, pick_list, row, sensor, stack, text, text_editor,
+    text_input,
 };
 use std::collections::HashMap;
 use std::time::Duration;
@@ -37,6 +38,10 @@ pub enum UiMessage {
     SpriteStep(String),
     /// Uma imagem, sprite ou som (`path`) entrou na tela (`true`, depois de [`SHOWN_AFTER`] à vista) ou saiu.
     Shown { path: String, visible: bool },
+    /// "Selecionar texto": troca os textos entre formatados e selecionáveis (ver [`Rendered::toggle_select`]).
+    ToggleSelect,
+    /// Seleção num texto selecionável (componente `id`): quem desenha passa para [`Rendered::act`].
+    SelectText(String, text_editor::Action),
 }
 
 /// Quanto tempo uma mídia fica à vista para contar como vista (uma rolada rápida por cima não conta).
@@ -90,10 +95,17 @@ impl Playback {
     }
 }
 
-/// O Markdown de um documento já lido, por id do componente. Fica com quem desenha (as peças do iced não podem
-/// ir entre threads, e o documento vai); refaça com [`Rendered::new`] quando o documento mudar.
+/// O Markdown de um documento já lido, por id do componente, e os textos em versão selecionável. Fica com quem
+/// desenha (as peças do iced não podem ir entre threads, e o documento vai); refaça com [`Rendered::new`] quando o
+/// documento mudar.
 #[derive(Default)]
-pub struct Rendered(HashMap<String, Vec<markdown::Item>>);
+pub struct Rendered {
+    items: HashMap<String, Vec<markdown::Item>>,
+    /// `text` e `markdown` (o texto cru) num editor só de leitura: seleciona com o mouse e copia com Ctrl+C.
+    plain: HashMap<String, text_editor::Content>,
+    /// Mostrando os textos selecionáveis em vez dos formatados.
+    selecting: bool,
+}
 
 impl Rendered {
     pub fn new(doc: &Document) -> Self {
@@ -108,8 +120,47 @@ impl Rendered {
             }
             _ => Vec::new(),
         });
-        Self(parsed.chain(steps).collect())
+        let plain = doc
+            .components
+            .iter()
+            .filter_map(|c| match &c.kind {
+                Kind::Text { text, .. } | Kind::Markdown { text } => {
+                    Some((c.id.clone(), text_editor::Content::with_text(text.trim_end())))
+                }
+                _ => None,
+            })
+            .collect();
+        Self { items: parsed.chain(steps).collect(), plain, selecting: false }
     }
+
+    /// Liga ou desliga os textos selecionáveis.
+    pub fn toggle_select(&mut self) {
+        self.selecting = !self.selecting;
+    }
+
+    pub fn selecting(&self) -> bool {
+        self.selecting
+    }
+
+    /// Uma seleção num texto selecionável. Edições são ignoradas: o texto é do agente.
+    pub fn act(&mut self, id: &str, action: text_editor::Action) {
+        if action.is_edit() {
+            return;
+        }
+        if let Some(content) = self.plain.get_mut(id) {
+            content.perform(action);
+        }
+    }
+}
+
+/// O texto de um componente num editor só de leitura (seleção e Ctrl+C), se estiver no modo de seleção.
+fn selectable<'a>(rendered: &'a Rendered, id: &str) -> Option<Element<'a, UiMessage>> {
+    if !rendered.selecting {
+        return None;
+    }
+    let content = rendered.plain.get(id)?;
+    let id = id.to_string();
+    Some(text_editor(content).on_action(move |a| UiMessage::SelectText(id.clone(), a)).into())
 }
 
 /// Markdown de agente: imagens viram o texto alternativo (nada é carregado do disco ou da rede).
@@ -163,6 +214,12 @@ pub fn view<'a>(
     let settings = markdown::Settings::with_style(theme);
     let locked = state.locked(doc);
     let mut out: Column<'a, UiMessage> = column![].spacing(12).width(Fill);
+    // Texto para copiar: o botão troca os textos formatados por selecionáveis (e volta).
+    if !rendered.plain.is_empty() {
+        let label = if rendered.selecting { fl!("ui-select-done") } else { fl!("ui-select-text") };
+        let toggle = button(text(label).size(12)).style(button::text).padding(0).on_press(UiMessage::ToggleSelect);
+        out = out.push(container(toggle).width(Fill).align_right(Fill));
+    }
     // O comentário fica logo antes dos botões do fim (ou no fim, se o documento não termina em botões).
     let has_buttons = doc.components.iter().any(|c| matches!(c.kind, Kind::Button { .. }));
     let comment_at = (comment && doc.comment && has_buttons).then(|| {
@@ -377,6 +434,9 @@ fn component_view<'a>(
         move |value: Value| UiMessage::Set { path: path.clone(), value }
     };
     match &c.kind {
+        Kind::Text { .. } | Kind::Markdown { .. } if rendered.selecting => {
+            selectable(rendered, &c.id).unwrap_or_else(|| column![].into())
+        }
         Kind::Text { text: content, style } => {
             let style = match style {
                 TextStyle::Normal => text::base,
@@ -421,7 +481,7 @@ fn component_view<'a>(
                 None => link.into(),
             }
         }
-        Kind::Markdown { text: plain } => match rendered.0.get(&c.id) {
+        Kind::Markdown { text: plain } => match rendered.items.get(&c.id) {
             Some(items) => markdown::view_with(items, settings, &Viewer),
             None => text(plain).width(Fill).into(),
         },
@@ -479,7 +539,7 @@ fn component_view<'a>(
                     .map(|s| Value::String(s.id.clone()))
                     .collect();
                 let msg = UiMessage::Set { path: value.clone(), value: Value::Array(toggled) };
-                let label: Element<'a, UiMessage> = match rendered.0.get(&format!("{}#{}", c.id, step.id)) {
+                let label: Element<'a, UiMessage> = match rendered.items.get(&format!("{}#{}", c.id, step.id)) {
                     Some(md) => markdown::view_with(md, settings, &Viewer),
                     None => text(&step.text).into(),
                 };
@@ -546,7 +606,7 @@ mod tests {
         let unknown = fl!("ui-unknown-component", component = "grafico");
         assert!(ui.find(unknown.as_str()).is_ok(), "aviso no lugar do componente desconhecido");
         assert!(ui.find("notas/rascunho.md:4").is_ok(), "o caminho embaixo do rótulo");
-        assert_eq!(rendered.0["md"].len(), 1, "o Markdown foi lido (um parágrafo)");
+        assert_eq!(rendered.items["md"].len(), 1, "o Markdown foi lido (um parágrafo)");
         let comment = fl!("ui-comment-label");
         assert!(ui.find(comment.as_str()).is_ok(), "campo de comentário antes dos botões");
         ui.click(fl!("ui-copy").as_str()).unwrap();
@@ -572,6 +632,31 @@ mod tests {
         let mut ui = simulator(view(&d, &state, &rendered, no_media(), no_playback(), &Theme::Dark, true));
         let _ = ui.click("Cancelar");
         assert_eq!(ui.into_messages().count(), 0, "botões desligados depois de responder");
+    }
+
+    #[test]
+    fn text_can_be_selected_and_copied() {
+        let d = doc();
+        let mut rendered = Rendered::new(&d);
+        let state = State::new(&d);
+        let mut ui = simulator(view(&d, &state, &rendered, no_media(), no_playback(), &Theme::Dark, true));
+        ui.click(fl!("ui-select-text").as_str()).unwrap();
+        assert_eq!(ui.into_messages().collect::<Vec<_>>(), vec![UiMessage::ToggleSelect]);
+
+        rendered.toggle_select();
+        assert!(rendered.selecting());
+        // O Markdown aparece cru, num editor: o texto todo, com a marcação.
+        assert_eq!(rendered.plain["md"].text(), "Leia **com calma** e [abra o arquivo](src/a.rs:3).");
+        {
+            let mut ui = simulator(view(&d, &state, &rendered, no_media(), no_playback(), &Theme::Dark, true));
+            assert!(ui.find(fl!("ui-select-done").as_str()).is_ok(), "o botão volta para o formatado");
+        }
+
+        // Selecionar funciona; editar, não (o texto é do agente).
+        rendered.act("t", text_editor::Action::SelectAll);
+        assert_eq!(rendered.plain["t"].selection().as_deref(), Some("Confirme os dados"));
+        rendered.act("t", text_editor::Action::Edit(text_editor::Edit::Insert('x')));
+        assert_eq!(rendered.plain["t"].text(), "Confirme os dados");
     }
 
     #[test]

@@ -124,7 +124,9 @@ pub struct UiExtension {
     /// O executável da IDE mudou depois que ela abriu: as respostas saem com `ide.outdated`.
     outdated: bool,
     /// O Markdown de cada interface, já lido (refeito a cada leitura da pasta).
-    rendered: BTreeMap<String, Rendered>,
+    /// O Markdown de cada interface, com o hash do arquivo de onde veio (mantido enquanto o arquivo não muda,
+    /// para não perder o modo de seleção).
+    rendered: BTreeMap<String, (u64, Rendered)>,
     /// Para uma interface ainda sem o Markdown lido.
     no_markdown: Rendered,
     /// O som do componente `audio` tocando agora.
@@ -246,7 +248,18 @@ impl UiExtension {
         let recorded = self.record_history(&files);
         // Interface apagada pelo agente: acabou; o estado dela não serve mais.
         self.saved.retain(|name, _| files.iter().any(|f| &f.name == name));
-        self.rendered = files.iter().filter_map(|f| Some((f.name.clone(), Rendered::new(f.doc.as_ref().ok()?)))).collect();
+        let mut before = std::mem::take(&mut self.rendered);
+        self.rendered = files
+            .iter()
+            .filter_map(|f| {
+                let doc = f.doc.as_ref().ok()?;
+                let rendered = match before.remove(&f.name) {
+                    Some((hash, r)) if hash == f.hash => r,
+                    _ => Rendered::new(doc),
+                };
+                Some((f.name.clone(), (f.hash, rendered)))
+            })
+            .collect();
         self.files = files;
         if let Some((name, title, new)) = changed {
             ctx.notify(if new { fl!("ui-new", title = title) } else { fl!("ui-updated", title = title) });
@@ -831,7 +844,7 @@ impl UiExtension {
         }
         let name = f.name.clone();
         let theme = self.theme.clone().unwrap_or(Theme::Dark);
-        let rendered = self.rendered.get(&f.name).unwrap_or(&self.no_markdown);
+        let rendered = self.rendered.get(&f.name).map_or(&self.no_markdown, |(_, r)| r);
         out = out.push(
             tea_declarative_ui::view(doc, &saved.state, rendered, &f.media, &self.playback(&f.name), &theme, true)
                 .map(move |m| Message::Ui(name.clone(), m)),
@@ -1023,6 +1036,16 @@ impl Extension for UiExtension {
             }
             Message::Ui(name, UiMessage::SpritePause(id)) => self.sprite(&name, &id, false),
             Message::Ui(name, UiMessage::SpriteStep(id)) => self.sprite(&name, &id, true),
+            Message::Ui(name, UiMessage::ToggleSelect) => {
+                if let Some((_, r)) = self.rendered.get_mut(&name) {
+                    r.toggle_select();
+                }
+            }
+            Message::Ui(name, UiMessage::SelectText(id, action)) => {
+                if let Some((_, r)) = self.rendered.get_mut(&name) {
+                    r.act(&id, action);
+                }
+            }
             Message::Ui(name, UiMessage::Shown { path, visible: true }) => self.count(&name, &path, |s| s.shown += 1),
             Message::Ui(_, UiMessage::Shown { visible: false, .. }) => {}
             Message::Frame => {
@@ -1059,6 +1082,16 @@ impl Extension for UiExtension {
             }
             Message::HistoryUi(UiMessage::Link(url)) => tea_declarative_ui::follow(&url, &self.root, ctx),
             Message::HistoryUi(UiMessage::Copy(code)) => return tea_declarative_ui::copy(code, ctx),
+            Message::HistoryUi(UiMessage::ToggleSelect) => {
+                if let Some(o) = &mut self.history_open {
+                    o.rendered.toggle_select();
+                }
+            }
+            Message::HistoryUi(UiMessage::SelectText(id, action)) => {
+                if let Some(o) = &mut self.history_open {
+                    o.rendered.act(&id, action);
+                }
+            }
             Message::HistoryUi(_) => {}
             Message::ShowHistory => ctx.show_panel(HISTORY),
             Message::ShowOpen(name) => {

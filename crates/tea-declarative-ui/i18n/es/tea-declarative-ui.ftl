@@ -64,3 +64,5 @@ ui-sprite-frame = { $field }: frame_width y frame_height van juntos.
 ui-sprite-too-small = La hoja ({ $width }×{ $height }) es más pequeña que un cuadro.
 ui-open-blocked = { $path }: el enlace idetea:open solo abre { $list }.
 ui-open-not-file = { $path } no es un archivo común (falta, es carpeta o enlace simbólico).
+ui-select-text = Seleccionar texto
+ui-select-done = Ver con formato

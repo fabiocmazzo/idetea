@@ -89,6 +89,8 @@ All of it is plain files in the project's `.idetea/` folder, so any agent that r
 - **Commands for agents:** `idetea ask` (a question in the panel, waiting for the answer), `idetea run` (a terminal,
   waiting for the end and the helper's answer), `idetea status` (what you have open, unsaved changes, the cursor) ,
   `idetea open file:line` (shows you a file) and `idetea history` (what you answered in the panel). They do the file work above in one call, with the same approvals.
+- **Select and copy text:** "Select text" at the top of an interface (open or in the history) shows its texts in a
+  read-only editor: select with the mouse, copy with Ctrl+C; "Show formatted" goes back.
 - **History of the questions:** the IDE keeps every question, your answer, your comment and when the agent read
   it, in `.idetea/history/` (out of git, until you clear it). The **Interfaces history** panel on the left (hidden
   by default) lists the open questions first, then the answered ones by day, with search; an entry opens read-only,

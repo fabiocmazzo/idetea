@@ -1196,8 +1196,13 @@ e grava a resposta do usuário em `.idetea/ui/responses/<nome>/`. Estudo, decis�
   - [x] Teste manual pelo painel (0.2.0): aviso fechado sem resposta, pergunta respondida e lida pelo agente,
     abertas no topo, entrada só para ver com valores e comentário, busca, `idetea history`, apagar com confirmação.
     Na primeira rodada o subtítulo quase não se lia (cinza sobre o botão): as entradas viraram cartões.
-- [ ] **Texto selecionável no painel Interfaces** (pedido no teste do histórico): hoje não dá para selecionar e
-  copiar o texto de uma interface, aberta ou no histórico.
+- [x] **Texto selecionável no painel Interfaces** (pedido no teste do histórico): hoje não dá para selecionar e
+  copiar o texto de uma interface, aberta ou no histórico. Feito com um botão "Selecionar texto" no topo da
+  interface: os `text` e `markdown` viram um `text_editor` só de leitura com o texto cru (seleção com o mouse,
+  Ctrl+C; edições ignoradas); "Ver formatado" volta. O iced 0.14 não seleciona `text` nem `markdown`. Vale no painel
+  Interfaces, no histórico e nos painéis de plugins.
+  - [x] Teste manual pelo painel (0.2.0): selecionar com o mouse, Ctrl+C, digitar não muda nada, voltar ao
+    formatado, e o mesmo numa entrada do histórico.
 - [x] **Versão com executáveis para Linux:** o workflow `release.yml` gera `.tar.gz` e AppImage para x86_64
   (`ubuntu-22.04`) e aarch64 (`ubuntu-22.04-arm`), confere que o executável roda e, numa tag `v*`, publica a versão
   com `SHA256SUMS` (pré-lançamento antes da 1.0). "Run workflow" na aba Actions só gera os pacotes como artefatos,

@@ -136,6 +136,9 @@ O mesmo padrão descarta respostas velhas (uma busca que voltou depois de outra 
     desenho velho sai no lugar antigo. Reaplicar a fonte limpa esse cache.
 - **`iced-code-editor`:** a seleção não é pública (não dá para ler o texto selecionado sem mudar o crate). As
   sintaxes vêm do `syntect` padrão (sem TOML, TypeScript, `.env`…); a feature `two-face` traz as do `bat`.
+- **Texto selecionável:** no iced 0.14, `text` e `markdown` não selecionam. Para copiar, mostre o texto num
+  `text_editor` só de leitura: aplique só as ações com `!action.is_edit()`; o Ctrl+C o próprio widget trata (escreve
+  na área de transferência sem passar pela sua mensagem). Um botão alterna entre formatado e selecionável.
 - **Regra geral:** antes de adotar um widget, teste os casos de borda que você vai ter (tamanho antes da primeira
   medida, foco, arquivo enorme, recarregar) num exemplo pequeno.
 

@@ -64,3 +64,5 @@ ui-sprite-frame = { $field }: frame_width and frame_height go together.
 ui-sprite-too-small = The sheet ({ $width }×{ $height }) is smaller than one frame.
 ui-open-blocked = { $path }: idetea:open links only open { $list }.
 ui-open-not-file = { $path } is not a regular file (missing, a folder or a symlink).
+ui-select-text = Select text
+ui-select-done = Show formatted
