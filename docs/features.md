@@ -87,8 +87,12 @@ All of it is plain files in the project's `.idetea/` folder, so any agent that r
   branch. Every command gets `IDETEA_ANSWER`, a file in the main project for the answer. Deleting the request
   removes the worktree if it has nothing uncommitted; the branch always stays.
 - **Commands for agents:** `idetea ask` (a question in the panel, waiting for the answer), `idetea run` (a terminal,
-  waiting for the end and the helper's answer), `idetea status` (what you have open, unsaved changes, the cursor) and
-  `idetea open file:line` (shows you a file). They do the file work above in one call, with the same approvals.
+  waiting for the end and the helper's answer), `idetea status` (what you have open, unsaved changes, the cursor) ,
+  `idetea open file:line` (shows you a file) and `idetea history` (what you answered in the panel). They do the file work above in one call, with the same approvals.
+- **History of the questions:** the IDE keeps every question, your answer, your comment and when the agent read
+  it, in `.idetea/history/` (out of git, until you clear it). The **Interfaces history** panel on the left (hidden
+  by default) lists the open questions first, then the answered ones by day, with search; an entry opens read-only,
+  as you answered it.
 - **Fix this project** ("Interfaces: fix this project"): puts `.idetea/` back in a usable state after a crash or a
   bad edit. **Skills:** `idetea skills` installs agent skills from a git repository into the project
   ([skills.md](skills.md)).

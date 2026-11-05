@@ -136,6 +136,8 @@ pub struct SurfaceFile {
     pub media: Media,
     /// Hash do conteúdo do arquivo: o mesmo nome recriado com outro conteúdo é outra interface.
     pub hash: u64,
+    /// O arquivo como estava (só de um documento válido), para o histórico guardar a revisão respondida.
+    pub raw: Option<std::sync::Arc<[u8]>>,
 }
 
 /// Lê a pasta inteira. Roda fora da thread da interface.
@@ -151,13 +153,14 @@ pub fn scan(root: &Path, limits: &Limits) -> Vec<SurfaceFile> {
         .map(|(name, path)| {
             let rel = format!(".idetea/ui/{name}.json");
             let tracked = tracked.contains(&rel);
-            let (doc, hash) = read_document(&path, &name, limits);
+            let (doc, hash, raw) = read_document_raw(&path, &name, limits);
+            let raw = doc.is_ok().then(|| std::sync::Arc::from(raw));
             // Um documento versionado é ignorado: nem as imagens dele são lidas.
             let media = match &doc {
                 Ok(d) if !tracked => Media::load(root, d, &MediaLimits::default()),
                 _ => Media::default(),
             };
-            SurfaceFile { tracked, doc, pending: pending(&ui, &name), media, name, hash }
+            SurfaceFile { tracked, doc, pending: pending(&ui, &name), media, name, hash, raw }
         })
         .collect();
     out.sort_by(|a, b| a.name.cmp(&b.name));
@@ -197,24 +200,30 @@ fn list_json(dir: &Path) -> Vec<(String, PathBuf)> {
 }
 
 pub(crate) fn read_document(path: &Path, name: &str, limits: &Limits) -> (Result<Document, String>, u64) {
+    let (doc, hash, _) = read_document_raw(path, name, limits);
+    (doc, hash)
+}
+
+/// Como `read_document`, devolvendo também os bytes lidos.
+fn read_document_raw(path: &Path, name: &str, limits: &Limits) -> (Result<Document, String>, u64, Vec<u8>) {
     let meta = match std::fs::symlink_metadata(path) {
         Ok(m) => m,
-        Err(e) => return (Err(e.to_string()), 0),
+        Err(e) => return (Err(e.to_string()), 0, Vec::new()),
     };
     if !meta.file_type().is_file() {
-        return (Err(fl!("ui-not-a-file")), 0);
+        return (Err(fl!("ui-not-a-file")), 0, Vec::new());
     }
     let mut bytes = Vec::new();
     // Lê no máximo um byte além do limite: arquivo que cresce durante a leitura também é recusado.
     if let Err(e) = std::fs::File::open(path).and_then(|f| f.take(limits.max_bytes as u64 + 1).read_to_end(&mut bytes)) {
-        return (Err(e.to_string()), 0);
+        return (Err(e.to_string()), 0, Vec::new());
     }
     let hash = fnv1a(&bytes);
     let doc = parse(&bytes, limits).and_then(|doc| match &doc.surface {
         Some(s) if s != name => Err(fl!("ui-surface-mismatch", found = s.clone(), expected = name)),
         _ => Ok(doc),
     });
-    (doc, hash)
+    (doc, hash, bytes)
 }
 
 fn fnv1a(bytes: &[u8]) -> u64 {
@@ -297,8 +306,13 @@ fn clean_tmp(ui: &Path) {
 /// Arquivos de `.idetea/ui/` versionados no git (caminhos relativos à raiz). Sem git ou fora de um
 /// repositório: nenhum.
 fn tracked_files(root: &Path) -> BTreeSet<String> {
+    tracked_under(root, ".idetea/ui")
+}
+
+/// Arquivos versionados no git debaixo de `dir` (relativo à raiz).
+pub(crate) fn tracked_under(root: &Path, dir: &str) -> BTreeSet<String> {
     let out = Command::new("git")
-        .args(["ls-files", "-z", "--", ".idetea/ui"])
+        .args(["ls-files", "-z", "--", dir])
         .current_dir(root)
         .stdin(Stdio::null())
         .stderr(Stdio::null())

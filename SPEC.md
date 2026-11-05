@@ -1182,10 +1182,22 @@ e grava a resposta do usuário em `.idetea/ui/responses/<nome>/`. Estudo, decis�
     documento quando é maior. Instruções dos agentes começam pelos comandos (versão `1e2f7175`).
     - [x] Teste manual: "ensinar" gravou a versão nova; `idetea status` mostrou a aba ativa, o cursor e o "(não
       salvo)"; `idetea open SPEC.md:1170:5` abriu no lugar; nada de `.idetea/` no `git status` (aprovado pelo painel).
-- [ ] **Site no GitHub Pages:** `site/` em HTML e CSS à mão (início, primeiros passos, agentes passo a passo,
+- [x] **Site no GitHub Pages:** `site/` em HTML e CSS à mão (início, primeiros passos, agentes passo a passo,
   recursos), montado por `site/build.py` (só a biblioteca padrão: traz o ícone e o GIF de `assets/` e gera a página
   de recursos do `docs/features.md`) e publicado pelo workflow `site.yml`. Em inglês; português e espanhol depois.
   READMEs com o link.
+  - [x] No ar em https://fabiocmazzo.github.io/idetea/ (Pages ligado pelo usuário; o deploy passou e todas as
+    páginas e imagens respondem).
+- [x] **Histórico das interfaces** ([RFC 0007](docs/rfc/0007-historico-das-interfaces.md), aprovada pelo painel):
+  a IDE grava em `.idetea/history/` (fora do git, até o usuário apagar) cada pergunta respondida (documento da
+  revisão, resposta, horas), quando o agente leu a resposta, e as fechadas sem resposta. Painel "Histórico das
+  interfaces" à esquerda, oculto por padrão: abertas no topo, respondidas por dia, busca, entrada só para ver,
+  apagar o histórico. `idetea history` para o agente que perdeu o contexto (instruções `4503cd30`). Versão 0.2.0.
+  - [x] Teste manual pelo painel (0.2.0): aviso fechado sem resposta, pergunta respondida e lida pelo agente,
+    abertas no topo, entrada só para ver com valores e comentário, busca, `idetea history`, apagar com confirmação.
+    Na primeira rodada o subtítulo quase não se lia (cinza sobre o botão): as entradas viraram cartões.
+- [ ] **Texto selecionável no painel Interfaces** (pedido no teste do histórico): hoje não dá para selecionar e
+  copiar o texto de uma interface, aberta ou no histórico.
 - [x] **Versão com executáveis para Linux:** o workflow `release.yml` gera `.tar.gz` e AppImage para x86_64
   (`ubuntu-22.04`) e aarch64 (`ubuntu-22.04-arm`), confere que o executável roda e, numa tag `v*`, publica a versão
   com `SHA256SUMS` (pré-lançamento antes da 1.0). "Run workflow" na aba Actions só gera os pacotes como artefatos,

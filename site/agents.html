@@ -88,6 +88,9 @@
     <li>Optional: write a comment for the agent (a caveat, a question back). It goes with the button you click.</li>
     <li>Click a button. The answer goes back to the agent, which carries on.</li>
   </ol>
+  <p>Every question and your answer are kept. Open <strong>Interfaces history</strong> (palette, or the
+    <em>History</em> link at the top of the panel) to see the open questions first and the answered ones by day,
+    with search. An entry opens read-only, as you answered it, with when the agent read it.</p>
   <p>Agents can also show you images, galleries to pick from, animated sprites, sounds with their waveform, files to
     edit (a commit message, a PR description), and step lists for a manual test, with an approve button that waits
     until you have done the steps.</p>
@@ -160,6 +163,9 @@ allow = ["npm run dev", "cargo test", "claude *"]</code></pre>
         (<code>--json</code> too).</td></tr>
     <tr><td><code>idetea open src/main.rs:42</code></td>
       <td>Shows you a file in the IDE, at that line, without asking anything.</td></tr>
+    <tr><td><code>idetea history</code></td>
+      <td>What you answered in the panel, oldest first (<code>--name</code>, <code>--since</code>,
+        <code>--last N</code>, <code>--all</code>, <code>--json</code>). Handy for an agent that lost its context.</td></tr>
   </table></div>
   <p>Run any of them alone to see all the options.</p>
 </section>
@@ -180,6 +186,7 @@ allow = ["npm run dev", "cargo test", "claude *"]</code></pre>
     <li><code>.idetea/agents/&lt;name&gt;.json</code>: a terminal request; its progress in
       <code>&lt;name&gt;.status.json</code>.</li>
     <li><code>.idetea/state.json</code>: what you have open, for <code>idetea status</code>.</li>
+    <li><code>.idetea/history/</code>: every question and answer, until you clear it.</li>
   </ul>
   <p>So any agent that can read and write files can use it, and you can read every message yourself. The full formats
     (in Portuguese for now): <a href="https://github.com/fabiocmazzo/idetea/blob/main/docs/interfaces/formato.md">the

@@ -137,6 +137,17 @@ fn main() -> iced::Result {
                 std::process::exit(2);
             }
         }
+        cli::Cli::History(args) => {
+            cli_language(&cwd);
+            #[cfg(feature = "ext-ui")]
+            std::process::exit(tea_ext_ui::history::run(&args, &cwd));
+            #[cfg(not(feature = "ext-ui"))]
+            {
+                let _ = args;
+                eprintln!("idetea: compilada sem a extensão Interfaces (feature ext-ui)");
+                std::process::exit(2);
+            }
+        }
         cli::Cli::Status(args) => {
             cli_language(&cwd);
             std::process::exit(ide_state::run_status(&args, &cwd));

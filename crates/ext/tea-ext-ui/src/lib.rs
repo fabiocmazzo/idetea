@@ -13,6 +13,7 @@ mod player;
 pub mod ask;
 pub mod check;
 pub mod fix;
+pub mod history;
 pub mod novo;
 pub mod store;
 pub mod teach;
@@ -23,7 +24,7 @@ use std::sync::Arc;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use iced::futures::channel::{mpsc, oneshot};
-use iced::widget::{Column, button, column, row, scrollable, text};
+use iced::widget::{Column, button, column, container, row, scrollable, space, text, text_input};
 use iced::{Element, Fill, Subscription, Task, Theme};
 use serde::{Deserialize, Serialize};
 use tea_core::icons::Icon;
@@ -36,6 +37,8 @@ use player::{Player, Playing};
 use store::SurfaceFile;
 
 const PANEL: PanelId = PanelId("ui");
+/// O histórico das interfaces (RFC 0007), à esquerda.
+const HISTORY: PanelId = PanelId("ui-history");
 const WATCH_INTERVAL: Duration = Duration::from_millis(250);
 
 #[derive(Debug, Clone)]
@@ -62,6 +65,32 @@ pub enum Message {
     AudioTick,
     /// Relógio dos `sprite` (enquanto um deles anima na interface aberta).
     Frame,
+    /// O histórico, lido numa thread.
+    HistoryLoaded(Arc<Vec<(PathBuf, history::Entry)>>),
+    HistoryQuery(String),
+    /// Abrir uma entrada do histórico (só para ver).
+    HistoryOpen(PathBuf),
+    HistoryBack,
+    /// Algo dentro da entrada aberta: só links, abrir arquivo e copiar fazem efeito.
+    HistoryUi(UiMessage),
+    /// Mostra o painel do histórico.
+    ShowHistory,
+    /// Uma interface aberta, clicada no histórico: seleciona no painel Interfaces.
+    ShowOpen(String),
+    AskClearHistory,
+    ClearHistory,
+}
+
+/// Uma entrada do histórico aberta para ver.
+struct Opened {
+    path: PathBuf,
+    entry: history::Entry,
+    doc: Result<Document, String>,
+    state: State,
+    rendered: Rendered,
+    media: tea_declarative_ui::Media,
+    /// Imagens e sons que mudaram (ou sumiram) depois da resposta.
+    changed: Vec<String>,
 }
 
 /// O que a IDE guarda de uma interface (sobrevive a reiniciar a IDE).
@@ -73,6 +102,10 @@ struct Saved {
     seq: u64,
     /// Hash do arquivo na última leitura (0: estado gravado antes deste campo existir).
     hash: u64,
+    /// Revisão e hora em que a IDE a viu pela primeira vez (para o histórico).
+    shown: Option<(u64, String)>,
+    /// Última revisão respondida (sem isto, sumir é "fechada sem resposta").
+    answered: Option<u64>,
 }
 
 #[derive(Default)]
@@ -106,6 +139,10 @@ pub struct UiExtension {
     seen: BTreeMap<String, (u64, BTreeMap<String, Seen>)>,
     /// Quem espera a resposta, pelos `<nome>.wait` (sem o arquivo: o agente não avisa, e o painel não diz nada).
     waits: BTreeMap<String, store::Wait>,
+    /// O histórico, da entrada mais nova para a mais velha.
+    history: Arc<Vec<(PathBuf, history::Entry)>>,
+    history_query: String,
+    history_open: Option<Opened>,
 }
 
 impl UiExtension {
@@ -146,7 +183,8 @@ impl UiExtension {
         self.files.iter().find(|f| f.name == name)
     }
 
-    fn snapshot(&mut self, files: Arc<Vec<SurfaceFile>>, ctx: &mut Context) {
+    /// `true`: o histórico mudou.
+    fn snapshot(&mut self, files: Arc<Vec<SurfaceFile>>, ctx: &mut Context) -> bool {
         let first = !self.loaded;
         self.loaded = true;
         let mut changed = None;
@@ -173,7 +211,15 @@ impl UiExtension {
                     saved.hash = f.hash;
                 }
                 None => {
-                    self.saved.insert(f.name.clone(), Saved { state: State::new(doc), seq: 0, hash: f.hash });
+                    self.saved.insert(f.name.clone(), Saved { state: State::new(doc), hash: f.hash, ..Saved::default() });
+                }
+            }
+            if let Some(saved) = self.saved.get_mut(&f.name)
+                && saved.shown.as_ref().is_none_or(|(r, _)| *r != doc.revision || reborn)
+            {
+                saved.shown = Some((doc.revision, timestamp(SystemTime::now())));
+                if reborn {
+                    saved.answered = None;
                 }
             }
             // Revisão nova; ou, ao abrir a IDE, uma pergunta que ficou sem resposta (o agente pode ter escrito
@@ -197,6 +243,7 @@ impl UiExtension {
             let new = files.iter().find(|f| &f.name == name).and_then(|f| f.doc.as_ref().ok()).map(|d| d.revision);
             new.is_some() && old == new
         });
+        let recorded = self.record_history(&files);
         // Interface apagada pelo agente: acabou; o estado dela não serve mais.
         self.saved.retain(|name, _| files.iter().any(|f| &f.name == name));
         self.rendered = files.iter().filter_map(|f| Some((f.name.clone(), Rendered::new(f.doc.as_ref().ok()?)))).collect();
@@ -214,6 +261,78 @@ impl UiExtension {
             self.selected = self.files.first().map(|f| f.name.clone());
         }
         self.save();
+        recorded
+    }
+
+    /// Compara a leitura nova com a anterior: respostas que o agente apagou ("lida pelo agente") e documentos que
+    /// ele apagou sem resposta ("fechada sem resposta"). `true`: o histórico mudou.
+    fn record_history(&self, files: &[SurfaceFile]) -> bool {
+        let now = SystemTime::now();
+        let responses = store::ui_dir(&self.root).join("responses");
+        let mut changed = false;
+        for old in self.files.iter() {
+            let new = files.iter().find(|f| f.name == old.name);
+            for (seq, event) in &old.pending {
+                let still = new.is_some_and(|n| n.pending.iter().any(|p| &p.1 == event));
+                // A leitura pode ter começado antes de a resposta ser gravada: confere no disco.
+                let on_disk = responses.join(&old.name).join(tea_declarative_ui::file_name(*seq, event)).exists();
+                if !still && !on_disk {
+                    changed |= history::mark_read(&self.root, event, now);
+                }
+            }
+            if new.is_some() || old.tracked || old.name == novo::DOC_NAME {
+                continue;
+            }
+            let (Ok(doc), Some(raw)) = (&old.doc, &old.raw) else { continue };
+            let saved = self.saved.get(&old.name);
+            if saved.is_some_and(|s| s.answered == Some(doc.revision)) {
+                continue;
+            }
+            let shown = saved.and_then(|s| s.shown.as_ref()).filter(|(r, _)| *r == doc.revision).map(|(_, t)| t.clone());
+            let entry = history::Entry::unanswered(&old.name, doc, raw, shown, now);
+            changed |= history::record(&self.root, &entry).is_ok();
+        }
+        changed
+    }
+
+    /// Lê o histórico numa thread.
+    fn reload_history(&self) -> Task<Message> {
+        let root = self.root.clone();
+        let (tx, rx) = oneshot::channel();
+        std::thread::spawn(move || {
+            let _ = tx.send(Arc::new(history::list(&root)));
+        });
+        Task::future(async move { rx.await.ok() }).and_then(|h| Task::done(Message::HistoryLoaded(h)))
+    }
+
+    fn open_history(&mut self, path: PathBuf) {
+        let Some((_, entry)) = self.history.iter().find(|(p, _)| *p == path) else { return };
+        let entry = entry.clone();
+        let bytes = serde_json::to_vec(&entry.document).unwrap_or_default();
+        let doc = tea_declarative_ui::parse(&bytes, &Limits::default());
+        let (state, rendered, media, changed) = match &doc {
+            Ok(d) => {
+                let values = entry.response.as_ref().map(|r| r.values.clone()).unwrap_or_default();
+                let comment = entry.response.as_ref().and_then(|r| r.comment.as_deref());
+                let media = tea_declarative_ui::Media::load(&self.root, d, &tea_declarative_ui::MediaLimits::default());
+                // A versão de cada mídia na resposta contra a do disco agora.
+                let changed = entry
+                    .response
+                    .iter()
+                    .flat_map(|r| r.media.iter())
+                    .filter(|(path, seen)| {
+                        let now = std::fs::symlink_metadata(self.root.join(path)).ok();
+                        let size = now.as_ref().map(std::fs::Metadata::len);
+                        let modified = now.and_then(|m| m.modified().ok()).map(timestamp);
+                        seen.size.is_some() && (size != seen.size || modified != seen.modified)
+                    })
+                    .map(|(path, _)| path.clone())
+                    .collect();
+                (State::frozen(d, &values, comment), Rendered::new(d), media, changed)
+            }
+            Err(_) => (State::default(), Rendered::default(), tea_declarative_ui::Media::default(), Vec::new()),
+        };
+        self.history_open = Some(Opened { path, entry, doc, state, rendered, media, changed });
     }
 
     /// Clique num botão. Se a interface aponta arquivos, a IDE salva os que estão com alterações antes de
@@ -257,6 +376,14 @@ impl UiExtension {
             });
         match store::write_response(&self.root, &response) {
             Ok(_) => {
+                if let Some(raw) = &f.raw {
+                    let shown = saved.shown.as_ref().filter(|(r, _)| *r == doc.revision).map(|(_, t)| t.clone());
+                    let entry = history::Entry::answered(name, doc, raw, shown, response.clone());
+                    if let Err(e) = history::record(&self.root, &entry) {
+                        ctx.notify(fl!("ui-history-failed", error = e.to_string()));
+                    }
+                }
+                saved.answered = Some(doc.revision);
                 saved.seq = seq;
                 saved.state.comment.clear(); // foi junto com esta resposta
                 // Já conta como pendente, sem esperar a próxima leitura da pasta.
@@ -552,6 +679,124 @@ impl UiExtension {
         }
     }
 
+    fn ask_clear_history(&self, ctx: &mut Context) {
+        if self.history.is_empty() {
+            ctx.notify(fl!("ui-history-empty"));
+            return;
+        }
+        ctx.show_dialog(
+            Dialog::new(fl!("ui-history-clear-title"), fl!("ui-history-clear-detail", count = self.history.len()))
+                .button(fl!("ui-history-clear-button"), ButtonKind::Danger, Message::ClearHistory)
+                .cancel(fl!("ui-cancel")),
+        );
+    }
+
+    /// O painel do histórico: as abertas, as entradas por dia (com busca) ou uma entrada aberta.
+    fn history_view(&self) -> Element<'_, Message> {
+        if let Some(opened) = &self.history_open {
+            return scrollable(self.history_entry_view(opened).padding(12)).height(Fill).into();
+        }
+        let mut out: Column<'_, Message> = column![].spacing(8).padding(12).width(Fill);
+        out = out.push(
+            text_input(&fl!("ui-history-search"), &self.history_query).on_input(Message::HistoryQuery).size(13).width(Fill),
+        );
+        let open: Vec<&SurfaceFile> = self.files.iter().filter(|f| !f.tracked && f.doc.is_ok()).collect();
+        if !open.is_empty() {
+            out = out.push(text(fl!("ui-history-open", count = open.len())).size(12).style(text::secondary));
+            for f in open {
+                let Ok(doc) = &f.doc else { continue };
+                let answered = self.saved.get(&f.name).is_some_and(|s| s.state.locked(doc) || s.answered == Some(doc.revision));
+                let line2 = match (&doc.source, answered) {
+                    (Some(s), false) => format!("{s} · {}", fl!("ui-history-waiting-you")),
+                    (None, false) => fl!("ui-history-waiting-you"),
+                    (Some(s), true) => format!("{s} · {}", fl!("ui-history-answered-open")),
+                    (None, true) => fl!("ui-history-answered-open"),
+                };
+                out = out.push(entry_button(title(doc, &f.name), String::new(), line2, false, Message::ShowOpen(f.name.clone())));
+            }
+        }
+        let query = self.history_query.trim().to_lowercase();
+        let (today, yesterday) = history::today_and_yesterday();
+        let mut day = String::new();
+        let mut shown = 0;
+        for (path, e) in self.history.iter() {
+            if !query.is_empty() && !e.haystack().contains(&query) {
+                continue;
+            }
+            let (d, hm) = history::local(e.time()).unwrap_or_default();
+            if d != day {
+                let label = if d == today {
+                    fl!("ui-history-today")
+                } else if d == yesterday {
+                    fl!("ui-history-yesterday")
+                } else {
+                    d.clone()
+                };
+                out = out.push(text(label).size(12).style(text::secondary));
+                day = d;
+            }
+            let (line2, warn) = entry_summary(e);
+            out = out.push(entry_button(e.title(), hm, line2, warn, Message::HistoryOpen(path.clone())));
+            shown += 1;
+        }
+        if self.history.is_empty() {
+            out = out.push(text(fl!("ui-history-none")).size(13).style(text::secondary).width(Fill));
+        } else if shown == 0 {
+            out = out.push(text(fl!("ui-history-no-match")).size(13).style(text::secondary).width(Fill));
+        } else {
+            out = out.push(
+                button(text(fl!("ui-history-clear-button")).size(12)).style(button::text).on_press(Message::AskClearHistory),
+            );
+        }
+        scrollable(out).height(Fill).into()
+    }
+
+    fn history_entry_view<'a>(&'a self, o: &'a Opened) -> Column<'a, Message> {
+        let e = &o.entry;
+        let back = button(text(fl!("ui-history-back")).size(12)).style(button::secondary).on_press(Message::HistoryBack);
+        let mut out: Column<'a, Message> = column![back, text(e.title()).size(16)].spacing(8).width(Fill);
+        let origin = match &e.source {
+            Some(s) => format!("{} · r{} · {s}", e.name, e.revision),
+            None => format!("{} · r{}", e.name, e.revision),
+        };
+        out = out.push(text(origin).size(12).style(text::secondary));
+        let mut times = Vec::new();
+        if let Some(t) = &e.shown {
+            times.push(fl!("ui-history-shown", time = history::local_text(t)));
+        }
+        if let Some(t) = &e.answered {
+            times.push(fl!("ui-history-answered", time = history::local_text(t)));
+        }
+        if let Some(t) = &e.closed {
+            times.push(fl!("ui-history-closed", time = history::local_text(t)));
+        }
+        if let Some(t) = &e.read_by_agent {
+            times.push(fl!("ui-history-read", time = history::local_text(t)));
+        }
+        for t in times {
+            out = out.push(text(t).size(12).style(text::secondary));
+        }
+        if let Some(r) = &e.response {
+            out = out.push(text(fl!("ui-history-button", action = r.action.clone())).size(13));
+            if e.read_by_agent.is_none() {
+                out = out.push(text(fl!("ui-history-not-read")).size(12).style(text::warning).width(Fill));
+            }
+        }
+        for path in &o.changed {
+            out = out.push(text(fl!("ui-history-media-changed", path = path.clone())).size(12).style(text::warning).width(Fill));
+        }
+        match &o.doc {
+            Ok(doc) => {
+                let theme = self.theme.clone().unwrap_or(Theme::Dark);
+                let playback = Playback { unavailable: Some(fl!("ui-history-no-audio")), ..Playback::default() };
+                let view = tea_declarative_ui::view(doc, &o.state, &o.rendered, &o.media, &playback, &theme, true);
+                out = out.push(container(view.map(Message::HistoryUi)).padding(8).style(container::bordered_box).width(Fill));
+            }
+            Err(err) => out = out.push(text(fl!("ui-invalid", error = err.clone())).size(13).style(text::danger).width(Fill)),
+        }
+        out
+    }
+
     fn surface_view<'a>(&'a self, f: &'a SurfaceFile) -> Element<'a, Message> {
         let path = format!(".idetea/ui/{}.json", f.name);
         if f.tracked {
@@ -636,6 +881,45 @@ fn file_components(doc: &Document) -> impl Iterator<Item = (&str, u64, u64, bool
     })
 }
 
+/// A segunda linha de uma entrada do histórico, e se merece atenção (resposta que o agente não leu).
+fn entry_summary(e: &history::Entry) -> (String, bool) {
+    let source = e.source.as_deref().map(|s| format!("{s} · ")).unwrap_or_default();
+    match (&e.outcome, &e.response) {
+        (history::Outcome::Answered, Some(r)) if e.read_by_agent.is_none() => {
+            (format!("{source}→ {} · {}", r.action, fl!("ui-history-not-read-short")), true)
+        }
+        (history::Outcome::Answered, Some(r)) => (format!("{source}→ {}", r.action), false),
+        _ => (format!("{source}{}", fl!("ui-history-unanswered")), false),
+    }
+}
+
+/// Um cartão clicável do histórico: título e hora em cima, o resumo embaixo.
+fn entry_button<'a>(title: &str, time: String, line2: String, warn: bool, on: Message) -> Element<'a, Message> {
+    let top = row![text(title.to_string()).size(13).width(Fill), text(time).size(12).style(card_muted)].spacing(6);
+    let bottom = text(line2).size(12).style(if warn { text::warning } else { card_muted });
+    button(column![top, bottom].spacing(3)).style(card).padding([8, 10]).width(Fill).on_press(on).into()
+}
+
+/// O cartão: a superfície do tema com borda, mais clara sob o mouse.
+fn card(theme: &Theme, status: button::Status) -> button::Style {
+    let p = theme.extended_palette();
+    let background = match status {
+        button::Status::Hovered | button::Status::Pressed => p.background.strong.color,
+        _ => p.background.weak.color,
+    };
+    button::Style {
+        background: Some(background.into()),
+        text_color: p.background.weak.text,
+        border: iced::Border { color: p.background.strong.color, width: 1.0, radius: 6.0.into() },
+        ..button::Style::default()
+    }
+}
+
+/// Texto secundário do cartão: a cor do texto do cartão, mais apagada (legível nos temas claros e escuros).
+fn card_muted(theme: &Theme) -> text::Style {
+    text::Style { color: Some(theme.extended_palette().background.weak.text.scale_alpha(0.72)) }
+}
+
 fn title<'a>(doc: &'a Document, name: &'a str) -> &'a str {
     doc.title.as_deref().unwrap_or(name)
 }
@@ -651,6 +935,10 @@ impl Extension for UiExtension {
         self.root = ctx.root().to_path_buf();
         ctx.register_panel_hidden(PANEL, fl!("ui-panel"), Slot::Right);
         ctx.panel_icon(PANEL, Icon::CommentDiscussion);
+        ctx.register_panel_hidden(HISTORY, fl!("ui-history-panel"), Slot::Left);
+        ctx.panel_icon(HISTORY, Icon::History);
+        ctx.register_command("interfaces.history", fl!("cmd-ui-history"));
+        ctx.register_command("interfaces.clear_history", fl!("cmd-ui-clear-history"));
         ctx.register_command("interfaces.show", fl!("cmd-ui-show"));
         ctx.register_command("interfaces.teach", fl!("cmd-ui-teach"));
         ctx.register_command("interfaces.fix", fl!("cmd-ui-fix"));
@@ -660,7 +948,7 @@ impl Extension for UiExtension {
         }
         self.load();
         self.player = Player::new(player::find());
-        Task::none()
+        self.reload_history()
     }
 
     fn on_event(&mut self, event: &CoreEvent, _ctx: &mut Context) -> Task<Message> {
@@ -675,6 +963,8 @@ impl Extension for UiExtension {
     fn on_command(&mut self, command: &str, ctx: &mut Context) -> Task<Message> {
         match command {
             "interfaces.show" => ctx.show_panel(PANEL),
+            "interfaces.history" => ctx.show_panel(HISTORY),
+            "interfaces.clear_history" => self.ask_clear_history(ctx),
             "interfaces.teach" => self.ask_teach(ctx),
             "interfaces.fix" => self.ask_fix(ctx),
             "interfaces.new_project" => self.ask_new_project(None, ctx),
@@ -685,7 +975,11 @@ impl Extension for UiExtension {
 
     fn update(&mut self, message: Message, ctx: &mut Context) -> Task<Message> {
         match message {
-            Message::Snapshot(files) => self.snapshot(files, ctx),
+            Message::Snapshot(files) => {
+                if self.snapshot(files, ctx) {
+                    return self.reload_history();
+                }
+            }
             Message::Waits(waits) => self.waits = waits,
             Message::Select(name) => self.selected = Some(name),
             Message::Ui(name, UiMessage::Set { path, value }) => {
@@ -696,7 +990,10 @@ impl Extension for UiExtension {
             }
             // O formulário do "Novo projeto" é da própria IDE: o clique não vira arquivo de resposta.
             Message::Ui(name, UiMessage::Press(source)) if name == novo::DOC_NAME => return self.new_project(&source, ctx),
-            Message::Ui(name, UiMessage::Press(source)) => self.press(&name, &source, ctx),
+            Message::Ui(name, UiMessage::Press(source)) => {
+                self.press(&name, &source, ctx);
+                return self.reload_history();
+            }
             Message::Ui(name, UiMessage::Comment(text)) => {
                 if let Some(saved) = self.saved.get_mut(&name) {
                     saved.state.comment = text;
@@ -743,7 +1040,40 @@ impl Extension for UiExtension {
                     player::Tick::Same => {}
                 }
             }
-            Message::Submit(name, source) => self.submit(&name, &source, ctx),
+            Message::Submit(name, source) => {
+                self.submit(&name, &source, ctx);
+                return self.reload_history();
+            }
+            Message::HistoryLoaded(list) => {
+                self.history = list;
+                // A entrada aberta foi apagada (histórico limpo): volta para a lista.
+                if self.history_open.as_ref().is_some_and(|o| !self.history.iter().any(|(p, _)| *p == o.path)) {
+                    self.history_open = None;
+                }
+            }
+            Message::HistoryQuery(q) => self.history_query = q,
+            Message::HistoryOpen(path) => self.open_history(path),
+            Message::HistoryBack => self.history_open = None,
+            Message::HistoryUi(UiMessage::Open { path, line, column }) => {
+                tea_declarative_ui::open_file(&self.root, &path, line, column, ctx);
+            }
+            Message::HistoryUi(UiMessage::Link(url)) => tea_declarative_ui::follow(&url, &self.root, ctx),
+            Message::HistoryUi(UiMessage::Copy(code)) => return tea_declarative_ui::copy(code, ctx),
+            Message::HistoryUi(_) => {}
+            Message::ShowHistory => ctx.show_panel(HISTORY),
+            Message::ShowOpen(name) => {
+                self.selected = Some(name);
+                ctx.show_panel(PANEL);
+            }
+            Message::AskClearHistory => self.ask_clear_history(ctx),
+            Message::ClearHistory => {
+                match history::clear(&self.root) {
+                    Ok(n) => ctx.notify(fl!("ui-history-cleared", count = n)),
+                    Err(e) => ctx.notify(fl!("ui-history-failed", error = e.to_string())),
+                }
+                self.history_open = None;
+                return self.reload_history();
+            }
             Message::NewProjectDone(result) => self.new_project_done(result, ctx),
             Message::AskTeach => self.ask_teach(ctx),
             Message::Teach => self.teach(ctx),
@@ -753,13 +1083,23 @@ impl Extension for UiExtension {
         Task::none()
     }
 
-    fn view(&self, _panel: PanelId) -> Element<'_, Message> {
+    fn view(&self, panel: PanelId) -> Element<'_, Message> {
+        if panel == HISTORY {
+            return self.history_view();
+        }
         let mut out: Column<'_, Message> = column![].spacing(12).padding(12).width(Fill);
         if let Some(problem) = &self.problem {
             out = out.push(text(problem).size(13).style(text::danger).width(Fill));
         }
         if self.outdated {
             out = out.push(text(fl!("ui-outdated")).size(13).style(text::warning).width(Fill));
+        }
+        if !self.history.is_empty() {
+            let link = button(text(fl!("ui-history-link", count = self.history.len())).size(12))
+                .style(button::text)
+                .padding(0)
+                .on_press(Message::ShowHistory);
+            out = out.push(row![space::horizontal(), link]);
         }
         if self.files.is_empty() {
             out = out.push(text(fl!("ui-empty")).size(13).style(text::secondary).width(Fill));
@@ -897,6 +1237,78 @@ mod tests {
 
     fn shows_panel(requests: Vec<tea_core::Request>) -> bool {
         requests.iter().any(|r| matches!(r, tea_core::Request::PanelVisibility { id, visible: Some(true) } if *id == PANEL))
+    }
+
+    #[test]
+    fn history_keeps_answers_reads_and_closed_questions() {
+        let root = tmp_root("historico");
+        test_state();
+        let scan = |ext: &mut UiExtension| {
+            let _ = ext.update(Message::Snapshot(Arc::new(store::scan(&root, &Limits::default()))), &mut Context::new(&root, None));
+        };
+        let mut ext = UiExtension::new();
+        let _ = ext.activate(&mut Context::new(&root, None));
+        let ui = store::ui_dir(&root);
+        std::fs::write(ui.join("migracao.json"), DOC).unwrap();
+        std::fs::write(
+            ui.join("aviso.json"),
+            r#"{"format": "idetea-ui", "version": 1, "revision": 2, "title": "Só um aviso",
+                "components": [{"id": "t", "component": "text", "text": "Pronto."}]}"#,
+        )
+        .unwrap();
+        scan(&mut ext);
+
+        // Responder: a entrada fica, com o documento e a resposta, ainda não lida pelo agente.
+        ext.selected = Some("migracao".into());
+        let msgs: Vec<Message> = {
+            let mut sim = simulator(ext.view(PANEL));
+            sim.click("Fiz backup").unwrap();
+            sim.click("Aplicar").unwrap();
+            sim.into_messages().collect()
+        };
+        for m in msgs {
+            let _ = ext.update(m, &mut Context::new(&root, None));
+        }
+        let list = history::list(&root);
+        assert_eq!(list.len(), 1);
+        let e = &list[0].1;
+        assert_eq!((e.name.as_str(), e.outcome, e.revision), ("migracao", history::Outcome::Answered, 1));
+        assert_eq!(e.response.as_ref().unwrap().values["/ok"], serde_json::json!(true));
+        assert!(e.shown.is_some() && e.read_by_agent.is_none());
+        assert_eq!(e.document["title"], "Revisar migração");
+
+        // O agente lê (apaga a resposta) e depois apaga as duas perguntas.
+        std::fs::remove_dir_all(ui.join("responses/migracao")).unwrap();
+        scan(&mut ext);
+        assert!(history::list(&root)[0].1.read_by_agent.is_some(), "lida pelo agente");
+        std::fs::remove_file(ui.join("migracao.json")).unwrap();
+        std::fs::remove_file(ui.join("aviso.json")).unwrap();
+        scan(&mut ext);
+        let list = history::list(&root);
+        assert_eq!(list.len(), 2, "a respondida não entra de novo; o aviso entra sem resposta");
+        let aviso = list.iter().find(|(_, e)| e.name == "aviso").unwrap();
+        assert_eq!((aviso.1.outcome, aviso.1.revision), (history::Outcome::Unanswered, 2));
+        assert!(aviso.1.closed.is_some());
+
+        // No painel do histórico: abrir a entrada mostra a interface como ficou, sem botão que responda.
+        let _ = ext.update(Message::HistoryLoaded(Arc::new(list)), &mut Context::new(&root, None));
+        let msgs: Vec<Message> = {
+            let mut sim = simulator(ext.view(HISTORY));
+            sim.click("Revisar migração").unwrap();
+            sim.into_messages().collect()
+        };
+        for m in msgs {
+            let _ = ext.update(m, &mut Context::new(&root, None));
+        }
+        let opened = ext.history_open.as_ref().expect("entrada aberta");
+        assert_eq!(opened.entry.name, "migracao");
+        let msgs: Vec<Message> = {
+            let mut sim = simulator(ext.view(HISTORY));
+            let _ = sim.click("Aplicar");
+            sim.into_messages().collect()
+        };
+        assert!(!msgs.iter().any(|m| matches!(m, Message::HistoryUi(UiMessage::Press(_)))), "só para ver");
+        let _ = std::fs::remove_dir_all(&root);
     }
 
     #[test]

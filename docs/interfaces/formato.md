@@ -458,6 +458,43 @@ idetea open src/main.rs:42:5
   janela vir para a frente. Só caminhos dentro da raiz. Sem IDE aberta, ou se ela não pegar em 3 segundos, sai com 3.
 - A seleção do usuário ainda não vai no `state.json` (o editor não a expõe).
 
+## Histórico: `.idetea/history/` e `idetea history`
+
+A IDE guarda cada pergunta que passou pelo painel ([RFC 0007](../rfc/0007-historico-das-interfaces.md)). Quem grava
+é a IDE, não o agente; o protocolo não muda.
+
+- **No clique:** uma entrada com o documento daquela revisão (como o agente escreveu), a resposta inteira (a mesma
+  que o agente recebe) e as horas (`shown`, quando a IDE viu a revisão; `answered`).
+- **Quando o agente apaga a resposta:** `read_by_agent` com a hora. Sem ele, a resposta ainda está em `responses/`
+  ou foi apagada com a IDE fechada.
+- **Quando o agente apaga um documento sem resposta** (ou que não tinha botões): uma entrada `unanswered` com a
+  última revisão e `closed`. Revisões intermediárias sem resposta (substituídas por uma nova) não entram.
+- O formulário do "Novo projeto" (da própria IDE) e documentos versionados no git não entram.
+
+```
+.idetea/history/<AAAA-MM>/<AAAAMMDD-HHMMSS>-<nome>-r<revisão>[-<evento>].json   (hora UTC no nome)
+```
+
+```json
+{"format": "idetea-ui-history", "version": 1, "name": "passo", "title": "Próximo passo", "source": "claude",
+ "revision": 2, "outcome": "answered", "shown": "2026-11-04T19:30:12Z", "answered": "2026-11-04T19:32:40Z",
+ "read_by_agent": "2026-11-04T19:32:41Z", "document": {…}, "response": {…}}
+```
+
+Fica fora do git (`.idetea/history/.gitignore` com `*`) e até o usuário apagar ("Interfaces: apagar o histórico").
+Imagens e sons não são copiados: a resposta guarda `size` e `modified` de cada um, e o histórico avisa quando o
+arquivo mudou depois.
+
+No painel **Histórico das interfaces** (à esquerda, oculto por padrão; paleta "Interfaces: histórico", ou o link
+"Histórico" no topo do painel Interfaces): as interfaces abertas no topo (clicar seleciona no painel Interfaces), as
+entradas por dia com busca, e cada entrada aberta só para ver, com os valores respondidos e o comentário.
+
+```sh
+idetea history                     # as 20 últimas, da mais velha para a mais nova
+idetea history --name passo --since 2026-11-01 --all
+idetea history --json              # as entradas inteiras, como estão no disco
+```
+
 ## Um ciclo completo em shell
 
 Veja [`examples/interfaces/pergunta.sh`](../../examples/interfaces/pergunta.sh): escreve uma pergunta, espera a

@@ -123,3 +123,46 @@ ask-no-such = idetea ask: não há pergunta "{ $name }" no painel
 ask-timeout = idetea ask: sem resposta no prazo; a pergunta "{ $name }" continua no painel (idetea ask --resume { $name } volta a esperar)
 ask-outdated = idetea ask: a resposta veio de uma IDE recompilada depois de aberta (ide.outdated); se estiver testando uma mudança, peça para reiniciar a IDE
 ask-comment = comentário: { $comment }
+
+# Histórico das interfaces (RFC 0007)
+ui-history-panel = Histórico das interfaces
+cmd-ui-history = Interfaces: histórico
+cmd-ui-clear-history = Interfaces: apagar o histórico
+ui-history-failed = Não deu para gravar no histórico: { $error }
+ui-history-cleared = { $count ->
+    [one] 1 entrada apagada do histórico.
+   *[other] { $count } entradas apagadas do histórico.
+}
+ui-history-link = Histórico ({ $count })
+ui-history-empty = O histórico está vazio.
+ui-history-clear-title = Apagar o histórico?
+ui-history-clear-detail = { $count ->
+    [one] A entrada do histórico deste projeto (.idetea/history/) vai ser apagada.
+   *[other] As { $count } entradas do histórico deste projeto (.idetea/history/) vão ser apagadas.
+} As interfaces abertas no painel continuam. Não dá para desfazer.
+ui-history-clear-button = Apagar o histórico
+ui-history-search = Buscar no título, nas respostas e nos comentários
+ui-history-open = Abertas ({ $count })
+ui-history-waiting-you = esperando você
+ui-history-answered-open = respondida, ainda aberta
+ui-history-today = Hoje
+ui-history-yesterday = Ontem
+ui-history-none = Nenhuma pergunta respondida ainda. Cada resposta dada no painel Interfaces fica guardada aqui (em .idetea/history/, fora do git).
+ui-history-no-match = Nada encontrado.
+ui-history-back = ← Voltar
+ui-history-shown = Mostrada: { $time }
+ui-history-answered = Respondida: { $time }
+ui-history-closed = Fechada sem resposta: { $time }
+ui-history-read = Lida pelo agente: { $time }
+ui-history-button = Botão: { $action }
+ui-history-not-read = O agente não leu esta resposta (o arquivo ainda está em .idetea/ui/responses/, ou foi apagado com a IDE fechada).
+ui-history-not-read-short = não lida
+ui-history-unanswered = sem resposta
+ui-history-media-changed = { $path } mudou ou sumiu depois da resposta: o que aparece aqui é a versão de agora.
+ui-history-no-audio = o histórico não toca sons
+history-cli-comment = comentário
+history-cli-not-read = o agente não leu esta resposta
+history-cli-unanswered = sem resposta (o agente apagou a pergunta)
+history-cli-bad = idetea history: "{ $arg }" não vale.
+history-cli-usage = Uso: idetea history [--name nome] [--since AAAA-MM-DD] [--last N | --all] [--json]
+history-cli-empty = idetea history: nada no histórico deste projeto.

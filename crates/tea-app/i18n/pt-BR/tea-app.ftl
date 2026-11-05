@@ -305,6 +305,7 @@ cli-usage =
       run … -- <comando>  pede um terminal à IDE e espera o fim (idetea run sem nada: o uso)
       status [--json]  o que a IDE aberta neste projeto mostra (abas, mudanças, cursor)
       open <arquivo[:linha[:coluna]]>  a IDE aberta mostra o arquivo, com o cursor no lugar
+      history [--json]  o que você respondeu no painel Interfaces (--name, --since, --last N, --all)
       -h, --help     mostra esta ajuda
       -V, --version  mostra a versão
 cli-unknown-option = opção desconhecida ignorada: { $option }

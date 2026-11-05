@@ -25,11 +25,27 @@ pub struct State {
     answered: Option<u64>,
     /// O "comentário para o agente" sendo escrito (vai na próxima resposta e some).
     pub comment: String,
+    /// Só para ver (histórico): botões e comentário desligados.
+    #[serde(skip)]
+    frozen: bool,
 }
 
 impl State {
     pub fn new(doc: &Document) -> Self {
         Self { revision: doc.revision, base: doc.data.clone(), ..Self::default() }
+    }
+
+    /// Uma interface já respondida, como ficou: os valores da resposta por cima do `data`, tudo desligado.
+    pub fn frozen(doc: &Document, values: &BTreeMap<String, Value>, comment: Option<&str>) -> Self {
+        let local = values.iter().filter(|(_, v)| !v.is_null()).map(|(k, v)| (k.clone(), v.clone())).collect();
+        Self {
+            revision: doc.revision,
+            base: doc.data.clone(),
+            local,
+            answered: Some(doc.revision),
+            comment: comment.unwrap_or_default().to_string(),
+            frozen: true,
+        }
     }
 
     /// O valor que o componente mostra: o do usuário, senão o do documento.
@@ -108,7 +124,7 @@ impl State {
 
     /// Os botões estão desligados: já respondeu esta revisão e ela só aceita uma resposta.
     pub fn locked(&self, doc: &Document) -> bool {
-        doc.submit == Submit::Once && self.answered == Some(doc.revision)
+        self.frozen || (doc.submit == Submit::Once && self.answered == Some(doc.revision))
     }
 
     /// Valores dos caminhos pedidos pelo botão `source` (o `context` da ação). `None`: não é um botão.

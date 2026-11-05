@@ -52,6 +52,9 @@ every question and every terminal.
 - `idetea status` tells what I have open: the active file with the cursor, the open files, and which ones have
   unsaved changes (`--json` for JSON). Exit code 3: the IDE is not open in this project.
 - `idetea open <file>[:<line>[:<column>]]` shows me a file in the IDE, without asking anything.
+- `idetea history` lists what I answered in the panel, oldest first (`--name <name>`, `--since YYYY-MM-DD`,
+  `--last N` (20 by default), `--all`, `--json`). The IDE keeps every question, my answer and my comment in
+  `.idetea/history/` (out of git). After losing context, read it instead of asking me again.
 
 Without `idetea` on the PATH, or with an older one that does not know a command (it prints its usage), use the
 files as below.

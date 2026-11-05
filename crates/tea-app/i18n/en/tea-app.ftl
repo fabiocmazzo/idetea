@@ -305,6 +305,7 @@ cli-usage =
       run … -- <command>  asks the IDE for a terminal and waits for the end (idetea run alone: usage)
       status [--json]  what the IDE open in this project shows (tabs, changes, cursor)
       open <file[:line[:column]]>  the open IDE shows the file, with the cursor in place
+      history [--json]  what you answered in the Interfaces panel (--name, --since, --last N, --all)
       -h, --help     show this help
       -V, --version  show the version
 cli-unknown-option = unknown option ignored: { $option }
