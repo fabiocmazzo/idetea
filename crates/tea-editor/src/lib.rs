@@ -99,8 +99,11 @@ impl EditorMessage {
                     | Inner::VimKey(_)
                     | Inner::Backspace
                     | Inner::Delete
+                    | Inner::DeleteWordBack
+                    | Inner::DeleteWordForward
                     | Inner::Enter
                     | Inner::Tab
+                    | Inner::Backtab
                     | Inner::Paste(_)
                     | Inner::Cut
                     | Inner::DeleteSelection
@@ -227,12 +230,17 @@ fn forgets_click_anchor(msg: &Inner) -> bool {
             | Inner::VimKey(_)
             | Inner::Backspace
             | Inner::Delete
+            | Inner::DeleteWordBack
+            | Inner::DeleteWordForward
             | Inner::Enter
             | Inner::Tab
+            | Inner::Backtab
             | Inner::Paste(_)
             | Inner::Cut
             | Inner::DeleteSelection
             | Inner::ArrowKey(..)
+            | Inner::WordLeft(_)
+            | Inner::WordRight(_)
             | Inner::Home(_)
             | Inner::End(_)
             | Inner::PageUp(_)
