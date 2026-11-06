@@ -40,6 +40,13 @@ pub fn list(root: &Path, configured: &BTreeMap<String, String>) -> Vec<TaskDef> 
             out.push(TaskDef::new(name, cmd, root));
         }
     }
+    if let Ok(text) = std::fs::read_to_string(root.join("build.zig")) {
+        out.push(TaskDef::new("zig build", "zig build", root));
+        for step in zig_steps(&text).into_iter().take(MAX_MAKE_TARGETS) {
+            let cmd = format!("zig build {step}");
+            out.push(TaskDef::new(cmd.clone(), cmd, root));
+        }
+    }
     if let Ok(text) = std::fs::read_to_string(root.join("package.json")) {
         let runner = if root.join("pnpm-lock.yaml").exists() {
             "pnpm"
@@ -68,6 +75,27 @@ pub fn list(root: &Path, configured: &BTreeMap<String, String>) -> Vec<TaskDef> 
 fn package_scripts(text: &str) -> Vec<String> {
     let Ok(json) = serde_json::from_str::<serde_json::Value>(text) else { return Vec::new() };
     json.get("scripts").and_then(|s| s.as_object()).map(|o| o.keys().cloned().collect()).unwrap_or_default()
+}
+
+/// Passos do `build.zig`: `b.step("nome", "descrição")`, na ordem do arquivo. Lê o texto em vez de rodar
+/// `zig build -l`, que compila o script de build (segundos) a cada vez que a lista abre.
+fn zig_steps(text: &str) -> Vec<String> {
+    let mut out: Vec<String> = Vec::new();
+    for line in text.lines() {
+        let code = line.split("//").next().unwrap_or("");
+        let mut rest = code;
+        while let Some(at) = rest.find(".step(") {
+            rest = &rest[at + ".step(".len()..];
+            let Some(name) = rest.trim_start().strip_prefix('"').and_then(|r| r.split_once('"')).map(|(n, _)| n) else {
+                continue;
+            };
+            let ok = !name.is_empty() && name.chars().all(|c| c.is_alphanumeric() || matches!(c, '-' | '_' | '.' | ':'));
+            if ok && !out.iter().any(|s| s == name) {
+                out.push(name.to_string());
+            }
+        }
+    }
+    out
 }
 
 /// Alvos do Makefile: `nome:` no começo da linha (sem `.PHONY`, padrões com `%` e atribuições `:=`).
@@ -202,6 +230,29 @@ mod tests {
         let integ = rust_test_task(&dir, &dir.join("crates/app/tests/api.rs"), "rota").unwrap();
         assert_eq!(integ.command, "cargo test -p app --test api rota");
         assert!(rust_test_task(&dir, Path::new("/solto.rs"), "x").is_none(), "fora de um pacote");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn zig_build_steps() {
+        let build = r#"
+const std = @import("std");
+pub fn build(b: *std.Build) void {
+    const run_step = b.step("run", "Run the app");
+    const test_step = b.step( "test", "Run unit tests");
+    // const old = b.step("antigo", "comentado");
+    _ = b.step("docs:serve", "Docs"); _ = b.step("run", "repetido");
+    const name = b.step(nome_dinamico, "sem texto fixo");
+}
+"#;
+        assert_eq!(zig_steps(build), ["run", "test", "docs:serve"]);
+
+        let dir = std::env::temp_dir().join(format!("idetea-zig-tasks-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(dir.join("build.zig"), build).unwrap();
+        let names: Vec<_> = list(&dir, &BTreeMap::new()).into_iter().map(|t| t.command).collect();
+        assert_eq!(names, ["zig build", "zig build run", "zig build test", "zig build docs:serve"]);
         let _ = std::fs::remove_dir_all(&dir);
     }
 }

@@ -3,6 +3,7 @@
 //! - `[debug] build = "..."` no config: roda esse comando (`sh -c`). `build = ""` não compila.
 //! - Sem `build` e com `Cargo.toml` na raiz: `cargo build`, lendo a saída JSON do cargo para
 //!   saber quais executáveis ele gerou (não precisa adivinhar `target/debug/<nome>`).
+//! - Sem `build` e com `build.zig` na raiz: `zig build`, e os executáveis são os de `zig-out/bin/`.
 //! - Sem nada disso: não compila.
 
 use std::path::{Path, PathBuf};
@@ -14,6 +15,7 @@ use tea_core::config::DebugConfig;
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Build {
     Cargo,
+    Zig,
     Shell(String),
 }
 
@@ -21,6 +23,7 @@ impl Build {
     pub fn label(&self) -> &str {
         match self {
             Build::Cargo => "cargo build",
+            Build::Zig => "zig build",
             Build::Shell(cmd) => cmd,
         }
     }
@@ -43,6 +46,7 @@ pub fn plan(config: &DebugConfig, root: &Path) -> Option<Build> {
         Some("") => None,
         Some(cmd) => Some(Build::Shell(cmd.to_string())),
         None if root.join("Cargo.toml").is_file() => Some(Build::Cargo),
+        None if root.join("build.zig").is_file() => Some(Build::Zig),
         None => None,
     }
 }
@@ -53,6 +57,11 @@ pub fn run(build: &Build, root: &Path) -> Outcome {
         Build::Cargo => {
             let mut c = Command::new("cargo");
             c.args(["build", "--message-format=json-render-diagnostics"]);
+            c
+        }
+        Build::Zig => {
+            let mut c = Command::new("zig");
+            c.arg("build");
             c
         }
         Build::Shell(line) => {
@@ -81,7 +90,11 @@ pub fn run(build: &Build, root: &Path) -> Outcome {
     let ok = out.status.success();
     Outcome {
         ok,
-        executables: if cargo { executables(&stdout) } else { Vec::new() },
+        executables: match build {
+            Build::Cargo => executables(&stdout),
+            Build::Zig if ok => zig_executables(&root.join("zig-out/bin")),
+            _ => Vec::new(),
+        },
         error: (!ok).then(|| first_error(&log)),
         log,
     }
@@ -106,11 +119,25 @@ pub fn executables(json_lines: &str) -> Vec<PathBuf> {
     found
 }
 
-/// A primeira linha de erro, ou a última linha com texto.
+/// Executáveis em `zig-out/bin/` (o `zig build` instala lá), em ordem de nome.
+fn zig_executables(dir: &Path) -> Vec<PathBuf> {
+    use std::os::unix::fs::PermissionsExt;
+    let Ok(entries) = std::fs::read_dir(dir) else { return Vec::new() };
+    let mut found: Vec<PathBuf> = entries
+        .flatten()
+        .filter(|e| e.metadata().is_ok_and(|m| m.is_file() && m.permissions().mode() & 0o111 != 0))
+        .map(|e| e.path())
+        .collect();
+    found.sort();
+    found
+}
+
+/// A primeira linha de erro (`error...`, ou `arquivo:linha:coluna: error: ...` do Zig e do gcc), ou a última
+/// linha com texto.
 fn first_error(log: &str) -> String {
     let line = log
         .lines()
-        .find(|l| l.trim_start().starts_with("error"))
+        .find(|l| l.trim_start().starts_with("error") || l.contains(": error:"))
         .or_else(|| log.lines().rfind(|l| !l.trim().is_empty()))
         .map(str::to_string)
         .unwrap_or_else(|| fl!("build-no-message"));
@@ -176,6 +203,30 @@ não é json"#;
         let out = run(&Build::Cargo, &dir);
         assert!(!out.ok);
         assert!(out.error.as_deref().is_some_and(|e| e.starts_with("error")), "{:?}", out.error);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn zig_projects_build_with_zig_build() {
+        use std::os::unix::fs::PermissionsExt;
+        let dir = std::env::temp_dir().join(format!("idetea-zig-debug-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(dir.join("zig-out/bin")).unwrap();
+        assert_eq!(plan(&cfg(None), &dir), None);
+        std::fs::write(dir.join("build.zig"), "").unwrap();
+        assert_eq!(plan(&cfg(None), &dir), Some(Build::Zig));
+        assert_eq!(plan(&cfg(Some("make")), &dir), Some(Build::Shell("make".into())), "o config vence");
+
+        let bin = dir.join("zig-out/bin");
+        for (name, mode) in [("app", 0o755), ("tool", 0o755), ("leia-me.txt", 0o644)] {
+            std::fs::write(bin.join(name), "").unwrap();
+            std::fs::set_permissions(bin.join(name), std::fs::Permissions::from_mode(mode)).unwrap();
+        }
+        assert_eq!(zig_executables(&bin), [bin.join("app"), bin.join("tool")]);
+        assert!(zig_executables(&dir.join("nao-existe")).is_empty());
+
+        let log = "install\n+- compile exe app Debug native 1 errors\nsrc/main.zig:3:5: error: use of undeclared identifier 'x'\n";
+        assert_eq!(first_error(log), "src/main.zig:3:5: error: use of undeclared identifier 'x'");
         let _ = std::fs::remove_dir_all(&dir);
     }
 }

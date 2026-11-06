@@ -1265,6 +1265,15 @@ e grava a resposta do usuário em `.idetea/ui/responses/<nome>/`. Estudo, decis�
   - [x] Testes `default_keys_follow_vs_code_where_they_clashed`,
     `retired_default_keys_in_a_user_file_give_way_to_the_new_defaults`, `user_template_comments_out_the_keys` e
     teste manual pelo painel em duas revisões (na primeira, o Ctrl+Shift+T falhou pelo `[keys]` copiado).
+- [x] **Zig e Ziex, etapas 1 e 2** ([RFC 0010](docs/rfc/0010-zig-e-ziex.md)): `zls` (`.zig`, `.zon`) e `zxls`
+  (`zx lsp`, `.zx`, `.mdzx`) entre os servidores padrão. Sem o `zx` no PATH e com o `build.zig.zon` da raiz
+  dependendo do `ziex`, o servidor do Ziex sai do projeto (`zig build zx -Dziex-lsp=true --release=fast -- lsp`),
+  como no Zed e no VS Code; sem nenhum dos dois, o aviso diz como resolver. Tarefas do `build.zig`: `zig build` e os
+  passos `b.step("nome", ...)` lidos do texto (sem rodar o `zig build -l`). F5 num projeto Zig: `zig build` e os
+  executáveis de `zig-out/bin/`; o erro do Zig (`arquivo:linha:coluna: error:`) vai para o aviso. `.zx`/`.mdzx`
+  com o ícone do Zig e, até a sintaxe própria (etapa 3), as cores do Zig e do Markdown.
+  - [x] Testes `zig_build_steps`, `zig_projects_build_with_zig_build`,
+    `ziex_project_without_the_cli_builds_its_own_server`, `lookup_order_follows_vs_code` e teste manual pelo painel.
 - [x] **Versão com executáveis para Linux:** o workflow `release.yml` gera `.tar.gz` e AppImage para x86_64
   (`ubuntu-22.04`) e aarch64 (`ubuntu-22.04-arm`), confere que o executável roda e, numa tag `v*`, publica a versão
   com `SHA256SUMS` (pré-lançamento antes da 1.0). "Run workflow" na aba Actions só gera os pacotes como artefatos,

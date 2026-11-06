@@ -239,6 +239,10 @@ pub fn default_servers() -> Vec<ServerConfig> {
         ),
         cfg("gopls", "gopls", &[], &[("go", "go")]),
         cfg("lua", "lua-language-server", &[], &[("lua", "lua")]),
+        cfg("zls", "zls", &[], &[("zig", "zig"), ("zon", "zig")]),
+        // Ziex (Zig com marcação): o `zx lsp` cuida da marcação e repassa o Zig a um ZLS embutido. Sem o `zx` no
+        // PATH, a IDE compila o servidor do projeto (ver `tea-app::lsp::ziex_fallback`).
+        cfg("zxls", "zx", &["lsp"], &[("zx", "zx"), ("mdzx", "mdzx")]),
     ]
 }
 

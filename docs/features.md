@@ -28,7 +28,7 @@ The full list, for the technical reader. For the short version, see the [README]
 - **Project search** as you type, respecting `.gitignore`, with regex, whole word and match case.
 - **Right-click menus** on the tree, the tabs and the files in the git panel.
 - **Tasks** (`Ctrl+Shift+B`): your own commands from the config, plus what the IDE finds in the project (cargo,
-  `package.json` scripts, Makefile targets), with the output in the terminal.
+  `package.json` scripts, Makefile targets, `build.zig` steps), with the output in the terminal.
 - **New project** ("Project: new…" or `idetea new <folder>`): folder, git, the agent skills of a template (empty,
   Rust, website, Python, FastAPI) and an initial request in `AGENTS.md`. See [skills.md](skills.md).
 
@@ -54,8 +54,9 @@ The full list, for the technical reader. For the short version, see the [README]
   first character of the line, then to column 0. `Shift+Tab` removes indentation.
 - VS Code keys where they used to differ: fold/unfold the block at the cursor with `Ctrl+Shift+[` / `]`, reopen the
   last closed tab with `Ctrl+Shift+T`, bottom panel with `Ctrl+J`, terminal with `` Ctrl+` `` or `Ctrl+'`.
-- Already set up: rust-analyzer, clangd, pyright, typescript-language-server, gopls and lua-language-server. Just
-  install the server; you can change the command or add others in the config.
+- Already set up: rust-analyzer, clangd, pyright, typescript-language-server, gopls, lua-language-server, zls (Zig)
+  and `zx lsp` ([Ziex](https://ziex.dev); without the `zx` CLI, a Ziex project builds its own server with
+  `zig build`). Just install the server; you can change the command or add others in the config.
 
 ## Terminal
 
@@ -74,7 +75,8 @@ The full list, for the technical reader. For the short version, see the [README]
 ## Debug
 
 - Breakpoints with a click on the line number (`F9`); they move with the text as you edit.
-- `F5` builds and runs: in Rust projects it uses `cargo build` and finds the executable; elsewhere, a `[debug]`
+- `F5` builds and runs: in Rust projects it uses `cargo build` and finds the executable; in Zig projects,
+  `zig build` and the executables in `zig-out/bin`; elsewhere, a `[debug]`
   section in the config says the program, the arguments and the build command.
 - Step over, into and out (`F10`, `F11`, `Shift+F11`), pause and stop, with the current line marked in the editor.
 - Panel with the call stack (click to go to the frame), variables as a tree, and the program's output.

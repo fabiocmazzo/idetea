@@ -1253,6 +1253,9 @@ fn syntax_for(path: Option<&Path>) -> String {
     match key.as_str() {
         "jsonc" | "json5" => "json".into(),
         "mdx" => "md".into(),
+        // Ziex: enquanto a sintaxe própria não vem (RFC 0010), as cores do Zig e do Markdown.
+        "zx" => "zig".into(),
+        "mdzx" => "md".into(),
         _ => key,
     }
 }

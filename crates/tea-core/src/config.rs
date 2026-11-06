@@ -67,13 +67,14 @@ line_height = 1.45
 # "servidor" = "cargo run -- --porta 8080"
 
 # Servidores de linguagem (LSP). Embutidos: rust-analyzer, clangd, pyright,
-# typescript, gopls, lua. Só iniciam se o comando existir no PATH.
+# typescript, gopls, lua, zls (Zig) e zxls (Ziex, `zx lsp`). Só iniciam se o comando existir no PATH.
 [lsp]
 enabled = true
 # Exemplos:
 # servers.rust-analyzer = { command = "/caminho/rust-analyzer" }
 # servers.clangd = { enabled = false }
-# servers.zls = { command = "zls", languages = { zig = "zig" } }
+# servers.zls = { command = "/caminho/zls" }
+# servers.svelte = { command = "svelteserver", args = ["--stdio"], languages = { svelte = "svelte" } }
 
 # Debug (F5). Sem nada aqui: em projeto Rust compila com `cargo build` e acha o executável sozinho;
 # nos outros, pergunta o executável. Costuma ficar no config do projeto (.idetea/config.toml).

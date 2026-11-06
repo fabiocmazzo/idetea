@@ -54,6 +54,7 @@ impl LspManager {
         {
             return Ok(Some((client.clone(), language)));
         }
+        let server = ziex_fallback(server, &self.root);
         if tea_lsp::find_in_path(&server.command).is_none() {
             let msg = fl!("lsp-command-not-found", server = server.name.clone(), command = server.command.clone());
             self.failed.insert(server.name.clone(), msg.clone());
@@ -121,7 +122,27 @@ pub fn with_hint(server: &str, reason: &str) -> String {
     if server == "rust-analyzer" && tea_lsp::find_in_path("rust-analyzer").is_none() {
         return fl!("lsp-hint-rustup", reason = reason);
     }
+    if server == "zxls" && tea_lsp::find_in_path("zx").is_none() {
+        return fl!("lsp-hint-ziex", reason = reason);
+    }
     reason.to_string()
+}
+
+/// Sem o CLI `zx` no PATH, um projeto Ziex compila o próprio servidor, como fazem as extensões do Ziex para o
+/// Zed e o VS Code: `zig build zx -Dziex-lsp=true --release=fast -- lsp` na raiz. Só para o `zxls` padrão (um
+/// comando escrito no config vale como está).
+pub fn ziex_fallback(server: ServerConfig, root: &Path) -> ServerConfig {
+    if server.name != "zxls" || server.command != "zx" || tea_lsp::find_in_path("zx").is_some() || !depends_on_ziex(root) {
+        return server;
+    }
+    let args = ["build", "zx", "-Dziex-lsp=true", "--release=fast", "--", "lsp"];
+    ServerConfig { command: "zig".into(), args: args.map(String::from).to_vec(), ..server }
+}
+
+/// O `build.zig.zon` da raiz depende do `ziex`.
+fn depends_on_ziex(root: &Path) -> bool {
+    std::fs::read_to_string(root.join("build.zig.zon"))
+        .is_ok_and(|zon| zon.chars().filter(|c| !c.is_whitespace()).collect::<String>().contains(".ziex=.{"))
 }
 
 pub fn servers_from_config(config: &LspConfig) -> Vec<ServerConfig> {
@@ -228,12 +249,38 @@ mod tests {
 
 #[cfg(test)]
 mod hint_tests {
-    use super::with_hint;
+    use super::{ServerConfig, with_hint, ziex_fallback};
 
     #[test]
     fn rustup_proxy_without_component_gets_install_hint() {
         let r = "error: Unknown binary 'rust-analyzer' in official toolchain 'stable-x86_64-unknown-linux-gnu'.";
         assert!(with_hint("rust-analyzer", r).ends_with("rustup component add rust-analyzer"));
         assert_eq!(with_hint("clangd", "saiu"), "saiu");
+    }
+
+    #[test]
+    fn ziex_project_without_the_cli_builds_its_own_server() {
+        let dir = std::env::temp_dir().join(format!("idetea-ziex-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let zxls = || tea_lsp::default_servers().into_iter().find(|s| s.name == "zxls").unwrap();
+        assert_eq!(zxls().language_for("zx"), Some("zx"));
+        // Sem `ziex` no build.zig.zon: fica o `zx lsp`.
+        std::fs::write(dir.join("build.zig.zon"), ".{ .name = .app, .dependencies = .{} }").unwrap();
+        assert_eq!(ziex_fallback(zxls(), &dir).command, "zx");
+        std::fs::write(
+            dir.join("build.zig.zon"),
+            ".{\n    .name = .app,\n    .dependencies = .{\n        .ziex = .{ .url = \"x\", .hash = \"y\" },\n    },\n}",
+        )
+        .unwrap();
+        let s = ziex_fallback(zxls(), &dir);
+        if tea_lsp::find_in_path("zx").is_none() {
+            assert_eq!(s.command, "zig");
+            assert_eq!(s.args, ["build", "zx", "-Dziex-lsp=true", "--release=fast", "--", "lsp"]);
+        }
+        // Outro servidor, ou um comando do config: como está.
+        let custom = ServerConfig { command: "/opt/zx".into(), ..zxls() };
+        assert_eq!(ziex_fallback(custom, &dir).command, "/opt/zx");
+        let _ = std::fs::remove_dir_all(&dir);
     }
 }

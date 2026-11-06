@@ -132,14 +132,24 @@ fn parse(json: &str) -> Theme {
         extensions: table(&m["fileExtensions"]),
         languages: table(&m["languageIds"]),
     };
-    let dark = mapping(&v);
+    let mut dark = mapping(&v);
     let fallback = defs.get(&dark.file).copied().unwrap_or(('\u{E023}', None));
     let mut light = mapping(&v["light"]);
     if light.file.is_empty() {
         light.file.clone_from(&dark.file);
     }
+    for m in [&mut dark, &mut light] {
+        for (alias, of) in EXTENSION_ALIASES {
+            if let Some(def) = m.extensions.get(*of).cloned() {
+                m.extensions.entry((*alias).to_string()).or_insert(def);
+            }
+        }
+    }
     Theme { defs, fallback, dark, light }
 }
+
+/// Extensões que o Seti não conhece e usam o ícone de outra: os arquivos do Ziex (Zig com marcação) usam o do Zig.
+const EXTENSION_ALIASES: &[(&str, &str)] = &[("zx", "zig"), ("mdzx", "zig")];
 
 fn table(v: &serde_json::Value) -> HashMap<String, String> {
     v.as_object()
@@ -285,6 +295,9 @@ mod tests {
         // Desconhecido: o padrão do tema.
         assert_eq!(def("arquivo.qualquercoisa"), "_default");
         assert_eq!(def("SEM_EXTENSAO"), "_default");
+        // Ziex: o ícone do Zig.
+        assert_eq!(def("page.zx"), def("main.zig"));
+        assert_eq!(def("post.mdzx"), "_zig");
     }
 
     #[test]
