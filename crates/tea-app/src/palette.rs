@@ -369,7 +369,7 @@ impl Palette {
                     list = list.push(
                         button(
                             row![
-                                icon(Icon::File).size(14),
+                                tea_core::file_icons::icon(name, 14.0, pos != self.selected),
                                 text(name).size(14),
                                 text(dir).size(12).style(text::secondary),
                             ]
@@ -398,7 +398,11 @@ impl Palette {
                     list = list.push(
                         button(
                             row![
-                                icon(if item.project { Icon::Folder } else { Icon::File }).size(14),
+                                if item.project {
+                                    icon(Icon::Folder).size(14)
+                                } else {
+                                    tea_core::file_icons::icon(&item.name, 14.0, pos != self.selected)
+                                },
                                 text(&item.name).size(14),
                                 text(&item.place).size(12).style(text::secondary),
                             ]

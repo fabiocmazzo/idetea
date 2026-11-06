@@ -24,6 +24,9 @@ theme = "dark"
 font_size = 14
 # Faixa de ícones na borda esquerda para mostrar/ocultar painéis.
 activity_bar = true
+# Ícone de cada arquivo pela linguagem ou pelo tipo (árvore, abas, Ctrl+P, breadcrumbs, busca, git):
+# "seti" (o conjunto do VS Code, embutido) ou "none" (o ícone genérico).
+file_icons = "seti"
 # Idioma da interface: "auto" (o do sistema), "pt-BR", "en" ou "es". Vale ao reiniciar.
 language = "auto"
 # Reabrir as abas e os painéis de cada projeto como estavam (não vale para `idetea arquivo...`).
@@ -168,6 +171,8 @@ pub struct UiConfig {
     pub theme: String,
     pub font_size: f32,
     pub activity_bar: bool,
+    /// Ícones de arquivo pela linguagem: `"seti"` (embutido) ou `"none"` (o genérico).
+    pub file_icons: String,
     /// `"auto"` (o do sistema), `"pt-BR"`, `"en"` ou `"es"`. Vale ao reiniciar.
     pub language: String,
     /// Reabrir as abas e os painéis do projeto como estavam.
@@ -181,6 +186,7 @@ impl Default for UiConfig {
             theme: "dark".into(),
             font_size: 14.0,
             activity_bar: true,
+            file_icons: "seti".into(),
             language: "auto".into(),
             restore_session: true,
         }

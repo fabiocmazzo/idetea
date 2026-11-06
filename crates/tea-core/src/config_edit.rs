@@ -74,6 +74,11 @@ impl ConfigFile {
         }
     }
 
+    /// `[ui] file_icons`: `"seti"` ligado, `"none"` desligado.
+    pub fn set_file_icons(&mut self, on: bool) {
+        self.section("ui")["file_icons"] = value(if on { "seti" } else { "none" });
+    }
+
     pub fn set_splash(&mut self, on: bool) {
         self.section("ui")["splash"] = value(on);
     }

@@ -754,6 +754,8 @@ impl App {
         problems.extend(key_errors);
         problems.extend(theme_error);
         problems.extend(tea_core::fonts::problem(&app.config.editor));
+        problems.extend(tea_core::file_icons::problem(&app.config.ui.file_icons));
+        tea_core::file_icons::set_enabled(app.config.ui.file_icons.trim() != "none");
         if !problems.is_empty() {
             for p in &problems {
                 eprintln!("[idetea] {p}");
@@ -2457,6 +2459,8 @@ impl App {
         problems.extend(key_errors);
         problems.extend(theme_error);
         problems.extend(tea_core::fonts::problem(&config.editor));
+        problems.extend(tea_core::file_icons::problem(&config.ui.file_icons));
+        tea_core::file_icons::set_enabled(config.ui.file_icons.trim() != "none");
         self.keymap = keymap;
         self.lsp.update_config(&config.lsp);
         self.config = config;
@@ -3199,6 +3203,7 @@ impl App {
                 self.edit_config(|f| f.set_font_size(v))
             }
             M::Splash(on) => self.edit_config(|f| f.set_splash(on)),
+            M::FileIcons(on) => self.edit_config(|f| f.set_file_icons(on)),
             M::RestoreSession(on) => self.edit_config(|f| f.set_restore_session(on)),
             M::EditorFlag(key, on) => self.edit_config(|f| f.set_editor_flag(key, on)),
             M::TabSize(n) => {
@@ -3973,7 +3978,10 @@ impl App {
                 let close =
                     button(text("×").size(13)).on_press(Message::CloseTab(t.id)).style(button::text).padding([0, 4]);
                 let id = t.id;
-                let tab = button(row![text(t.editor.title()).size(13), close].spacing(6).align_y(iced::Center))
+                let title = t.editor.title();
+                // Na aba ativa o fundo é da cor de destaque: o ícone fica na cor do texto.
+                let kind = tea_core::file_icons::icon(&t.editor.file_name(), 13.0, i != self.active);
+                let tab = button(row![kind, text(title).size(13), close].spacing(6).align_y(iced::Center))
                     .on_press(Message::SelectTab(id))
                     .style(style)
                     .padding([3, 8]);
@@ -4021,7 +4029,12 @@ impl App {
             parts.push(crumb(name, Message::BreadcrumbReveal(id)));
             parts.push(sep());
         }
-        parts.push(text(file).size(12).into());
+        parts.push(
+            row![tea_core::file_icons::icon(&file, 12.0, true), text(file).size(12)]
+                .spacing(3)
+                .align_y(iced::Center)
+                .into(),
+        );
         // Símbolos: só da aba ativa, e só se a estrutura guardada é deste arquivo.
         if i == self.active && self.last_outline.0.as_deref() == Some(path) {
             let (line, _) = tab.editor.cursor();

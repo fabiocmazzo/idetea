@@ -23,6 +23,7 @@ pub mod calls;
 pub mod config;
 pub mod config_edit;
 pub mod debug;
+pub mod file_icons;
 pub mod fonts;
 pub mod i18n;
 pub mod icons;

@@ -561,10 +561,11 @@ impl FileTreeExtension {
             (true, false) => icon(Icon::ChevronRight).size(14).style(text::secondary).into(),
             (false, _) => space::horizontal().width(14).into(),
         };
-        let kind = match (entry.is_dir, expanded) {
-            (true, true) => Icon::FolderOpened,
-            (true, false) => Icon::Folder,
-            (false, _) => Icon::File,
+        // Pastas com os da Codicons (o Seti não tem pasta); arquivos pela linguagem (RFC 0008).
+        let kind: Element<'a, Message> = match (entry.is_dir, expanded) {
+            (true, true) => icon(Icon::FolderOpened).size(14).style(text::secondary).into(),
+            (true, false) => icon(Icon::Folder).size(14).style(text::secondary).into(),
+            (false, _) => tea_core::file_icons::icon(&name, 14.0, true).into(),
         };
         let is_active = self.active.as_deref() == Some(entry.path.as_path());
         let is_selected = self.selected.as_deref() == Some(entry.path.as_path());
@@ -588,7 +589,7 @@ impl FileTreeExtension {
         let label = row![
             space::horizontal().width(depth as f32 * INDENT),
             container(chevron).width(16),
-            container(icon(kind).size(14).style(text::secondary)).width(20),
+            container(kind).width(20),
             // Nome comprido fica numa linha só, cortado na borda: quebrado em duas, passava por cima da
             // linha de baixo (a altura da linha é fixa). O iced 0.14 não tem reticências.
             container(text(name).size(13).wrapping(text::Wrapping::None).style(move |theme: &iced::Theme| {

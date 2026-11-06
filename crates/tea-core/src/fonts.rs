@@ -19,14 +19,14 @@ pub const EMBEDDED: [&[u8]; 2] = [
     include_bytes!("../assets/fonts/JetBrainsMono-Bold.ttf"),
 ];
 
-/// Põe a fonte embutida no motor de texto do iced. Tem que vir antes de abrir qualquer editor: o widget
+/// Põe a fonte embutida (e a dos ícones de arquivo) no motor de texto do iced. Tem que vir antes de abrir qualquer editor: o widget
 /// mede a largura do caractere quando a fonte é definida, e sem a fonte carregada ele mede uma fonte
 /// substituta (o realce de sintaxe e os parênteses coloridos saem deslocados). O `.font()` da aplicação
 /// carrega depois de `boot`, tarde demais. Carregar de novo não faz nada.
 pub fn load_embedded() {
     use iced::advanced::graphics::text::font_system;
     let mut system = font_system().write().unwrap_or_else(|p| p.into_inner());
-    for bytes in EMBEDDED {
+    for bytes in EMBEDDED.into_iter().chain([crate::file_icons::FONT_BYTES]) {
         system.load_font(std::borrow::Cow::Borrowed(bytes));
     }
 }

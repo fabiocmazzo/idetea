@@ -11,3 +11,10 @@ Usada sem modificações.
 Fonte [JetBrains Mono](https://github.com/JetBrains/JetBrainsMono) 2.304, © 2020 The JetBrains Mono Project
 Authors, licenciada sob a [SIL Open Font License 1.1](fonts/OFL.txt). Usada sem modificações; é a fonte padrão
 do código (`[editor] font`).
+
+## seti/seti.ttf, seti/vs-seti-icon-theme.json
+
+Ícones de arquivo do tema Seti do [VS Code](https://github.com/microsoft/vscode/tree/main/extensions/theme-seti)
+(© Microsoft Corporation, MIT), feitos a partir do [Seti UI](https://github.com/jesseweed/seti-ui) (© 2014 Jesse
+Weed, MIT). A fonte foi convertida de WOFF para TrueType, sem outras mudanças; a tabela foi copiada como está.
+Licenças em [seti/LICENSE.txt](seti/LICENSE.txt).

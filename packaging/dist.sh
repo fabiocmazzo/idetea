@@ -20,10 +20,11 @@ pkg="dist/$name"
 mkdir -p "$pkg"
 cp "$bin" assets/idetea.svg LICENSE README.md "$pkg/"
 cp packaging/install.sh "$pkg/install.sh"
-# Licenças dos recursos de terceiros embutidos no executável (ícones e a fonte JetBrains Mono).
+# Licenças dos recursos de terceiros embutidos no executável (ícones, ícones de arquivo Seti e a JetBrains Mono).
 mkdir -p "$pkg/licenses"
 cp crates/tea-core/assets/NOTICE.md "$pkg/licenses/NOTICE.md"
 cp crates/tea-core/assets/fonts/OFL.txt "$pkg/licenses/JetBrainsMono-OFL.txt"
+cp crates/tea-core/assets/seti/LICENSE.txt "$pkg/licenses/Seti-LICENSE.txt"
 chmod 755 "$pkg/install.sh"
 tar -C dist -czf "dist/$name.tar.gz" "$name"
 rm -rf "$pkg"
@@ -45,6 +46,7 @@ cp assets/idetea.svg "$appdir/idetea.svg"
 mkdir -p "$appdir/usr/share/doc/idetea"
 cp LICENSE crates/tea-core/assets/NOTICE.md "$appdir/usr/share/doc/idetea/"
 cp crates/tea-core/assets/fonts/OFL.txt "$appdir/usr/share/doc/idetea/JetBrainsMono-OFL.txt"
+cp crates/tea-core/assets/seti/LICENSE.txt "$appdir/usr/share/doc/idetea/Seti-LICENSE.txt"
 # PNG de 256 px (gerado do SVG: `rsvg-convert -w 256 -h 256 assets/idetea.svg -o assets/idetea.png`): o
 # appimagetool faz o `.DirIcon` com ele.
 cp assets/idetea.png "$appdir/idetea.png"

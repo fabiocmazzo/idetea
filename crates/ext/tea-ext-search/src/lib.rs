@@ -412,6 +412,11 @@ impl Extension for SearchExtension {
             let collapsed = self.collapsed.contains(&file.path);
             let header = row![
                 text(if collapsed { "▸" } else { "▾" }).size(12).width(14),
+                tea_core::file_icons::icon(
+                    &file.path.file_name().map(|n| n.to_string_lossy()).unwrap_or_default(),
+                    13.0,
+                    true
+                ),
                 text(self.rel(&file.path)).size(13),
                 text(format!("  {}", file.matches.len())).size(12).style(text::secondary),
             ];

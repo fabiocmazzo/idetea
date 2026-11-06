@@ -46,6 +46,9 @@ The full list, for the technical reader. For the short version, see the [README]
 - Code font: JetBrains Mono comes built in; any installed font works (`[editor] font = "Fira Code"`), with its
   ligatures. Weight and line height too (`font_weight`, `line_height`), also in Settings → Appearance. The editor,
   its line numbers and the terminal use the same font.
+- File icons by language and type (the Seti set from VS Code, built in) in the file tree, tabs, Ctrl+P, breadcrumbs,
+  search results and the git panel. `[ui] file_icons = "none"` (or Settings → Appearance) goes back to one icon for
+  every file.
 - Shift+click extends the selection from the last click (or from the cursor, after moving it with the keyboard).
 - Already set up: rust-analyzer, clangd, pyright, typescript-language-server, gopls and lua-language-server. Just
   install the server; you can change the command or add others in the config.

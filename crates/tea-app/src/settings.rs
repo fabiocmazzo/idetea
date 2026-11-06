@@ -45,6 +45,7 @@ pub enum Msg {
     FontWeight(String),
     LineHeight(f32),
     Splash(bool),
+    FileIcons(bool),
     RestoreSession(bool),
     /// Opção de `[editor]` que liga/desliga: a chave no config e o valor.
     EditorFlag(&'static str, bool),
@@ -396,6 +397,11 @@ fn appearance(config: &Config) -> Element<'_, Msg> {
         setting_owned(fl!("settings-code-font"), fl!("settings-code-font-detail"), code_font.into()),
         setting_owned(fl!("settings-font-weight"), fl!("settings-font-weight-detail"), weight.into()),
         setting_owned(fl!("settings-line-height"), fl!("settings-line-height-detail"), line_height.into()),
+        setting_owned(
+            fl!("settings-file-icons"),
+            fl!("settings-file-icons-detail"),
+            toggler(config.ui.file_icons.trim() != "none").on_toggle(Msg::FileIcons).into()
+        ),
         setting_owned(
             fl!("settings-activity-bar"),
             fl!("settings-activity-bar-detail"),

@@ -50,3 +50,4 @@ config-unknown-section = unknown section: [{ $section }]
 config-agents-project = { $layer }: [agents] only works in the user config (~/.config/idetea/config.toml); ignored here
 config-font-missing = [editor] font = "{ $name }": font not installed, using { $default }
 config-font-weight = [editor] font_weight = "{ $name }": use one of { $choices }
+config-file-icons = [ui] file_icons = "{ $value }": use "seti" or "none"

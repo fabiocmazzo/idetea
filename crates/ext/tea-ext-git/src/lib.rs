@@ -723,6 +723,7 @@ impl GitExtension {
         };
         let selected = self.selected.as_ref().is_some_and(|s| s.path == e.path && s.staged == staged);
         let label = row![
+            tea_core::file_icons::icon(name, 12.0, true),
             text(name).size(12),
             text(dir).size(11).style(text::secondary),
             space::horizontal(),
