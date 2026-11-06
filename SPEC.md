@@ -1238,6 +1238,13 @@ e grava a resposta do usuário em `.idetea/ui/responses/<nome>/`. Estudo, decis�
   (`fonts::load_embedded`).
   - [x] Teste `embedded_font` (processo próprio: mede antes e depois de carregar) e teste manual pelo painel:
     reiniciar com abas restauradas, linhas longas, reiniciar de novo, outra fonte.
+- [x] **Ícones de arquivo por linguagem** ([RFC 0008](docs/rfc/0008-icones-de-arquivo.md)): o conjunto Seti do VS Code
+  (MIT) embutido, a fonte convertida de WOFF para TrueType e a tabela no formato do VS Code. Na árvore, nas abas
+  (ao lado do nome), no Ctrl+P, nos breadcrumbs, na busca e no painel do git; pastas com os da Codicons. Nome exato,
+  extensão composta, linguagem, padrão. Cores do tema escuro e do claro; na aba ativa e na linha escolhida do Ctrl+P,
+  a cor do texto. `[ui] file_icons = "seti" | "none"`, também em Configurações → Aparência. Pacotes com a licença.
+  - [x] Testes `lookup_order_follows_vs_code`, `colors_differ_for_light_themes`, `embedded_theme_and_font_load`;
+    teste manual pelo painel em duas revisões (a primeira veio de uma IDE aberta antes do interruptor: refeito).
 - [x] **Versão com executáveis para Linux:** o workflow `release.yml` gera `.tar.gz` e AppImage para x86_64
   (`ubuntu-22.04`) e aarch64 (`ubuntu-22.04-arm`), confere que o executável roda e, numa tag `v*`, publica a versão
   com `SHA256SUMS` (pré-lançamento antes da 1.0). "Run workflow" na aba Actions só gera os pacotes como artefatos,
