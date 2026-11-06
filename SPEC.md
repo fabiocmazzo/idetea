@@ -1245,6 +1245,13 @@ e grava a resposta do usuário em `.idetea/ui/responses/<nome>/`. Estudo, decis�
   a cor do texto. `[ui] file_icons = "seti" | "none"`, também em Configurações → Aparência. Pacotes com a licença.
   - [x] Testes `lookup_order_follows_vs_code`, `colors_differ_for_light_themes`, `embedded_theme_and_font_load`;
     teste manual pelo painel em duas revisões (a primeira veio de uma IDE aberta antes do interruptor: refeito).
+- [x] **Palavra, Home e Shift+Tab no editor** ([RFC 0009](docs/rfc/0009-ergonomia-do-editor.md)): Ctrl+←/→ andam
+  uma palavra (com Shift, selecionam), Ctrl+Backspace/Delete apagam uma; palavra = letras/dígitos/`_` ou um bloco de
+  pontuação, pulando os espaços antes, e na borda da linha passa para a vizinha. Home vai ao primeiro caractere não
+  branco e, de novo, à coluna 0. Shift+Tab tira a indentação em vez de tirar o foco. Feito no `iced-code-editor`
+  (PR #37 no upstream; o Shift+Tab já estava no `main` dele): a IDE usa o fork por `[patch.crates-io]`, fixado no
+  commit, até sair uma versão com isso.
+  - [x] Testes no fork (fronteiras, várias seleções, desfazer de uma vez, atalhos) e teste manual pelo painel.
 - [x] **Versão com executáveis para Linux:** o workflow `release.yml` gera `.tar.gz` e AppImage para x86_64
   (`ubuntu-22.04`) e aarch64 (`ubuntu-22.04-arm`), confere que o executável roda e, numa tag `v*`, publica a versão
   com `SHA256SUMS` (pré-lançamento antes da 1.0). "Run workflow" na aba Actions só gera os pacotes como artefatos,
