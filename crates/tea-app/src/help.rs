@@ -53,7 +53,6 @@ fn editor_keys() -> Vec<(String, String)> {
         ("Ctrl+G".to_string(), fl!("help-key-goto-line")),
         ("Ctrl+Z / Ctrl+Y".to_string(), fl!("help-key-undo")),
         ("Ctrl+D".to_string(), fl!("help-key-next-match")),
-        ("Ctrl+K / Ctrl+J".to_string(), fl!("help-key-fold")),
         ("Ctrl+.".to_string(), fl!("help-key-quick-fix")),
         (fl!("help-key-ctrl-click"), fl!("help-key-definition")),
         ("Tab / Ctrl+Tab".to_string(), fl!("help-key-tab")),

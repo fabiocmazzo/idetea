@@ -124,6 +124,17 @@ where
         {
             return;
         }
+        // Ctrl+. / Ctrl+K / Ctrl+J dobram no widget; na IDE seguem o VS Code (correção rápida, acordes, painel de
+        // baixo), e dobrar é Ctrl+Shift+[ e ]. O widget compara a tecla e o caractere produzido (AZERTY).
+        if let Event::Keyboard(keyboard::Event::KeyPressed { key, modified_key, modifiers, .. }) = event
+            && modifiers.control()
+            && !modifiers.alt()
+            && [key, modified_key].into_iter().any(
+                |k| matches!(k, keyboard::Key::Character(c) if matches!(c.to_lowercase().as_str(), "." | "k" | "j")),
+            )
+        {
+            return;
+        }
         // Ctrl+Shift+V também é da IDE (prévia de Markdown/SVG); o widget colaria o texto.
         if let Event::Keyboard(keyboard::Event::KeyPressed { key: keyboard::Key::Character(c), modifiers, .. }) = event
             && modifiers.control()

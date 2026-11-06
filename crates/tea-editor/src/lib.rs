@@ -131,6 +131,8 @@ pub enum EditorAction {
     SelectAll,
     FoldAll,
     UnfoldAll,
+    /// Recolhe ou expande o bloco do cursor (Ctrl+Shift+[ e ]).
+    ToggleFold,
     ToggleVim,
 }
 
@@ -609,6 +611,7 @@ impl Editor {
             EditorAction::SelectAll => Inner::SelectAll,
             EditorAction::FoldAll => Inner::FoldAll,
             EditorAction::UnfoldAll => Inner::UnfoldAll,
+            EditorAction::ToggleFold => Inner::ToggleFoldAtCursor,
             EditorAction::ToggleVim => Inner::ToggleVimMode,
         };
         self.focus();

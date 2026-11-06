@@ -50,6 +50,10 @@ The full list, for the technical reader. For the short version, see the [README]
   search results and the git panel. `[ui] file_icons = "none"` (or Settings → Appearance) goes back to one icon for
   every file.
 - Shift+click extends the selection from the last click (or from the cursor, after moving it with the keyboard).
+- Word by word: `Ctrl+Left/Right` moves (with `Shift`, selects), `Ctrl+Backspace/Delete` deletes. `Home` goes to the
+  first character of the line, then to column 0. `Shift+Tab` removes indentation.
+- VS Code keys where they used to differ: fold/unfold the block at the cursor with `Ctrl+Shift+[` / `]`, reopen the
+  last closed tab with `Ctrl+Shift+T`, bottom panel with `Ctrl+J`, terminal with `` Ctrl+` `` or `Ctrl+'`.
 - Already set up: rust-analyzer, clangd, pyright, typescript-language-server, gopls and lua-language-server. Just
   install the server; you can change the command or add others in the config.
 
@@ -136,7 +140,8 @@ Details (in Portuguese for now): [terminais-de-agente.md](terminais-de-agente.md
 | `Ctrl+O` / `Ctrl+S` / `Ctrl+Shift+S` | Open / save / save as |
 | `Ctrl+B` | Show/hide the file tree |
 | `Ctrl+Shift+F` | Search in the project |
-| `Ctrl+Shift+T` | Terminal |
+| `` Ctrl+` `` / `Ctrl+'` | Terminal |
+| `Ctrl+Shift+T` | Reopen the last closed tab |
 | `Ctrl+Shift+G` | Git |
 | `Ctrl+Shift+M` / `F8` | Problems / next problem |
 | `F12` | Go to definition |

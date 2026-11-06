@@ -198,6 +198,8 @@ fn main() -> iced::Result {
 
 /// Digitou há menos que isso: um arquivo pedido por uma extensão não abre por cima (ver `OpenFileWhenIdle`).
 const TYPING_PAUSE: std::time::Duration = std::time::Duration::from_secs(2);
+/// Quantas abas fechadas o Ctrl+Shift+T lembra.
+const CLOSED_TABS_MAX: usize = 20;
 
 /// Um tique a cada 3 s, para as cópias de recuperação.
 fn backup_ticks() -> iced::futures::channel::mpsc::UnboundedReceiver<Message> {
@@ -350,6 +352,7 @@ const CORE_COMMANDS: &[(&str, &str)] = &[
     ("file.close", "cmd-file-close"),
     ("tab.next", "cmd-tab-next"),
     ("tab.prev", "cmd-tab-prev"),
+    ("tab.reopen", "cmd-tab-reopen"),
     ("editor.split", "cmd-editor-split"),
     ("editor.focus_left", "cmd-editor-focus-left"),
     ("editor.focus_right", "cmd-editor-focus-right"),
@@ -361,6 +364,7 @@ const CORE_COMMANDS: &[(&str, &str)] = &[
     ("editor.select_all", "cmd-editor-select-all"),
     ("editor.fold_all", "cmd-editor-fold-all"),
     ("editor.unfold_all", "cmd-editor-unfold-all"),
+    ("editor.toggle_fold", "cmd-editor-toggle-fold"),
     ("editor.toggle_vim", "cmd-editor-toggle-vim"),
     ("lsp.definition", "cmd-lsp-definition"),
     ("lsp.references", "cmd-lsp-references"),
@@ -468,6 +472,8 @@ struct App {
     /// Editor dividido: a aba mostrada no lado sem foco (`None`: um lado só).
     other_tab: Option<u64>,
     next_tab_id: u64,
+    /// Abas fechadas (arquivo e cursor), a última no fim: Ctrl+Shift+T reabre.
+    closed_tabs: Vec<(PathBuf, (usize, usize))>,
 
     extensions: Vec<Box<dyn AnyExtension>>,
     panels: Vec<Panel>,
@@ -669,6 +675,7 @@ impl App {
             active: 0,
             other_tab: None,
             next_tab_id: 0,
+            closed_tabs: Vec::new(),
             extensions,
             panels: Vec::new(),
             active_bottom: None,
@@ -2181,6 +2188,13 @@ impl App {
                 .cancel(fl!("cancel"));
             return self.open_dialog(dialog, dialog::Owner::Core);
         }
+        if let Some(path) = editor.path() {
+            let entry = (path.to_path_buf(), editor.cursor());
+            self.closed_tabs.retain(|(p, _)| *p != entry.0);
+            self.closed_tabs.push(entry);
+            let excess = self.closed_tabs.len().saturating_sub(CLOSED_TABS_MAX);
+            self.closed_tabs.drain(..excess);
+        }
         let right = self.tabs[i].right;
         let active_id = self.tabs[self.active].id;
         let removed = self.tabs.remove(i).id;
@@ -2202,6 +2216,18 @@ impl App {
         }
         self.normalize_split();
         self.set_active(self.active)
+    }
+
+    /// Ctrl+Shift+T: reabre a última aba fechada, no mesmo ponto. Pula as que já estão abertas de novo e os
+    /// arquivos que não existem mais.
+    fn reopen_closed_tab(&mut self) -> Task<Message> {
+        while let Some((path, (line, column))) = self.closed_tabs.pop() {
+            let open = self.tabs.iter().any(|t| t.editor.path() == Some(path.as_path()));
+            if !open && path.is_file() {
+                return self.open_file_at(path, line, column);
+            }
+        }
+        Task::none()
     }
 
     /// Editor dividido: índice da aba mostrada no lado sem foco.
@@ -2518,7 +2544,7 @@ impl App {
                 let created = path
                     .parent()
                     .map_or(Ok(()), std::fs::create_dir_all)
-                    .and_then(|()| std::fs::write(&path, config::DEFAULT_CONFIG));
+                    .and_then(|()| std::fs::write(&path, config::user_config_template()));
                 if let Err(e) = created {
                     return self.notify(fl!("create-error", path = path.display().to_string(), error = e.to_string()));
                 }
@@ -2542,6 +2568,7 @@ impl App {
             "editor.select_all" => Some(EditorAction::SelectAll),
             "editor.fold_all" => Some(EditorAction::FoldAll),
             "editor.unfold_all" => Some(EditorAction::UnfoldAll),
+            "editor.toggle_fold" => Some(EditorAction::ToggleFold),
             "editor.toggle_vim" => Some(EditorAction::ToggleVim),
             _ => None,
         };
@@ -2620,6 +2647,7 @@ impl App {
             "file.close" => self.close_tab(self.tabs[self.active].id, false),
             "tab.next" => self.cycle_tab(true),
             "tab.prev" => self.cycle_tab(false),
+            "tab.reopen" => self.reopen_closed_tab(),
             "editor.split" => self.move_to_other_side(self.tabs[self.active].id),
             "editor.focus_left" => self.focus_side(false),
             "editor.focus_right" => self.focus_side(true),
@@ -4431,5 +4459,27 @@ mod tests {
         for (chord, cmd) in &cfg.keys {
             assert!(ids.contains(&cmd.as_str()) || ext_commands.contains(&cmd.as_str()), "{chord} -> {cmd}");
         }
+    }
+
+    #[test]
+    fn default_keys_follow_vs_code_where_they_clashed() {
+        use iced::keyboard::{Key, Modifiers};
+        let cfg = Config::from_layers(&[("padrão".into(), config::DEFAULT_CONFIG.into())]);
+        let (keymap, errors) = Keymap::from_pairs(cfg.keys.iter().map(|(k, c)| (k.as_str(), c.as_str())));
+        assert!(errors.is_empty(), "{errors:?}");
+        let ctrl = Modifiers::CTRL;
+        let ctrl_shift = Modifiers::CTRL | Modifiers::SHIFT;
+        let command = |key: &str, modifiers| {
+            let key = Key::Character(key.into());
+            keymap.command_for_event(&key, &key, modifiers).map(str::to_string)
+        };
+        assert_eq!(command("[", ctrl_shift).as_deref(), Some("editor.toggle_fold"));
+        assert_eq!(command("]", ctrl_shift).as_deref(), Some("editor.toggle_fold"));
+        assert_eq!(command("t", ctrl_shift).as_deref(), Some("tab.reopen"));
+        assert_eq!(command("'", ctrl).as_deref(), Some("terminal.focus"));
+        assert_eq!(command("`", ctrl).as_deref(), Some("terminal.focus"));
+        assert_eq!(command("j", ctrl).as_deref(), Some("view.toggle_bottom"));
+        assert_eq!(command("k", ctrl_shift), None);
+        assert_eq!(command(".", ctrl), None);
     }
 }

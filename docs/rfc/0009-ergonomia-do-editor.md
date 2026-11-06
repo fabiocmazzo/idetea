@@ -209,4 +209,7 @@ O usuário liberou os comandos do `cargo` para o agente compilar e testar o fork
 - **Palavra, Home, Shift+Tab:** feito. PR [#37](https://github.com/LuDog71FR/iced-code-editor/pull/37) no upstream
   (andar/selecionar/apagar por palavra, Home inteligente); o Shift+Tab já estava no `main` dele. A IDE usa o fork
   por `[patch.crates-io]`, fixado no commit `097ce7f`, até sair uma versão.
-- **Atalhos no padrão do VS Code:** próximo.
+- **Atalhos no padrão do VS Code:** feito. Ctrl+Shift+[ / ] recolhem/expandem, Ctrl+J o painel de baixo,
+  Ctrl+Shift+T reabre a aba fechada, o terminal em Ctrl+` / Ctrl+'; Ctrl+., Ctrl+K e Ctrl+Shift+K livres. Recolher
+  e expandir tudo ficaram só na palette (o VS Code usa acordes, que o mapa de teclas não tem). **[Fato]** O config
+  do usuário guardava uma cópia do `[keys]` padrão; linhas iguais a padrões que mudaram passam a ser ignoradas.

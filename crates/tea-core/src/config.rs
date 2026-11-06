@@ -136,6 +136,7 @@ allow = []
 "ctrl+shift+f" = "search.focus"
 "ctrl+shift+h" = "search.replace"
 "ctrl+shift+j" = "view.toggle_bottom"
+"ctrl+j" = "view.toggle_bottom"
 "ctrl+shift+m" = "problems.focus"
 "f8" = "problems.next"
 "f12" = "lsp.definition"
@@ -153,10 +154,13 @@ allow = []
 "f10" = "debug.next"
 "f11" = "debug.step_in"
 "shift+f11" = "debug.step_out"
-"ctrl+shift+k" = "lsp.hover"
 "ctrl+shift+i" = "lsp.format"
 "f2" = "lsp.rename"
-"ctrl+shift+t" = "terminal.focus"
+"ctrl+'" = "terminal.focus"
+"ctrl+`" = "terminal.focus"
+"ctrl+shift+t" = "tab.reopen"
+"ctrl+shift+[" = "editor.toggle_fold"
+"ctrl+shift+]" = "editor.toggle_fold"
 "ctrl+shift+b" = "tasks.run"
 "ctrl+shift+r" = "tasks.rerun"
 "ctrl+shift+g" = "git.focus"
@@ -326,6 +330,37 @@ pub fn peek_language(global: Option<&Path>, project: Option<&Path>) -> String {
     language
 }
 
+/// Atalhos que já foram padrão e mudaram. O config do usuário é criado com uma cópia do padrão (as versões
+/// até a 0.4 copiavam também o `[keys]`): uma linha igual a uma destas é dessa cópia, não escolha do usuário,
+/// e fica de fora para valer o padrão de agora.
+const RETIRED_DEFAULT_KEYS: &[(&str, &str)] = &[
+    ("ctrl+shift+t", "theme.toggle"),
+    ("ctrl+shift+t", "terminal.focus"),
+    ("ctrl+shift+k", "lsp.hover"),
+];
+
+fn is_retired_default(chord: &str, command: &str) -> bool {
+    let chord = chord.to_lowercase().replace(' ', "");
+    RETIRED_DEFAULT_KEYS.iter().any(|(c, cmd)| *c == chord && *cmd == command)
+}
+
+/// Texto de um config de usuário novo: o padrão com o `[keys]` comentado, para que os atalhos padrão de versões
+/// futuras cheguem a ele (só as linhas que o usuário descomentar ou escrever valem por cima).
+pub fn user_config_template() -> String {
+    let mut in_keys = false;
+    DEFAULT_CONFIG
+        .lines()
+        .map(|line| {
+            if line.starts_with('[') {
+                in_keys = line == "[keys]";
+            }
+            if in_keys && !line.is_empty() && !line.starts_with('#') { format!("# {line}") } else { line.to_string() }
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
+        + "\n"
+}
+
 impl Config {
     /// Carrega padrões + arquivos que existirem.
     pub fn load(global: Option<&Path>, project: Option<&Path>) -> Self {
@@ -377,6 +412,8 @@ impl Config {
                     toml::Value::Table(t) => {
                         for (chord, cmd) in t {
                             match cmd {
+                                // Cópia antiga do padrão num config do usuário: vale o padrão novo.
+                                toml::Value::String(cmd) if i > 0 && is_retired_default(&chord, &cmd) => {}
                                 toml::Value::String(cmd) => keys.push((chord, cmd)),
                                 other => errors.push(fl!("config-key-not-text", layer = name.as_str(), chord = format!("{chord:?}"), value = other.to_string())),
                             }
@@ -528,5 +565,25 @@ mod tests {
     fn unknown_extension_defaults_enabled() {
         let c = layers(&[DEFAULT_CONFIG]);
         assert!(c.extension("nao-existe").enabled);
+    }
+
+    #[test]
+    fn retired_default_keys_in_a_user_file_give_way_to_the_new_defaults() {
+        let user = "[keys]\n\"ctrl+shift+t\" = \"terminal.focus\"\n\"ctrl+shift+k\" = \"lsp.hover\"\n\"ctrl+e\" = \"terminal.focus\"";
+        let c = layers(&[DEFAULT_CONFIG, user]);
+        let last = |chord: &str| c.keys.iter().rev().find(|(k, _)| k == chord).map(|(_, v)| v.as_str());
+        assert_eq!(last("ctrl+shift+t"), Some("tab.reopen"));
+        assert_eq!(last("ctrl+shift+k"), None);
+        assert_eq!(last("ctrl+e"), Some("terminal.focus"));
+    }
+
+    #[test]
+    fn user_template_comments_out_the_keys() {
+        let template = user_config_template();
+        let c = layers(&[DEFAULT_CONFIG, &template]);
+        assert!(c.errors.is_empty(), "{:?}", c.errors);
+        assert_eq!(c.keys.len(), layers(&[DEFAULT_CONFIG]).keys.len());
+        assert!(template.contains("[keys]\n"));
+        assert!(template.contains("# \"ctrl+s\" = \"file.save\""));
     }
 }

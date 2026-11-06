@@ -167,7 +167,7 @@ terminal = { enabled = true, slot = "bottom" }
 
 1. **Palette aberta:** `Esc` fecha, `↑`/`↓` navegam e `Enter` executa. O atalho da palette também fecha.
 2. **Widget com foco** (editor, campos de texto): se ele usou a tecla, a IDE não faz nada.
-   O editor já trata `Ctrl+F/H/G` (buscar, substituir, ir para linha), `Ctrl+Z/Y`, `Ctrl+D`, `Ctrl+K/J` (dobrar)
+   O editor já trata `Ctrl+F/H/G` (buscar, substituir, ir para linha), `Ctrl+Z/Y`, `Ctrl+D`, `Ctrl+K/J` (dobrar; a IDE os segura no `KeyGate`, ver "Atalhos no padrão do VS Code")
    e `Ctrl+S` (emite `WriteRequested`, que a IDE trata como `file.save`, assim como o `:w` do modo vim).
 3. **Mapa de atalhos da IDE** (`[keys]`) para o resto.
 
@@ -246,7 +246,7 @@ arrastar painéis, encodings além de UTF-8.
 - [x] Extensão `problems` (painel inferior) + contagem de erros/avisos na barra de status.
 - [x] Teste manual do LSP na tela (hover, menu de autocomplete, Ctrl+Clique): aprovado.
 - [x] Extensão `terminal` (painel inferior, crate `iced_term` = `alacritty_terminal` + widget iced):
-      `Ctrl+Shift+T` abre e foca, "Terminal: novo terminal" (aba nova), "Terminal: fechar o terminal",
+      `Ctrl+Shift+T` abre e foca (hoje `` Ctrl+` `` e `Ctrl+'`), "Terminal: novo terminal" (aba nova), "Terminal: fechar o terminal",
       "Terminal: reiniciar o shell". Usa `$SHELL` na pasta do projeto,
       cores e fonte seguem o tema. O shell só sobe na primeira vez que o painel abre (não pesa no boot).
       Digitar `exit` fecha a aba; sem nenhuma, o painel se esconde.
@@ -1252,6 +1252,19 @@ e grava a resposta do usuário em `.idetea/ui/responses/<nome>/`. Estudo, decis�
   (PR #37 no upstream; o Shift+Tab já estava no `main` dele): a IDE usa o fork por `[patch.crates-io]`, fixado no
   commit, até sair uma versão com isso.
   - [x] Testes no fork (fronteiras, várias seleções, desfazer de uma vez, atalhos) e teste manual pelo painel.
+- [x] **Atalhos no padrão do VS Code** ([RFC 0009](docs/rfc/0009-ergonomia-do-editor.md), seção 4): o `KeyGate` não
+  deixa Ctrl+. / Ctrl+K / Ctrl+J chegarem ao widget (que dobrava com eles). Recolher/expandir o bloco do cursor é
+  Ctrl+Shift+[ e ] (`editor.toggle_fold`); recolher/expandir tudo ficam na palette. Ctrl+J mostra/esconde o painel de
+  baixo (como Ctrl+Shift+J). Ctrl+Shift+T reabre a última aba fechada, no mesmo ponto (`tab.reopen`, lembra 20;
+  pula as já abertas e os arquivos apagados); o terminal passou para Ctrl+` e Ctrl+' (o do VS Code no teclado
+  ABNT2). Ctrl+Shift+K não é mais o hover (o mouse mostra; o comando continua na palette). Ctrl+. fica livre para as
+  correções rápidas.
+  O config do usuário era criado com uma cópia do padrão inteira, e o `[keys]` copiado prendia os atalhos antigos
+  (o Ctrl+Shift+T do teste continuava no terminal). Agora: uma linha do `[keys]` do usuário igual a um padrão que
+  mudou (`RETIRED_DEFAULT_KEYS`) é ignorada, e o config novo sai com o `[keys]` comentado.
+  - [x] Testes `default_keys_follow_vs_code_where_they_clashed`,
+    `retired_default_keys_in_a_user_file_give_way_to_the_new_defaults`, `user_template_comments_out_the_keys` e
+    teste manual pelo painel em duas revisões (na primeira, o Ctrl+Shift+T falhou pelo `[keys]` copiado).
 - [x] **Versão com executáveis para Linux:** o workflow `release.yml` gera `.tar.gz` e AppImage para x86_64
   (`ubuntu-22.04`) e aarch64 (`ubuntu-22.04-arm`), confere que o executável roda e, numa tag `v*`, publica a versão
   com `SHA256SUMS` (pré-lançamento antes da 1.0). "Run workflow" na aba Actions só gera os pacotes como artefatos,
