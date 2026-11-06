@@ -126,6 +126,10 @@ O mesmo padrão descarta respostas velhas (uma busca que voltou depois de outra 
   capturando os cliques de fora.
 - **Tema:** derive todas as cores do `Theme` (`theme.extended_palette()`) em vez de cores fixas; assim os temas
   do próprio iced (Nord, Dracula…) funcionam de graça.
+- **Fonte embutida e medidas:** o `.font(bytes)` da aplicação só carrega a fonte **depois** do `boot`. Um widget
+  que mede o texto ao receber a fonte (o `iced-code-editor` mede a largura de um caractere em `set_font`) mede uma
+  fonte substituta se for criado no `boot`, e o realce sai deslocado (meio pixel por caractere). Carregue antes de
+  `iced::application(...)`: `iced::advanced::graphics::text::font_system().write()` e `load_font(Cow::Borrowed(bytes))`.
 
 ## 5. Widgets de terceiros: o que nos mordeu
 

@@ -2,7 +2,8 @@
 //!
 //! Vem de `[editor] font`, `font_weight` e `line_height`. A JetBrains Mono (SIL OFL 1.1, licença em
 //! `assets/fonts/OFL.txt`) vem embutida e é o padrão: todo mundo tem uma fonte boa sem instalar nada.
-//! O app carrega [`EMBEDDED`] na inicialização; o resto do sistema o iced já enxerga.
+//! O app carrega [`EMBEDDED`] com [`load_embedded`] antes de abrir a janela; as fontes do sistema o
+//! iced já enxerga.
 
 use std::collections::HashMap;
 use std::sync::{Mutex, OnceLock};
@@ -17,6 +18,18 @@ pub const EMBEDDED: [&[u8]; 2] = [
     include_bytes!("../assets/fonts/JetBrainsMono-Regular.ttf"),
     include_bytes!("../assets/fonts/JetBrainsMono-Bold.ttf"),
 ];
+
+/// Põe a fonte embutida no motor de texto do iced. Tem que vir antes de abrir qualquer editor: o widget
+/// mede a largura do caractere quando a fonte é definida, e sem a fonte carregada ele mede uma fonte
+/// substituta (o realce de sintaxe e os parênteses coloridos saem deslocados). O `.font()` da aplicação
+/// carrega depois de `boot`, tarde demais. Carregar de novo não faz nada.
+pub fn load_embedded() {
+    use iced::advanced::graphics::text::font_system;
+    let mut system = font_system().write().unwrap_or_else(|p| p.into_inner());
+    for bytes in EMBEDDED {
+        system.load_font(std::borrow::Cow::Borrowed(bytes));
+    }
+}
 
 /// Nome da fonte embutida, o padrão de `[editor] font`.
 pub const DEFAULT_FAMILY: &str = "JetBrains Mono";

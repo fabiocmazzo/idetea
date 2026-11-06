@@ -175,13 +175,13 @@ fn main() -> iced::Result {
             }
             let _ = LAUNCH.set(launch);
             let saved = ui_state::UiState::load(ui_state::state_path().as_deref());
+            // Antes de `boot`, que já abre os editores da sessão (ver `load_embedded`).
+            tea_core::fonts::load_embedded();
             iced::application(App::boot, App::update, App::view)
                 .title(App::title)
                 .subscription(App::subscription)
                 .theme(App::theme)
                 .font(tea_core::icons::FONT_BYTES)
-                .font(tea_core::fonts::EMBEDDED[0])
-                .font(tea_core::fonts::EMBEDDED[1])
                 .window(window::Settings {
                     size: saved.window().unwrap_or(window::Settings::default().size),
                     platform_specific: window::settings::PlatformSpecific {

@@ -1231,6 +1231,13 @@ e grava a resposta do usuário em `.idetea/ui/responses/<nome>/`. Estudo, decis�
 - [x] **Nomes longos na árvore:** quebravam em duas linhas e, com a altura fixa da linha, passavam por cima do item
   de baixo. Agora ficam numa linha só, cortados na borda do painel (o iced 0.14 não tem reticências).
   - [x] Teste manual pelo painel: `docs/rfc` com o painel estreito, letra do git visível, painel largo mostra tudo.
+- [x] **Realce deslocado depois de reiniciar (0.3.0):** o `.font()` do iced carrega a fonte depois do `boot`, e os
+  editores da sessão mediam a largura do caractere numa fonte substituta (7,85 px em vez de 8,40 px a 14 px):
+  parênteses coloridos e palavras realçadas saíam deslocados, cada vez mais para o fim da linha. Mudar a fonte nas
+  configurações media de novo e "consertava". A fonte embutida agora é carregada antes de abrir a janela
+  (`fonts::load_embedded`).
+  - [x] Teste `embedded_font` (processo próprio: mede antes e depois de carregar) e teste manual pelo painel:
+    reiniciar com abas restauradas, linhas longas, reiniciar de novo, outra fonte.
 - [x] **Versão com executáveis para Linux:** o workflow `release.yml` gera `.tar.gz` e AppImage para x86_64
   (`ubuntu-22.04`) e aarch64 (`ubuntu-22.04-arm`), confere que o executável roda e, numa tag `v*`, publica a versão
   com `SHA256SUMS` (pré-lançamento antes da 1.0). "Run workflow" na aba Actions só gera os pacotes como artefatos,
