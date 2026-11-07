@@ -2029,6 +2029,9 @@ impl App {
         let tab_for = |app: &Self, path: &Path| app.tabs.iter().position(|t| t.editor.path() == Some(path));
         match event {
             E::Diagnostics { server, path, diagnostics } => {
+                if let Some(i) = tab_for(self, &path) {
+                    self.tabs[i].editor.set_diagnostics(&server, &diagnostics);
+                }
                 let items = diagnostics
                     .into_iter()
                     .map(|d| Diagnostic {

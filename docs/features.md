@@ -35,7 +35,8 @@ The full list, for the technical reader. For the short version, see the [README]
 
 ## Languages (LSP)
 
-- Errors and warnings (problems panel and a count on the status bar), hover, completion, go to definition, format.
+- Errors and warnings (wavy underlines and diagnostic hover in the editor, problems panel and a count on the status
+  bar), completion, go to definition, format.
 - Go to implementation (`Ctrl+F12`) and to type; with several results, the list goes to the panel.
 - Find references (`Shift+F12`, or `Ctrl+click` on the declaration) grouped by file, and back/forward after each
   jump (`Alt+←` / `Alt+→`, or the mouse side buttons).
@@ -170,6 +171,6 @@ terminal, `idetea .` opens the IDE and gives the prompt back; `idetea -f .` stay
 - [x] Agents: Interfaces panel, agent terminals, allow list, helpers in worktrees, new project with skills.
 - [ ] Third-party plugins in WASM, without rebuilding the IDE (a prototype exists behind the `plugins` feature).
 - [ ] More debug adapters (codelldb, debugpy, delve…).
-- [ ] Error underlines and git marks inside the editor; encodings other than UTF-8.
+- [ ] Git marks inside the editor; encodings other than UTF-8.
 
 The detailed plan, phase by phase, is in [SPEC.md](../SPEC.md) (in Portuguese).

@@ -237,4 +237,9 @@ atalhos no padrão VS Code):
 
 ## Andamento
 
-- Nada ainda; aguardando a primeira etapa (marcação de erros).
+- **2026-11-07 — marcação de erros concluída.** O widget recebe ranges por severidade e desenha
+  sublinhados ondulados com as cores do tema, inclusive em linhas com quebra. A fachada guarda os
+  diagnósticos por servidor, atualiza o widget e mostra a mensagem no hover (a mais grave em caso de
+  sobreposição); o app entrega cada evento do LSP ao editor da aba correspondente. Validação: clippy e
+  todos os testes dos dois workspaces; teste manual aprovado pelo painel com erro e aviso do
+  rust-analyzer, hover e desaparecimento das marcas após corrigir e salvar. Widget: commit `375327c`.

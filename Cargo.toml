@@ -56,6 +56,6 @@ inherits = "release"
 strip = true
 
 # Fork do iced-code-editor (branch `idetea`): andar/apagar por palavra e Home inteligente (PR #37 no upstream,
-# RFC 0009) e sintaxes extras (`register_syntaxes`, RFC 0010). Sai quando o upstream publicar uma versão com isso.
+# RFC 0009), sintaxes extras (RFC 0010) e sublinhados de diagnósticos (RFC 0011). Sai quando o upstream publicar isso.
 [patch.crates-io]
-iced-code-editor = { git = "https://github.com/fabiocmazzo/iced-code-editor", rev = "10e7f661bad1a2b1e3c3fa63d6b322572f99c614" }
+iced-code-editor = { git = "https://github.com/fabiocmazzo/iced-code-editor", rev = "375327cafb3900d34f24bd4498501c7b8b03cd8d" }

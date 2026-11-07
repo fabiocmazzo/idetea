@@ -16,7 +16,7 @@ mod lsp;
 mod marks;
 pub mod quick_diff;
 
-use std::collections::{BTreeSet, HashMap};
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::io;
 use std::path::{Path, PathBuf};
 use std::time::Instant;
@@ -192,6 +192,8 @@ pub struct Editor {
     revision: std::sync::Arc<std::sync::atomic::AtomicU64>,
     overlay: LspOverlayState,
     hover: Option<PendingHover>,
+    /// Diagnósticos por servidor: uma resposta vazia limpa só quem a enviou.
+    diagnostics: BTreeMap<String, Vec<tea_lsp::Diagnostic>>,
     /// Linhas com breakpoint (começando em 0). Andam junto com o texto ao editar.
     breakpoints: BTreeSet<usize>,
     /// Linha onde o programa parou no debug (começando em 0).
@@ -329,6 +331,7 @@ impl Editor {
             revision: Default::default(),
             overlay: LspOverlayState::new(),
             hover: None,
+            diagnostics: BTreeMap::new(),
             breakpoints: BTreeSet::new(),
             exec_line: None,
             image: None,
@@ -848,6 +851,31 @@ impl Editor {
 
     // ---- LSP ---------------------------------------------------------------
 
+    /// Substitui os diagnósticos de um servidor e redesenha os sublinhados de todos.
+    pub fn set_diagnostics(&mut self, source: &str, diagnostics: &[tea_lsp::Diagnostic]) {
+        use iced_code_editor::{Diagnostic as Mark, DiagnosticSeverity};
+        if diagnostics.is_empty() {
+            self.diagnostics.remove(source);
+        } else {
+            self.diagnostics.insert(source.to_string(), diagnostics.to_vec());
+        }
+        let all = self
+            .diagnostics
+            .values()
+            .flatten()
+            .map(|d| Mark {
+                range: lsp::to_widget_range(d.range),
+                severity: match d.severity {
+                    tea_lsp::Severity::Error => DiagnosticSeverity::Error,
+                    tea_lsp::Severity::Warning => DiagnosticSeverity::Warning,
+                    tea_lsp::Severity::Info => DiagnosticSeverity::Information,
+                    tea_lsp::Severity::Hint => DiagnosticSeverity::Hint,
+                },
+            })
+            .collect();
+        self.inner.set_diagnostics(all);
+    }
+
     /// Liga o editor a um servidor LSP. Precisa de caminho.
     pub fn attach_lsp(&mut self, client: tea_lsp::Client, language_id: &str) {
         let Some(path) = self.path.clone().filter(|_| self.light.is_none()) else { return };
@@ -862,6 +890,8 @@ impl Editor {
         if self.lsp.take().is_some() {
             self.inner.detach_lsp();
         }
+        self.diagnostics.clear();
+        self.inner.set_diagnostics(Vec::new());
         self.overlay.clear_hover();
         self.overlay.clear_completions();
         self.hover = None;
@@ -1058,6 +1088,24 @@ impl Editor {
         self.hover.is_some()
     }
 
+    fn diagnostic_at(&self, point: iced::Point) -> Option<&tea_lsp::Diagnostic> {
+        let p = self.inner.lsp_position_at_point(point)?;
+        let position = (p.line, p.character);
+        self.diagnostics
+            .values()
+            .flatten()
+            .filter(|d| {
+                let start = (d.range.start.line, d.range.start.character);
+                let end = (d.range.end.line, d.range.end.character);
+                if start == end {
+                    position == start
+                } else {
+                    start <= position && position < end
+                }
+            })
+            .min_by_key(|d| d.severity)
+    }
+
     pub fn tick(&mut self, now: Instant) {
         let Some(h) = &self.hover else { return };
         if !h.is_due(now) {
@@ -1065,6 +1113,13 @@ impl Editor {
         }
         let point = h.point;
         self.hover = None;
+        if let Some(message) = self.diagnostic_at(point).map(|d| d.message.clone()) {
+            if let Some((_, anchor)) = self.inner.lsp_hover_anchor_at_point(point) {
+                self.overlay.set_hover_position(anchor);
+                self.overlay.show_hover(message);
+            }
+            return;
+        }
         if let Some((_, anchor)) = self.inner.lsp_hover_anchor_at_point(point)
             && self.inner.lsp_request_hover_at(point)
         {
@@ -1478,6 +1533,54 @@ mod tests {
         click(&mut editor, at(1, 3), Modifiers::empty());
         let _ = editor.update(EditorMessage(Msg::Widget(Inner::CharacterInput('X'))));
         assert_eq!(editor.text(), "abcdefgh\nijkXlmnop\nqrstuvwx\n");
+    }
+
+    #[test]
+    fn diagnostics_from_each_server_reach_the_widget() {
+        use tea_lsp::{Diagnostic, Position, Range, Severity};
+        let diagnostic = |severity, message: &str| Diagnostic {
+            range: Range {
+                start: Position::new(0, 4),
+                end: Position::new(0, 10),
+            },
+            severity,
+            message: message.into(),
+            source: None,
+            code: None,
+        };
+        let mut ed = Editor::scratch("let answer = 42;\n");
+        ed.set_diagnostics("rust-analyzer", &[diagnostic(Severity::Error, "erro")]);
+        ed.set_diagnostics("clippy", &[diagnostic(Severity::Warning, "aviso")]);
+        assert_eq!(ed.inner.diagnostics().len(), 2);
+        assert!(
+            ed.inner
+                .diagnostics()
+                .iter()
+                .any(|d| d.severity == iced_code_editor::DiagnosticSeverity::Error)
+        );
+        let point = iced::Point::new(
+            marks::GUTTER_WIDTH + 5.0 + ed.inner.char_width() * 5.5,
+            ed.inner.line_height() * 0.5,
+        );
+        assert_eq!(ed.diagnostic_at(point).map(|d| d.message.as_str()), Some("erro"));
+        assert!(
+            ed.diagnostic_at(iced::Point::new(marks::GUTTER_WIDTH + 5.0, 1.0))
+                .is_none()
+        );
+
+        ed.set_diagnostics("rust-analyzer", &[]);
+        assert_eq!(
+            ed.inner.diagnostics().len(),
+            1,
+            "limpar um servidor não apaga os outros"
+        );
+        assert_eq!(
+            ed.inner.diagnostics()[0].severity,
+            iced_code_editor::DiagnosticSeverity::Warning
+        );
+
+        ed.set_diagnostics("clippy", &[]);
+        assert!(ed.inner.diagnostics().is_empty());
     }
 
     fn tmp(name: &str) -> PathBuf {
