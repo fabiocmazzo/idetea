@@ -1,0 +1,235 @@
+%YAML 1.2
+---
+# Gerado por tools/zx-syntax.sh a partir de ide/vscode/syntaxes/zx.tmLanguage.json do Ziex
+# (https://github.com/ziex-dev/ziex, commit f8387ea, licença MIT: LICENSE-ziex.txt).
+# Não edite à mão: rode o script de novo.
+name: "ZX"
+file_extensions:
+  - "zx"
+  - "mdzx"
+scope: "source.zx"
+contexts:
+  zig-guards:
+    - match: "//[!/].*$"
+      scope: "comment.line.documentation.zig"
+    - match: "//.*$"
+      scope: "comment.line.double-slash.zig"
+    - match: "\""
+      push:
+        - meta_include_prototype: false
+        - meta_scope: "string.quoted.double.zig"
+        - match: "\"|(?<!\\\\)(?=$)"
+          pop: true
+        - include: "scope:source.zig#character_escapes"
+        - match: "\\\\."
+    - match: "'(\\\\.|[^'\\\\])'"
+      scope: "string.quoted.single.zig"
+    - match: "^\\s*\\\\\\\\.*$"
+      scope: "string.quoted.other.multiline.zig"
+  zig-multiline-string:
+    - match: "^\\s*\\\\\\\\.*$"
+      scope: "string.quoted.other.multiline.zig"
+  zx-block:
+    - match: "(\\()\\s*(?=<)"
+      captures:
+        1: "punctuation.section.block.begin.zx"
+      push:
+        - meta_scope: "meta.block.zx"
+        - match: "(\\))"
+          captures:
+            1: "punctuation.section.block.end.zx"
+          pop: true
+        - include: "zx-block-body"
+    - match: "(\\()\\s*$"
+      captures:
+        1: "punctuation.section.block.begin.zx"
+      push:
+        - meta_scope: "meta.block.zx"
+        - match: "(\\))"
+          captures:
+            1: "punctuation.section.block.end.zx"
+          pop: true
+        - include: "zx-block-body"
+  zx-block-body:
+    - include: "zx-fragment"
+    - include: "zx-element"
+    - include: "zig-guards"
+    - include: "zx-block"
+    - include: "balanced-paren"
+    - include: "scope:source.zig"
+  zx-fragment:
+    - match: "(<>)"
+      captures:
+        1: "punctuation.definition.tag.zx"
+      push:
+        - meta_scope: "meta.tag.fragment.zx"
+        - match: "(</>)"
+          captures:
+            1: "punctuation.definition.tag.zx"
+          pop: true
+        - include: "zx-children"
+  zx-element:
+    - match: "(<)([a-zA-Z_][a-zA-Z0-9_.-]*)"
+      captures:
+        1: "punctuation.definition.tag.begin.zx"
+        2: "entity.name.tag.zx"
+      push:
+        - meta_scope: "meta.tag.zx"
+        - match: "(/>)|(</)(\\2)(>)"
+          captures:
+            1: "punctuation.definition.tag.end.zx"
+            2: "punctuation.definition.tag.begin.zx"
+            3: "entity.name.tag.zx"
+            4: "punctuation.definition.tag.end.zx"
+          pop: true
+        - include: "zx-attribute"
+        - match: "(>)"
+          captures:
+            1: "punctuation.definition.tag.end.zx"
+          push:
+            - meta_content_scope: "meta.tag.children.zx"
+            - match: "(?=</)"
+              pop: true
+            - include: "zx-children"
+  zx-children:
+    - include: "zx-fragment"
+    - include: "zx-element"
+    - include: "zx-expression"
+    - include: "zx-text"
+  zx-text:
+    - match: "[^<>{}\\n]+"
+      scope: "text.html.zx"
+  zx-attribute:
+    - match: "\\s+(@[a-zA-Z_][a-zA-Z0-9_]*)\\s*(=)"
+      captures:
+        1: "support.function.builtin.zig"
+        2: "keyword.operator.assignment.zx"
+      push:
+        - meta_scope: "meta.attribute.builtin.with-value.zx"
+        - match: "(?=[\\s/>])|(?<=[\"'`}])"
+          pop: true
+        - match: "\""
+          push:
+            - meta_scope: "string.quoted.double.zx"
+            - match: "\""
+              pop: true
+            - include: "scope:source.zig#character_escapes"
+        - match: "'"
+          push:
+            - meta_scope: "string.quoted.single.zx"
+            - match: "'"
+              pop: true
+            - include: "scope:source.zig#character_escapes"
+        - include: "zx-template-string"
+        - include: "zx-expression"
+    - match: "\\s+([a-zA-Z_:][a-zA-Z0-9_:-]*)\\s*(=)"
+      captures:
+        1: "entity.other.attribute-name.zx"
+        2: "keyword.operator.assignment.zx"
+      push:
+        - meta_scope: "meta.attribute.with-value.zx"
+        - match: "(?=[\\s/>])|(?<=[\"'`}])"
+          pop: true
+        - match: "\""
+          push:
+            - meta_scope: "string.quoted.double.zx"
+            - match: "\""
+              pop: true
+            - include: "scope:source.zig#character_escapes"
+        - match: "'"
+          push:
+            - meta_scope: "string.quoted.single.zx"
+            - match: "'"
+              pop: true
+            - include: "scope:source.zig#character_escapes"
+        - include: "zx-template-string"
+        - include: "zx-expression"
+    - match: "\\s+@\\{(@\"[^\"]+\"|[a-zA-Z_][a-zA-Z0-9_]*)\\}"
+      scope: "meta.attribute.builtin.shorthand.zx"
+      captures:
+        1: "support.function.builtin.zig"
+    - match: "\\s+\\{(@\"[^\"]+\"|[a-zA-Z_][a-zA-Z0-9_]*)\\}"
+      scope: "meta.attribute.shorthand.zx"
+      captures:
+        1: "variable.other.readwrite.zx"
+    - match: "\\s+(\\{)(\\.\\.)"
+      captures:
+        1: "punctuation.section.embedded.begin.zx"
+        2: "keyword.operator.spread.zx"
+      push:
+        - meta_scope: "meta.attribute.spread.zx"
+        - match: "(\\})"
+          captures:
+            1: "punctuation.section.embedded.end.zx"
+          pop: true
+        - include: "zx-expression-body"
+    - match: "\\s+(@[a-zA-Z_][a-zA-Z0-9_]*)(?=[\\s/>])"
+      scope: "meta.attribute.builtin.zx"
+      captures:
+        1: "support.function.builtin.zig"
+    - match: "\\s+([a-zA-Z_:][a-zA-Z0-9_:-]*)(?=[\\s/>])"
+      scope: "entity.other.attribute-name.zx"
+      captures:
+        1: "entity.other.attribute-name.zx"
+  zx-expression:
+    - match: "\\{"
+      scope: "punctuation.section.embedded.begin.zx"
+      push:
+        - meta_scope: "meta.embedded.expression.zx"
+        - match: "\\}"
+          scope: "punctuation.section.embedded.end.zx"
+          pop: true
+        - include: "zx-expression-body"
+  zx-expression-body:
+    - include: "zig-multiline-string"
+    - include: "zig-guards"
+    - include: "zx-block"
+    - include: "balanced-paren"
+    - include: "balanced-brace"
+    - include: "scope:source.zig"
+  balanced-paren:
+    - match: "\\("
+      push:
+        - match: "\\)"
+          pop: true
+        - include: "zig-guards"
+        - include: "zx-block"
+        - include: "balanced-paren"
+        - include: "scope:source.zig"
+  balanced-brace:
+    - match: "\\{"
+      push:
+        - match: "\\}"
+          pop: true
+        - include: "zig-multiline-string"
+        - include: "zig-guards"
+        - include: "zx-block"
+        - include: "balanced-paren"
+        - include: "balanced-brace"
+        - include: "scope:source.zig"
+  zx-template-string:
+    - match: "`"
+      scope: "punctuation.definition.string.begin.zx"
+      push:
+        - meta_scope: "string.quoted.template.zx"
+        - match: "`"
+          scope: "punctuation.definition.string.end.zx"
+          pop: true
+        - match: "[^`{]+"
+          scope: "string.template.content.zx"
+        - include: "zx-template-substitution"
+  zx-template-substitution:
+    - match: "\\{"
+      scope: "punctuation.section.embedded.begin.zx"
+      push:
+        - meta_scope: "meta.embedded.expression.template.zx"
+        - match: "\\}"
+          scope: "punctuation.section.embedded.end.zx"
+          pop: true
+        - include: "zx-expression-body"
+  main:
+    - match: ""
+      push: "scope:source.zig"
+      with_prototype:
+        - include: "zig-guards"
+        - include: "zx-block"

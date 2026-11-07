@@ -245,6 +245,7 @@ lsp-not-ready = { $server } todavía no está listo
 lsp-hint-rustup-install = { $reason }. Instálelo con: rustup component add rust-analyzer
 lsp-hint-rustup = { $reason }. Con rustup: rustup component add rust-analyzer
 lsp-hint-ziex = { $reason }. Instala el CLI de Ziex (https://ziex.dev/learn) o abre la carpeta del proyecto, cuyo build.zig.zon depende de ziex: así el IDE compila el servidor con zig
+config-syntax-error = sintaxis { $file }: { $error }
 visibility-file-only = solo en este archivo
 picker-save-as = Guardar como
 picker-open-files = Abrir archivos

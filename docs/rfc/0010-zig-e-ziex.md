@@ -138,5 +138,8 @@ aceitarem só um guia do que uma terceira gramática para eles manterem.
 
 - **Etapas 1 e 2:** feitas (`zls` e `zxls` padrão, com o servidor do projeto quando falta o `zx`; tarefas do
   `build.zig`; F5 com `zig build` e `zig-out/bin`; `.zx`/`.mdzx` com o ícone e, por enquanto, as cores do Zig).
-- **Etapa 3** (sintaxe do ZX, PR no widget, pasta de sintaxes do usuário): próxima.
+- **Etapa 3:** feita. **[Fato]** Juntar sintaxes ao conjunto do `two-face` religa todas (~400 ms em release, contra
+  ~20 ms do conjunto sozinho): as registradas ficam num conjunto à parte, e por isso a do Zig que o ZX inclui vem
+  junto. **[Fato]** O `with_prototype` resolveu a injeção, como previsto; faltou só tirar a marcação de dentro das
+  strings do Zig, que o VS Code exclui no `injectionSelector`.
 - **Etapa 4** (PR no Ziex): depois da versão da IDE.

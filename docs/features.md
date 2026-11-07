@@ -9,8 +9,9 @@ The full list, for the technical reader. For the short version, see the [README]
 - Open a file by name (`Ctrl+P`) with fuzzy search; `main.rs:42` jumps straight to the line.
 - Go to a symbol (function, type, method…) in the file (`Ctrl+Shift+O`) or in the project (`Ctrl+T`).
 - Tabs with a modified marker; open (`Ctrl+O`), save and save as, with the system file dialog.
-- Syntax highlighting for about 200 languages and file types (TOML, `.env`, INI, Dockerfile, TypeScript…); light
-  and dark themes (plus iced's themes: Nord, Dracula…).
+- Syntax highlighting for about 200 languages and file types (TOML, `.env`, INI, Dockerfile, TypeScript, Zig,
+  [Ziex](https://ziex.dev) `.zx`…); light and dark themes (plus iced's themes: Nord, Dracula…). More languages:
+  put `.sublime-syntax` files in `~/.config/idetea/syntaxes/` (read when the IDE opens).
 - Find and replace, go to line, undo/redo, multi-cursor, code folding and an optional vim mode.
 - Markdown and SVG preview next to the editor (`Ctrl+Shift+V` or the button on the tab bar), updated as you type.
 - Images (png, jpg, gif, webp, bmp, ico…) open in a tab, with mouse-wheel zoom and drag.

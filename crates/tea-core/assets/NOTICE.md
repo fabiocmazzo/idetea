@@ -18,3 +18,15 @@ do código (`[editor] font`).
 (© Microsoft Corporation, MIT), feitos a partir do [Seti UI](https://github.com/jesseweed/seti-ui) (© 2014 Jesse
 Weed, MIT). A fonte foi convertida de WOFF para TrueType, sem outras mudanças; a tabela foi copiada como está.
 Licenças em [seti/LICENSE.txt](seti/LICENSE.txt).
+
+## syntaxes/zx.sublime-syntax
+
+Sintaxe do ZX ([Ziex](https://github.com/ziex-dev/ziex)), © 2025 Nurul Huda (Apon), MIT
+([syntaxes/LICENSE-ziex.txt](syntaxes/LICENSE-ziex.txt)). Convertida por `tools/zx-syntax.sh` da gramática
+TextMate do VS Code (`ide/vscode/syntaxes/zx.tmLanguage.json`) para o formato do Sublime Text.
+
+## syntaxes/zig.sublime-syntax
+
+Sintaxe do Zig do [sublime-zig-language](https://github.com/ziglang/sublime-zig-language), © 2018 Jeff Fowler,
+MIT ([syntaxes/LICENSE-zig-sublime.txt](syntaxes/LICENSE-zig-sublime.txt)). Copiada por `tools/zx-syntax.sh`,
+escondida e sem extensões, só para a do ZX incluir.

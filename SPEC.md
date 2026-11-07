@@ -1274,6 +1274,16 @@ e grava a resposta do usuário em `.idetea/ui/responses/<nome>/`. Estudo, decis�
   com o ícone do Zig e, até a sintaxe própria (etapa 3), as cores do Zig e do Markdown.
   - [x] Testes `zig_build_steps`, `zig_projects_build_with_zig_build`,
     `ziex_project_without_the_cli_builds_its_own_server`, `lookup_order_follows_vs_code` e teste manual pelo painel.
+- [x] **Cores do ZX e sintaxes do usuário** ([RFC 0010](docs/rfc/0010-zig-e-ziex.md), etapa 3): o
+  `iced-code-editor` ganhou `register_syntaxes` (PR no upstream; a IDE usa o branch `idetea` do fork). As sintaxes
+  registradas ficam num conjunto à parte, procurado antes do embutido: juntar ao do `two-face` custava ~400 ms
+  (religa todas as gramáticas), e à parte o registro custa ~35 ms ao abrir. A do ZX vem da gramática do VS Code do
+  Ziex, convertida por `tools/tm2sublime.py` (`tools/zx-syntax.sh`): a injeção no Zig vira `with_prototype`, e as
+  strings e comentários do Zig ficam sem marcação dentro, como no VS Code. Como o conjunto à parte não enxerga o
+  embutido, a do Zig vem junto, escondida e sem extensões. `~/.config/idetea/syntaxes/*.sublime-syntax` são lidas
+  ao abrir; uma inválida vira aviso e as outras valem.
+  - [x] Testes `embedded_first_then_user_files_in_name_order`, `tests/syntaxes.rs` (no fork: registro, inclusão,
+    erros, conjunto vazio) e teste manual pelo painel.
 - [x] **Versão com executáveis para Linux:** o workflow `release.yml` gera `.tar.gz` e AppImage para x86_64
   (`ubuntu-22.04`) e aarch64 (`ubuntu-22.04-arm`), confere que o executável roda e, numa tag `v*`, publica a versão
   com `SHA256SUMS` (pré-lançamento antes da 1.0). "Run workflow" na aba Actions só gera os pacotes como artefatos,

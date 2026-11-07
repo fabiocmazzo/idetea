@@ -177,6 +177,8 @@ fn main() -> iced::Result {
             let saved = ui_state::UiState::load(ui_state::state_path().as_deref());
             // Antes de `boot`, que já abre os editores da sessão (ver `load_embedded`).
             tea_core::fonts::load_embedded();
+            // Também antes da primeira aba: o editor monta as sintaxes na primeira vez que colore.
+            tea_editor::syntaxes::register(tea_core::syntaxes::user_dir().as_deref());
             iced::application(App::boot, App::update, App::view)
                 .title(App::title)
                 .subscription(App::subscription)
@@ -762,6 +764,11 @@ impl App {
         problems.extend(theme_error);
         problems.extend(tea_core::fonts::problem(&app.config.editor));
         problems.extend(tea_core::file_icons::problem(&app.config.ui.file_icons));
+        problems.extend(
+            tea_editor::syntaxes::problems()
+                .iter()
+                .map(|(file, error)| fl!("config-syntax-error", file = file.as_str(), error = error.as_str())),
+        );
         tea_core::file_icons::set_enabled(app.config.ui.file_icons.trim() != "none");
         if !problems.is_empty() {
             for p in &problems {

@@ -28,6 +28,7 @@ pub mod fonts;
 pub mod i18n;
 pub mod icons;
 pub mod menu;
+pub mod syntaxes;
 pub mod outline;
 pub mod os;
 pub mod pick;

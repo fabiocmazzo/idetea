@@ -11,6 +11,7 @@ macro_rules! fl {
 mod image_file;
 mod key_gate;
 mod pdf_file;
+pub mod syntaxes;
 mod lsp;
 mod marks;
 pub mod quick_diff;
@@ -1253,9 +1254,8 @@ fn syntax_for(path: Option<&Path>) -> String {
     match key.as_str() {
         "jsonc" | "json5" => "json".into(),
         "mdx" => "md".into(),
-        // Ziex: enquanto a sintaxe própria não vem (RFC 0010), as cores do Zig e do Markdown.
-        "zx" => "zig".into(),
-        "mdzx" => "md".into(),
+        // Ziex: a sintaxe do ZX (`tea_core::syntaxes`) cuida dos dois.
+        "mdzx" => "zx".into(),
         _ => key,
     }
 }
