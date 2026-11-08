@@ -38,7 +38,7 @@ minificado con una línea gigante abre en un modo ligero en vez de congelar la v
 **Silencioso.** Una ventana, ningún aviso que no hayas causado, ninguna actualización sorpresa. Apariencia, atajos y
 paneles viven en un archivo TOML simple (global o por proyecto), con una pantalla de configuración para lo mismo.
 
-**Completo donde importa.** Editor con multicursor y modo vim opcional, árbol de archivos, búsqueda en el proyecto,
+**Completo donde importa.** Editor con multicursor, zoom temporal y modo vim opcional, árbol de archivos, búsqueda en el proyecto,
 terminal integrada con pestañas, git (stage, diff, commit, push y pull), LSP para los lenguajes habituales, depuración
 con gdb, y vistas previas de Markdown, SVG, imágenes y PDF.
 

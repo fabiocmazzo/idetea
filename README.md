@@ -39,7 +39,7 @@ single giant line opens in a light mode instead of freezing the window.
 **Quiet.** One window, no notifications you did not cause, no surprise updates. The look, the keys and the panels
 live in one plain TOML file (global or per project), with a settings screen for the same things.
 
-**Complete where it counts.** Editor with multi-cursor and an optional vim mode, file tree, project search,
+**Complete where it counts.** Editor with multi-cursor, temporary zoom and an optional vim mode, file tree, project search,
 integrated terminal with tabs, git (stage, diff, commit, push and pull), LSP for the usual languages, debugging
 with gdb, and previews for Markdown, SVG, images and PDF.
 

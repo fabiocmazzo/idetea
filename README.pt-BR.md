@@ -38,7 +38,7 @@ com uma linha gigante abre num modo leve em vez de travar a janela.
 **Silenciosa.** Uma janela, nenhum aviso que você não causou, nenhuma atualização surpresa. Aparência, atalhos e
 painéis ficam num arquivo TOML simples (global ou por projeto), com uma tela de configurações para as mesmas coisas.
 
-**Completa onde importa.** Editor com multi-cursor e modo vim opcional, árvore de arquivos, busca no projeto,
+**Completa onde importa.** Editor com multi-cursor, zoom temporário e modo vim opcional, árvore de arquivos, busca no projeto,
 terminal integrado com abas, git (stage, diff, commit, push e pull), LSP para as linguagens de sempre, debug com
 gdb, e prévias de Markdown, SVG, imagens e PDF.
 
