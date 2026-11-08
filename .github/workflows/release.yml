@@ -1,4 +1,5 @@
-# Versão com executáveis para Linux (x86_64 e aarch64): .tar.gz, AppImage e SHA256SUMS.
+# Versão com executáveis para Linux (x86_64 e aarch64), macOS (aarch64) e Windows (x86_64):
+# .tar.gz, AppImage, .zip e SHA256SUMS.
 #
 # - Tag `v*` (ex.: `git tag v0.1.0 && git push origin v0.1.0`): testa, gera os pacotes e publica a versão no GitHub.
 #   A tag precisa bater com a versão do Cargo.toml.
@@ -60,8 +61,95 @@ jobs:
             dist/*.AppImage
           if-no-files-found: error
 
+  build-macos:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: dist-macos-aarch64
+      - name: Testes
+        run: cargo test --locked --workspace
+      - name: Pacote macOS (.tar.gz + IDE TEA.app)
+        run: |
+          version=$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -n 1)
+          cargo build --locked --profile dist -p tea-app
+          name="idetea-$version-aarch64-macos"
+          pkg="dist/$name"
+          rm -rf dist
+          mkdir -p "$pkg/licenses"
+          cp target/dist/idetea assets/idetea.svg LICENSE README.md "$pkg/"
+          cp crates/tea-core/assets/NOTICE.md "$pkg/licenses/NOTICE.md"
+          cp crates/tea-core/assets/fonts/OFL.txt "$pkg/licenses/JetBrainsMono-OFL.txt"
+          cp crates/tea-core/assets/seti/LICENSE.txt "$pkg/licenses/Seti-LICENSE.txt"
+          cp crates/tea-core/assets/syntaxes/LICENSE-ziex.txt "$pkg/licenses/Ziex-LICENSE.txt"
+          cp crates/tea-core/assets/syntaxes/LICENSE-zig-sublime.txt "$pkg/licenses/sublime-zig-language-LICENSE.txt"
+          app="$pkg/IDE TEA.app/Contents"
+          mkdir -p "$app/MacOS" "$app/Resources"
+          cp target/dist/idetea "$app/MacOS/idetea"
+          cp assets/idetea.svg "$app/Resources/idetea.svg"
+          cat > "$app/Info.plist" <<EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>CFBundleName</key><string>IDE TEA</string>
+            <key>CFBundleDisplayName</key><string>IDE TEA</string>
+            <key>CFBundleIdentifier</key><string>dev.idetea.app</string>
+            <key>CFBundleVersion</key><string>$version</string>
+            <key>CFBundleShortVersionString</key><string>$version</string>
+            <key>CFBundlePackageType</key><string>APPL</string>
+            <key>CFBundleExecutable</key><string>idetea</string>
+            <key>NSHighResolutionCapable</key><true/>
+          </dict>
+          </plist>
+          EOF
+          tar -C dist -czf "dist/$name.tar.gz" "$name"
+          rm -rf "$pkg"
+          target/dist/idetea --version
+      - uses: actions/upload-artifact@v7
+        with:
+          name: idetea-macos-aarch64
+          path: dist/*.tar.gz
+          if-no-files-found: error
+
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: dist-windows-x86_64
+      - name: Testes
+        run: cargo test --locked --workspace
+      - name: Pacote Windows (.zip)
+        shell: pwsh
+        run: |
+          $version = (Select-String -Path Cargo.toml -Pattern '^version = "(.*)"' | Select-Object -First 1).Matches.Groups[1].Value
+          cargo build --locked --profile dist -p tea-app
+          $name = "idetea-$version-x86_64-windows"
+          $pkg = "dist/$name"
+          if (Test-Path dist) { Remove-Item -Recurse -Force dist }
+          New-Item -ItemType Directory -Force -Path "$pkg/licenses" | Out-Null
+          Copy-Item target/dist/idetea.exe, assets/idetea.svg, LICENSE, README.md "$pkg/"
+          Copy-Item crates/tea-core/assets/NOTICE.md "$pkg/licenses/NOTICE.md"
+          Copy-Item crates/tea-core/assets/fonts/OFL.txt "$pkg/licenses/JetBrainsMono-OFL.txt"
+          Copy-Item crates/tea-core/assets/seti/LICENSE.txt "$pkg/licenses/Seti-LICENSE.txt"
+          Copy-Item crates/tea-core/assets/syntaxes/LICENSE-ziex.txt "$pkg/licenses/Ziex-LICENSE.txt"
+          Copy-Item crates/tea-core/assets/syntaxes/LICENSE-zig-sublime.txt "$pkg/licenses/sublime-zig-language-LICENSE.txt"
+          Compress-Archive -Path "$pkg" -DestinationPath "dist/$name.zip"
+          Remove-Item -Recurse -Force "$pkg"
+          ./target/dist/idetea.exe --version
+      - uses: actions/upload-artifact@v7
+        with:
+          name: idetea-windows-x86_64
+          path: dist/*.zip
+          if-no-files-found: error
+
   publish:
-    needs: build
+    needs: [build, build-macos, build-windows]
     if: startsWith(github.ref, 'refs/tags/')
     runs-on: ubuntu-latest
     permissions:

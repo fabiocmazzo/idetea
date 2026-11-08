@@ -1,4 +1,4 @@
-# Testes e clippy a cada push na main e em cada pull request.
+# Testes e clippy a cada push na main e em cada pull request (Linux, macOS e Windows).
 name: CI
 
 on:
@@ -11,14 +11,24 @@ env:
 
 jobs:
   check:
-    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            targets: wasm32-wasip2
+          - os: macos-14
+            targets: ""
+          - os: windows-latest
+            targets: ""
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy
-          # Os testes de crates/tea-plugins compilam o plugin de exemplo para este alvo.
-          targets: wasm32-wasip2
+          # Os testes de crates/tea-plugins compilam o plugin de exemplo para este alvo no Linux.
+          targets: ${{ matrix.targets }}
       - uses: Swatinem/rust-cache@v2
       - name: Clippy
         run: cargo clippy --locked --workspace --all-targets -- -D warnings

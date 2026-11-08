@@ -1,7 +1,7 @@
 # RFC 0013 — Avaliação de Portabilidade para macOS e Windows
 
 - **Data:** 2026-11-08
-- **Status:** Em avaliação
+- **Status:** Implementada
 - **Escopo:** Mapeamento exato no código-fonte de tudo o que impede ou degrada a execução da IDE TEA em **macOS** (`aarch64-apple-darwin` / `x86_64-apple-darwin`) e **Windows** (`x86_64-pc-windows-msvc`), com plano incremental de adaptação.
 
 ---
@@ -154,3 +154,7 @@ Podemos dividir o trabalho em **3 etapas pequenas e testáveis**:
   - `crates/tea-dap/src/lib.rs` e `crates/tea-app/src/debug.rs`: adicionado `AdapterConfig::lldb_dap()` e `AdapterConfig::detect()`, priorizando `lldb-dap` no macOS (incluindo o caminho do Xcode Command Line Tools) e fazendo fallback automático entre `gdb` e `lldb-dap` em todos os sistemas.
   - `crates/tea-core/src/os.rs` e `crates/tea-app/src/main.rs`: `ensure_gui_path()` garante que `~/.cargo/bin`, `~/.local/bin` e, no macOS, `/opt/homebrew/bin`, `/opt/homebrew/sbin` e `/usr/local/bin` estejam no `PATH` quando a IDE é iniciada pelo Finder/Dock ou menu do sistema.
   - `crates/tea-core/src/keymap.rs`: suporte ao modificador lógico `mod`, fallback automático de `Cmd+<tecla>` para `Ctrl+<tecla>` no macOS (`macos_ctrl_fallback`) e suporte a `Cmd+Shift` / `Cmd+PageUp/PageDown` em `wins_over_panels` no macOS.
+- **Etapa 3 concluída:**
+  - `.github/workflows/ci.yml`: matriz de CI expandida para `ubuntu-latest`, `macos-14` (ARM64) e `windows-latest` (x86_64) executando `cargo clippy` e `cargo test`.
+  - `.github/workflows/release.yml`: adicionados jobs `build-macos` (`idetea-<version>-aarch64-macos.tar.gz` com `IDE TEA.app` e binário CLI) e `build-windows` (`idetea-<version>-x86_64-windows.zip` com `idetea.exe`), integrados ao job `publish` com `SHA256SUMS`.
+  - `crates/tea-app/src/desktop.rs`: suporte a `--install-desktop` e `--uninstall-desktop` no macOS criando/removendo o bundle `~/Applications/IDE TEA.app`.
