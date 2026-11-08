@@ -62,6 +62,7 @@ static STARTED: OnceLock<Instant> = OnceLock::new();
 
 /// Id da janela no Wayland/X11. O painel do desktop acha o ícone pelo arquivo
 /// `idetea.desktop` com este mesmo nome (`idetea --install-desktop` ou `just desktop` instalam).
+#[cfg(target_os = "linux")]
 const APP_ID: &str = "idetea";
 
 /// O idioma de um subcomando: o mesmo da IDE (`[ui] language` do config do usuário e do projeto da pasta atual).
@@ -193,6 +194,7 @@ fn main() -> iced::Result {
                 .window(window::Settings {
                     size: saved.window().unwrap_or(window::Settings::default().size),
                     platform_specific: window::settings::PlatformSpecific {
+                        #[cfg(target_os = "linux")]
                         application_id: APP_ID.into(),
                         ..Default::default()
                     },

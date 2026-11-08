@@ -85,16 +85,19 @@
   <p style="margin-top:22px"><a href="agents.html">Trabajar con agentes, paso a paso →</a></p>
 </div></section>
 
-<section><div class="wrap"><div class="narrow">
+<section id="install"><div class="wrap"><div class="narrow">
   <h2>Instalar</h2>
-  <p><strong>Linux, listo para usar:</strong> descarga el <code>.tar.gz</code> o el AppImage de tu máquina (x86_64 o
-    aarch64) de <a href="https://github.com/fabiocmazzo/idetea/releases/latest">la última versión</a>.</p>
+  <p><strong>Linux, macOS y Windows, listo para usar:</strong> descarga el paquete de tu sistema (<code>.tar.gz</code> o
+    <code>.AppImage</code> para Linux x86_64/aarch64, <code>.tar.gz</code> con <code>IDE TEA.app</code> para macOS aarch64, o
+    <code>.zip</code> para Windows x86_64) de <a href="https://github.com/fabiocmazzo/idetea/releases/latest">la última versión</a>.</p>
 <pre><code>tar -xzf idetea-*-linux.tar.gz
 cd idetea-*-linux
 ./install.sh      # pone idetea en ~/.local/bin y en el menú de aplicaciones</code></pre>
   <p><strong>Desde el código</strong> (necesita <a href="https://rustup.rs">Rust</a> estable):</p>
 <pre><code>cargo install --locked --git https://github.com/fabiocmazzo/idetea tea-app
 idetea --install-desktop   # opcional: entrada en el menú e ícono</code></pre>
+  <p class="note">La firma gratuita de código en Windows es proporcionada por <a href="https://signpath.io">SignPath.io</a>, con
+    certificado de la <a href="https://signpath.org">SignPath Foundation</a> (<a href="https://github.com/fabiocmazzo/idetea/blob/main/CODE_SIGNING_POLICY.md">Política de Firma y Privacidad</a>).</p>
   <p><a href="start.html">Siguiente: primeros pasos →</a></p>
 </div></div></section>
 

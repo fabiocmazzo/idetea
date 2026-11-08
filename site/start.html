@@ -46,10 +46,11 @@
 <section id="install">
   <h2>1. Install</h2>
   <ol class="steps">
-    <li>Download the <code>.tar.gz</code> for your machine (x86_64 or aarch64) from
+    <li>Download the package for your platform (<code>.tar.gz</code> or <code>.AppImage</code> for Linux x86_64/aarch64,
+      <code>.tar.gz</code> with <code>IDE TEA.app</code> for macOS aarch64, or <code>.zip</code> for Windows x86_64) from
       <a href="https://github.com/fabiocmazzo/idetea/releases/latest">the latest release</a>.
       <code>SHA256SUMS</code> has the checksums.</li>
-    <li>Unpack it and run the installer. It puts <code>idetea</code> in <code>~/.local/bin</code> and adds IDE TEA to
+    <li>On Linux, unpack it and run the installer. It puts <code>idetea</code> in <code>~/.local/bin</code> and adds IDE TEA to
       your app menu:
 <pre><code>tar -xzf idetea-*-linux.tar.gz
 cd idetea-*-linux
@@ -57,10 +58,13 @@ cd idetea-*-linux
     <li>If the installer says <code>~/.local/bin</code> is not on your <code>PATH</code>, add it (for example in
       <code>~/.profile</code>), so you and your agents can run <code>idetea</code> from a terminal.</li>
   </ol>
-  <p>Prefer a single file? The AppImage runs as is: <code>chmod +x IDE_TEA-*.AppImage</code> and open it;
-    <code>--install-desktop</code> adds it to the menu. Building from source is one command:
+  <p>Prefer a single file on Linux? The AppImage runs as is: <code>chmod +x IDE_TEA-*.AppImage</code> and open it;
+    <code>--install-desktop</code> adds it to the menu. On macOS, <code>idetea --install-desktop</code> creates
+    <code>~/Applications/IDE TEA.app</code>. Building from source is one command:
     <code>cargo install --locked --git https://github.com/fabiocmazzo/idetea tea-app</code>.</p>
-  <div class="callout">Optional extras: <code>git</code> for the git panel, <code>gdb</code> 14+ for debugging, and the
+  <p class="note">Free code signing on Windows is provided by <a href="https://signpath.io">SignPath.io</a>, certificate by the
+    <a href="https://signpath.org">SignPath Foundation</a> (<a href="https://github.com/fabiocmazzo/idetea/blob/main/CODE_SIGNING_POLICY.md">Code Signing &amp; Privacy Policy</a>).</p>
+  <div class="callout">Optional extras: <code>git</code> for the git panel, <code>gdb</code> 14+ (or <code>lldb-dap</code> on macOS) for debugging, and the
     language servers you use (next steps).</div>
 </section>
 

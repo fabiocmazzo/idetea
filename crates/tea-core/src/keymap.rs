@@ -230,7 +230,7 @@ impl Keymap {
             return false;
         }
         #[cfg(target_os = "macos")]
-        let primary = (chord.ctrl ^ chord.logo);
+        let primary = chord.ctrl ^ chord.logo;
         #[cfg(not(target_os = "macos"))]
         let primary = chord.ctrl && !chord.logo;
 

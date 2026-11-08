@@ -27,8 +27,8 @@ También es un IDE pensado para la forma en que muchos programamos hoy: **con un
 En vez de una caja de chat pegada a un costado, IDE TEA les da a los agentes un protocolo pequeño, hecho de
 archivos, para hablar contigo a través del propio IDE, y te deja al mando de todo lo que ejecutan.
 
-> **Estado:** en desarrollo activo, antes de la 1.0. Hecho y probado en Linux (Wayland). macOS y Windows aún no se
-> han probado. Habrá asperezas; por favor, avísanos cuando encuentres una.
+> **Estado:** en desarrollo activo, antes de la 1.0. Compilado y probado en Linux, macOS (Apple Silicon) y Windows (x86_64).
+> Habrá asperezas; por favor, avísanos cuando encuentres una.
 
 ## Por qué IDE TEA
 
@@ -70,10 +70,10 @@ una extensión que puedes desactivar.
 
 ## Instalación
 
-**Linux, listo para usar:** descarga el `.tar.gz` o el AppImage de tu máquina (x86_64 o aarch64) en
-[Releases](https://github.com/fabiocmazzo/idetea/releases). En el `.tar.gz`, `./install.sh` pone `idetea` en
-`~/.local/bin` y en el menú de aplicaciones. El AppImage funciona tal cual (antes, `chmod +x`); `--install-desktop`
-lo pone en el menú. `SHA256SUMS` tiene las sumas de verificación.
+**Linux, macOS y Windows, listo para usar:** descarga el paquete de tu sistema (`.tar.gz` o `.AppImage` para Linux x86_64/aarch64, `.tar.gz` con `IDE TEA.app` para macOS aarch64, o `.zip` con `idetea.exe` para Windows x86_64) en
+[Releases](https://github.com/fabiocmazzo/idetea/releases). En Linux, `./install.sh` pone `idetea` en
+`~/.local/bin` y en el menú de aplicaciones; el AppImage funciona tal cual (`chmod +x` antes) y `--install-desktop`
+lo pone en el menú. En macOS, `--install-desktop` crea `~/Applications/IDE TEA.app`. `SHA256SUMS` tiene las sumas de verificación.
 
 **Desde el código fuente:** necesitas [Rust](https://rustup.rs) (estable). Después:
 
@@ -82,8 +82,14 @@ cargo install --locked --git https://github.com/fabiocmazzo/idetea tea-app
 idetea --install-desktop   # opcional: entrada en el menú de aplicaciones e ícono
 ```
 
-Opcionales: `git` para la integración con git, `gdb` 14+ para depurar, y los servidores de lenguaje que uses
+Opcionales: `git` para la integración con git, `gdb` 14+ (o `lldb-dap` en macOS) para depurar, y los servidores de lenguaje que uses
 (rust-analyzer, clangd, pyright, typescript-language-server, gopls y lua-language-server ya vienen configurados).
+
+## Firma de Código y Privacidad
+
+La firma gratuita de código en Windows es proporcionada por [SignPath.io](https://signpath.io), con certificado de la
+[SignPath Foundation](https://signpath.org). Este programa no transfiere ninguna información a redes externas salvo a
+petición explícita del usuario. Consulta [`CODE_SIGNING_POLICY.md`](CODE_SIGNING_POLICY.md).
 
 ## Primeros pasos
 

@@ -28,8 +28,8 @@ It is also an IDE designed for the way many of us code now: **with an agent in t
 of a chat box bolted to the side, IDE TEA gives agents a small, file-based protocol to talk to you through the
 IDE, and keeps you in charge of everything they run.
 
-> **Status:** in active development, before 1.0. Built and tested on Linux (Wayland). macOS and Windows have not
-> been tested yet. Expect rough edges, and please report them.
+> **Status:** in active development, before 1.0. Built and tested on Linux, macOS (Apple Silicon) and Windows (x86_64).
+> Expect rough edges, and please report them.
 
 ## Why IDE TEA
 
@@ -69,10 +69,10 @@ extension you can turn off.
 
 ## Install
 
-**Linux, ready to run:** download the `.tar.gz` or the AppImage for your machine (x86_64 or aarch64) from
-[Releases](https://github.com/fabiocmazzo/idetea/releases). In the `.tar.gz`, `./install.sh` puts `idetea` in
-`~/.local/bin` and adds it to the app menu. The AppImage runs as is (`chmod +x` first); `--install-desktop` adds it
-to the menu. `SHA256SUMS` has the checksums.
+**Linux, macOS and Windows, ready to run:** download the package for your platform (`.tar.gz` or `.AppImage` for Linux x86_64/aarch64, `.tar.gz` with `IDE TEA.app` for macOS aarch64, or `.zip` with `idetea.exe` for Windows x86_64) from
+[Releases](https://github.com/fabiocmazzo/idetea/releases). On Linux, `./install.sh` puts `idetea` in
+`~/.local/bin` and adds it to the app menu; the AppImage runs as is (`chmod +x` first) and `--install-desktop` adds it
+to the menu. On macOS, `--install-desktop` creates `~/Applications/IDE TEA.app`. `SHA256SUMS` has the checksums.
 
 **From source:** you need [Rust](https://rustup.rs) (stable). Then:
 
@@ -81,8 +81,15 @@ cargo install --locked --git https://github.com/fabiocmazzo/idetea tea-app
 idetea --install-desktop   # optional: app menu entry and icon
 ```
 
-Optional: `git` for the git integration, `gdb` 14+ for debugging, and the language servers you use
+Optional: `git` for the git integration, `gdb` 14+ (or `lldb-dap` on macOS) for debugging, and the language servers you use
 (rust-analyzer, clangd, pyright, typescript-language-server, gopls and lua-language-server are already set up).
+
+## Code Signing & Privacy Policy
+
+Free code signing on Windows is provided by [SignPath.io](https://signpath.io), certificate by the
+[SignPath Foundation](https://signpath.org). This program will not transfer any information to other networked systems
+unless specifically requested by the user. See [`CODE_SIGNING_POLICY.md`](CODE_SIGNING_POLICY.md) for the full code
+signing and privacy policy.
 
 ## Quick start
 

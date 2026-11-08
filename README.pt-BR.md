@@ -27,8 +27,8 @@ Também é uma IDE pensada para o jeito como muita gente programa hoje: **com um
 de uma caixa de chat pendurada no canto, a IDE TEA dá aos agentes um protocolo pequeno, feito de arquivos, para
 falar com você pela própria IDE, e deixa você no comando de tudo o que eles rodam.
 
-> **Status:** em desenvolvimento ativo, antes da 1.0. Feita e testada no Linux (Wayland). macOS e Windows ainda não
-> foram testados. Espere arestas, e por favor avise quando achar uma.
+> **Status:** em desenvolvimento ativo, antes da 1.0. Compilada e testada em Linux, macOS (Apple Silicon) e Windows (x86_64).
+> Espere arestas, e por favor avise quando achar uma.
 
 ## Por que a IDE TEA
 
@@ -69,10 +69,10 @@ você pode desligar.
 
 ## Instalando
 
-**Linux, pronto para rodar:** baixe o `.tar.gz` ou o AppImage da sua máquina (x86_64 ou aarch64) em
-[Releases](https://github.com/fabiocmazzo/idetea/releases). No `.tar.gz`, o `./install.sh` põe o `idetea` em
-`~/.local/bin` e no menu de aplicativos. O AppImage roda direto (antes, `chmod +x`); `--install-desktop` põe no
-menu. O `SHA256SUMS` tem as somas de verificação.
+**Linux, macOS e Windows, pronta para rodar:** baixe o pacote do seu sistema (`.tar.gz` ou `.AppImage` para Linux x86_64/aarch64, `.tar.gz` com `IDE TEA.app` para macOS aarch64, ou `.zip` com `idetea.exe` para Windows x86_64) em
+[Releases](https://github.com/fabiocmazzo/idetea/releases). No Linux, o `./install.sh` põe o `idetea` em
+`~/.local/bin` e no menu de aplicativos; o AppImage roda direto (`chmod +x` antes) e `--install-desktop` põe no
+menu. No macOS, `--install-desktop` cria `~/Applications/IDE TEA.app`. O `SHA256SUMS` tem as somas de verificação.
 
 **Pelo código-fonte:** você precisa do [Rust](https://rustup.rs) (estável). Depois:
 
@@ -81,8 +81,14 @@ cargo install --locked --git https://github.com/fabiocmazzo/idetea tea-app
 idetea --install-desktop   # opcional: entrada no menu de aplicativos e ícone
 ```
 
-Opcionais: `git` para a integração com git, `gdb` 14+ para o debug, e os servidores de linguagem que você usa
+Opcionais: `git` para a integração com git, `gdb` 14+ (ou `lldb-dap` no macOS) para o debug, e os servidores de linguagem que você usa
 (rust-analyzer, clangd, pyright, typescript-language-server, gopls e lua-language-server já vêm configurados).
+
+## Assinatura de Código e Privacidade
+
+A assinatura gratuita de código no Windows é fornecida por [SignPath.io](https://signpath.io), com certificado da
+[SignPath Foundation](https://signpath.org). Este programa não transfere nenhuma informação para sistemas externos sem
+solicitação explícita do usuário. Consulte [`CODE_SIGNING_POLICY.md`](CODE_SIGNING_POLICY.md).
 
 ## Começando
 
