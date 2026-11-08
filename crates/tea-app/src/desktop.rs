@@ -63,7 +63,7 @@ fn install() -> Result<String, String> {
             .stdout(std::process::Stdio::null())
             .stderr(std::process::Stdio::null())
             .status();
-        return Ok(fl!("desktop-installed", desktop = app.display().to_string(), exe = exe.display().to_string()));
+        Ok(fl!("desktop-installed", desktop = app.display().to_string(), exe = exe.display().to_string()))
     }
     #[cfg(not(target_os = "macos"))]
     {
@@ -90,7 +90,7 @@ fn uninstall() -> Result<String, String> {
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
             Err(e) => return Err(fl!("desktop-error", error = format!("{}: {e}", app.display()))),
         }
-        return Ok(fl!("desktop-removed"));
+        Ok(fl!("desktop-removed"))
     }
     #[cfg(not(target_os = "macos"))]
     {

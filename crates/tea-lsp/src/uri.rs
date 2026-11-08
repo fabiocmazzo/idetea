@@ -42,7 +42,11 @@ pub fn uri_to_path(uri: &str) -> Option<PathBuf> {
     #[cfg(windows)]
     let s = {
         let s = if s.starts_with('/') && s.as_bytes().get(2) == Some(&b':') { &s[1..] } else { &s };
-        s.replace('/', "\\")
+        let mut s = s.replace('/', "\\");
+        if s.as_bytes().get(1) == Some(&b':') && s.as_bytes()[0].is_ascii_lowercase() {
+            s.replace_range(0..1, &s[0..1].to_ascii_uppercase());
+        }
+        s
     };
     Some(PathBuf::from(s))
 }

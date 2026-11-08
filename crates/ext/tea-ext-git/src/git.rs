@@ -529,6 +529,7 @@ fn run_net(dir: &Path, args: &[&str], timeout: Duration) -> Result<String, Strin
             Ok(None) if Instant::now() < deadline => std::thread::sleep(Duration::from_millis(50)),
             Ok(None) => {
                 kill_group(&mut child);
+                #[cfg(unix)]
                 let _ = (out.join(), err.join());
                 return Err(fl!("git-timeout", seconds = timeout.as_secs()));
             }

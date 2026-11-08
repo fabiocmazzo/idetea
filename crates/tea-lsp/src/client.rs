@@ -406,6 +406,17 @@ impl Client {
             }
         });
     }
+
+    /// Encerra imediatamente o processo do servidor (útil em limpeza de testes).
+    pub fn kill_now(&self) {
+        self.inner.lock().stdin = None;
+        if let Some(child) = self.inner.child.lock().unwrap_or_else(|e| e.into_inner()).as_mut()
+            && child.try_wait().ok().flatten().is_none()
+        {
+            let _ = child.kill();
+            let _ = child.wait();
+        }
+    }
 }
 
 fn notification(method: &str, params: Value) -> Value {

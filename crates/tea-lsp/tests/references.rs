@@ -31,6 +31,13 @@ fn clangd_references_and_at_definition() {
         languages: vec![("c".into(), "c".into())],
     };
     let client = Client::start(&config, &dir, sink).unwrap();
+    struct KillOnDrop(Client);
+    impl Drop for KillOnDrop {
+        fn drop(&mut self) {
+            self.0.kill_now();
+        }
+    }
+    let _guard = KillOnDrop(client.clone());
     client.did_open(&file, "c", 1, SRC);
     let wait = |pred: &dyn Fn(&Event) -> bool| loop {
         match rx.recv_timeout(Duration::from_secs(20)) {

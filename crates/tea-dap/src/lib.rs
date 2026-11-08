@@ -330,6 +330,17 @@ impl Session {
     }
 }
 
+impl Drop for Session {
+    fn drop(&mut self) {
+        if let Some(child) = self.inner.child.lock().unwrap_or_else(|e| e.into_inner()).as_mut()
+            && child.try_wait().ok().flatten().is_none()
+        {
+            let _ = child.kill();
+            let _ = child.wait();
+        }
+    }
+}
+
 impl Inner {
     fn lock(&self) -> MutexGuard<'_, State> {
         self.state.lock().unwrap_or_else(|e| e.into_inner())
@@ -527,7 +538,8 @@ mod tests {
         assert_eq!(frames[1].path, None);
     }
 
-    /// Fluxo completo com o gdb de verdade (pula se não houver gdb ≥ 14 ou rustc).
+    /// Fluxo completo com o gdb de verdade (pula se não houver gdb ≥ 14 ou rustc; no Windows MSVC o rustc gera PDB, que o gdb não lê).
+    #[cfg(not(target_env = "msvc"))]
     #[test]
     fn gdb_breakpoint_step_and_exit() {
         let dir = std::env::temp_dir().join(format!("idetea-dap-{}", std::process::id()));
