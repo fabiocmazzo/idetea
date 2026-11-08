@@ -17,7 +17,7 @@ jobs:
         include:
           - os: ubuntu-latest
             targets: wasm32-wasip2
-          - os: macos-14
+          - os: macos-latest
             targets: ""
           - os: windows-latest
             targets: ""

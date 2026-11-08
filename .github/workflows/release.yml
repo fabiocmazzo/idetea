@@ -62,7 +62,7 @@ jobs:
           if-no-files-found: error
 
   build-macos:
-    runs-on: macos-14
+    runs-on: macos-latest
     steps:
       - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
@@ -105,6 +105,8 @@ jobs:
           </dict>
           </plist>
           EOF
+          codesign --force --deep --sign - "$pkg/IDE TEA.app"
+          codesign --verify --deep --strict "$pkg/IDE TEA.app"
           tar -C dist -czf "dist/$name.tar.gz" "$name"
           rm -rf "$pkg"
           target/dist/idetea --version
@@ -142,6 +144,17 @@ jobs:
           Compress-Archive -Path "$pkg" -DestinationPath "dist/$name.zip"
           Remove-Item -Recurse -Force "$pkg"
           ./target/dist/idetea.exe --version
+      - name: Assinar com SignPath Foundation (opcional, quando SIGNPATH_ORGANIZATION_ID estiver configurado)
+        if: vars.SIGNPATH_ORGANIZATION_ID != ''
+        uses: signpath/github-action-submit-signing-request@v1
+        with:
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organization-id: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
+          project-slug: ${{ vars.SIGNPATH_PROJECT_SLUG || 'idetea' }}
+          signing-policy-slug: ${{ vars.SIGNPATH_POLICY_SLUG || 'release-signing' }}
+          github-artifact-id: idetea-windows-unsigned
+          wait-for-completion: true
+          output-artifact-directory: dist
       - uses: actions/upload-artifact@v7
         with:
           name: idetea-windows-x86_64

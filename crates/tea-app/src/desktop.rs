@@ -56,6 +56,13 @@ fn install() -> Result<String, String> {
         std::fs::write(&launcher, script).map_err(|e| err(&launcher, e))?;
         use std::os::unix::fs::PermissionsExt;
         std::fs::set_permissions(&launcher, std::fs::Permissions::from_mode(0o755)).map_err(|e| err(&launcher, e))?;
+        // Assinatura ad-hoc para o Apple Silicon aceitar o bundle `.app` sem erro de "aplicativo danificado".
+        let _ = std::process::Command::new("codesign")
+            .args(["--force", "--deep", "--sign", "-"])
+            .arg(&app)
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .status();
         return Ok(fl!("desktop-installed", desktop = app.display().to_string(), exe = exe.display().to_string()));
     }
     #[cfg(not(target_os = "macos"))]

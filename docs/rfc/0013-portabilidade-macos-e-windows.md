@@ -155,6 +155,19 @@ Podemos dividir o trabalho em **3 etapas pequenas e testáveis**:
   - `crates/tea-core/src/os.rs` e `crates/tea-app/src/main.rs`: `ensure_gui_path()` garante que `~/.cargo/bin`, `~/.local/bin` e, no macOS, `/opt/homebrew/bin`, `/opt/homebrew/sbin` e `/usr/local/bin` estejam no `PATH` quando a IDE é iniciada pelo Finder/Dock ou menu do sistema.
   - `crates/tea-core/src/keymap.rs`: suporte ao modificador lógico `mod`, fallback automático de `Cmd+<tecla>` para `Ctrl+<tecla>` no macOS (`macos_ctrl_fallback`) e suporte a `Cmd+Shift` / `Cmd+PageUp/PageDown` em `wins_over_panels` no macOS.
 - **Etapa 3 concluída:**
-  - `.github/workflows/ci.yml`: matriz de CI expandida para `ubuntu-latest`, `macos-14` (ARM64) e `windows-latest` (x86_64) executando `cargo clippy` e `cargo test`.
-  - `.github/workflows/release.yml`: adicionados jobs `build-macos` (`idetea-<version>-aarch64-macos.tar.gz` com `IDE TEA.app` e binário CLI) e `build-windows` (`idetea-<version>-x86_64-windows.zip` com `idetea.exe`), integrados ao job `publish` com `SHA256SUMS`.
-  - `crates/tea-app/src/desktop.rs`: suporte a `--install-desktop` e `--uninstall-desktop` no macOS criando/removendo o bundle `~/Applications/IDE TEA.app`.
+  - `.github/workflows/ci.yml`: matriz de CI expandida para `ubuntu-latest`, `macos-latest` (ARM64) e `windows-latest` (x86_64) executando `cargo clippy` e `cargo test`.
+  - `.github/workflows/release.yml`: adicionados jobs `build-macos` (`idetea-<version>-aarch64-macos.tar.gz` com `IDE TEA.app` assinado via `codesign --sign -` e binário CLI) e `build-windows` (`idetea-<version>-x86_64-windows.zip` com `idetea.exe` e suporte condicional à SignPath Foundation), integrados ao job `publish` com `SHA256SUMS`.
+  - `crates/tea-app/src/desktop.rs`: suporte a `--install-desktop` e `--uninstall-desktop` no macOS criando/removendo o bundle `~/Applications/IDE TEA.app` com assinatura ad-hoc.
+
+---
+
+## 6. Assinatura de Código (Code Signing) Gratuita para Open Source
+
+### 6.1 macOS — Assinatura Ad-Hoc (`codesign --sign -`)
+- No Apple Silicon (`aarch64-apple-darwin`), o kernel exige que todo executável Mach-O e bundle `.app` tenha uma assinatura válida no Mach-O header.
+- Tanto o job `build-macos` em `.github/workflows/release.yml` quanto `idetea --install-desktop` em `crates/tea-app/src/desktop.rs` executam `codesign --force --deep --sign - "IDE TEA.app"`, que é **100% gratuito**, não exige conta paga da Apple e evita o erro *"IDE TEA.app está danificado"* ao alterar o bundle.
+- Para quem baixa o `.tar.gz` diretamente pelo navegador no macOS (sem certificado pago de US$ 99/ano da Apple), basta remover o atributo de quarentena uma única vez (`xattr -cr "IDE TEA.app"`) ou instalar via `cargo install` / Homebrew.
+
+### 6.2 Windows — SignPath Foundation (Gratuito para OSS)
+- A **[SignPath Foundation](https://signpath.org/)** oferece assinatura de código **100% gratuita** para projetos open-source com licença aprovada pela OSI (como a nossa `Apache-2.0`) e builds reprodutíveis no GitHub Actions, com reputação imediata no **Microsoft SmartScreen**.
+- O workflow `.github/workflows/release.yml` já contém o passo condicional `signpath/github-action-submit-signing-request@v1` que é ativado automaticamente assim que a variável de repositório `SIGNPATH_ORGANIZATION_ID` e o segredo `SIGNPATH_API_TOKEN` forem configurados no GitHub.

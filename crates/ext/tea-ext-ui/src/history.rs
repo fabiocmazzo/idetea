@@ -282,18 +282,22 @@ fn epoch(ts: &str) -> Option<i64> {
 /// Data e hora locais de um `timestamp`: (`AAAA-MM-DD`, `HH:MM`). Sem fuso conhecido, fica a UTC.
 pub fn local(ts: &str) -> Option<(String, String)> {
     let secs = epoch(ts)?;
-    // `time_t` é i32 em sistemas de 32 bits.
-    #[allow(clippy::useless_conversion)]
-    let t: libc::time_t = secs.try_into().ok()?;
-    // SAFETY: `localtime_r` só escreve no `tm` que passamos; os dois ponteiros valem durante a chamada.
-    let mut tm: libc::tm = unsafe { std::mem::zeroed() };
-    if unsafe { libc::localtime_r(&t, &mut tm) }.is_null() {
-        return Some((ts.get(..10)?.to_string(), ts.get(11..16)?.to_string()));
+    #[cfg(unix)]
+    {
+        // `time_t` é i32 em sistemas de 32 bits.
+        #[allow(clippy::useless_conversion)]
+        let t: libc::time_t = secs.try_into().ok()?;
+        // SAFETY: `localtime_r` só escreve no `tm` que passamos; os dois ponteiros valem durante a chamada.
+        let mut tm: libc::tm = unsafe { std::mem::zeroed() };
+        if !unsafe { libc::localtime_r(&t, &mut tm) }.is_null() {
+            return Some((
+                format!("{:04}-{:02}-{:02}", tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday),
+                format!("{:02}:{:02}", tm.tm_hour, tm.tm_min),
+            ));
+        }
     }
-    Some((
-        format!("{:04}-{:02}-{:02}", tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday),
-        format!("{:02}:{:02}", tm.tm_hour, tm.tm_min),
-    ))
+    let _ = secs;
+    Some((ts.get(..10)?.to_string(), ts.get(11..16)?.to_string()))
 }
 
 /// `AAAA-MM-DD HH:MM` local.

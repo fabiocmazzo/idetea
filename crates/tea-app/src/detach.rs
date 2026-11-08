@@ -61,8 +61,21 @@ pub fn spawn_exe(exe: &Path) -> std::io::Result<()> {
 }
 
 #[cfg(not(unix))]
-pub fn spawn_exe(_exe: &Path) -> std::io::Result<()> {
-    Err(std::io::Error::other("sem suporte"))
+pub fn spawn_exe(exe: &Path) -> std::io::Result<()> {
+    use std::process::{Command, Stdio};
+
+    let log = log_path().and_then(|p| open_log(&p).ok());
+    let (out, err) = match &log {
+        Some(f) => (Stdio::from(f.try_clone()?), Stdio::from(f.try_clone()?)),
+        None => (Stdio::null(), Stdio::null()),
+    };
+    Command::new(exe)
+        .args(std::env::args_os().skip(1))
+        .stdin(Stdio::null())
+        .stdout(out)
+        .stderr(err)
+        .spawn()
+        .map(drop)
 }
 
 /// Abre o log para acrescentar, começando de novo se passou de [`LOG_MAX`].
