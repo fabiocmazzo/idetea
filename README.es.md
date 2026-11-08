@@ -62,6 +62,11 @@ una extensión que puedes desactivar.
   del IDE para que lo apruebes.
 - **Un comando para enseñar a cualquier agente.** "Interfaces: enseñar a los agentes de este proyecto" escribe el
   protocolo en `AGENTS.md` y `CLAUDE.md`. Funciona con Claude Code, Codex y cualquier agente que lea esos archivos.
+- **Mascota reactiva (Tea) que acompaña a los agentes.** Una taza de té en pixel art en la esquina del IDE
+  (plegable en la barra de estado) reacciona en tiempo real: avisa cuando hay una pregunta o un pedido de terminal
+  esperando (un clic abre el panel correcto), hierve mientras un agente trabaja, celebra cuando termina, reacciona
+  con curiosidad o irritación si la molestas con el ratón, y acepta estados por CLI (`idetea mascot`) o paquetes
+  personalizados (`mascot.toml`).
 
 ## Instalación
 

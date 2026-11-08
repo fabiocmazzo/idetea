@@ -61,6 +61,11 @@ você pode desligar.
   da pilha (Rust, Python, FastAPI, site…) e um pedido inicial, e abre o agente num terminal da IDE para você aprovar.
 - **Um comando para ensinar qualquer agente.** "Interfaces: ensinar os agentes deste projeto" grava o protocolo no
   `AGENTS.md` e no `CLAUDE.md`. Funciona com o Claude Code, o Codex e qualquer agente que leia esses arquivos.
+- **Mascote reativo (Tea) que acompanha os agentes.** Uma xícara de chá em pixel art no canto da IDE (recolhível na
+  barra de status) reage em tempo real ao que está acontecendo: avisa quando há pergunta esperando ou pedido de
+  terminal (um clique abre o painel certo), ferve enquanto um agente trabalha, comemora quando termina, reage com
+  curiosidade ou irritação se você mexer com ela no mouse, e aceita estados pelo terminal (`idetea mascot`) ou
+  pacotes customizados (`mascot.toml`).
 
 ## Instalando
 

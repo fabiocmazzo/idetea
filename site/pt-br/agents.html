@@ -176,6 +176,10 @@ allow = ["npm run dev", "cargo test", "claude *"]</code></pre>
     <tr><td><code>idetea history</code></td>
       <td>O que você respondeu no painel, do mais velho para o mais novo (<code>--name</code>, <code>--since</code>,
         <code>--last N</code>, <code>--all</code>, <code>--json</code>). Útil para um agente que perdeu o contexto.</td></tr>
+    <tr><td><code>idetea mascot working --text "Compilando…"</code></td>
+      <td>Muda o humor e o balão do mascote reativo em tempo real (<code>idle</code>, <code>working</code>,
+        <code>thinking</code>, <code>attention</code>, <code>celebrating</code>, <code>error</code>,
+        <code>sleeping</code>, <code>curious</code>, <code>annoyed</code>, ou <code>clear</code>).</td></tr>
   </table></div>
   <p>Rode qualquer um sozinho para ver todas as opções.</p>
 </section>
@@ -196,6 +200,7 @@ allow = ["npm run dev", "cargo test", "claude *"]</code></pre>
     <li><code>.idetea/agents/&lt;nome&gt;.json</code>: um pedido de terminal; o andamento em
       <code>&lt;nome&gt;.status.json</code>.</li>
     <li><code>.idetea/state.json</code>: o que você tem aberto, para o <code>idetea status</code>.</li>
+    <li><code>.idetea/mascot.json</code>: estado e balão opcionais enviados por <code>idetea mascot</code>.</li>
     <li><code>.idetea/history/</code>: cada pergunta e resposta, até você apagar.</li>
   </ul>
   <p>Assim qualquer agente que lê e escreve arquivos consegue usar, e você pode ler cada mensagem. Os formatos

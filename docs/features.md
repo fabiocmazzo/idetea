@@ -107,7 +107,14 @@ All of it is plain files in the project's `.idetea/` folder, so any agent that r
   removes the worktree if it has nothing uncommitted; the branch always stays.
 - **Commands for agents:** `idetea ask` (a question in the panel, waiting for the answer), `idetea run` (a terminal,
   waiting for the end and the helper's answer), `idetea status` (what you have open, unsaved changes, the cursor) ,
-  `idetea open file:line` (shows you a file) and `idetea history` (what you answered in the panel). They do the file work above in one call, with the same approvals.
+  `idetea open file:line` (shows you a file), `idetea history` (what you answered in the panel) and `idetea mascot`
+  (real-time mascot state and speech bubble). They do the file work above in one call, with the same approvals.
+- **Reactive mascot (Tea):** a pixel-art teacup card in the bottom-right corner (collapsible into the status bar, or
+  toggled via the command palette) that watches `.idetea/` in real time (`idle`, `working`, `thinking`, `attention`,
+  `celebrating`, `error`, `sleeping`, plus interactive `curious` and `annoyed` expressions when hovered or poked with
+  the mouse). Clicking the speech bubble opens the Interfaces, Terminal or Problems panel. Agents or hooks can also
+  drive it directly via `idetea mascot <state> [--text "…"] [--source <name>] [--ttl <secs>]`, and custom sprite packs
+  work via `.idetea/mascot/mascot.toml` or `~/.config/idetea/mascots/<pack>/mascot.toml` (`[mascot] enabled = true`).
 - **Select and copy text:** "Select text" at the top of an interface (open or in the history) shows its texts in a
   read-only editor: select with the mouse, copy with Ctrl+C; "Show formatted" goes back.
 - **History of the questions:** the IDE keeps every question, your answer, your comment and when the agent read

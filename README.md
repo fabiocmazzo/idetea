@@ -62,6 +62,10 @@ extension you can turn off.
   you to approve.
 - **One command to teach any agent.** "Interfaces: teach this project's agents" writes the protocol into `AGENTS.md` and
   `CLAUDE.md`. It works with Claude Code, Codex and any agent that reads those files.
+- **Reactive mascot (Tea) that watches your agents.** A pixel-art teacup in the corner of the IDE (collapsible into
+  the status bar) reacts in real time: waves when a question or terminal request is waiting (one click opens the
+  right panel), steams while an agent is working, celebrates when it finishes, gets curious or annoyed when you poke
+  it with the mouse, and accepts states from the CLI (`idetea mascot`) or custom sprite packs (`mascot.toml`).
 
 ## Install
 
