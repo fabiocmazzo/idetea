@@ -23,7 +23,7 @@ impl Source {
         }
         let url = if spec.contains("://") || spec.starts_with("git@") {
             spec.to_string()
-        } else if cwd.join(spec).is_dir() {
+        } else if (spec.starts_with('.') || !spec.contains("..")) && cwd.join(spec).is_dir() {
             cwd.join(spec)
                 .canonicalize()
                 .ok()?

@@ -76,7 +76,13 @@ pub fn run(root: &Path, id: u32, command: &Command) -> RunOutput {
             Err(_) => break (None, false),
         }
     };
-    let join = |h: Option<std::thread::JoinHandle<String>>| h.and_then(|h| h.join().ok()).unwrap_or_default();
+    let join = |h: Option<std::thread::JoinHandle<String>>| {
+        if timed_out && cfg!(windows) {
+            String::new()
+        } else {
+            h.and_then(|h| h.join().ok()).unwrap_or_default()
+        }
+    };
     RunOutput {
         id,
         status,

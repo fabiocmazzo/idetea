@@ -165,7 +165,12 @@ mod tests {
             .iter()
             .flat_map(|f| {
                 f.matches.iter().map(move |m| {
-                    format!("{}:{}:{}", f.path.strip_prefix(root).unwrap().display(), m.line, m.column)
+                    format!(
+                        "{}:{}:{}",
+                        f.path.strip_prefix(root).unwrap().to_string_lossy().replace('\\', "/"),
+                        m.line,
+                        m.column
+                    )
                 })
             })
             .collect()
