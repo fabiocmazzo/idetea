@@ -124,7 +124,7 @@ Em cada linha: o que as outras fazem e o que o IDE TEA faz hoje.
 | | VS Code | JetBrains | Zed | Sublime | IDE TEA |
 |---|---|---|---|---|---|
 | Marcação de erros no texto (sublinhado) | sim | sim | sim | sim | **não** [Fato: `marks.rs` desenha breakpoints, exec e git, nada de diagnósticos] |
-| Zoom do editor (Ctrl+= / Ctrl+- / Ctrl+0) | sim | opt. | sim | sim | **não** — só o slider global do Settings [Fato] |
+| Zoom do editor (Ctrl+= / Ctrl+- / Ctrl+0) | sim | opt. | sim | sim | **sim** — também Ctrl+roda; temporário e compartilhado pelas abas |
 | Autosave (perder foco / atraso) | opt. | padrão | opt. | opt. | **não** [Fato: sem handler de foco] |
 | Soltar arquivo na janela abre | sim | sim | sim | sim | **não** [Fato: sem `FileDropped`] |
 | Minimap | sim | — | — | sim | **não** [Fato] |
@@ -243,3 +243,9 @@ atalhos no padrão VS Code):
   sobreposição); o app entrega cada evento do LSP ao editor da aba correspondente. Validação: clippy e
   todos os testes dos dois workspaces; teste manual aprovado pelo painel com erro e aviso do
   rust-analyzer, hover e desaparecimento das marcas após corrigir e salvar. Widget: commit `375327c`.
+- **2026-11-08 — zoom do editor concluído.** Ctrl+= / Ctrl++ aumentam, Ctrl+- reduz e Ctrl+0 volta ao
+  tamanho-base do config; Ctrl+roda faz o mesmo sem afetar os painéis. O zoom vale para todas as abas e
+  divisões, inclusive as novas, não muda a interface nem o terminal e não é persistido. Recarregar o config
+  preserva o ajuste, exceto quando muda o tamanho-base. Limites de 8 a 32 px, em passos de 1 px. Comandos e
+  títulos registrados nos três idiomas. Validação: clippy, todos os testes do workspace e teste manual
+  aprovado pelo painel.

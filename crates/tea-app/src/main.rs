@@ -368,6 +368,9 @@ const CORE_COMMANDS: &[(&str, &str)] = &[
     ("editor.unfold_all", "cmd-editor-unfold-all"),
     ("editor.toggle_fold", "cmd-editor-toggle-fold"),
     ("editor.toggle_vim", "cmd-editor-toggle-vim"),
+    ("editor.zoom_in", "cmd-editor-zoom-in"),
+    ("editor.zoom_out", "cmd-editor-zoom-out"),
+    ("editor.zoom_reset", "cmd-editor-zoom-reset"),
     ("lsp.definition", "cmd-lsp-definition"),
     ("lsp.references", "cmd-lsp-references"),
     ("lsp.implementation", "cmd-lsp-implementation"),
@@ -461,9 +464,45 @@ enum Edge {
     Split,
 }
 
+struct EditorZoom {
+    base: f32,
+    size: f32,
+}
+
+impl EditorZoom {
+    fn new(base: f32) -> Self {
+        Self { base, size: base }
+    }
+
+    fn size(&self) -> f32 {
+        self.size
+    }
+
+    fn adjust(&mut self, delta: f32) {
+        self.size = (self.size + delta).clamp(settings::FONT_MIN, settings::FONT_MAX);
+    }
+
+    fn reset(&mut self) {
+        self.size = self.base;
+    }
+
+    fn reload_base(&mut self, base: f32) {
+        if base != self.base {
+            self.base = base;
+            self.reset();
+        }
+    }
+}
+
+fn wheel_zoom(y: f32) -> Option<f32> {
+    (y != 0.0).then(|| y.signum())
+}
+
 struct App {
     root: PathBuf,
     config: Config,
+    editor_zoom: EditorZoom,
+    modifiers: keyboard::Modifiers,
     global_config: Option<PathBuf>,
     keymap: Keymap,
     theme: Theme,
@@ -606,6 +645,8 @@ enum Message {
     Frame(Instant),
     PointerOverPanel(bool),
     MousePressed,
+    ModifiersChanged(keyboard::Modifiers),
+    WheelScrolled(f32),
     /// Hora de copiar as abas com alterações (recuperação depois de um travamento).
     BackupTick,
     /// O executável da IDE mudou no disco.
@@ -672,6 +713,8 @@ impl App {
             root,
             global_config,
             keymap,
+            editor_zoom: EditorZoom::new(config.ui.font_size),
+            modifiers: keyboard::Modifiers::empty(),
             theme,
             tabs: Vec::new(),
             active: 0,
@@ -982,7 +1025,7 @@ impl App {
             editor.set_diff_base(Some(base.clone()));
         }
         editor.set_theme(&self.theme);
-        editor.set_code_font(self.config.ui.font_size, self.code_font());
+        editor.set_code_font(self.editor_zoom.size(), self.code_font());
         editor.set_options(&self.editor_options(editor));
     }
 
@@ -2500,8 +2543,9 @@ impl App {
         self.keymap = keymap;
         self.lsp.update_config(&config.lsp);
         self.config = config;
+        self.editor_zoom.reload_base(self.config.ui.font_size);
         self.set_theme(theme);
-        let (font_size, code_font) = (self.config.ui.font_size, self.code_font());
+        let (font_size, code_font) = (self.editor_zoom.size(), self.code_font());
         for tab in &mut self.tabs {
             tab.editor.set_code_font(font_size, code_font);
         }
@@ -2661,6 +2705,18 @@ impl App {
             "editor.split" => self.move_to_other_side(self.tabs[self.active].id),
             "editor.focus_left" => self.focus_side(false),
             "editor.focus_right" => self.focus_side(true),
+            "editor.zoom_in" | "editor.zoom_out" | "editor.zoom_reset" => {
+                match id {
+                    "editor.zoom_in" => self.editor_zoom.adjust(1.0),
+                    "editor.zoom_out" => self.editor_zoom.adjust(-1.0),
+                    _ => self.editor_zoom.reset(),
+                }
+                let (font_size, code_font) = (self.editor_zoom.size(), self.code_font());
+                for tab in &mut self.tabs {
+                    tab.editor.set_code_font(font_size, code_font);
+                }
+                Task::none()
+            }
             "theme.toggle" => {
                 let next = if self.theme.extended_palette().is_dark { LIGHT_THEME } else { DARK_THEME };
                 self.set_theme(next);
@@ -3876,6 +3932,19 @@ impl App {
                 }
                 Task::none()
             }
+            Message::ModifiersChanged(modifiers) => {
+                self.modifiers = modifiers;
+                Task::none()
+            }
+            Message::WheelScrolled(y) => {
+                if self.modifiers.control()
+                    && !self.pointer_over_panel
+                    && let Some(delta) = wheel_zoom(y)
+                {
+                    return self.run_command(if delta > 0.0 { "editor.zoom_in" } else { "editor.zoom_out" });
+                }
+                Task::none()
+            }
             Message::CloseRequested => {
                 self.restart = false;
                 self.request_quit()
@@ -3917,9 +3986,19 @@ impl App {
                 modifiers,
                 captured: status == iced::event::Status::Captured,
             }),
+            iced::Event::Keyboard(keyboard::Event::ModifiersChanged(modifiers)) => {
+                Some(Message::ModifiersChanged(modifiers))
+            }
             iced::Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Back)) => Some(Message::Nav(false)),
             iced::Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Forward)) => Some(Message::Nav(true)),
             iced::Event::Mouse(mouse::Event::ButtonPressed(_)) => Some(Message::MousePressed),
+            iced::Event::Mouse(mouse::Event::WheelScrolled { delta }) => {
+                let y = match delta {
+                    mouse::ScrollDelta::Lines { y, .. } => y,
+                    mouse::ScrollDelta::Pixels { y, .. } => y,
+                };
+                Some(Message::WheelScrolled(y))
+            }
             _ => None,
         });
         let close = window::close_requests().map(|_| Message::CloseRequested);
@@ -4455,6 +4534,62 @@ mod tests {
         let (t, err) = resolve_theme("inexistente");
         assert_eq!(t, DARK_THEME);
         assert!(err.is_some());
+    }
+
+    #[test]
+    fn editor_zoom_changes_size_with_limits_and_reset() {
+        let mut zoom = EditorZoom::new(14.0);
+        zoom.adjust(1.0);
+        assert_eq!(zoom.size(), 15.0);
+        zoom.adjust(-2.0);
+        assert_eq!(zoom.size(), 13.0);
+        for _ in 0..30 {
+            zoom.adjust(1.0);
+        }
+        assert_eq!(zoom.size(), settings::FONT_MAX);
+        for _ in 0..40 {
+            zoom.adjust(-1.0);
+        }
+        assert_eq!(zoom.size(), settings::FONT_MIN);
+        zoom.reset();
+        assert_eq!(zoom.size(), 14.0);
+    }
+
+    #[test]
+    fn editor_zoom_only_resets_when_the_configured_base_changes() {
+        let mut zoom = EditorZoom::new(14.0);
+        zoom.adjust(3.0);
+        zoom.reload_base(14.0);
+        assert_eq!(zoom.size(), 17.0);
+        zoom.reload_base(16.0);
+        assert_eq!(zoom.size(), 16.0);
+    }
+
+    #[test]
+    fn ctrl_wheel_zooms_up_or_down() {
+        assert_eq!(wheel_zoom(1.0), Some(1.0));
+        assert_eq!(wheel_zoom(-0.5), Some(-1.0));
+        assert_eq!(wheel_zoom(0.0), None);
+    }
+
+    #[test]
+    fn default_keys_include_editor_zoom() {
+        use iced::keyboard::{Key, Modifiers};
+        let cfg = Config::from_layers(&[("padrão".into(), config::DEFAULT_CONFIG.into())]);
+        let (keymap, errors) = Keymap::from_pairs(cfg.keys.iter().map(|(k, c)| (k.as_str(), c.as_str())));
+        assert!(errors.is_empty(), "{errors:?}");
+        let command = |key: &str, modifiers| {
+            let key = Key::Character(key.into());
+            keymap.command_for_event(&key, &key, modifiers)
+        };
+        assert_eq!(command("=", Modifiers::CTRL), Some("editor.zoom_in"));
+        assert_eq!(command("-", Modifiers::CTRL), Some("editor.zoom_out"));
+        assert_eq!(command("0", Modifiers::CTRL), Some("editor.zoom_reset"));
+
+        let plus = Key::Character("+".into());
+        assert_eq!(keymap.command_for_event(&plus, &plus, Modifiers::CTRL), Some("editor.zoom_in"));
+        let equals = Key::Character("=".into());
+        assert_eq!(keymap.command_for_event(&equals, &plus, Modifiers::CTRL | Modifiers::SHIFT), Some("editor.zoom_in"));
     }
 
     #[test]

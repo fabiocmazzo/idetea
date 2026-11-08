@@ -13,6 +13,8 @@ The full list, for the technical reader. For the short version, see the [README]
   [Ziex](https://ziex.dev) `.zx`…); light and dark themes (plus iced's themes: Nord, Dracula…). More languages:
   put `.sublime-syntax` files in `~/.config/idetea/syntaxes/` (read when the IDE opens).
 - Find and replace, go to line, undo/redo, multi-cursor, code folding and an optional vim mode.
+- Temporary editor zoom (`Ctrl+=` / `Ctrl++`, `Ctrl+-`, `Ctrl+0` or `Ctrl+wheel`), shared by open tabs and splits;
+  the terminal and the configured base size stay unchanged.
 - Markdown and SVG preview next to the editor (`Ctrl+Shift+V` or the button on the tab bar), updated as you type.
 - Images (png, jpg, gif, webp, bmp, ico…) open in a tab, with mouse-wheel zoom and drag.
 - PDF opens in a tab (rendered by `hayro`, pure Rust), with zoom and fit to width.
