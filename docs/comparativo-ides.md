@@ -39,6 +39,7 @@ Este documento faz uma avaliação técnica, direta e sem maquiagem da **IDE TEA
    - As extensões internas comunicam-se com o núcleo apenas por mensagens e eventos (`Request` / `CoreEvent`), sem compartilhar referências mutáveis do estado da aplicação.
 3. **Proteção contra perda de trabalho:**
    - Fechar aba ou sair da IDE com alterações não salvas sempre pede confirmação.
+   - **Recuperação automática de falhas (`backup.rs`):** abas com alterações não salvas são gravadas em `$XDG_STATE_HOME/idetea/backups/<projeto>/` por PID e oferecidas para restauração se a janela fechar inesperadamente.
    - Apagar arquivos na árvore envia para a **lixeira do sistema** (não dá `unlink` irreversível).
    - Mudanças externas no disco (`git checkout`, `cargo fmt`, agentes editando arquivos) são detectadas pelo watcher: abas sem edição local recarregam sozinhas; abas com edição local não salva **nunca** são sobrescritas silenciosamente.
    - Arquivos binários ou não-UTF-8 são recusados com aviso claro em vez de corromperem o buffer ao salvar.
@@ -48,7 +49,7 @@ Este documento faz uma avaliação técnica, direta e sem maquiagem da **IDE TEA
 1. **Testada apenas em Linux (Wayland):** hoje a IDE TEA é desenvolvida e validada no Linux. Em macOS e Windows há diferenças reais de empacotamento, fontes, atalhos (`Cmd` vs `Ctrl`), PTY do terminal (`conpty` no Windows) e caminhos que ainda não passaram por fogo real. VS Code, JetBrains e Zed rodam de forma madura nos três sistemas.
 2. **Limitações do ecossistema `iced` 0.14 para aplicações complexas:**
    - A IDE opera em janela única (`iced::application`). Não é possível destacar um terminal, uma prévia ou um editor para um segundo monitor em outra janela nativa do SO.
-   - Não há *crash recovery* com *hot-stash* automático do texto não salvo (como o *Hot Exit* do VS Code ou o *Local History* do JetBrains): se o processo tomar um `SIGKILL` ou faltar energia antes de você dar `Ctrl+S`, o texto digitado em memória na aba se perde.
+   - Não há histórico local contínuo por arquivo (*Local History* / *Timeline* ao longo de dias sem Git, como no JetBrains e VS Code).
 3. **Destaque de sintaxe baseado em regex (`syntect`) vs. `tree-sitter`:**
    - Embora a IDE TEA tenha um modo leve excelente para arquivos de 50 MB ou linhas minificadas gigantes, em arquivos de código normais com milhares de linhas o `syntect` (baseado em gramáticas `.sublime-syntax` com regex) é estruturalmente menos resiliente a código incompleto do que o `tree-sitter` usado por Zed, Helix e Neovim.
 
@@ -88,18 +89,17 @@ A IDE TEA assume que **os melhores agentes já rodam no terminal** (Claude Code,
 
 ### O que já está sólido na IDE TEA
 - Abertura rápida de arquivos (`Ctrl+P` com busca fuzzy e salto `arquivo:linha`), símbolos no arquivo (`Ctrl+Shift+O`) e no projeto (`Ctrl+T`).
-- Multi-cursor, seleção palavra por palavra (`Ctrl+Setas`), `Shift+Clique`, dobramento de código (folding), desfazer/refazer, busca e substituição.
+- Multi-cursor, seleção palavra por palavra (`Ctrl+Setas`), `Shift+Clique`, dobramento de código (folding), desfazer/refazer, busca e substituição no arquivo e **substituição em todo o projeto (`Ctrl+Shift+H`)** com prévia linha a linha e suporte a regex.
 - Zoom temporário do editor (`Ctrl+=`, `Ctrl+-`, `Ctrl+0`, `Ctrl+Scroll`) sincronizado entre abas e splits sem afetar o resto da UI.
 - Divisão do editor lado a lado (split), breadcrumbs clicáveis (`projeto › pasta › arquivo › símbolo`), ícones Seti por linguagem e fontes customizáveis com ligaduras (`JetBrains Mono` embutida).
 - Modo Vim opcional.
 - Abas nativas para imagens (com zoom e arrasto), PDF (renderizado em Rust puro via `hayro`) e prévia lado a lado de Markdown e SVG em tempo real.
 
 ### O que falta no editor comparado a VS Code, Zed e JetBrains
-1. **Substituição com Regex e Case-Preserving no editor:** a busca no projeto (`Ctrl+Shift+F`) tem regex, mas a substituição em massa no projeto todo (*Search & Replace across files*) ainda não existe — apenas busca/substituição no arquivo atual.
-2. **Snippets:** não há motor de snippets (Tab-stops `$1`, `$2`) para expandir blocos rápidos de código.
-3. ** Seleções estruturais por AST (Expand/Shrink Selection):** em Zed, Helix e JetBrains, um atalho expande a seleção da palavra → expressão → bloco `if` → função inteira via `tree-sitter`/AST.
-4. **Encodings legados:** só abre UTF-8 (preservando LF/CRLF). Quem trabalha com arquivos `ISO-8859-1` / `Windows-1252` não consegue editá-los na IDE TEA.
-5. **Múltiplas janelas / múltiplos projetos na mesma instância:** cada projeto é um processo `idetea` separado; não há "Multi-root Workspaces" na mesma janela.
+1. **Snippets:** não há motor de snippets (Tab-stops `$1`, `$2`) para expandir blocos rápidos de código.
+2. **Seleções estruturais por AST (Expand/Shrink Selection):** em Zed, Helix e JetBrains, um atalho expande a seleção da palavra → expressão → bloco `if` → função inteira via `tree-sitter`/AST.
+3. **Encodings legados:** só abre UTF-8 (preservando LF/CRLF). Quem trabalha com arquivos `ISO-8859-1` / `Windows-1252` não consegue editá-los na IDE TEA.
+4. **Múltiplas janelas / múltiplos projetos na mesma instância:** cada projeto é um processo `idetea` separado; não há "Multi-root Workspaces" na mesma janela.
 
 ---
 
@@ -172,5 +172,5 @@ Se o objetivo for reduzir a distância funcional para VS Code e Zed mantendo o b
 1. **Code Actions / Quick Fixes do LSP (`Ctrl+.`):** permitir aplicar os *quick fixes* e *imports* automáticos que o servidor LSP já sabe calcular. É o item nº 1 que mais faz falta ao programar em Rust/TS.
 2. **Marcações de Git no Editor (Gutter Diff) + Troca de Branch na Status Bar:** mostrar linhas adicionadas/modificadas na margem do editor e permitir clicar no nome da branch na barra de status para trocar de branch na paleta.
 3. **Atalho "Enviar Seleção / Diagnóstico para o Agente" (`Ctrl+L`):** fechar o ciclo entre o editor/LSP e o agente rodando no terminal integrado.
-4. **Substituição em Massa no Projeto (`Ctrl+Shift+H`):** aproveitar a busca rápida que já existe em `tea-ext-search` para permitir substituir texto/regex em múltiplos arquivos com prévia.
-5. **Auto-save / Backup de Recuperação (Crash Recovery):** gravar um snapshot leve em `.idetea/` das abas com modificações não salvas a cada poucos segundos, garantindo perda zero mesmo em queda de energia.
+4. **Inlay Hints do LSP (tipos inferidos e nomes de parâmetros opcionais):** exibir dicas de tipo inline com um atalho rápido para ligar/desligar.
+5. **Portabilidade para macOS e Windows + Mais adaptadores DAP (`lldb-dap`, `debugpy`, `delve`):** abrir a IDE para desenvolvedores fora do Linux e suportar debug além do GDB.
