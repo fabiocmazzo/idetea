@@ -39,7 +39,7 @@ impl Debugger {
         self.session.is_some() && generation == self.generation
     }
 
-    /// Inicia o `gdb` com o programa. `breakpoints`: arquivo → linhas (1-based).
+    /// Inicia o adaptador de debug (`gdb` ou `lldb-dap`) com o programa. `breakpoints`: arquivo → linhas (1-based).
     pub fn start(
         &mut self,
         program: PathBuf,
@@ -47,10 +47,9 @@ impl Debugger {
         cwd: PathBuf,
         breakpoints: HashMap<PathBuf, Vec<usize>>,
     ) -> Result<(), String> {
-        let adapter = AdapterConfig::gdb();
-        if tea_lsp::find_in_path(&adapter.command).is_none() {
+        let Some(adapter) = AdapterConfig::detect() else {
             return Err(fl!("debug-no-gdb"));
-        }
+        };
         if !program.is_file() {
             return Err(fl!("debug-program-not-found", path = program.display().to_string()));
         }

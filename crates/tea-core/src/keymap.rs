@@ -34,6 +34,16 @@ impl Chord {
                 "alt" | "option" => chord.alt = true,
                 "shift" => chord.shift = true,
                 "cmd" | "super" | "meta" | "logo" => chord.logo = true,
+                "mod" => {
+                    #[cfg(target_os = "macos")]
+                    {
+                        chord.logo = true;
+                    }
+                    #[cfg(not(target_os = "macos"))]
+                    {
+                        chord.ctrl = true;
+                    }
+                }
                 other => return Err(fl!("chord-unknown-modifier", modifier = format!("{other:?}"))),
             }
         }
@@ -106,6 +116,12 @@ impl Chord {
         let named = self.key.chars().count() > 1; // f5, pageup, escape...
         named || self.ctrl || self.alt || self.logo
     }
+
+    /// No macOS, um atalho com `Cmd` (`logo`) sem `Ctrl` também casa com o atalho padrão `Ctrl` equivalente
+    /// caso não haja um binding específico para `Cmd`.
+    pub fn macos_ctrl_fallback(&self) -> Option<Self> {
+        (self.logo && !self.ctrl).then(|| Self { ctrl: true, logo: false, ..self.clone() })
+    }
 }
 
 impl fmt::Display for Chord {
@@ -164,7 +180,16 @@ impl Keymap {
     }
 
     pub fn command_for(&self, chord: &Chord) -> Option<&str> {
-        self.bindings.get(chord).map(String::as_str)
+        if let Some(cmd) = self.bindings.get(chord) {
+            return Some(cmd.as_str());
+        }
+        #[cfg(target_os = "macos")]
+        if let Some(fallback) = chord.macos_ctrl_fallback()
+            && let Some(cmd) = self.bindings.get(&fallback)
+        {
+            return Some(cmd.as_str());
+        }
+        None
     }
 
     /// Comando de uma tecla apertada. `key` é a tecla sem modificadores; sem atalho para ela, vale o caractere
@@ -198,15 +223,20 @@ impl Keymap {
     }
 
     /// Atalhos da IDE que valem mesmo com o foco num painel que usa o teclado todo
-    /// (ex.: terminal): os com Ctrl+Shift (menos copiar/colar) e Ctrl+PageUp/PageDown.
+    /// (ex.: terminal): os com Ctrl+Shift (ou Cmd+Shift no macOS, menos copiar/colar) e Ctrl/Cmd+PageUp/PageDown.
     /// O resto (Ctrl+letra, F-teclas...) fica com o painel.
     pub fn wins_over_panels(&self, chord: &Chord) -> bool {
-        if self.command_for(chord).is_none() || chord.alt || chord.logo {
+        if self.command_for(chord).is_none() || chord.alt {
             return false;
         }
-        let ctrl_shift = chord.ctrl && chord.shift && !matches!(chord.key.as_str(), "c" | "v");
-        let tab_switch = chord.ctrl && !chord.shift && matches!(chord.key.as_str(), "pageup" | "pagedown");
-        ctrl_shift || tab_switch
+        #[cfg(target_os = "macos")]
+        let primary = (chord.ctrl ^ chord.logo);
+        #[cfg(not(target_os = "macos"))]
+        let primary = chord.ctrl && !chord.logo;
+
+        let mod_shift = primary && chord.shift && !matches!(chord.key.as_str(), "c" | "v");
+        let tab_switch = primary && !chord.shift && matches!(chord.key.as_str(), "pageup" | "pagedown");
+        mod_shift || tab_switch
     }
 }
 
@@ -248,6 +278,13 @@ mod tests {
         let c = Chord::parse("Ctrl+Shift+P").unwrap();
         assert!(c.ctrl && c.shift && !c.alt && !c.logo);
         assert_eq!(c.key, "p");
+
+        let cmd_s = Chord::parse("cmd+s").unwrap();
+        assert_eq!(cmd_s.macos_ctrl_fallback(), Some(Chord::parse("ctrl+s").unwrap()));
+        assert_eq!(Chord::parse("ctrl+s").unwrap().macos_ctrl_fallback(), None);
+
+        let mod_s = Chord::parse("mod+s").unwrap();
+        assert!(mod_s.is_bindable());
         assert_eq!(c.to_string(), "Ctrl+Shift+P");
     }
 

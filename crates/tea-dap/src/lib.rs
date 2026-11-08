@@ -33,6 +33,45 @@ impl AdapterConfig {
     pub fn gdb() -> Self {
         Self { name: "gdb".into(), command: "gdb".into(), args: vec!["-q".into(), "-i".into(), "dap".into()] }
     }
+
+    /// `lldb-dap` (macOS Xcode Command Line Tools / LLVM): fala DAP direto na entrada/saída padrão.
+    pub fn lldb_dap() -> Self {
+        Self { name: "lldb-dap".into(), command: "lldb-dap".into(), args: Vec::new() }
+    }
+
+    /// Escolhe o adaptador de debug instalado no sistema:
+    /// - No macOS, prefere `lldb-dap` (no `PATH` ou no Xcode Command Line Tools) e cai para `gdb`.
+    /// - No Linux e Windows, prefere `gdb` e cai para `lldb-dap`.
+    pub fn detect() -> Option<Self> {
+        #[cfg(target_os = "macos")]
+        {
+            if let Some(path) = tea_lsp::find_in_path("lldb-dap") {
+                return Some(Self { command: path.to_string_lossy().into_owned(), ..Self::lldb_dap() });
+            }
+            for xcode_path in [
+                "/Library/Developer/CommandLineTools/usr/bin/lldb-dap",
+                "/Applications/Xcode.app/Contents/Developer/usr/bin/lldb-dap",
+            ] {
+                if Path::new(xcode_path).is_file() {
+                    return Some(Self { command: xcode_path.into(), ..Self::lldb_dap() });
+                }
+            }
+            if let Some(path) = tea_lsp::find_in_path("gdb") {
+                return Some(Self { command: path.to_string_lossy().into_owned(), ..Self::gdb() });
+            }
+            None
+        }
+        #[cfg(not(target_os = "macos"))]
+        {
+            if let Some(path) = tea_lsp::find_in_path("gdb") {
+                return Some(Self { command: path.to_string_lossy().into_owned(), ..Self::gdb() });
+            }
+            if let Some(path) = tea_lsp::find_in_path("lldb-dap") {
+                return Some(Self { command: path.to_string_lossy().into_owned(), ..Self::lldb_dap() });
+            }
+            None
+        }
+    }
 }
 
 /// O programa a depurar.

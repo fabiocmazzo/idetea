@@ -71,6 +71,7 @@ fn cli_language(cwd: &std::path::Path) {
 
 fn main() -> iced::Result {
     STARTED.get_or_init(Instant::now);
+    tea_core::os::ensure_gui_path();
     let cwd = std::env::current_dir().unwrap_or_default();
     let env_no_splash = cli::env_flag(std::env::var_os("IDETEA_NO_SPLASH"));
     match cli::parse(std::env::args_os().skip(1), &cwd, env_no_splash) {

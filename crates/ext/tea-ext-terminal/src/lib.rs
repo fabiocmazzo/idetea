@@ -37,6 +37,7 @@ const PANEL: PanelId = PanelId("terminal");
 /// Roda a tarefa (`$1`), mostra o fim (`$2` código `$3`) e espera o Enter. O `trap` faz o `Ctrl+C` parar só o
 /// comando: o shell do script continua para mostrar o código. O comando vai como argumento (sem aspas para
 /// escapar) e o `eval` deixa usar `&&`, pipes e variáveis.
+#[cfg(unix)]
 const TASK_SCRIPT: &str = r#"trap true INT
 printf '\033[1m$ %s\033[0m\n' "$1"
 ( eval "$1" )
@@ -46,6 +47,7 @@ read _"#;
 
 /// Como o `TASK_SCRIPT`, para o terminal de um agente; antes de mostrar o fim, grava o status `exited` com o código
 /// (`$2` o arquivo, `$3` o pid da IDE) pelo mesmo caminho do temporário. `$4` código `$5` é o texto do fim.
+#[cfg(unix)]
 const AGENT_SCRIPT: &str = r#"trap true INT
 printf '\033[1m$ %s\033[0m\n' "$1"
 ( eval "$1" )
@@ -53,6 +55,41 @@ c=$?
 printf '{"format":"idetea-terminal-status","version":1,"state":"exited","ide":%s,"code":%s%s}\n' "$3" "$c" "$6" > "$2.tmp" && mv -f "$2.tmp" "$2"
 printf '\n\033[2m%s%s%s\033[0m\n' "$4" "$c" "$5"
 read _"#;
+
+/// Equivalente do `TASK_SCRIPT` para Windows (PowerShell), lendo os parâmetros das variáveis `IDETEA_*`.
+#[cfg(windows)]
+const WINDOWS_TASK_SCRIPT: &str = r#"Write-Host "`e[1m$ $($env:IDETEA_CMD)`e[0m"
+cmd.exe /C $env:IDETEA_CMD
+$c = $LASTEXITCODE
+Write-Host "`n`e[2m$($env:IDETEA_BEFORE)$c$($env:IDETEA_AFTER)`e[0m"
+[void][Console]::ReadLine()"#;
+
+/// Equivalente do `AGENT_SCRIPT` para Windows (PowerShell), gravando o status de forma atômica.
+#[cfg(windows)]
+const WINDOWS_AGENT_SCRIPT: &str = r#"Write-Host "`e[1m$ $($env:IDETEA_CMD)`e[0m"
+cmd.exe /C $env:IDETEA_CMD
+$c = $LASTEXITCODE
+$json = "{`"format`":`"idetea-terminal-status`",`"version`":1,`"state`":`"exited`",`"ide`":$($env:IDETEA_PID),`"code`":$c$($env:IDETEA_TAIL)}`n"
+[IO.File]::WriteAllText("$($env:IDETEA_STATUS).tmp", $json)
+Move-Item -Force "$($env:IDETEA_STATUS).tmp" $env:IDETEA_STATUS
+Write-Host "`n`e[2m$($env:IDETEA_BEFORE)$c$($env:IDETEA_AFTER)`e[0m"
+[void][Console]::ReadLine()"#;
+
+/// O shell interativo padrão do sistema operacional.
+pub fn default_shell() -> String {
+    #[cfg(unix)]
+    {
+        std::env::var("SHELL").ok().filter(|s| !s.is_empty()).unwrap_or_else(|| "/bin/sh".into())
+    }
+    #[cfg(windows)]
+    {
+        tea_core::os::find_in_path("pwsh.exe")
+            .or_else(|| tea_core::os::find_in_path("powershell.exe"))
+            .map(|p| p.to_string_lossy().into_owned())
+            .or_else(|| std::env::var("COMSPEC").ok().filter(|s| !s.is_empty()))
+            .unwrap_or_else(|| "cmd.exe".into())
+    }
+}
 
 /// De quanto em quanto tempo olhar a pasta dos pedidos (só `stat`).
 const AGENTS_POLL: Duration = Duration::from_millis(500);
@@ -201,7 +238,7 @@ impl TerminalExtension {
     /// Abre um shell numa aba nova e mostra.
     fn start(&mut self, ctx: &mut Context) -> bool {
         self.next_id += 1;
-        let shell = std::env::var("SHELL").ok().filter(|s| !s.is_empty()).unwrap_or_else(|| "/bin/sh".into());
+        let shell = default_shell();
         match self.new_terminal(self.settings(shell, Vec::new(), &self.root.clone())) {
             Ok(term) => {
                 // A numeração recomeça quando não sobra nenhum.
@@ -244,8 +281,25 @@ impl TerminalExtension {
         self.next_id += 1;
         self.task = None;
         let (before, after) = done.split_once("{code}").unwrap_or((done, ""));
-        let args = ["-c", TASK_SCRIPT, "sh", command, before, after].map(str::to_string).to_vec();
-        match self.new_terminal(self.settings("/bin/sh".into(), args, cwd)) {
+        #[cfg(unix)]
+        let settings = {
+            let args = ["-c", TASK_SCRIPT, "sh", command, before, after].map(str::to_string).to_vec();
+            self.settings("/bin/sh".into(), args, cwd)
+        };
+        #[cfg(windows)]
+        let settings = {
+            let ps = tea_core::os::find_in_path("pwsh.exe")
+                .or_else(|| tea_core::os::find_in_path("powershell.exe"))
+                .map(|p| p.to_string_lossy().into_owned())
+                .unwrap_or_else(|| "powershell.exe".into());
+            let args = ["-NoLogo", "-NoProfile", "-Command", WINDOWS_TASK_SCRIPT].map(str::to_string).to_vec();
+            let mut s = self.settings(ps, args, cwd);
+            s.backend.env.insert("IDETEA_CMD".into(), command.to_string());
+            s.backend.env.insert("IDETEA_BEFORE".into(), before.to_string());
+            s.backend.env.insert("IDETEA_AFTER".into(), after.to_string());
+            s
+        };
+        match self.new_terminal(settings) {
             Ok(term) => {
                 self.task = Some(TaskTerm { term, name: name.to_string() });
                 self.shown = Shown::Task;
@@ -485,10 +539,29 @@ impl TerminalExtension {
         let extra = agents::extra(&request.name, request.worktree.as_deref());
         // O mesmo `extra` no `exited` que o script grava: `,"chave":valor,...` (JSON já escapado).
         let tail: String = extra.iter().map(|(k, v)| format!(",{}:{v}", serde_json::Value::from(k.as_str()))).collect();
-        let args = ["-c", AGENT_SCRIPT, "sh", &request.command, &status, &pid, before, after, &tail].map(str::to_string).to_vec();
         // `running` antes de subir: o script grava `exited` por cima no fim.
         let _ = agents::write_status_with(&self.root, &request.name, &agents::State::Running, &extra);
-        let mut settings = self.settings("/bin/sh".into(), args, &cwd);
+        #[cfg(unix)]
+        let mut settings = {
+            let args = ["-c", AGENT_SCRIPT, "sh", &request.command, &status, &pid, before, after, &tail].map(str::to_string).to_vec();
+            self.settings("/bin/sh".into(), args, &cwd)
+        };
+        #[cfg(windows)]
+        let mut settings = {
+            let ps = tea_core::os::find_in_path("pwsh.exe")
+                .or_else(|| tea_core::os::find_in_path("powershell.exe"))
+                .map(|p| p.to_string_lossy().into_owned())
+                .unwrap_or_else(|| "powershell.exe".into());
+            let args = ["-NoLogo", "-NoProfile", "-Command", WINDOWS_AGENT_SCRIPT].map(str::to_string).to_vec();
+            let mut s = self.settings(ps, args, &cwd);
+            s.backend.env.insert("IDETEA_CMD".into(), request.command.clone());
+            s.backend.env.insert("IDETEA_STATUS".into(), status);
+            s.backend.env.insert("IDETEA_PID".into(), pid);
+            s.backend.env.insert("IDETEA_BEFORE".into(), before.to_string());
+            s.backend.env.insert("IDETEA_AFTER".into(), after.to_string());
+            s.backend.env.insert("IDETEA_TAIL".into(), tail);
+            s
+        };
         let answer = agents::answer_path(&self.root, &request.name).to_string_lossy().into_owned();
         settings.backend.env.insert("IDETEA_ANSWER".into(), answer);
         match self.new_terminal(settings) {
@@ -915,6 +988,7 @@ mod tests {
     }
 
     /// O script da tarefa: o comando roda com `&&` e variáveis, e o fim mostra o código de saída.
+    #[cfg(unix)]
     #[test]
     fn task_script_reports_exit_code() {
         let out = std::process::Command::new("/bin/sh")
@@ -1088,6 +1162,7 @@ mod tests {
     }
 
     /// O script do agente grava o status `exited` com o código, num JSON que a IDE lê.
+    #[cfg(unix)]
     #[test]
     fn a_helper_runs_in_its_worktree_and_answers_in_a_file() {
         let root = std::env::temp_dir().join(format!("idetea-agent-worktree-{}", std::process::id()));
@@ -1145,6 +1220,7 @@ mod tests {
         let _ = std::fs::remove_dir_all(&root);
     }
 
+    #[cfg(unix)]
     #[test]
     fn agent_script_writes_the_exit_code() {
         let dir = std::env::temp_dir().join(format!("idetea-agent-script-{}", std::process::id()));
