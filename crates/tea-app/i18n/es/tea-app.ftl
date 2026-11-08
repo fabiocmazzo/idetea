@@ -545,6 +545,17 @@ mascot-state-attention = Atención
 mascot-state-celebrating = ¡Listo!
 mascot-state-error = Error
 mascot-state-sleeping = Durmiendo
+mascot-state-curious = Curioso
+mascot-state-annoyed = Irritado
+mascot-hover-curious-1 = ¿Hmm? ¿Necesitas algo?
+mascot-hover-curious-2 = ¡Hola! ¿Todo bien por ahí?
+mascot-hover-annoyed-1 = ¡Oye! ¡Me vas a marear y derramar el té!
+mascot-hover-annoyed-2 = ¡Deja de sacudir el ratón! ¡El té está hirviendo!
+mascot-poke-curious-1 = ¿Hmm? ¿Qué pasa?
+mascot-poke-curious-2 = ¡Oye! ¡Eso le hace cosquillas a la taza!
+mascot-poke-annoyed-1 = ¡Cuidado! ¡Vas a derramar el té!
+mascot-poke-annoyed-2 = ¡Deja de hacer clic! ¡El té ya está hirviendo!
+mascot-poke-annoyed-3 = ¡GRRR! ¡Un clic más y enfrío tu código!
 mascot-bubble-task = Tarea: { $name }
 mascot-bubble-terminal-pending = Pedido de terminal: { $title }
 mascot-bubble-terminal-running = Ejecutando: { $title }
@@ -563,5 +574,5 @@ mascot-usage =
          idetea mascot clear
          idetea mascot status [--json]
     
-    Estados: idle, working, thinking, attention, celebrating, error, sleeping.
+    Estados: idle, working, thinking, attention, celebrating, error, sleeping, curious, annoyed.
     Escribe .idetea/mascot.json para que la mascota del IDE reaccione en tiempo real (expira tras --ttl, por defecto 30s).

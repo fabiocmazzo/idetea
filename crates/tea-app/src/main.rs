@@ -4046,6 +4046,22 @@ impl App {
                         None => Task::none(),
                     }
                 }
+                mascot::Msg::PointerEntered => {
+                    self.mascot.on_pointer_entered();
+                    Task::none()
+                }
+                mascot::Msg::PointerMoved(pt) => {
+                    self.mascot.on_pointer_moved(pt);
+                    Task::none()
+                }
+                mascot::Msg::PointerExited => {
+                    self.mascot.on_pointer_exited();
+                    Task::none()
+                }
+                mascot::Msg::Poke => {
+                    self.mascot.on_poke();
+                    Task::none()
+                }
             },
         }
     }

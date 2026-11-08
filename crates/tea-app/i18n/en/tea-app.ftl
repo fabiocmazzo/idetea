@@ -545,6 +545,17 @@ mascot-state-attention = Attention
 mascot-state-celebrating = Done!
 mascot-state-error = Error
 mascot-state-sleeping = Sleeping
+mascot-state-curious = Curious
+mascot-state-annoyed = Annoyed
+mascot-hover-curious-1 = Hmm? Need something?
+mascot-hover-curious-2 = Hey there! Everything alright?
+mascot-hover-annoyed-1 = Hey! You're making me dizzy and spilling the tea!
+mascot-hover-annoyed-2 = Stop shaking the mouse! The tea is boiling!
+mascot-poke-curious-1 = Hmm? What's up?
+mascot-poke-curious-2 = Hey! That tickles the teacup!
+mascot-poke-annoyed-1 = Careful! You're going to spill the tea!
+mascot-poke-annoyed-2 = Stop clicking! The tea is already boiling!
+mascot-poke-annoyed-3 = GRRR! One more click and I'll freeze your code!
 mascot-bubble-task = Task: { $name }
 mascot-bubble-terminal-pending = Terminal request: { $title }
 mascot-bubble-terminal-running = Running: { $title }
@@ -563,5 +574,5 @@ mascot-usage =
            idetea mascot clear
            idetea mascot status [--json]
     
-    States: idle, working, thinking, attention, celebrating, error, sleeping.
+    States: idle, working, thinking, attention, celebrating, error, sleeping, curious, annoyed.
     Writes .idetea/mascot.json so the IDE mascot reacts in real time (expires after --ttl, default 30s).

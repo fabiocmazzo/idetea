@@ -252,6 +252,10 @@ IDE TEA, um gatinho, um robô, etc.):
   painel Interfaces (`.idetea/ui/` + `.wait`), pedidos e execução de terminais de agente (`.idetea/agents/`), tarefas,
   diagnósticos e atividades do LSP, além do subcomando CLI `idetea mascot <estado> [--text "…"] [--source <nome>]
   [--ttl <segundos>]` e suporte a pacotes customizados via `mascot.toml`.
+- **2026-11-08 — expressões interativas ao passar o mouse e clicar (`curious` e `annoyed`).** Passar o mouse sobre o
+  mascote ou clicar 1–2 vezes desperta a expressão `curious` (sobrancelha erguida e `?` flutuante); sacudir o mouse
+  sobre ele ou clicar 3+ vezes seguidas dispara a expressão `annoyed` (sobrancelhas franzidas, chá fervendo, tremor e
+  falas de irritação progressivas).
 
 ## Fontes
 

@@ -18,8 +18,8 @@ use std::sync::Arc;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use iced::widget::image::{FilterMethod, Handle};
-use iced::widget::{button, column, container, image as img_widget, opaque, row, space, text};
-use iced::{Color, Element, Fill, Theme};
+use iced::widget::{button, column, container, image as img_widget, mouse_area, opaque, row, space, text};
+use iced::{Color, Element, Fill, Point, Theme};
 use serde::{Deserialize, Serialize};
 
 pub const FORMAT: &str = "idetea-mascot";
@@ -29,6 +29,9 @@ const DEFAULT_TTL_SECS: u64 = 30;
 const CELEBRATE_DURATION: Duration = Duration::from_secs(5);
 const ERROR_DURATION: Duration = Duration::from_secs(8);
 const SLEEP_AFTER_IDLE: Duration = Duration::from_secs(300);
+const POKE_WINDOW: Duration = Duration::from_secs(6);
+const HOVER_PASS_WINDOW: Duration = Duration::from_secs(4);
+const WIGGLE_THRESHOLD: f32 = 220.0;
 
 const EXIT_OK: i32 = 0;
 const EXIT_INVALID: i32 = 2;
@@ -44,10 +47,12 @@ pub enum Mood {
     Celebrating,
     Error,
     Sleeping,
+    Curious,
+    Annoyed,
 }
 
 impl Mood {
-    pub const ALL: [Mood; 7] = [
+    pub const ALL: [Mood; 9] = [
         Mood::Idle,
         Mood::Working,
         Mood::Thinking,
@@ -55,6 +60,8 @@ impl Mood {
         Mood::Celebrating,
         Mood::Error,
         Mood::Sleeping,
+        Mood::Curious,
+        Mood::Annoyed,
     ];
 
     pub fn parse(word: &str) -> Option<Self> {
@@ -66,6 +73,8 @@ impl Mood {
             "celebrating" | "happy" | "done" | "success" | "pronto" => Some(Self::Celebrating),
             "error" | "fail" | "failed" | "erro" => Some(Self::Error),
             "sleeping" | "sleep" | "dormindo" => Some(Self::Sleeping),
+            "curious" | "curioso" | "peek" => Some(Self::Curious),
+            "annoyed" | "irritado" | "angry" | "grumpy" | "bravo" => Some(Self::Annoyed),
             _ => None,
         }
     }
@@ -79,6 +88,8 @@ impl Mood {
             Self::Celebrating => "celebrating",
             Self::Error => "error",
             Self::Sleeping => "sleeping",
+            Self::Curious => "curious",
+            Self::Annoyed => "annoyed",
         }
     }
 
@@ -91,14 +102,17 @@ impl Mood {
             Self::Celebrating => fl!("mascot-state-celebrating"),
             Self::Error => fl!("mascot-state-error"),
             Self::Sleeping => fl!("mascot-state-sleeping"),
+            Self::Curious => fl!("mascot-state-curious"),
+            Self::Annoyed => fl!("mascot-state-annoyed"),
         }
     }
 
     pub fn default_fps(self) -> u32 {
         match self {
             Self::Idle | Self::Sleeping => 2,
-            Self::Thinking => 4,
+            Self::Thinking | Self::Curious => 4,
             Self::Working | Self::Attention | Self::Celebrating | Self::Error => 6,
+            Self::Annoyed => 8,
         }
     }
 }
@@ -130,6 +144,10 @@ pub enum Msg {
     Snapshot(Arc<DiskSnapshot>),
     ToggleCollapsed,
     ActivateTarget,
+    PointerEntered,
+    PointerMoved(Point),
+    PointerExited,
+    Poke,
 }
 
 /// Estado gravado por `idetea mascot` em `.idetea/mascot.json`.
@@ -212,6 +230,20 @@ pub struct Mascot {
     snapshot: DiskSnapshot,
     /// Reação temporária (comemoração ou erro recém-acontecido) com prazo de validade.
     transient: Option<(Mood, String, Target, Instant)>,
+    /// Reação direta a interação com o mouse (cliques ou sacudidas) com prazo de validade.
+    interaction: Option<(Mood, String, Instant)>,
+    /// Se o ponteiro do mouse está em cima do card do mascote.
+    hovered: bool,
+    /// Entradas recentes do mouse no card (para detectar mouse passando repetidamente).
+    hover_enters: Vec<Instant>,
+    /// Última posição do ponteiro sobre o mascote e quando ocorreu.
+    last_pointer: Option<(Point, Instant)>,
+    /// Distância acumulada de movimento rápido sobre o mascote.
+    hover_wiggle: f32,
+    /// Cliques recentes no mascote.
+    pokes: Vec<Instant>,
+    /// Contador para alternar frases de curiosidade/irritação.
+    interaction_seq: usize,
     /// Atividade de LSP em segundo plano (fonte → texto).
     lsp_activity: BTreeMap<String, String>,
     /// Quantidade de erros do LSP no projeto.
@@ -231,6 +263,13 @@ impl Mascot {
             builtin,
             snapshot: DiskSnapshot::default(),
             transient: None,
+            interaction: None,
+            hovered: false,
+            hover_enters: Vec::new(),
+            last_pointer: None,
+            hover_wiggle: 0.0,
+            pokes: Vec::new(),
+            interaction_seq: 0,
             lsp_activity: BTreeMap::new(),
             lsp_errors: 0,
             last_active: Instant::now(),
@@ -240,6 +279,73 @@ impl Mascot {
 
     pub fn touch_user_activity(&mut self) {
         self.last_active = Instant::now();
+    }
+
+    pub fn on_pointer_entered(&mut self) {
+        let now = Instant::now();
+        self.last_active = now;
+        self.hovered = true;
+        self.hover_enters.retain(|t| now.duration_since(*t) <= HOVER_PASS_WINDOW);
+        self.hover_enters.push(now);
+        self.interaction_seq = self.interaction_seq.wrapping_add(1);
+
+        if self.hover_enters.len() >= 3 {
+            let msg = if self.interaction_seq.is_multiple_of(2) {
+                fl!("mascot-hover-annoyed-1")
+            } else {
+                fl!("mascot-hover-annoyed-2")
+            };
+            self.interaction = Some((Mood::Annoyed, msg, now + Duration::from_secs(4)));
+        }
+    }
+
+    pub fn on_pointer_moved(&mut self, pt: Point) {
+        let now = Instant::now();
+        self.last_active = now;
+        self.hovered = true;
+        if let Some((prev, prev_t)) = self.last_pointer {
+            if now.duration_since(prev_t) <= Duration::from_millis(600) {
+                let dx = pt.x - prev.x;
+                let dy = pt.y - prev.y;
+                self.hover_wiggle += (dx * dx + dy * dy).sqrt();
+            } else {
+                self.hover_wiggle = 0.0;
+            }
+        }
+        self.last_pointer = Some((pt, now));
+
+        if self.hover_wiggle >= WIGGLE_THRESHOLD {
+            self.hover_wiggle = 0.0;
+            self.interaction_seq = self.interaction_seq.wrapping_add(1);
+            let msg = if self.interaction_seq.is_multiple_of(2) {
+                fl!("mascot-hover-annoyed-1")
+            } else {
+                fl!("mascot-hover-annoyed-2")
+            };
+            self.interaction = Some((Mood::Annoyed, msg, now + Duration::from_secs(4)));
+        }
+    }
+
+    pub fn on_pointer_exited(&mut self) {
+        self.hovered = false;
+        self.last_pointer = None;
+    }
+
+    pub fn on_poke(&mut self) {
+        let now = Instant::now();
+        self.last_active = now;
+        self.pokes.retain(|t| now.duration_since(*t) <= POKE_WINDOW);
+        self.pokes.push(now);
+        let count = self.pokes.len();
+
+        let (mood, msg, dur) = match count {
+            1 => (Mood::Curious, fl!("mascot-poke-curious-1"), Duration::from_millis(3500)),
+            2 => (Mood::Curious, fl!("mascot-poke-curious-2"), Duration::from_millis(3500)),
+            3 | 4 => (Mood::Annoyed, fl!("mascot-poke-annoyed-1"), Duration::from_millis(4500)),
+            5 | 6 => (Mood::Annoyed, fl!("mascot-poke-annoyed-2"), Duration::from_secs(5)),
+            _ => (Mood::Annoyed, fl!("mascot-poke-annoyed-3"), Duration::from_secs(6)),
+        };
+        self.interaction = Some((mood, msg, now + dur));
     }
 
     pub fn set_lsp_activity(&mut self, source: &str, text: Option<&str>) {
@@ -285,13 +391,42 @@ impl Mascot {
 
     pub fn tick(&mut self) {
         self.frame = self.frame.wrapping_add(1);
-        if self.transient.as_ref().is_some_and(|(_, _, _, until)| Instant::now() >= *until) {
+        let now = Instant::now();
+        if self.transient.as_ref().is_some_and(|(_, _, _, until)| now >= *until) {
             self.transient = None;
+        }
+        if self.interaction.as_ref().is_some_and(|(_, _, until)| now >= *until) {
+            self.interaction = None;
+        }
+    }
+
+    fn fallback_target(&self) -> Target {
+        if self.snapshot.ui_waiting.as_ref().is_some_and(|w| w.3) {
+            Target::Interfaces
+        } else if self.snapshot.agent_pending.is_some() {
+            Target::Terminal
+        } else {
+            Target::None
         }
     }
 
     /// Resolve `(Mood, texto_do_balão, Target)` segundo a ordem de prioridade da RFC 0012.
     pub fn resolved(&self) -> (Mood, Option<String>, Target) {
+        // 0. Interação direta do usuário com o mascote (cliques, sacudidas ou ponteiro sobre o mascote).
+        if let Some((mood, text, until)) = &self.interaction
+            && Instant::now() < *until
+        {
+            return (*mood, Some(text.clone()), self.fallback_target());
+        }
+        if self.hovered {
+            let msg = if self.interaction_seq.is_multiple_of(2) {
+                fl!("mascot-hover-curious-1")
+            } else {
+                fl!("mascot-hover-curious-2")
+            };
+            return (Mood::Curious, Some(msg), self.fallback_target());
+        }
+
         let ext_ts = self.snapshot.external.as_ref().map(|(_, _, _, ts)| *ts).unwrap_or(0);
 
         // 1. Pergunta aberta no painel Interfaces com `.wait` ativo que chegou depois do último `idetea mascot`.
@@ -316,14 +451,7 @@ impl Mascot {
         }
         // 3. Estado explícito ativo enviado por `idetea mascot` (dentro do TTL).
         if let Some((mood, text, source, _)) = &self.snapshot.external {
-            let fallback_target = if self.snapshot.ui_waiting.as_ref().is_some_and(|w| w.3) {
-                Target::Interfaces
-            } else if self.snapshot.agent_pending.is_some() {
-                Target::Terminal
-            } else {
-                Target::None
-            };
-            return (*mood, format_external(source.as_deref(), text.as_deref()), fallback_target);
+            return (*mood, format_external(source.as_deref(), text.as_deref()), self.fallback_target());
         }
         // 4. Transição recente (erro ou comemoração).
         if let Some((mood, text, target, until)) = &self.transient
@@ -404,6 +532,8 @@ impl Mascot {
             Mood::Error => " ×",
             Mood::Working => " …",
             Mood::Celebrating => " ★",
+            Mood::Curious => " ?",
+            Mood::Annoyed => " #",
             _ => "",
         };
         let label = if self.collapsed && let Some(b) = &bubble {
@@ -412,7 +542,7 @@ impl Mascot {
         } else {
             format!("🍵 {}{badge}", self.pack.name)
         };
-        let urgent = matches!(mood, Mood::Attention | Mood::Error);
+        let urgent = matches!(mood, Mood::Attention | Mood::Error | Mood::Annoyed);
         let style = if urgent { button::primary } else { button::text };
         Some(
             button(text(label).size(12))
@@ -436,29 +566,33 @@ impl Mascot {
             .height(56)
             .filter_method(if pixelated { FilterMethod::Nearest } else { FilterMethod::Linear });
 
-        let sprite_box = container(sprite).padding(4).style(move |theme: &Theme| {
-            let p = theme.extended_palette();
-            let border_color = match mood {
-                Mood::Attention => p.warning.base.color,
-                Mood::Error => p.danger.base.color,
-                Mood::Celebrating => p.success.base.color,
-                Mood::Working | Mood::Thinking => p.primary.base.color,
-                Mood::Idle | Mood::Sleeping => p.background.strong.color,
-            };
-            container::Style {
-                background: Some(p.background.base.color.into()),
-                border: iced::Border { color: border_color, width: 1.5, radius: 8.0.into() },
-                ..container::Style::default()
-            }
-        });
+        let sprite_box = mouse_area(
+            container(sprite).padding(4).style(move |theme: &Theme| {
+                let p = theme.extended_palette();
+                let border_color = match mood {
+                    Mood::Attention => p.warning.base.color,
+                    Mood::Error | Mood::Annoyed => p.danger.base.color,
+                    Mood::Celebrating => p.success.base.color,
+                    Mood::Working | Mood::Thinking | Mood::Curious => p.primary.base.color,
+                    Mood::Idle | Mood::Sleeping => p.background.strong.color,
+                };
+                container::Style {
+                    background: Some(p.background.base.color.into()),
+                    border: iced::Border { color: border_color, width: 1.5, radius: 8.0.into() },
+                    ..container::Style::default()
+                }
+            }),
+        )
+        .on_press(Msg::Poke)
+        .interaction(iced::mouse::Interaction::Pointer);
 
         let mood_color = move |theme: &Theme| -> text::Style {
             let p = theme.extended_palette();
             let color = match mood {
                 Mood::Attention => p.warning.base.color,
-                Mood::Error => p.danger.base.color,
+                Mood::Error | Mood::Annoyed => p.danger.base.color,
                 Mood::Celebrating => p.success.base.color,
-                Mood::Working | Mood::Thinking => p.primary.base.color,
+                Mood::Working | Mood::Thinking | Mood::Curious => p.primary.base.color,
                 Mood::Idle | Mood::Sleeping => p.background.base.text,
             };
             text::Style { color: Some(color) }
@@ -481,7 +615,7 @@ impl Mascot {
 
         if let Some(msg) = bubble {
             let shown = truncate_chars(&msg, 90);
-            if target != Target::None {
+            if target != Target::None && !matches!(mood, Mood::Curious | Mood::Annoyed) {
                 let action_label = match target {
                     Target::Interfaces => fl!("mascot-open-interfaces"),
                     Target::Terminal => fl!("mascot-open-terminal"),
@@ -503,38 +637,54 @@ impl Mascot {
                 .width(Fill);
                 right_col = right_col.push(bubble_btn);
             } else {
-                right_col = right_col.push(text(shown).size(12).style(text::secondary));
+                let poke_text = mouse_area(text(shown).size(12).style(text::secondary))
+                    .on_press(Msg::Poke)
+                    .interaction(iced::mouse::Interaction::Pointer);
+                right_col = right_col.push(poke_text);
             }
         } else {
-            right_col = right_col.push(text(fl!("mascot-idle-hint")).size(11).style(text::secondary));
+            let poke_hint = mouse_area(text(fl!("mascot-idle-hint")).size(11).style(text::secondary))
+                .on_press(Msg::Poke)
+                .interaction(iced::mouse::Interaction::Pointer);
+            right_col = right_col.push(poke_hint);
         }
 
         let card_width = 270.0;
-        let card = container(row![sprite_box, right_col].spacing(10).align_y(iced::Center))
-            .width(card_width)
-            .padding(8)
-            .style(move |theme: &Theme| {
-                let p = theme.extended_palette();
-                let accent = match mood {
-                    Mood::Attention => p.warning.base.color,
-                    Mood::Error => p.danger.base.color,
-                    _ => p.background.strong.color,
-                };
-                container::Style {
-                    background: Some(p.background.weak.color.into()),
-                    border: iced::Border {
-                        color: accent,
-                        width: if matches!(mood, Mood::Attention | Mood::Error) { 1.5 } else { 1.0 },
-                        radius: 10.0.into(),
-                    },
-                    shadow: iced::Shadow {
-                        color: Color::from_rgba(0.0, 0.0, 0.0, 0.35),
-                        offset: iced::Vector::new(0.0, 4.0),
-                        blur_radius: 14.0,
-                    },
-                    ..container::Style::default()
-                }
-            });
+        let card = mouse_area(
+            container(row![sprite_box, right_col].spacing(10).align_y(iced::Center))
+                .width(card_width)
+                .padding(8)
+                .style(move |theme: &Theme| {
+                    let p = theme.extended_palette();
+                    let accent = match mood {
+                        Mood::Attention => p.warning.base.color,
+                        Mood::Error | Mood::Annoyed => p.danger.base.color,
+                        Mood::Curious => p.primary.base.color,
+                        _ => p.background.strong.color,
+                    };
+                    container::Style {
+                        background: Some(p.background.weak.color.into()),
+                        border: iced::Border {
+                            color: accent,
+                            width: if matches!(mood, Mood::Attention | Mood::Error | Mood::Annoyed | Mood::Curious) {
+                                1.5
+                            } else {
+                                1.0
+                            },
+                            radius: 10.0.into(),
+                        },
+                        shadow: iced::Shadow {
+                            color: Color::from_rgba(0.0, 0.0, 0.0, 0.35),
+                            offset: iced::Vector::new(0.0, 4.0),
+                            blur_radius: 14.0,
+                        },
+                        ..container::Style::default()
+                    }
+                }),
+        )
+        .on_enter(Msg::PointerEntered)
+        .on_move(Msg::PointerMoved)
+        .on_exit(Msg::PointerExited);
 
         Some(
             container(opaque(card))
@@ -975,6 +1125,8 @@ fn render_teacup_frame(mood: Mood, frame: usize) -> Handle {
         Mood::Attention | Mood::Celebrating => (0, if frame % 2 == 1 { -1 } else { 0 }),
         Mood::Working => (0, if frame == 1 || frame == 3 { -1 } else { 0 }),
         Mood::Error => (if frame.is_multiple_of(2) { -1 } else { 1 }, 0),
+        Mood::Curious => (match frame { 1 => -1, 3 => 1, _ => 0 }, if frame == 2 { -1 } else { 0 }),
+        Mood::Annoyed => (if frame.is_multiple_of(2) { -1 } else { 1 }, if frame == 1 { -1 } else { 0 }),
         _ => (0, 0),
     };
 
@@ -984,11 +1136,16 @@ fn render_teacup_frame(mood: Mood, frame: usize) -> Handle {
     let cup_shade = [194, 211, 227, 255];
     let tea_green = match mood {
         Mood::Error => [230, 85, 85, 255],
+        Mood::Annoyed => [245, 100, 55, 255],
         Mood::Attention => [240, 180, 65, 255],
+        Mood::Curious => [90, 210, 175, 255],
         _ => [98, 195, 112, 255],
     };
     let saucer = [173, 193, 212, 255];
-    let cheek = [244, 143, 160, 220];
+    let cheek = match mood {
+        Mood::Annoyed => [245, 75, 90, 245],
+        _ => [244, 143, 160, 220],
+    };
 
     // Pires na base (y = 20..21).
     for x in 4..=18 {
@@ -1107,6 +1264,39 @@ fn render_teacup_frame(mood: Mood, frame: usize) -> Handle {
             put(14 + dx, 15 + dy, outline);
             put(11 + dx, 17 + dy, outline);
         }
+        Mood::Curious => {
+            // Sobrancelha direita erguida + olho direito arregalado + boca "o" curiosa.
+            put(8 + dx, 14 + dy, outline);
+            put(8 + dx, 15 + dy, outline);
+            put(13 + dx, 12 + dy, outline);
+            put(14 + dx, 12 + dy, outline);
+            put(13 + dx, 14 + dy, outline);
+            put(14 + dx, 14 + dy, outline);
+            put(13 + dx, 15 + dy, outline);
+            put(14 + dx, 15 + dy, outline);
+            put(11 + dx, 16 + dy, outline);
+            put(12 + dx, 16 + dy, outline);
+            put(11 + dx, 17 + dy, outline);
+            put(12 + dx, 17 + dy, outline);
+        }
+        Mood::Annoyed => {
+            // Sobrancelhas franzidas "\ /" + olhos cerrados + boca zangada.
+            put(7 + dx, 13 + dy, outline);
+            put(8 + dx, 14 + dy, outline);
+            put(9 + dx, 14 + dy, outline);
+            put(8 + dx, 15 + dy, outline);
+            put(9 + dx, 15 + dy, outline);
+            put(15 + dx, 13 + dy, outline);
+            put(14 + dx, 14 + dy, outline);
+            put(13 + dx, 14 + dy, outline);
+            put(13 + dx, 15 + dy, outline);
+            put(14 + dx, 15 + dy, outline);
+            put(9 + dx, 17 + dy, outline);
+            put(10 + dx, 16 + dy, outline);
+            put(11 + dx, 17 + dy, outline);
+            put(12 + dx, 16 + dy, outline);
+            put(13 + dx, 17 + dy, outline);
+        }
     }
 
     // Efeito acima da xícara (y = 2..8).
@@ -1171,6 +1361,34 @@ fn render_teacup_frame(mood: Mood, frame: usize) -> Handle {
             put(15, zy, zzz);
             put(14, zy + 1, zzz);
             put(15, zy + 1, zzz);
+        }
+        Mood::Curious => {
+            // Ponto de interrogação "?" flutuante.
+            let qmark = [110, 220, 255, 255];
+            let qy = if frame.is_multiple_of(2) { 0 } else { -1 };
+            put(10, 3 + qy, qmark);
+            put(11, 2 + qy, qmark);
+            put(12, 2 + qy, qmark);
+            put(13, 3 + qy, qmark);
+            put(12, 4 + qy, qmark);
+            put(11, 5 + qy, qmark);
+            put(11, 7 + qy, qmark);
+        }
+        Mood::Annoyed => {
+            // Vapor fervendo vermelho + símbolo de irritação no canto superior direito.
+            let rage = [255, 75, 75, 255];
+            let hot_steam = [255, 145, 80, 235];
+            put(8, 7 - (shift % 3), hot_steam);
+            put(10, 6 - ((shift + 1) % 3), hot_steam);
+            let ry = if frame.is_multiple_of(2) { 0 } else { -1 };
+            put(14, 3 + ry, rage);
+            put(16, 3 + ry, rage);
+            put(13, 4 + ry, rage);
+            put(17, 4 + ry, rage);
+            put(14, 6 + ry, rage);
+            put(16, 6 + ry, rage);
+            put(13, 5 + ry, rage);
+            put(17, 5 + ry, rage);
         }
     }
 
@@ -1444,5 +1662,36 @@ fps = 5
         assert_eq!(loaded.states.get(&Mood::Working).unwrap().0.len(), 4);
 
         let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn hover_and_poke_trigger_curious_then_annoyed() {
+        tea_core::i18n::init("pt-BR");
+        let mut mascot = Mascot::new(false);
+
+        // Passar o mouse sobre o mascote deixa ele Curioso.
+        mascot.on_pointer_entered();
+        assert_eq!(mascot.resolved().0, Mood::Curious);
+
+        // Sair com o mouse volta para Idle.
+        mascot.on_pointer_exited();
+        assert_eq!(mascot.resolved().0, Mood::Idle);
+
+        // 1º e 2º cliques despertam curiosidade.
+        mascot.on_poke();
+        assert_eq!(mascot.resolved().0, Mood::Curious);
+        mascot.on_poke();
+        assert_eq!(mascot.resolved().0, Mood::Curious);
+
+        // A partir do 3º clique seguido, fica Irritado!
+        mascot.on_poke();
+        assert_eq!(mascot.resolved().0, Mood::Annoyed);
+
+        // Sacudir o mouse sobre o mascote também deixa Irritado.
+        let mut mascot2 = Mascot::new(false);
+        mascot2.on_pointer_moved(Point::new(0.0, 0.0));
+        mascot2.on_pointer_moved(Point::new(150.0, 0.0));
+        mascot2.on_pointer_moved(Point::new(0.0, 0.0));
+        assert_eq!(mascot2.resolved().0, Mood::Annoyed);
     }
 }
