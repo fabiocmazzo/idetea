@@ -53,9 +53,17 @@ pub fn discover(dir: &Path) -> Option<Repo> {
     Some(Repo { root, git_dir })
 }
 
+fn rel_path(repo: &Repo, path: &Path) -> Option<String> {
+    let rel = match path.strip_prefix(&repo.root) {
+        Ok(r) => r.to_path_buf(),
+        Err(_) => path.canonicalize().ok()?.strip_prefix(repo.root.canonicalize().ok()?).ok()?.to_path_buf(),
+    };
+    Some(rel.to_string_lossy().replace('\\', "/"))
+}
+
 /// O arquivo como está no último commit. `None`: fora do repositório, ainda sem commit, binário ou grande.
 pub fn head_text(repo: &Repo, path: &Path) -> Option<String> {
-    let rel = path.strip_prefix(&repo.root).ok()?.to_string_lossy().replace('\\', "/");
+    let rel = rel_path(repo, path)?;
     let text = run(&repo.root, &["show", &format!("HEAD:{rel}")], &[]).ok()?;
     let binary = text.as_bytes().iter().take(8192).any(|&b| b == 0);
     (!binary && text.len() <= 4 * 1024 * 1024).then_some(text)
@@ -431,7 +439,7 @@ impl Blame {
 }
 
 pub fn blame(repo: &Repo, path: &Path) -> Result<Blame, String> {
-    let rel = path.strip_prefix(&repo.root).map_err(|_| fl!("git-unknown-error"))?.to_string_lossy().into_owned();
+    let rel = rel_path(repo, path).ok_or_else(|| fl!("git-unknown-error"))?;
     let out = run(&repo.root, &["blame", "--porcelain", "--", &rel], &[])?;
     Ok(parse_blame(&out))
 }

@@ -17,6 +17,8 @@ fn clangd_references_and_at_definition() {
     let dir = std::env::temp_dir().join(format!("idetea-refs-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
     std::fs::create_dir_all(&dir).unwrap();
+    #[cfg(unix)]
+    let dir = dir.canonicalize().unwrap();
     let file: PathBuf = dir.join("t.c");
     std::fs::write(&file, SRC).unwrap();
 

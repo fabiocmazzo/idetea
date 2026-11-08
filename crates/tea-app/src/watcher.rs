@@ -179,6 +179,19 @@ mod tests {
         }
     }
 
+    fn wait_for(rx: &mut mpsc::UnboundedReceiver<Change>, want: &Path) -> bool {
+        let deadline = Instant::now() + Duration::from_secs(5);
+        while Instant::now() < deadline {
+            if let Ok(Change::Paths(p)) = rx.try_recv()
+                && p.contains(&want.to_path_buf())
+            {
+                return true;
+            }
+            std::thread::sleep(Duration::from_millis(20));
+        }
+        false
+    }
+
     #[test]
     fn sees_files_new_dirs_and_skips_ignored() {
         let root = std::env::temp_dir().join(format!("idetea-watch-{}", std::process::id()));
@@ -188,18 +201,21 @@ mod tests {
         std::fs::write(root.join(".gitignore"), "target/\n").unwrap();
         let root = root.canonicalize().unwrap();
         let mut rx = watch(&root);
-        std::thread::sleep(Duration::from_millis(200)); // observadores no lugar
+        std::thread::sleep(Duration::from_millis(500)); // observadores no lugar (e eventos antigos do FSEvents entregues)
+        while rx.try_recv().is_ok() {}
 
         std::fs::write(root.join("a.rs"), "1").unwrap();
-        assert!(changed(&mut rx).contains(&root.join("a.rs")));
+        assert!(wait_for(&mut rx, &root.join("a.rs")));
 
         // Pasta nova: o arquivo criado dentro dela depois também é visto.
         std::fs::create_dir(root.join("nova")).unwrap();
-        assert!(changed(&mut rx).contains(&root.join("nova")));
+        assert!(wait_for(&mut rx, &root.join("nova")));
+        std::thread::sleep(Duration::from_millis(100));
         std::fs::write(root.join("nova/b.rs"), "2").unwrap();
-        assert!(changed(&mut rx).contains(&root.join("nova/b.rs")));
+        assert!(wait_for(&mut rx, &root.join("nova/b.rs")));
 
         // Ignorada pelo .gitignore e dentro do .git: nada chega.
+        while rx.try_recv().is_ok() {}
         std::fs::write(root.join("target/x.o"), "").unwrap();
         std::fs::write(root.join(".git/index"), "").unwrap();
         std::thread::sleep(Duration::from_millis(400));

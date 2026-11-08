@@ -1490,7 +1490,7 @@ mod tests {
         let lh = editor.inner.line_height();
         let mut ui = iced_test::simulator(editor.view());
         ui.point_at(iced::Point::new(marks::GUTTER_WIDTH + 40.0, lh * 1.5));
-        ui.simulate([iced::Event::Keyboard(Key::ModifiersChanged(Modifiers::CTRL))]);
+        ui.simulate([iced::Event::Keyboard(Key::ModifiersChanged(Modifiers::COMMAND))]);
         ui.simulate(iced_test::simulator::click());
         let msgs: Vec<String> = ui.into_messages().map(|m| format!("{:?}", m.0)).collect();
         assert!(msgs.iter().any(|m| m.contains("JumpClick")), "{msgs:?}");

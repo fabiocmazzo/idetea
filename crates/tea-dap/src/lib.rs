@@ -526,7 +526,6 @@ fn parse_variables(vars: &Value) -> Vec<Variable> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::sync::mpsc;
 
     #[test]
     fn frames_without_source() {
@@ -542,6 +541,7 @@ mod tests {
     #[cfg(not(target_env = "msvc"))]
     #[test]
     fn gdb_breakpoint_step_and_exit() {
+        use std::sync::mpsc;
         let dir = std::env::temp_dir().join(format!("idetea-dap-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).unwrap();
