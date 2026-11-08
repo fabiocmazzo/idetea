@@ -22,6 +22,7 @@ mod editorconfig;
 mod divider;
 mod help;
 mod ide_state;
+mod mascot;
 mod overlay;
 mod lsp;
 mod nav;
@@ -160,6 +161,10 @@ fn main() -> iced::Result {
             cli_language(&cwd);
             std::process::exit(tea_skills::run(&args, &cwd));
         }
+        cli::Cli::Mascot(args) => {
+            cli_language(&cwd);
+            std::process::exit(mascot::run_cli(&args, &cwd));
+        }
         cli::Cli::InstallDesktop => desktop::run(true),
         cli::Cli::UninstallDesktop => desktop::run(false),
         cli::Cli::Run(mut launch) => {
@@ -236,6 +241,21 @@ fn media_ticks() -> iced::futures::channel::mpsc::UnboundedReceiver<Message> {
         loop {
             std::thread::sleep(std::time::Duration::from_secs(1));
             if tx.unbounded_send(Message::MediaTick).is_err() {
+                return;
+            }
+        }
+    });
+    rx
+}
+
+#[allow(clippy::ptr_arg)]
+fn mascot_ticks(ms: &u64) -> iced::futures::channel::mpsc::UnboundedReceiver<Message> {
+    let (tx, rx) = iced::futures::channel::mpsc::unbounded();
+    let d = Duration::from_millis((*ms).max(40));
+    std::thread::spawn(move || {
+        loop {
+            std::thread::sleep(d);
+            if tx.unbounded_send(Message::Mascot(mascot::Msg::Tick)).is_err() {
                 return;
             }
         }
@@ -395,6 +415,7 @@ const CORE_COMMANDS: &[(&str, &str)] = &[
     ("tasks.run", "cmd-tasks-run"),
     ("tasks.rerun", "cmd-tasks-rerun"),
     ("tasks.test_here", "cmd-tasks-test-here"),
+    ("mascot.toggle", "cmd-mascot-toggle"),
     ("app.restart", "cmd-app-restart"),
     ("app.quit", "cmd-app-quit"),
 ];
@@ -599,6 +620,8 @@ struct App {
     ide_state: Option<ide_state::State>,
     ide_state_at: Option<Instant>,
     ide_state_due: bool,
+    mascot: mascot::Mascot,
+    mascot_diag: std::collections::HashMap<(PathBuf, String), usize>,
 }
 
 #[derive(Debug, Clone)]
@@ -671,6 +694,7 @@ enum Message {
     Nav(bool),
     CloseRequested,
     Lsp(tea_lsp::Event),
+    Mascot(mascot::Msg),
 }
 
 impl App {
@@ -706,6 +730,9 @@ impl App {
         });
         let lsp = lsp::LspManager::new(&root, &config.lsp, sink);
         let (dap_tx, dap_rx) = iced::futures::channel::mpsc::unbounded();
+
+        let ui_state = ui_state::UiState::load(state_path.as_deref());
+        let mascot = mascot::Mascot::new(ui_state.mascot_collapsed);
 
         let mut app = Self {
             lsp,
@@ -743,7 +770,7 @@ impl App {
             help: None,
             settings: None,
             all_extensions,
-            ui_state: ui_state::UiState::load(state_path.as_deref()),
+            ui_state,
             state_path,
             window_size: None,
             session_path,
@@ -757,6 +784,8 @@ impl App {
             ide_state: None,
             ide_state_at: None,
             ide_state_due: false,
+            mascot,
+            mascot_diag: Default::default(),
             last_status: EditorStatus::default(),
             nav: nav::History::default(),
             outline_seen: (u64::MAX, 0),
@@ -975,6 +1004,21 @@ impl App {
     }
 
     fn broadcast(&mut self, event: CoreEvent) -> Task<Message> {
+        match &event {
+            CoreEvent::Activity { source, text } => self.mascot.set_lsp_activity(source, text.as_deref()),
+            CoreEvent::RunTask { name, .. } => self.mascot.notify_task_started(name),
+            CoreEvent::Diagnostics { source, path, items } => {
+                let errs = items.iter().filter(|d| d.severity == Severity::Error).count();
+                if errs == 0 {
+                    self.mascot_diag.remove(&(path.clone(), source.clone()));
+                } else {
+                    self.mascot_diag.insert((path.clone(), source.clone()), errs);
+                }
+                self.mascot.set_lsp_errors(self.mascot_diag.values().sum());
+            }
+            CoreEvent::EditorStatus(_) => self.mascot.touch_user_activity(),
+            _ => {}
+        }
         let tasks: Vec<_> =
             (0..self.extensions.len()).map(|i| self.call_ext(i, |e, ctx| e.on_event(&event, ctx))).collect();
         Task::batch(tasks)
@@ -2794,6 +2838,12 @@ impl App {
                 None => self.open_tasks(),
             },
             "tasks.test_here" => self.test_here(),
+            "mascot.toggle" => {
+                self.mascot.collapsed = !self.mascot.collapsed;
+                self.ui_state.mascot_collapsed = self.mascot.collapsed;
+                self.ui_state.save(self.state_path.as_deref());
+                Task::none()
+            }
             _ => {
                 // Comandos de extensão: o prefixo antes do ponto é o id da extensão.
                 let prefix = id.split('.').next().unwrap_or_default();
@@ -3974,6 +4024,29 @@ impl App {
                 if wait == self.outline_wait { self.request_outline() } else { Task::none() }
             }
             Message::Lsp(event) => self.handle_lsp(event),
+            Message::Mascot(msg) => match msg {
+                mascot::Msg::Tick => {
+                    self.mascot.tick();
+                    Task::none()
+                }
+                mascot::Msg::Snapshot(snap) => {
+                    self.mascot.apply_snapshot((*snap).clone());
+                    Task::none()
+                }
+                mascot::Msg::ToggleCollapsed => {
+                    self.mascot.collapsed = !self.mascot.collapsed;
+                    self.ui_state.mascot_collapsed = self.mascot.collapsed;
+                    self.ui_state.save(self.state_path.as_deref());
+                    Task::none()
+                }
+                mascot::Msg::ActivateTarget => {
+                    let (_, _, target) = self.mascot.resolved();
+                    match target.command() {
+                        Some(cmd) => self.run_command(cmd),
+                        None => Task::none(),
+                    }
+                }
+            },
         }
     }
 
@@ -4040,11 +4113,38 @@ impl App {
         };
         let state = if self.ide_state_due { Subscription::run(ide_state_ticks) } else { Subscription::none() };
         let open = Subscription::run_with(self.root.clone(), ide_state::watch_open).map(Message::OpenRequest);
-        Subscription::batch([input, close, frames, extensions, resized, disk, backups, binary, media, state, open])
+        let mascot_watch = if self.config.mascot.enabled {
+            Subscription::run_with((self.root.clone(), self.config.mascot.pack.clone()), mascot::watch)
+                .map(|s| Message::Mascot(mascot::Msg::Snapshot(s)))
+        } else {
+            Subscription::none()
+        };
+        let mascot_anim = match self.mascot.frame_interval(self.config.mascot.enabled) {
+            Some(d) => Subscription::run_with(d.as_millis() as u64, mascot_ticks),
+            None => Subscription::none(),
+        };
+        Subscription::batch([
+            input,
+            close,
+            frames,
+            extensions,
+            resized,
+            disk,
+            backups,
+            binary,
+            media,
+            state,
+            open,
+            mascot_watch,
+            mascot_anim,
+        ])
     }
 
     fn view(&self) -> Element<'_, Message> {
         let mut layers = stack![self.workspace_view()];
+        if let Some(m) = self.mascot.overlay_view(self.config.mascot.enabled) {
+            layers = layers.push(m.map(Message::Mascot));
+        }
         if let Some(p) = &self.palette {
             // `opaque` na caixa: clique dentro dela não chega no "clique fora fecha".
             let overlay = container(opaque(p.view(&self.commands, &self.keymap).map(Message::Palette)))
@@ -4239,8 +4339,19 @@ impl App {
         }
 
         let mut page = column![body].spacing(4).padding(6);
-        if let Some(status) = self.slot_view(Slot::Status) {
-            page = page.push(rule::horizontal(1)).push(status);
+        let status_view = self.slot_view(Slot::Status);
+        let mascot_btn = self.mascot.status_bar_button(self.config.mascot.enabled).map(|b| b.map(Message::Mascot));
+        match (status_view, mascot_btn) {
+            (Some(status), Some(btn)) => {
+                page = page.push(rule::horizontal(1)).push(row![status, btn].spacing(12).align_y(iced::Center));
+            }
+            (Some(status), None) => {
+                page = page.push(rule::horizontal(1)).push(status);
+            }
+            (None, Some(btn)) => {
+                page = page.push(rule::horizontal(1)).push(row![iced::widget::space::horizontal(), btn].align_y(iced::Center));
+            }
+            (None, None) => {}
         }
         page.into()
     }

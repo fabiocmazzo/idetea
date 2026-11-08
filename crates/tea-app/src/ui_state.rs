@@ -26,6 +26,8 @@ pub struct UiState {
     /// Tamanho da janela ao sair (0 = ainda não salvo: fica o padrão).
     pub window_width: f32,
     pub window_height: f32,
+    /// Mascote recolhido na barra de status.
+    pub mascot_collapsed: bool,
 }
 
 /// Janela menor que isso não volta (provavelmente um valor estragado).
@@ -40,6 +42,7 @@ impl Default for UiState {
             split: 0.5,
             window_width: 0.0,
             window_height: 0.0,
+            mascot_collapsed: false,
         }
     }
 }
@@ -83,6 +86,7 @@ impl UiState {
             split: if (MIN_SPLIT..=1.0 - MIN_SPLIT).contains(&self.split) { self.split } else { 0.5 },
             window_width: ok(self.window_width, MIN_WINDOW.0, 0.0),
             window_height: ok(self.window_height, MIN_WINDOW.1, 0.0),
+            mascot_collapsed: self.mascot_collapsed,
         }
     }
 }
@@ -108,7 +112,7 @@ mod tests {
     #[test]
     fn roundtrip_and_bad_values() {
         let path = std::env::temp_dir().join(format!("idetea-state-{}", std::process::id())).join("state.toml");
-        let s = UiState { left_width: 300.0, right_width: 200.0, bottom_height: 400.0, split: 0.3, window_width: 1200.0, window_height: 800.0 };
+        let s = UiState { left_width: 300.0, right_width: 200.0, bottom_height: 400.0, split: 0.3, window_width: 1200.0, window_height: 800.0, mascot_collapsed: true };
         s.save(Some(&path));
         assert_eq!(UiState::load(Some(&path)), s);
         std::fs::write(&path, "left_width = 5\nbottom_height = \"x\"").unwrap();

@@ -26,7 +26,8 @@ ext-ui = ["dep:tea-ext-ui"]
 plugins = ["dep:tea-plugins"]
 
 [dependencies]
-iced = { workspace = true, features = ["advanced"] }
+iced = { workspace = true, features = ["advanced", "image"] }
+image = "0.25"
 tea-core.workspace = true
 tea-editor.workspace = true
 tea-ext-filetree = { workspace = true, optional = true }

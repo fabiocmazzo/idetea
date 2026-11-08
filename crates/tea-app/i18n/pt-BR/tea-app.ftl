@@ -79,6 +79,7 @@ cmd-view-toggle-right = Layout: mostrar/ocultar lateral direita
 cmd-view-toggle-bottom = Layout: mostrar/ocultar painel inferior
 cmd-app-restart = Reiniciar a IDE
 cmd-app-quit = Sair
+cmd-mascot-toggle = Mascote: mostrar/recolher no canto
 
 ## Avisos, diálogos e menus
 file-new-created-on-save = Arquivo novo: { $path } (criado ao salvar)
@@ -320,6 +321,7 @@ cli-usage =
       status [--json]  o que a IDE aberta neste projeto mostra (abas, mudanças, cursor)
       open <arquivo[:linha[:coluna]]>  a IDE aberta mostra o arquivo, com o cursor no lugar
       history [--json]  o que você respondeu no painel Interfaces (--name, --since, --last N, --all)
+      mascot <estado> [--text "…"]  atualiza o mascote da IDE (idle, working, thinking, attention, celebrating, error, sleeping, clear, status)
       -h, --help     mostra esta ajuda
       -V, --version  mostra a versão
 cli-unknown-option = opção desconhecida ignorada: { $option }
@@ -534,3 +536,32 @@ open-usage =
 open-outside = { $path } não fica dentro do projeto ({ $root })
 open-write-error = não deu para gravar { $path }
 open-not-taken = a IDE não pegou o pedido em 3 segundos
+
+## Mascote reativo (RFC 0012)
+mascot-state-idle = Calmo
+mascot-state-working = Trabalhando
+mascot-state-thinking = Pensando
+mascot-state-attention = Atenção
+mascot-state-celebrating = Pronto!
+mascot-state-error = Erro
+mascot-state-sleeping = Dormindo
+mascot-bubble-task = Tarefa: { $name }
+mascot-bubble-terminal-pending = Pedido de terminal: { $title }
+mascot-bubble-terminal-running = Rodando: { $title }
+mascot-bubble-terminal-ok = Concluído: { $title }
+mascot-bubble-terminal-err = Falhou (código { $code }): { $title }
+mascot-bubble-answered = Respondido: { $title }
+mascot-bubble-wait-expired = O agente parou de esperar: { $title }
+mascot-bubble-errors = { $count } erro(s) no projeto
+mascot-open-interfaces = Abrir painel Interfaces →
+mascot-open-terminal = Abrir painel Terminal →
+mascot-open-problems = Abrir painel Problemas →
+mascot-idle-hint = Acompanhando agentes e tarefas
+mascot-bad-state = estado desconhecido para o mascote: { $state }
+mascot-usage =
+    Uso: idetea mascot <estado> [--text "…"] [--source <nome>] [--ttl <segundos>]
+         idetea mascot clear
+         idetea mascot status [--json]
+    
+    Estados: idle, working, thinking, attention, celebrating, error, sleeping.
+    Grava .idetea/mascot.json para o mascote da IDE reagir em tempo real (expira após --ttl, padrão 30s).

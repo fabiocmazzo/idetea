@@ -108,6 +108,11 @@ interfaces = { enabled = true, slot = "right" }
 allow = []
 # allow = ["npm run dev", "claude *"]
 
+# Mascote reativo no canto da IDE (RFC 0012): acompanha perguntas no painel, terminais de agentes e `idetea mascot`.
+[mascot]
+enabled = true
+# pack = "" # caminho para uma pasta com mascot.toml (vazio = a xícara de chá embutida)
+
 # Plugins (~/.local/share/idetea/plugins/<id>/): a config de cada um, no formato que o plugin pedir.
 # [plugins.contador]
 # comando = ["git", "status", "--short"]
@@ -288,6 +293,21 @@ pub struct AgentsConfig {
     pub allow: Vec<String>,
 }
 
+/// Mascote reativo no canto da IDE (`[mascot]`, RFC 0012).
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+#[serde(default)]
+pub struct MascotConfig {
+    pub enabled: bool,
+    /// Pasta de um pacote `mascot.toml` customizado (vazio = xícara de chá embutida).
+    pub pack: String,
+}
+
+impl Default for MascotConfig {
+    fn default() -> Self {
+        Self { enabled: true, pack: String::new() }
+    }
+}
+
 /// Como depurar o projeto (`[debug]`). Tudo opcional.
 #[derive(Debug, Clone, Default, Deserialize)]
 #[serde(default)]
@@ -311,6 +331,8 @@ pub struct Config {
     pub tasks: BTreeMap<String, String>,
     /// `[agents]`, só do config do usuário (o do projeto é ignorado, com aviso).
     pub agents: AgentsConfig,
+    /// `[mascot]` (RFC 0012).
+    pub mascot: MascotConfig,
     pub extensions: BTreeMap<String, ExtensionConfig>,
     /// Config de cada plugin (`[plugins.<id>]`): o plugin lê com `host.config` (formato livre).
     pub plugins: BTreeMap<String, toml::Table>,
@@ -438,11 +460,12 @@ impl Config {
         let debug = take_section(&mut merged, "debug", &mut errors);
         let tasks = take_section(&mut merged, "tasks", &mut errors);
         let agents = take_section(&mut merged, "agents", &mut errors);
+        let mascot = take_section(&mut merged, "mascot", &mut errors);
         let plugins = take_section(&mut merged, "plugins", &mut errors);
         for unknown in merged.keys() {
             errors.push(fl!("config-unknown-section", section = unknown.as_str()));
         }
-        Self { ui, editor, lsp, debug, tasks, agents, extensions, plugins, keys, errors }
+        Self { ui, editor, lsp, debug, tasks, agents, mascot, extensions, plugins, keys, errors }
     }
 
     /// Config de uma extensão (padrão: ligada, slot escolhido pela extensão).

@@ -79,6 +79,7 @@ cmd-view-toggle-right = Layout: show/hide right side
 cmd-view-toggle-bottom = Layout: show/hide bottom panel
 cmd-app-restart = Restart the IDE
 cmd-app-quit = Quit
+cmd-mascot-toggle = Mascot: show/collapse in corner
 
 ## Avisos, diálogos e menus
 file-new-created-on-save = New file: { $path } (created when saved)
@@ -320,6 +321,7 @@ cli-usage =
       status [--json]  what the IDE open in this project shows (tabs, changes, cursor)
       open <file[:line[:column]]>  the open IDE shows the file, with the cursor in place
       history [--json]  what you answered in the Interfaces panel (--name, --since, --last N, --all)
+      mascot <state> [--text "…"]  updates the IDE mascot (idle, working, thinking, attention, celebrating, error, sleeping, clear, status)
       -h, --help     show this help
       -V, --version  show the version
 cli-unknown-option = unknown option ignored: { $option }
@@ -534,3 +536,32 @@ open-usage =
 open-outside = { $path } is not inside the project ({ $root })
 open-write-error = could not write { $path }
 open-not-taken = the IDE did not take the request within 3 seconds
+
+## Mascote reativo (RFC 0012)
+mascot-state-idle = Calm
+mascot-state-working = Working
+mascot-state-thinking = Thinking
+mascot-state-attention = Attention
+mascot-state-celebrating = Done!
+mascot-state-error = Error
+mascot-state-sleeping = Sleeping
+mascot-bubble-task = Task: { $name }
+mascot-bubble-terminal-pending = Terminal request: { $title }
+mascot-bubble-terminal-running = Running: { $title }
+mascot-bubble-terminal-ok = Completed: { $title }
+mascot-bubble-terminal-err = Failed (exit { $code }): { $title }
+mascot-bubble-answered = Answered: { $title }
+mascot-bubble-wait-expired = The agent stopped waiting: { $title }
+mascot-bubble-errors = { $count } error(s) in project
+mascot-open-interfaces = Open Interfaces panel →
+mascot-open-terminal = Open Terminal panel →
+mascot-open-problems = Open Problems panel →
+mascot-idle-hint = Watching agents and tasks
+mascot-bad-state = unknown mascot state: { $state }
+mascot-usage =
+    Usage: idetea mascot <state> [--text "…"] [--source <name>] [--ttl <seconds>]
+           idetea mascot clear
+           idetea mascot status [--json]
+    
+    States: idle, working, thinking, attention, celebrating, error, sleeping.
+    Writes .idetea/mascot.json so the IDE mascot reacts in real time (expires after --ttl, default 30s).

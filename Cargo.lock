@@ -5660,6 +5660,7 @@ dependencies = [
  "globset",
  "iced",
  "ignore",
+ "image",
  "libc",
  "notify",
  "rfd",

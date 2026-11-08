@@ -56,6 +56,8 @@ pub enum Cli {
     Open(Vec<String>),
     /// `idetea history`: o que o usuário respondeu no painel Interfaces (RFC 0007).
     History(Vec<String>),
+    /// `idetea mascot …`: informa o estado do agente para o mascote da IDE (RFC 0012).
+    Mascot(Vec<String>),
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -108,6 +110,10 @@ pub fn parse(args: impl IntoIterator<Item = OsString>, cwd: &Path, env_no_splash
     if args.peek().is_some_and(|a| a == "history") {
         args.next();
         return Cli::History(args.map(|a| a.to_string_lossy().into_owned()).collect());
+    }
+    if args.peek().is_some_and(|a| a == "mascot") {
+        args.next();
+        return Cli::Mascot(args.map(|a| a.to_string_lossy().into_owned()).collect());
     }
     if args.peek().is_some_and(|a| a == "skills") {
         args.next();
@@ -277,6 +283,7 @@ mod tests {
         assert!(matches!(ui(&["a.rs", "skills"]), Cli::Run(_)), "só como primeiro argumento");
         assert_eq!(ui(&["new", "app", "--modelo", "rust"]), Cli::New(vec!["app".into(), "--modelo".into(), "rust".into()]));
         assert_eq!(ui(&["history", "--json"]), Cli::History(vec!["--json".into()]));
+        assert_eq!(ui(&["mascot", "working", "--text", "oi"]), Cli::Mascot(vec!["working".into(), "--text".into(), "oi".into()]));
         assert!(matches!(ui(&["a.rs", "ui"]), Cli::Run(_)), "só como primeiro argumento");
     }
 
