@@ -803,6 +803,7 @@ u UU N... 100644 100644 100644 100644 a b c conflito.rs\0\
         run(&dir, &["config", "user.email", "t@t"], &[]).unwrap();
         run(&dir, &["config", "user.name", "t"], &[]).unwrap();
         run(&dir, &["config", "commit.gpgsign", "false"], &[]).unwrap();
+        run(&dir, &["config", "core.autocrlf", "false"], &[]).unwrap();
         let repo = discover(&dir).expect("repositório");
         std::fs::write(dir.join("a.txt"), "um\n").unwrap();
         assert_eq!(head_text(&repo, &dir.join("a.txt")), None, "ainda sem commit");

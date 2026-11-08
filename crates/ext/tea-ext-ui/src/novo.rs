@@ -285,10 +285,12 @@ mod tests {
 
     #[test]
     fn reads_the_form() {
+        let pasta = std::env::temp_dir().join("x");
+        let pasta_str = pasta.display().to_string();
         let values: std::collections::BTreeMap<String, Value> =
-            serde_json::from_value(json!({"/pasta": "/tmp/x", "/nome": "meu-app", "/modelo": "rust", "/descricao": " um app ", "/git": false, "/agente": "nenhum"})).unwrap();
+            serde_json::from_value(json!({"/pasta": pasta_str, "/nome": "meu-app", "/modelo": "rust", "/descricao": " um app ", "/git": false, "/agente": "nenhum"})).unwrap();
         let r = request_from(&values).unwrap();
-        assert_eq!(r, Request { dir: "/tmp/x/meu-app".into(), model: "rust".into(), description: "um app".into(), git: false, agent: None });
+        assert_eq!(r, Request { dir: pasta.join("meu-app"), model: "rust".into(), description: "um app".into(), git: false, agent: None });
         let mut v = values.clone();
         v.insert("/agente".into(), json!("claude"));
         assert_eq!(request_from(&v).unwrap().agent.as_deref(), Some("claude"));

@@ -397,8 +397,9 @@ mod tests {
         assert_eq!(decide(Some(&disk("running", Some(me))), me), Decision::Lost);
         assert_eq!(decide(Some(&disk("exited", Some(dead))), me), Decision::Leave);
         assert_eq!(decide(Some(&disk("refused", None)), me), Decision::Leave);
-        // Outra IDE viva (o pid 1 sempre existe) é dona do pedido.
-        assert_eq!(decide(Some(&disk("running", Some(1))), me), Decision::Leave);
-        assert_eq!(decide(Some(&disk("pending", Some(1))), me), Decision::Leave);
+        // Outra IDE viva (o próprio processo `me` comparado com outro id) é dona do pedido.
+        let other = me.wrapping_add(1);
+        assert_eq!(decide(Some(&disk("running", Some(me))), other), Decision::Leave);
+        assert_eq!(decide(Some(&disk("pending", Some(me))), other), Decision::Leave);
     }
 }

@@ -6,7 +6,10 @@ pub fn path_to_uri(path: &Path) -> String {
     let mut s = String::from("file://");
     let text = path.to_string_lossy();
     #[cfg(windows)]
-    let text = format!("/{}", text.replace('\\', "/"));
+    let text = {
+        let t = text.replace('\\', "/");
+        if t.starts_with('/') { t } else { format!("/{t}") }
+    };
     for b in text.bytes() {
         let keep = b.is_ascii_alphanumeric() || b"/-_.~:".contains(&b);
         if keep {
@@ -37,7 +40,10 @@ pub fn uri_to_path(uri: &str) -> Option<PathBuf> {
     }
     let s = String::from_utf8(out).ok()?;
     #[cfg(windows)]
-    let s = s.trim_start_matches('/').replace('/', "\\");
+    let s = {
+        let s = if s.starts_with('/') && s.as_bytes().get(2) == Some(&b':') { &s[1..] } else { &s };
+        s.replace('/', "\\")
+    };
     Some(PathBuf::from(s))
 }
 

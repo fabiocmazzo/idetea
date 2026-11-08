@@ -1554,10 +1554,19 @@ mod tests {
         ui(&mut ext, UiMessage::SpriteStep("voo".into()));
         ui(&mut ext, UiMessage::SpriteStep("voo".into()));
         // Um "tocador" que fica tocando (os testes não tocam som de verdade).
-        let program = root.join("tocador");
-        std::fs::write(&program, "#!/bin/sh\nsleep 5\n").unwrap();
         #[cfg(unix)]
-        std::fs::set_permissions(&program, std::os::unix::fs::PermissionsExt::from_mode(0o755)).unwrap();
+        let program = {
+            let p = root.join("tocador");
+            std::fs::write(&p, "#!/bin/sh\nsleep 5\n").unwrap();
+            std::fs::set_permissions(&p, std::os::unix::fs::PermissionsExt::from_mode(0o755)).unwrap();
+            p
+        };
+        #[cfg(windows)]
+        let program = {
+            let p = root.join("tocador.cmd");
+            std::fs::write(&p, "@ping -n 6 127.0.0.1 >nul\r\n").unwrap();
+            p
+        };
         ext.player = Player::new(Some(program));
         ui(&mut ext, UiMessage::Play("estouro".into()));
         ui(&mut ext, UiMessage::Play("estouro".into())); // de novo, por cima

@@ -151,7 +151,9 @@ fn refresh_caches(desktop: &Path, icon: &Path) {
 /// O `.desktop` de `assets/` com o caminho do executável no `Exec`.
 #[cfg(any(not(target_os = "macos"), test))]
 fn desktop_entry(exe: &Path) -> String {
-    DESKTOP.replace("@EXEC@", &exec_arg(&exe.to_string_lossy()))
+    DESKTOP
+        .replace("\r\n", "\n")
+        .replace("@EXEC@", &exec_arg(&exe.to_string_lossy()))
 }
 
 /// Caminho no `Exec` do `.desktop`: entre aspas se tiver algo além de letras, números e `/._-+`; dentro das

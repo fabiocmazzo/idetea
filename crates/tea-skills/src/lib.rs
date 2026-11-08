@@ -530,7 +530,18 @@ mod tests {
 
     fn git(dir: &Path, args: &[&str]) {
         let ok = Command::new("git")
-            .args(["-c", "user.name=t", "-c", "user.email=t@t", "-c", "commit.gpgsign=false", "-c", "init.defaultBranch=main"])
+            .args([
+                "-c",
+                "user.name=t",
+                "-c",
+                "user.email=t@t",
+                "-c",
+                "commit.gpgsign=false",
+                "-c",
+                "init.defaultBranch=main",
+                "-c",
+                "core.autocrlf=false",
+            ])
             .args(args)
             .current_dir(dir)
             .output()

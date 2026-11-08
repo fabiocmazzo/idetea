@@ -4470,7 +4470,13 @@ fn crumb_names(root: &Path, path: &Path) -> (Vec<String>, String) {
             (names, file)
         }
         Err(_) => {
-            let names = path.parent().into_iter().flat_map(Path::components).map(name).filter(|c| c != "/").collect();
+            let names = path
+                .parent()
+                .into_iter()
+                .flat_map(Path::components)
+                .filter(|c| !matches!(c, std::path::Component::RootDir))
+                .map(name)
+                .collect();
             (names, file)
         }
     }

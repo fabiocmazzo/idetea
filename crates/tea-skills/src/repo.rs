@@ -24,7 +24,12 @@ impl Source {
         let url = if spec.contains("://") || spec.starts_with("git@") {
             spec.to_string()
         } else if cwd.join(spec).is_dir() {
-            cwd.join(spec).canonicalize().ok()?.to_string_lossy().into_owned()
+            cwd.join(spec)
+                .canonicalize()
+                .ok()?
+                .to_string_lossy()
+                .trim_start_matches(r"\\?\")
+                .to_string()
         } else {
             let mut parts = spec.split('/');
             let (owner, repo) = (parts.next()?, parts.next()?);
@@ -159,7 +164,12 @@ mod tests {
         let cwd = std::env::temp_dir();
         let gh = Source::parse("anthropics/skills", &cwd).unwrap();
         assert_eq!(gh.url, "https://github.com/anthropics/skills.git");
-        assert!(gh.cache_dir(Path::new("/c")).to_string_lossy().starts_with("/c/anthropics-skills-"));
+        assert!(
+            gh.cache_dir(Path::new("/c"))
+                .to_string_lossy()
+                .replace('\\', "/")
+                .starts_with("/c/anthropics-skills-")
+        );
         assert_eq!(Source::parse("https://example.com/a/b.git", &cwd).unwrap().url, "https://example.com/a/b.git");
         for bad in ["", "-x", "a/b/c", "a/..", "a/", "a b/c"] {
             assert_eq!(Source::parse(bad, &cwd), None, "{bad}");

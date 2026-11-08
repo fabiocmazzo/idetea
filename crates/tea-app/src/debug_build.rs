@@ -215,7 +215,7 @@ não é json"#;
         let out = run(&Build::Cargo, &dir);
         assert!(out.ok, "{}", out.log);
         assert_eq!(out.executables.len(), 1);
-        assert!(out.executables[0].is_file() && out.executables[0].ends_with("demo"));
+        assert!(out.executables[0].is_file() && out.executables[0].file_stem() == Some(std::ffi::OsStr::new("demo")));
 
         std::fs::write(dir.join("src/main.rs"), "fn main() { y }\n").unwrap();
         let out = run(&Build::Cargo, &dir);

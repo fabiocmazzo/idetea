@@ -34,4 +34,4 @@ jobs:
         run: cargo clippy --locked --workspace --all-targets -- -D warnings
       - name: Testes
         # Os testes com clangd e gdb se pulam quando eles não estão instalados (e os de plugin, sem wasm32-wasip2).
-        run: cargo test --locked --workspace
+        run: cargo test --locked --workspace --no-fail-fast

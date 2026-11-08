@@ -133,8 +133,16 @@ fn run(root: &Path, tx: &mpsc::UnboundedSender<Change>) {
                     continue;
                 }
                 // Pasta nova (criada ou trazida por renomeação): observar ela e o que tiver dentro.
-                if path.is_dir() && !dirs.watched.contains(&path) {
-                    dirs.add_tree(&path, tx);
+                // No Windows/macOS, mexer num arquivo dentro de uma pasta já observada também emite
+                // `Modify` na própria pasta; ignoramos para não poluir a lista de caminhos alterados.
+                if path.is_dir() {
+                    if dirs.watched.contains(&path) {
+                        if matches!(event.kind, EventKind::Modify(_)) {
+                            continue;
+                        }
+                    } else {
+                        dirs.add_tree(&path, tx);
+                    }
                 }
                 paths.insert(path);
             }

@@ -69,7 +69,11 @@ pub fn stale(root: &Path, ours: &str) -> Vec<(String, Stale)> {
 /// Versão de um texto de instruções: 8 dígitos hexadecimais (FNV-1a de 32 bits). Vai no fim do bloco e no `ide`
 /// de cada resposta; diferentes, o agente sabe que a IDE tem instruções mais novas que as do arquivo.
 pub fn version(text: &str) -> String {
-    let hash = text.trim_end().bytes().fold(0x811c_9dc5_u32, |h, b| (h ^ u32::from(b)).wrapping_mul(0x0100_0193));
+    let hash = text
+        .trim_end()
+        .bytes()
+        .filter(|&b| b != b'\r')
+        .fold(0x811c_9dc5_u32, |h, b| (h ^ u32::from(b)).wrapping_mul(0x0100_0193));
     format!("{hash:08x}")
 }
 
@@ -245,7 +249,8 @@ mod tests {
     /// O texto é o mesmo que a documentação mostra.
     #[test]
     fn docs_show_the_same_text() {
-        let docs = include_str!("../../../../docs/interfaces/agentes.md");
-        assert!(docs.contains(INSTRUCTIONS), "atualize docs/interfaces/agentes.md junto com agents/instructions.md");
+        let docs = include_str!("../../../../docs/interfaces/agentes.md").replace("\r\n", "\n");
+        let instructions = INSTRUCTIONS.replace("\r\n", "\n");
+        assert!(docs.contains(&instructions), "atualize docs/interfaces/agentes.md junto com agents/instructions.md");
     }
 }
