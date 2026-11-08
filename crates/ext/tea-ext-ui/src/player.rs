@@ -14,13 +14,7 @@ const PLAYERS: &[&str] = &["pw-play", "paplay", "aplay"];
 
 /// O primeiro tocador que existe no `PATH`.
 pub fn find() -> Option<PathBuf> {
-    let path = std::env::var_os("PATH")?;
-    PLAYERS.iter().find_map(|name| std::env::split_paths(&path).map(|dir| dir.join(name)).find(|p| executable(p)))
-}
-
-fn executable(path: &Path) -> bool {
-    use std::os::unix::fs::PermissionsExt;
-    std::fs::metadata(path).is_ok_and(|m| m.is_file() && m.permissions().mode() & 0o111 != 0)
+    PLAYERS.iter().find_map(|name| tea_core::os::find_in_path(name))
 }
 
 /// O que está tocando: qual interface, qual componente e em que revisão (outra revisão para o som).
@@ -117,6 +111,7 @@ impl Drop for Player {
 fn spawn(program: &Path, path: &Path) -> std::io::Result<Child> {
     let mut cmd = Command::new(program);
     cmd.arg(path).stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::null());
+    #[cfg(unix)]
     std::os::unix::process::CommandExt::process_group(&mut cmd, 0);
     // "Text file busy": outra thread abriu um processo enquanto o executável ainda estava aberto para escrita
     // (um script recém-gravado). Passa num instante; tenta de novo algumas vezes.
@@ -134,15 +129,25 @@ fn spawn(program: &Path, path: &Path) -> std::io::Result<Child> {
 
 /// Mata o grupo inteiro (o tocador e o que ele tiver aberto) e espera, para não deixar zumbi.
 fn kill(child: &mut Child) {
+    #[cfg(unix)]
     if let Ok(pid) = i32::try_from(child.id()) {
         // SAFETY: `kill` só manda um sinal; o grupo é o do filho (`process_group(0)` em `spawn`).
         unsafe { libc::kill(-pid, libc::SIGKILL) };
+    }
+    #[cfg(windows)]
+    {
+        let _ = Command::new("taskkill")
+            .args(["/F", "/T", "/PID", &child.id().to_string()])
+            .stdin(Stdio::null())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .status();
     }
     let _ = child.kill();
     let _ = child.wait();
 }
 
-#[cfg(test)]
+#[cfg(all(test, unix))]
 mod tests {
     use super::*;
 

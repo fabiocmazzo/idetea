@@ -65,9 +65,18 @@ pub fn run(build: &Build, root: &Path) -> Outcome {
             c
         }
         Build::Shell(line) => {
-            let mut c = Command::new("sh");
-            c.args(["-c", line]);
-            c
+            #[cfg(windows)]
+            {
+                let mut c = Command::new("cmd");
+                c.args(["/C", line]);
+                c
+            }
+            #[cfg(not(windows))]
+            {
+                let mut c = Command::new("sh");
+                c.args(["-c", line]);
+                c
+            }
         }
     };
     let out = cmd
@@ -121,11 +130,20 @@ pub fn executables(json_lines: &str) -> Vec<PathBuf> {
 
 /// Executáveis em `zig-out/bin/` (o `zig build` instala lá), em ordem de nome.
 fn zig_executables(dir: &Path) -> Vec<PathBuf> {
-    use std::os::unix::fs::PermissionsExt;
     let Ok(entries) = std::fs::read_dir(dir) else { return Vec::new() };
     let mut found: Vec<PathBuf> = entries
         .flatten()
-        .filter(|e| e.metadata().is_ok_and(|m| m.is_file() && m.permissions().mode() & 0o111 != 0))
+        .filter(|e| {
+            #[cfg(unix)]
+            {
+                tea_core::os::is_executable(&e.path())
+            }
+            #[cfg(not(unix))]
+            {
+                e.metadata().is_ok_and(|m| m.is_file())
+                    && e.path().extension().is_some_and(|x| x.eq_ignore_ascii_case("exe"))
+            }
+        })
         .map(|e| e.path())
         .collect();
     found.sort();
@@ -208,7 +226,6 @@ não é json"#;
 
     #[test]
     fn zig_projects_build_with_zig_build() {
-        use std::os::unix::fs::PermissionsExt;
         let dir = std::env::temp_dir().join(format!("idetea-zig-debug-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(dir.join("zig-out/bin")).unwrap();
@@ -217,13 +234,17 @@ não é json"#;
         assert_eq!(plan(&cfg(None), &dir), Some(Build::Zig));
         assert_eq!(plan(&cfg(Some("make")), &dir), Some(Build::Shell("make".into())), "o config vence");
 
-        let bin = dir.join("zig-out/bin");
-        for (name, mode) in [("app", 0o755), ("tool", 0o755), ("leia-me.txt", 0o644)] {
-            std::fs::write(bin.join(name), "").unwrap();
-            std::fs::set_permissions(bin.join(name), std::fs::Permissions::from_mode(mode)).unwrap();
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let bin = dir.join("zig-out/bin");
+            for (name, mode) in [("app", 0o755), ("tool", 0o755), ("leia-me.txt", 0o644)] {
+                std::fs::write(bin.join(name), "").unwrap();
+                std::fs::set_permissions(bin.join(name), std::fs::Permissions::from_mode(mode)).unwrap();
+            }
+            assert_eq!(zig_executables(&bin), [bin.join("app"), bin.join("tool")]);
+            assert!(zig_executables(&dir.join("nao-existe")).is_empty());
         }
-        assert_eq!(zig_executables(&bin), [bin.join("app"), bin.join("tool")]);
-        assert!(zig_executables(&dir.join("nao-existe")).is_empty());
 
         let log = "install\n+- compile exe app Debug native 1 errors\nsrc/main.zig:3:5: error: use of undeclared identifier 'x'\n";
         assert_eq!(first_error(log), "src/main.zig:3:5: error: use of undeclared identifier 'x'");

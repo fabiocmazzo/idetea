@@ -493,6 +493,7 @@ mod tests {
         let _ = std::fs::remove_dir_all(&root);
     }
 
+    #[cfg(unix)]
     #[test]
     fn refuses_a_linked_history() {
         let root = tmp_root("link");

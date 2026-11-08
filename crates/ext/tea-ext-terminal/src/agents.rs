@@ -282,10 +282,9 @@ pub fn allowed<'a>(command: &str, list: &'a [String]) -> Option<&'a str> {
     })
 }
 
-/// O processo ainda existe? Sem `/proc` (fora do Linux), supõe que sim: melhor não marcar como perdido o que roda.
+/// O processo ainda existe? Usa `tea_core::os::process_alive` (Linux `/proc`, macOS/Unix `kill(pid, 0)`, Windows `tasklist`).
 pub fn alive(pid: u32) -> bool {
-    let proc = Path::new("/proc");
-    !proc.is_dir() || proc.join(pid.to_string()).exists()
+    tea_core::os::process_alive(pid)
 }
 
 /// O que fazer com um pedido que a IDE ainda não tratou, olhando o status no disco.

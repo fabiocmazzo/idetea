@@ -71,9 +71,16 @@ fn write_check_script(path: &Path, exe: &Path) -> std::io::Result<()> {
     let quoted = exe.to_string_lossy().replace('\'', r"'\''");
     let script = format!("#!/bin/sh\n# Written by the TEA IDE: checks interface documents like the panel reads them.\nexec '{quoted}' ui check \"$@\"\n");
     write_if_changed(path, &script)?;
+    #[cfg(unix)]
     if !is_link(path) {
         use std::os::unix::fs::PermissionsExt;
         std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o755))?;
+    }
+    #[cfg(windows)]
+    {
+        let cmd_path = path.with_extension("cmd");
+        let cmd_script = format!("@echo off\r\n\"{}\" ui check %*\r\n", exe.display());
+        write_if_changed(&cmd_path, &cmd_script)?;
     }
     Ok(())
 }
@@ -535,8 +542,11 @@ mod tests {
         write_check_script(&script, Path::new("/opt/it's/idetea")).unwrap();
         let text = std::fs::read_to_string(&script).unwrap();
         assert!(text.contains(r#"exec '/opt/it'\''s/idetea' ui check "$@""#), "{text}");
-        use std::os::unix::fs::PermissionsExt;
-        assert_eq!(std::fs::metadata(&script).unwrap().permissions().mode() & 0o777, 0o755);
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            assert_eq!(std::fs::metadata(&script).unwrap().permissions().mode() & 0o777, 0o755);
+        }
         let _ = std::fs::remove_dir_all(&root);
     }
 

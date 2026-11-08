@@ -546,6 +546,15 @@ fn kill_group(child: &mut std::process::Child) {
     unsafe {
         libc::kill(-(child.id() as i32), libc::SIGKILL);
     }
+    #[cfg(windows)]
+    {
+        let _ = std::process::Command::new("taskkill")
+            .args(["/F", "/T", "/PID", &child.id().to_string()])
+            .stdin(Stdio::null())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .status();
+    }
     let _ = child.kill();
     let _ = child.wait();
 }

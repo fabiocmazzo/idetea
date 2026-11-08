@@ -153,10 +153,7 @@ impl UiExtension {
     }
 
     fn state_file(&self) -> Option<PathBuf> {
-        let base = std::env::var_os("XDG_STATE_HOME")
-            .filter(|v| !v.is_empty())
-            .map(PathBuf::from)
-            .or_else(|| std::env::var_os("HOME").map(|h| PathBuf::from(h).join(".local").join("state")))?;
+        let base = tea_core::os::state_dir()?;
         Some(base.join("idetea").join("ui").join(project_key(&self.root)))
     }
 
@@ -1559,6 +1556,7 @@ mod tests {
         // Um "tocador" que fica tocando (os testes não tocam som de verdade).
         let program = root.join("tocador");
         std::fs::write(&program, "#!/bin/sh\nsleep 5\n").unwrap();
+        #[cfg(unix)]
         std::fs::set_permissions(&program, std::os::unix::fs::PermissionsExt::from_mode(0o755)).unwrap();
         ext.player = Player::new(Some(program));
         ui(&mut ext, UiMessage::Play("estouro".into()));

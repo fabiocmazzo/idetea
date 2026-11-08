@@ -246,12 +246,28 @@ pub fn default_servers() -> Vec<ServerConfig> {
     ]
 }
 
-/// Procura um executável no PATH.
+/// Procura um executável no PATH (no Windows, considera também `.exe`, `.cmd`, `.bat` e `.com`).
 pub fn find_in_path(command: &str) -> Option<PathBuf> {
     let cmd = std::path::Path::new(command);
     if cmd.components().count() > 1 {
         return cmd.is_file().then(|| cmd.to_path_buf());
     }
     let path = std::env::var_os("PATH")?;
-    std::env::split_paths(&path).map(|dir| dir.join(command)).find(|p| p.is_file())
+    for dir in std::env::split_paths(&path) {
+        let candidate = dir.join(command);
+        if candidate.is_file() {
+            return Some(candidate);
+        }
+        #[cfg(windows)]
+        if cmd.extension().is_none() {
+            let exts = std::env::var("PATHEXT").unwrap_or_else(|_| ".EXE;.CMD;.BAT;.COM".to_string());
+            for ext in exts.split(';').filter(|e| !e.is_empty()) {
+                let with_ext = dir.join(format!("{command}{ext}"));
+                if with_ext.is_file() {
+                    return Some(with_ext);
+                }
+            }
+        }
+    }
+    None
 }

@@ -44,15 +44,7 @@ pub fn valid_agent(name: &str) -> bool {
 
 /// O executável está no `PATH`?
 fn in_path(name: &str) -> bool {
-    std::env::var_os("PATH").is_some_and(|path| {
-        std::env::split_paths(&path).any(|d| {
-            let f = d.join(name);
-            f.is_file() && std::fs::metadata(&f).is_ok_and(|m| {
-                use std::os::unix::fs::PermissionsExt;
-                m.permissions().mode() & 0o111 != 0
-            })
-        })
-    })
+    tea_core::os::find_in_path(name).is_some()
 }
 
 /// Os agentes de [`AGENTS`] instalados aqui.
@@ -212,8 +204,8 @@ pub fn request_from(values: &std::collections::BTreeMap<String, Value>) -> Resul
         return Err(fl!("new-bad-name", name = name));
     }
     let parent = text("/pasta");
-    let parent = match parent.strip_prefix("~/") {
-        Some(rest) => std::env::var_os("HOME").map(PathBuf::from).unwrap_or_default().join(rest),
+    let parent = match parent.strip_prefix("~/").or_else(|| parent.strip_prefix("~\\")) {
+        Some(rest) => tea_core::os::home_dir().unwrap_or_default().join(rest),
         None => PathBuf::from(parent),
     };
     if !parent.is_absolute() {

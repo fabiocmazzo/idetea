@@ -255,13 +255,20 @@ fn remove_copy(dir: &Path) -> Result<(), String> {
     }
 }
 
-/// Pasta do cache das fontes (`$XDG_CACHE_HOME/idetea/skills`, ou `~/.cache/idetea/skills`).
+/// Pasta do cache das fontes (`$XDG_CACHE_HOME/idetea/skills`, `~/.cache/idetea/skills` ou `%LOCALAPPDATA%\idetea\cache\skills`).
 pub fn cache_dir() -> Option<PathBuf> {
-    let base = std::env::var_os("XDG_CACHE_HOME")
+    if let Some(xdg) = std::env::var_os("XDG_CACHE_HOME").filter(|v| !v.is_empty()) {
+        return Some(PathBuf::from(xdg).join("idetea").join("skills"));
+    }
+    #[cfg(target_os = "windows")]
+    if let Some(local) = std::env::var_os("LOCALAPPDATA").filter(|v| !v.is_empty()) {
+        return Some(PathBuf::from(local).join("idetea").join("cache").join("skills"));
+    }
+    let home = std::env::var_os("HOME")
         .filter(|v| !v.is_empty())
-        .map(PathBuf::from)
-        .or_else(|| std::env::var_os("HOME").map(|h| PathBuf::from(h).join(".cache")))?;
-    Some(base.join("idetea").join("skills"))
+        .or_else(|| std::env::var_os("USERPROFILE").filter(|v| !v.is_empty()))
+        .map(PathBuf::from)?;
+    Some(home.join(".cache").join("idetea").join("skills"))
 }
 
 /// Por que um comando não terminou.
@@ -546,6 +553,7 @@ mod tests {
         write(dir, "skills/pdf/ref.md", "referência\n");
         write(dir, "skills/web/SKILL.md", "---\nname: web\ndescription: >\n  Monta sites\n  estáticos\n---\n");
         write(dir, "skills/web/tools/build.sh", "#!/bin/sh\necho oi\n");
+        #[cfg(unix)]
         std::os::unix::fs::symlink("/etc/passwd", dir.join("skills/web/fora")).unwrap();
         write(dir, "skills/Ruim/SKILL.md", "---\nname: Ruim Nome\n---\n");
         git(dir, &["add", "-A"]);

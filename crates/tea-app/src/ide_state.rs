@@ -102,10 +102,9 @@ pub fn read(root: &Path) -> Option<State> {
     serde_json::from_str::<State>(&text).ok().filter(|s| s.format == FORMAT)
 }
 
-/// O processo ainda existe. Sem `/proc` (fora do Linux), confia no arquivo.
+/// O processo ainda existe.
 fn alive(pid: u32) -> bool {
-    let proc = Path::new("/proc");
-    !proc.is_dir() || proc.join(pid.to_string()).exists()
+    tea_core::os::process_alive(pid)
 }
 
 /// O estado de uma IDE aberta agora (um arquivo deixado por uma IDE que travou não conta).

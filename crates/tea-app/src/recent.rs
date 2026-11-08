@@ -66,7 +66,7 @@ pub fn path() -> Option<PathBuf> {
 
 /// Caminho para mostrar: `~` no lugar da pasta pessoal.
 pub fn display(path: &Path) -> String {
-    if let Some(home) = std::env::var_os("HOME").map(PathBuf::from)
+    if let Some(home) = tea_core::os::home_dir()
         && let Ok(rest) = path.strip_prefix(&home)
     {
         return Path::new("~").join(rest).display().to_string();

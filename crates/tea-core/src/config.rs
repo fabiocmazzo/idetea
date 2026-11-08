@@ -501,12 +501,7 @@ fn deep_merge(base: &mut toml::Table, over: toml::Table) {
 
 /// Caminho do config global.
 pub fn global_config_path() -> Option<PathBuf> {
-    let base = std::env::var_os("XDG_CONFIG_HOME")
-        .filter(|v| !v.is_empty())
-        .map(PathBuf::from)
-        .or_else(|| std::env::var_os("APPDATA").map(PathBuf::from))
-        .or_else(|| std::env::var_os("HOME").map(|h| PathBuf::from(h).join(".config")))?;
-    Some(base.join("idetea").join("config.toml"))
+    Some(crate::os::config_dir()?.join("idetea").join("config.toml"))
 }
 
 /// Caminho do config do projeto.

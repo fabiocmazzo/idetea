@@ -4530,8 +4530,8 @@ fn still_bound(global: &str, project: &str, chord: &str, command: &str) -> bool 
 }
 
 fn expand_home(input: &str) -> PathBuf {
-    match input.strip_prefix("~/") {
-        Some(rest) => std::env::var_os("HOME").map(|h| PathBuf::from(h).join(rest)).unwrap_or_else(|| input.into()),
+    match input.strip_prefix("~/").or_else(|| input.strip_prefix("~\\")) {
+        Some(rest) => tea_core::os::home_dir().map(|h| h.join(rest)).unwrap_or_else(|| input.into()),
         None => PathBuf::from(input),
     }
 }

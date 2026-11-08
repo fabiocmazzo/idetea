@@ -93,6 +93,15 @@ fn kill(child: &mut std::process::Child) {
         // SAFETY: `kill` só manda um sinal; o grupo é o do filho (process_group(0) acima).
         unsafe { libc::kill(-(child.id() as libc::pid_t), libc::SIGKILL) };
     }
+    #[cfg(windows)]
+    {
+        let _ = std::process::Command::new("taskkill")
+            .args(["/F", "/T", "/PID", &child.id().to_string()])
+            .stdin(Stdio::null())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .status();
+    }
     let _ = child.kill();
 }
 

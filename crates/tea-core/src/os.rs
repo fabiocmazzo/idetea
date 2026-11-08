@@ -1,32 +1,178 @@
-//! Integração com o sistema operacional.
+//! Integração com o sistema operacional: pastas do usuário, busca no `PATH`, abertura de arquivos/URLs e
+//! verificação de processos vivos (Linux, macOS e Windows).
 
-use std::path::Path;
+use std::ffi::OsStr;
+use std::path::{Path, PathBuf};
+
+/// Pasta pessoal do usuário (`HOME` no Unix/macOS; `HOME` ou `USERPROFILE` no Windows).
+pub fn home_dir() -> Option<PathBuf> {
+    std::env::var_os("HOME")
+        .filter(|v| !v.is_empty())
+        .or_else(|| std::env::var_os("USERPROFILE").filter(|v| !v.is_empty()))
+        .map(PathBuf::from)
+}
+
+/// Pasta base de configuração (`$XDG_CONFIG_HOME`, `%APPDATA%` no Windows ou `~/.config`).
+pub fn config_dir() -> Option<PathBuf> {
+    std::env::var_os("XDG_CONFIG_HOME")
+        .map(PathBuf::from)
+        .filter(|p| p.is_absolute())
+        .or_else(|| std::env::var_os("APPDATA").filter(|v| !v.is_empty()).map(PathBuf::from))
+        .or_else(|| home_dir().map(|h| h.join(".config")))
+}
+
+/// Pasta base de estado local (`$XDG_STATE_HOME`, `%LOCALAPPDATA%` no Windows ou `~/.local/state`).
+pub fn state_dir() -> Option<PathBuf> {
+    if let Some(xdg) = std::env::var_os("XDG_STATE_HOME").map(PathBuf::from).filter(|p| p.is_absolute()) {
+        return Some(xdg);
+    }
+    #[cfg(windows)]
+    if let Some(local) = std::env::var_os("LOCALAPPDATA")
+        .or_else(|| std::env::var_os("APPDATA"))
+        .filter(|v| !v.is_empty())
+        .map(PathBuf::from)
+    {
+        return Some(local);
+    }
+    home_dir().map(|h| h.join(".local").join("state"))
+}
+
+/// Pasta base de dados do usuário (`$XDG_DATA_HOME`, `%LOCALAPPDATA%` no Windows ou `~/.local/share`).
+pub fn data_dir() -> Option<PathBuf> {
+    if let Some(xdg) = std::env::var_os("XDG_DATA_HOME").map(PathBuf::from).filter(|p| p.is_absolute()) {
+        return Some(xdg);
+    }
+    #[cfg(windows)]
+    if let Some(local) = std::env::var_os("LOCALAPPDATA")
+        .or_else(|| std::env::var_os("APPDATA"))
+        .filter(|v| !v.is_empty())
+        .map(PathBuf::from)
+    {
+        return Some(local);
+    }
+    home_dir().map(|h| h.join(".local").join("share"))
+}
+
+/// Pasta base de cache (`$XDG_CACHE_HOME`, `%LOCALAPPDATA%` no Windows ou `~/.cache`).
+pub fn cache_dir() -> Option<PathBuf> {
+    if let Some(xdg) = std::env::var_os("XDG_CACHE_HOME").map(PathBuf::from).filter(|p| p.is_absolute()) {
+        return Some(xdg);
+    }
+    #[cfg(windows)]
+    if let Some(local) = std::env::var_os("LOCALAPPDATA").filter(|v| !v.is_empty()).map(PathBuf::from) {
+        return Some(local);
+    }
+    home_dir().map(|h| h.join(".cache"))
+}
+
+/// Confere se `path` é um arquivo executável.
+pub fn is_executable(path: &Path) -> bool {
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::metadata(path).is_ok_and(|m| m.is_file() && m.permissions().mode() & 0o111 != 0)
+    }
+    #[cfg(not(unix))]
+    {
+        path.is_file()
+    }
+}
+
+/// Procura um comando no `PATH` (no Windows também tenta as extensões de `PATHEXT`, como `.exe`, `.cmd`, `.bat`).
+pub fn find_in_path(name: &str) -> Option<PathBuf> {
+    if name.is_empty() {
+        return None;
+    }
+    let path = std::env::var_os("PATH")?;
+    for dir in std::env::split_paths(&path) {
+        let candidate = dir.join(name);
+        if is_executable(&candidate) {
+            return Some(candidate);
+        }
+        #[cfg(windows)]
+        if Path::new(name).extension().is_none() {
+            let exts = std::env::var("PATHEXT").unwrap_or_else(|_| ".EXE;.CMD;.BAT;.COM".into());
+            for ext in exts.split(';').filter(|e| !e.is_empty()) {
+                let with_ext = dir.join(format!("{name}{ext}"));
+                if with_ext.is_file() {
+                    return Some(with_ext);
+                }
+            }
+        }
+    }
+    None
+}
+
+/// Verifica se o processo com `pid` ainda está vivo no sistema.
+pub fn process_alive(pid: u32) -> bool {
+    if pid == std::process::id() {
+        return true;
+    }
+    #[cfg(target_os = "linux")]
+    {
+        let proc = Path::new("/proc");
+        !proc.is_dir() || proc.join(pid.to_string()).exists()
+    }
+    #[cfg(all(unix, not(target_os = "linux")))]
+    {
+        let Ok(p) = i32::try_from(pid) else { return false };
+        if p <= 0 {
+            return false;
+        }
+        // SAFETY: `kill(pid, 0)` não envia sinal algum; apenas verifica se o processo existe.
+        unsafe { libc::kill(p, 0) == 0 || std::io::Error::last_os_error().raw_os_error() == Some(libc::EPERM) }
+    }
+    #[cfg(windows)]
+    {
+        let filter = format!("PID eq {pid}");
+        match std::process::Command::new("tasklist")
+            .args(["/FI", &filter, "/NH"])
+            .stdin(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .output()
+        {
+            Ok(out) => String::from_utf8_lossy(&out.stdout).contains(&pid.to_string()),
+            Err(_) => true,
+        }
+    }
+}
 
 /// Abre a pasta no gerenciador de arquivos do sistema (sem esperar ele fechar).
 pub fn open_in_file_manager(dir: &Path) -> std::io::Result<()> {
-    open_with_system(dir.as_os_str())
+    open_with_system(dir.as_os_str(), false)
 }
 
 /// Abre um endereço (`https://...`, `mailto:...`) no programa padrão do sistema.
 pub fn open_url(url: &str) -> std::io::Result<()> {
-    open_with_system(std::ffi::OsStr::new(url))
+    open_with_system(OsStr::new(url), true)
 }
 
 /// Abre um arquivo no programa padrão do sistema para o tipo dele.
 pub fn open_path(path: &Path) -> std::io::Result<()> {
-    open_with_system(path.as_os_str())
+    open_with_system(path.as_os_str(), false)
 }
 
-fn open_with_system(target: &std::ffi::OsStr) -> std::io::Result<()> {
-    let program = if cfg!(target_os = "macos") {
-        "open"
+fn open_with_system(target: &OsStr, is_url: bool) -> std::io::Result<()> {
+    let mut cmd = if cfg!(target_os = "macos") {
+        let mut c = std::process::Command::new("open");
+        c.arg(target);
+        c
     } else if cfg!(target_os = "windows") {
-        "explorer"
+        if is_url {
+            let mut c = std::process::Command::new("rundll32");
+            c.arg("url.dll,FileProtocolHandler").arg(target);
+            c
+        } else {
+            let mut c = std::process::Command::new("explorer");
+            c.arg(target);
+            c
+        }
     } else {
-        "xdg-open"
+        let mut c = std::process::Command::new("xdg-open");
+        c.arg(target);
+        c
     };
-    let mut child = std::process::Command::new(program)
-        .arg(target)
+    let mut child = cmd
         .stdin(std::process::Stdio::null())
         .stdout(std::process::Stdio::null())
         .stderr(std::process::Stdio::null())
@@ -34,4 +180,25 @@ fn open_with_system(target: &std::ffi::OsStr) -> std::io::Result<()> {
     // Espera numa thread para o processo não virar zumbi.
     std::thread::spawn(move || child.wait());
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn current_process_is_alive_and_bogus_pid_is_dead() {
+        assert!(process_alive(std::process::id()));
+        assert!(!process_alive(999_999_999));
+    }
+
+    #[test]
+    fn user_dirs_return_some_when_home_exists() {
+        if home_dir().is_some() {
+            assert!(config_dir().is_some());
+            assert!(state_dir().is_some());
+            assert!(data_dir().is_some());
+            assert!(cache_dir().is_some());
+        }
+    }
 }

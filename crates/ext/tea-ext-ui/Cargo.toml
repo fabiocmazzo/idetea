@@ -8,12 +8,14 @@ license.workspace = true
 # em `.idetea/ui/responses/`. Ligada por padrão (ver docs/rfc/0001-interfaces-declarativas.md).
 [dependencies]
 iced.workspace = true
-libc.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 tea-core.workspace = true
 tea-declarative-ui.workspace = true
 tea-skills.workspace = true
+
+[target.'cfg(unix)'.dependencies]
+libc.workspace = true
 
 [dev-dependencies]
 iced_test = "0.14"

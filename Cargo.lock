@@ -5695,6 +5695,7 @@ dependencies = [
  "i18n-embed",
  "i18n-embed-fl",
  "iced",
+ "libc",
  "regex",
  "rust-embed",
  "serde",

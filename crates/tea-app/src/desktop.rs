@@ -22,10 +22,7 @@ pub fn run(install: bool) -> iced::Result {
 }
 
 fn data_dir() -> Option<PathBuf> {
-    std::env::var_os("XDG_DATA_HOME")
-        .map(PathBuf::from)
-        .filter(|p| p.is_absolute())
-        .or_else(|| std::env::var_os("HOME").map(|h| PathBuf::from(h).join(".local/share")))
+    tea_core::os::data_dir()
 }
 
 fn paths() -> Result<(PathBuf, PathBuf), String> {

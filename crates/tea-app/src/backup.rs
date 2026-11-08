@@ -126,15 +126,22 @@ pub fn orphans(dir: &Path) -> Vec<Orphan> {
 }
 
 /// A janela dona da cópia ainda está aberta? No Linux olha `/proc` (e confere que o processo é a IDE, por
-/// causa de `pid` reaproveitado depois de reiniciar o computador). Em outros sistemas, só esta janela conta.
+/// causa de `pid` reaproveitado depois de reiniciar o computador). Em macOS e Windows, confere se o `pid` está vivo.
 fn is_running(pid: u32) -> bool {
     if pid == std::process::id() {
         return true;
     }
-    let exe = std::fs::read_link(format!("/proc/{pid}/exe"));
-    match (exe, std::env::current_exe()) {
-        (Ok(theirs), Ok(ours)) => theirs == ours,
-        _ => false,
+    #[cfg(target_os = "linux")]
+    {
+        let exe = std::fs::read_link(format!("/proc/{pid}/exe"));
+        match (exe, std::env::current_exe()) {
+            (Ok(theirs), Ok(ours)) => theirs == ours,
+            _ => false,
+        }
+    }
+    #[cfg(not(target_os = "linux"))]
+    {
+        tea_core::os::process_alive(pid)
     }
 }
 

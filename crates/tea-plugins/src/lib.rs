@@ -24,10 +24,7 @@ pub fn plugins_dir() -> Option<PathBuf> {
     if let Some(dir) = std::env::var_os("IDETEA_PLUGINS_DIR").filter(|v| !v.is_empty()) {
         return Some(PathBuf::from(dir));
     }
-    let base = std::env::var_os("XDG_DATA_HOME")
-        .filter(|v| !v.is_empty())
-        .map(PathBuf::from)
-        .or_else(|| std::env::var_os("HOME").map(|h| PathBuf::from(h).join(".local").join("share")))?;
+    let base = tea_core::os::data_dir()?;
     Some(base.join("idetea").join("plugins"))
 }
 
