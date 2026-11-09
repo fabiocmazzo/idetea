@@ -147,6 +147,17 @@ fn depends_on_ziex(root: &Path) -> bool {
 
 pub fn servers_from_config(config: &LspConfig) -> Vec<ServerConfig> {
     let mut servers = tea_lsp::default_servers();
+    let (packs, _) = tea_core::languages::builtins();
+    for pack in packs {
+        let manifest = pack.manifest;
+        let Some(lsp) = manifest.lsp else { continue };
+        servers.push(ServerConfig {
+            name: lsp.name,
+            command: lsp.command,
+            args: lsp.args,
+            languages: manifest.files.extensions.into_iter().map(|(e, id)| (e.to_lowercase(), id)).collect(),
+        });
+    }
     for (name, o) in &config.servers {
         if o.enabled == Some(false) {
             servers.retain(|s| &s.name != name);
@@ -190,6 +201,27 @@ mod tests {
 
     fn cfg(entries: &[(&str, LspServerConfig)]) -> LspConfig {
         LspConfig { enabled: true, servers: entries.iter().cloned().map(|(k, v)| (k.to_string(), v)).collect() }
+    }
+
+    #[test]
+    fn language_pack_servers_are_included() {
+        let servers = servers_from_config(&cfg(&[]));
+        let moonbit = servers.iter().find(|s| s.name == "moonbit").unwrap();
+        assert_eq!(moonbit.command, "moon");
+        assert_eq!(moonbit.args, ["lsp"]);
+        assert_eq!(moonbit.language_for("mbt"), Some("moonbit"));
+        assert_eq!(moonbit.language_for("mbti"), Some("moonbit"));
+        let hare = servers.iter().find(|s| s.name == "hare-lsp").unwrap();
+        assert_eq!(hare.command, "hare-lsp");
+        assert_eq!(hare.args, ["-S"]);
+        assert_eq!(hare.language_for("ha"), Some("hare"));
+    }
+
+    #[test]
+    fn pack_server_can_be_disabled() {
+        let servers = servers_from_config(&cfg(&[("moonbit", LspServerConfig { enabled: Some(false), ..Default::default() })]));
+        assert!(!servers.iter().any(|s| s.name == "moonbit"));
+        assert!(servers.iter().any(|s| s.name == "hare-lsp"));
     }
 
     #[test]

@@ -1,0 +1,31 @@
+format = 1
+id = "moonbit"
+name = "MoonBit"
+
+[files]
+extensions = { mbt = "moonbit", mbti = "moonbit" }
+syntaxes = ["moonbit.sublime-syntax"]
+
+[project]
+markers = ["moon.mod"]
+
+[lsp]
+name = "moonbit"
+command = "moon"
+args = ["lsp"]
+
+[[tasks]]
+name = "moon check"
+command = "moon check"
+
+[[tasks]]
+name = "moon build"
+command = "moon build"
+
+[[tasks]]
+name = "moon test"
+command = "moon test"
+
+[[tasks]]
+name = "moon fmt --check"
+command = "moon fmt --check"

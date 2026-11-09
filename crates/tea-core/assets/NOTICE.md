@@ -30,3 +30,15 @@ TextMate do VS Code (`ide/vscode/syntaxes/zx.tmLanguage.json`) para o formato do
 Sintaxe do Zig do [sublime-zig-language](https://github.com/ziglang/sublime-zig-language), © 2018 Jeff Fowler,
 MIT ([syntaxes/LICENSE-zig-sublime.txt](syntaxes/LICENSE-zig-sublime.txt)). Copiada por `tools/zx-syntax.sh`,
 escondida e sem extensões, só para a do ZX incluir.
+
+## languages/hare/hare.sublime-syntax
+
+Sintaxe do Hare de [hare-sublime-syntax](https://github.com/ravengraves/hare-sublime-syntax), revisão
+`826727cd2958d5d90ba012852afdea480bd621cb`, Unlicense
+([languages/hare/LICENSE.txt](languages/hare/LICENSE.txt)). Copiada sem modificações.
+
+## languages/moonbit/moonbit.sublime-syntax
+
+Sintaxe do MoonBit de [moonbit-syntax-highlight](https://github.com/hyrious/moonbit-syntax-highlight), © 2025 hyrious,
+MIT ([languages/moonbit/LICENSE.txt](languages/moonbit/LICENSE.txt)). Copiada da revisão
+`ed723f8f60c294a5df83a28f0689cdb56fa8f27a`, sem modificações.

@@ -3587,7 +3587,7 @@ impl App {
 
     /// `Ctrl+Shift+B`: lista das tarefas do projeto (a última rodada vem primeiro).
     fn open_tasks(&mut self) -> Task<Message> {
-        let mut list = tasks::list(&self.root, &self.config.tasks);
+        let mut list = tasks::list_for(&self.root, self.active_path(), &self.config.tasks);
         if let Some(last) = &self.last_task {
             match list.iter().position(|t| t == last) {
                 Some(i) => list[..=i].rotate_right(1),

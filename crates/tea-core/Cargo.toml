@@ -17,5 +17,8 @@ sys-locale.workspace = true
 fluent-syntax.workspace = true
 regex.workspace = true
 
+[dev-dependencies]
+syntect = { version = "5.3", default-features = false, features = ["yaml-load", "regex-fancy"] }
+
 [target.'cfg(unix)'.dependencies]
 libc.workspace = true

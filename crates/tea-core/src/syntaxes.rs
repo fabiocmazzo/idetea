@@ -4,6 +4,8 @@
 //!   `tools/zx-syntax.sh` a partir da gramática do VS Code do Ziex (MIT, ver `assets/NOTICE.md`). As sintaxes
 //!   registradas formam um conjunto à parte no editor e não enxergam as dele, então a do Zig que o ZX inclui vem
 //!   junto, escondida e sem extensões (os `.zig` continuam com a do editor).
+//! - Language packs: Hare e MoonBit trazem suas gramáticas em `assets/languages` (origem e licença no README de cada
+//!   pacote e em `assets/NOTICE.md`).
 //! - Do usuário: os `*.sublime-syntax` de `~/.config/idetea/syntaxes/`, lidos ao abrir a IDE. Uma sintaxe do
 //!   usuário para uma extensão que já tem cor fica no lugar da embutida.
 //!
@@ -34,7 +36,11 @@ pub fn sources(user_dir: Option<&Path>) -> (Vec<Source>, Vec<(String, String)>) 
         Source { label: "zig.sublime-syntax".into(), text: ZIG.into() },
         Source { label: "zx.sublime-syntax".into(), text: ZX.into() },
     ];
-    let mut errors = Vec::new();
+    let (packs, pack_errors) = crate::languages::builtins();
+    for pack in packs {
+        out.extend(pack.syntaxes);
+    }
+    let mut errors: Vec<(String, String)> = pack_errors.into_iter().map(|e| ("language packs".into(), e)).collect();
     let Some(dir) = user_dir else { return (out, errors) };
     let Ok(entries) = std::fs::read_dir(dir) else { return (out, errors) };
     let mut files: Vec<PathBuf> = entries
@@ -58,6 +64,14 @@ mod tests {
     use super::*;
 
     #[test]
+    fn language_pack_syntaxes_are_embedded() {
+        let (found, errors) = sources(None);
+        assert!(errors.is_empty(), "{errors:?}");
+        let labels: Vec<_> = found.iter().map(|s| s.label.as_str()).collect();
+        assert_eq!(labels, ["zig.sublime-syntax", "zx.sublime-syntax", "hare/hare.sublime-syntax", "moonbit/moonbit.sublime-syntax"]);
+    }
+
+    #[test]
     fn embedded_first_then_user_files_in_name_order() {
         let dir = std::env::temp_dir().join(format!("idetea-syntaxes-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
@@ -67,9 +81,10 @@ mod tests {
         std::fs::write(dir.join("leia-me.txt"), "não é sintaxe").unwrap();
         let (found, errors) = sources(Some(&dir));
         let texts: Vec<_> = found.iter().map(|s| s.text.as_str()).collect();
-        assert_eq!(texts, [ZIG, ZX, "a", "b"]);
+        assert!(texts.starts_with(&[ZIG, ZX]));
+        assert_eq!(&texts[texts.len() - 2..], ["a", "b"]);
         assert!(errors.is_empty());
-        assert_eq!(sources(Some(&dir.join("nao-existe"))).0.len(), 2);
+        assert_eq!(sources(Some(&dir.join("nao-existe"))).0.len(), 4);
         assert!(ZIG.contains("hidden: true") && ZIG.contains("file_extensions: []"));
         assert!(ZX.contains("scope: \"source.zx\""));
         let _ = std::fs::remove_dir_all(&dir);

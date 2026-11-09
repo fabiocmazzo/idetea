@@ -1,8 +1,8 @@
 //! Tarefas: comandos do projeto que rodam no terminal (`Ctrl+Shift+B`).
 //!
 //! A lista junta as do config (`[tasks]`, primeiro) com as que dá para achar na raiz do projeto: cargo
-//! (`Cargo.toml`), scripts do `package.json` e alvos do `Makefile`. Quem roda é a extensão do terminal
-//! (`CoreEvent::RunTask`).
+//! (`Cargo.toml`), scripts do `package.json` e alvos do `Makefile`. Language packs podem acrescentar tarefas pelo
+//! marcador mais próximo do arquivo ativo (`list_for`). Quem roda é a extensão do terminal (`CoreEvent::RunTask`).
 //!
 //! "Rodar o teste no cursor" (Rust): acha o `fn` mais perto acima do cursor com um atributo de teste
 //! (`#[test]`, `#[tokio::test]`...) e o pacote dono do arquivo (o `Cargo.toml` com `[package]` mais perto),
@@ -70,6 +70,38 @@ pub fn list(root: &Path, configured: &BTreeMap<String, String>) -> Vec<TaskDef> 
     let mut seen = std::collections::HashSet::new();
     out.retain(|t| seen.insert(t.name.clone()));
     out
+}
+
+/// Tarefas da raiz mais as dos language packs ligadas ao projeto do arquivo ativo.
+pub fn list_for(root: &Path, active: Option<&Path>, configured: &BTreeMap<String, String>) -> Vec<TaskDef> {
+    let mut out = list(root, configured);
+    let (packs, _) = tea_core::languages::builtins();
+    for pack in packs {
+        let manifest = pack.manifest;
+        let Some(project) = manifest.project else { continue };
+        let Some(cwd) = pack_project(root, active, &project.markers) else { continue };
+        for task in manifest.tasks {
+            out.push(TaskDef::new(task.name, task.command, &cwd));
+        }
+    }
+    let mut seen = std::collections::HashSet::new();
+    out.retain(|t| seen.insert(t.name.clone()));
+    out
+}
+
+fn pack_project(root: &Path, active: Option<&Path>, markers: &[String]) -> Option<PathBuf> {
+    let has_marker = |dir: &Path| markers.iter().any(|marker| dir.join(marker).is_file());
+    if let Some(dir) = active.and_then(Path::parent) {
+        for ancestor in dir.ancestors() {
+            if !ancestor.starts_with(root) {
+                break;
+            }
+            if has_marker(ancestor) {
+                return Some(ancestor.to_path_buf());
+            }
+        }
+    }
+    has_marker(root).then(|| root.to_path_buf())
 }
 
 fn package_scripts(text: &str) -> Vec<String> {
@@ -230,6 +262,54 @@ mod tests {
         let integ = rust_test_task(&dir, &dir.join("crates/app/tests/api.rs"), "rota").unwrap();
         assert_eq!(integ.command, "cargo test -p app --test api rota");
         assert!(rust_test_task(&dir, Path::new("/solto.rs"), "x").is_none(), "fora de um pacote");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn moonbit_tasks_use_the_closest_module_to_the_active_file() {
+        let dir = std::env::temp_dir().join(format!("idetea-moonbit-tasks-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(dir.join("backend/src")).unwrap();
+        std::fs::create_dir_all(dir.join("frontend")).unwrap();
+        std::fs::write(dir.join("moon.mod"), "name = \"example/workspace\"\n").unwrap();
+        std::fs::write(dir.join("backend/moon.mod"), "name = \"example/backend\"\n").unwrap();
+        std::fs::write(dir.join("frontend/package.json"), "{}").unwrap();
+
+        let active = dir.join("backend/src/main.mbt");
+        let tasks = list_for(&dir, Some(&active), &BTreeMap::new());
+        let moon: Vec<_> = tasks.into_iter().filter(|t| t.command.starts_with("moon ")).collect();
+        assert_eq!(moon.len(), 4);
+        assert!(moon.iter().all(|t| t.cwd == dir.join("backend")));
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn moonbit_tasks_use_root_fallback_but_not_a_legacy_manifest() {
+        let dir = std::env::temp_dir().join(format!("idetea-moonbit-root-tasks-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(dir.join("moon.mod.json"), "{}").unwrap();
+        assert!(list_for(&dir, None, &BTreeMap::new()).is_empty());
+
+        std::fs::write(dir.join("moon.mod"), "name = \"example/root\"\n").unwrap();
+        let tasks = list_for(&dir, None, &BTreeMap::new());
+        assert_eq!(tasks.len(), 4);
+        assert!(tasks.iter().all(|t| t.cwd == dir));
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn configured_task_overrides_a_pack_task() {
+        let dir = std::env::temp_dir().join(format!("idetea-moonbit-override-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(dir.join("moon.mod"), "name = \"example/root\"\n").unwrap();
+        let configured = BTreeMap::from([("moon test".to_string(), "moon test --target all".to_string())]);
+        let tasks = list_for(&dir, None, &configured);
+        let test = tasks.iter().find(|t| t.name == "moon test").unwrap();
+        assert_eq!(test.command, "moon test --target all");
+        assert_eq!(test.cwd, dir);
+        assert_eq!(tasks.iter().filter(|t| t.name == "moon test").count(), 1);
         let _ = std::fs::remove_dir_all(&dir);
     }
 

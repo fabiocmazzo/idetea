@@ -1,0 +1,12 @@
+format = 1
+id = "hare"
+name = "Hare"
+
+[files]
+extensions = { ha = "hare" }
+syntaxes = ["hare.sublime-syntax"]
+
+[lsp]
+name = "hare-lsp"
+command = "hare-lsp"
+args = ["-S"]

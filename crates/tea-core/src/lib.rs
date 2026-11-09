@@ -34,6 +34,7 @@ pub mod os;
 pub mod pick;
 pub mod replace;
 pub mod keymap;
+pub mod languages;
 
 /// Onde um painel aparece na janela.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Deserialize)]

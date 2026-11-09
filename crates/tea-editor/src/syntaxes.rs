@@ -38,3 +38,16 @@ fn register_valid(mut sources: Vec<Source>) -> Vec<(String, String)> {
 pub fn problems() -> &'static [(String, String)] {
     PROBLEMS.get().map(Vec::as_slice).unwrap_or_default()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn builtin_language_pack_syntaxes_parse() {
+        let (packs, errors) = tea_core::languages::builtins();
+        assert!(errors.is_empty(), "{errors:?}");
+        let sources = packs.into_iter().flat_map(|p| p.syntaxes).collect();
+        assert!(register_valid(sources).is_empty());
+    }
+}

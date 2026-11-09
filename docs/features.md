@@ -31,7 +31,8 @@ The full list, for the technical reader. For the short version, see the [README]
 - **Project search** as you type, respecting `.gitignore`, with regex, whole word and match case.
 - **Right-click menus** on the tree, the tabs and the files in the git panel.
 - **Tasks** (`Ctrl+Shift+B`): your own commands from the config, plus what the IDE finds in the project (cargo,
-  `package.json` scripts, Makefile targets, `build.zig` steps), with the output in the terminal.
+  `package.json` scripts, Makefile targets, `build.zig` steps), with the output in the terminal. MoonBit modules also
+  get `moon check`, `build`, `test` and `fmt --check`, run from the `moon.mod` closest to the active file.
 - **New project** ("Project: new…" or `idetea new <folder>`): folder, git, the agent skills of a template (empty,
   Rust, website, Python, FastAPI) and an initial request in `AGENTS.md`. See [skills.md](skills.md).
 
@@ -58,9 +59,11 @@ The full list, for the technical reader. For the short version, see the [README]
   first character of the line, then to column 0. `Shift+Tab` removes indentation.
 - VS Code keys where they used to differ: fold/unfold the block at the cursor with `Ctrl+Shift+[` / `]`, reopen the
   last closed tab with `Ctrl+Shift+T`, bottom panel with `Ctrl+J`, terminal with `` Ctrl+` `` or `Ctrl+'`.
-- Already set up: rust-analyzer, clangd, pyright, typescript-language-server, gopls, lua-language-server, zls (Zig)
-  and `zx lsp` ([Ziex](https://ziex.dev); without the `zx` CLI, a Ziex project builds its own server with
-  `zig build`). Just install the server; you can change the command or add others in the config.
+- Already set up: rust-analyzer, clangd, pyright, typescript-language-server, gopls, lua-language-server, zls (Zig),
+  `zx lsp` ([Ziex](https://ziex.dev); without the `zx` CLI, a Ziex project builds its own server with `zig build`),
+  `hare-lsp -S` and `moon lsp`. Just install the server; you can change the command, disable it or add others in the
+  config. Hare's server is limited to parsing diagnostics, definition, hover and document symbols; MoonBit support
+  covers `.mbt` and `.mbti`, subject to the capabilities of the installed toolchain.
 
 ## Terminal
 
