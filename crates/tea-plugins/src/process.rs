@@ -40,7 +40,7 @@ pub fn run(root: &Path, id: u32, command: &Command) -> RunOutput {
         ms => Duration::from_millis(ms.into()).min(MAX_TIMEOUT),
     };
     let mut process = Process::new(&command.program);
-    process
+    tea_core::os::hide_console(&mut process)
         .args(&command.args)
         .current_dir(&cwd)
         .stdin(if command.stdin.is_some() { Stdio::piped() } else { Stdio::null() })

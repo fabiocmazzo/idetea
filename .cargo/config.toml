@@ -1,0 +1,4 @@
+# No Windows (MSVC), embute o Visual C++ Runtime (vcruntime140.dll) estaticamente no executável,
+# para rodar direto em qualquer instalação limpa do Windows 10/11 sem exigir o VC++ Redistributable.
+[target.x86_64-pc-windows-msvc]
+rustflags = ["-C", "target-feature=+crt-static"]

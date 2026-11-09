@@ -69,7 +69,7 @@ você pode desligar.
 
 ## Instalando
 
-**Linux, macOS e Windows, pronta para rodar:** baixe o pacote do seu sistema (`.tar.gz` ou `.AppImage` para Linux x86_64/aarch64, `.tar.gz` com `IDE TEA.app` para macOS aarch64, ou `.zip` com `idetea.exe` para Windows x86_64) em
+**Linux, macOS e Windows, pronta para rodar:** baixe o pacote do seu sistema (`.tar.gz` ou `.AppImage` para Linux x86_64/aarch64, `.tar.gz` com `IDE TEA.app` para macOS aarch64, ou o instalador `-setup.exe` / `.zip` portátil para Windows x86_64) em
 [Releases](https://github.com/fabiocmazzo/idetea/releases). No Linux, o `./install.sh` põe o `idetea` em
 `~/.local/bin` e no menu de aplicativos; o AppImage roda direto (`chmod +x` antes) e `--install-desktop` põe no
 menu. No macOS, `--install-desktop` cria `~/Applications/IDE TEA.app`. O `SHA256SUMS` tem as somas de verificação.

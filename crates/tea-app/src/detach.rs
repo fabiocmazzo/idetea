@@ -15,7 +15,7 @@ const LOG_MAX: u64 = 1024 * 1024;
 pub fn wanted(foreground: bool) -> bool {
     !foreground
         && !cfg!(debug_assertions)
-        && cfg!(unix)
+        && std::env::var_os("IDETEA_DETACHED").is_none()
         && (std::io::stdout().is_terminal() || std::io::stderr().is_terminal())
 }
 
@@ -46,7 +46,11 @@ pub fn spawn_exe(exe: &Path) -> std::io::Result<()> {
         None => (Stdio::null(), Stdio::null()),
     };
     let mut cmd = Command::new(exe);
-    cmd.args(std::env::args_os().skip(1)).stdin(Stdio::null()).stdout(out).stderr(err);
+    cmd.args(std::env::args_os().skip(1))
+        .env("IDETEA_DETACHED", "1")
+        .stdin(Stdio::null())
+        .stdout(out)
+        .stderr(err);
     // SAFETY: só `setsid` entre o fork e o exec (seguro depois de um fork).
     unsafe {
         cmd.pre_exec(|| {
@@ -69,8 +73,10 @@ pub fn spawn_exe(exe: &Path) -> std::io::Result<()> {
         Some(f) => (Stdio::from(f.try_clone()?), Stdio::from(f.try_clone()?)),
         None => (Stdio::null(), Stdio::null()),
     };
-    Command::new(exe)
+    let mut cmd = Command::new(exe);
+    tea_core::os::hide_console(&mut cmd)
         .args(std::env::args_os().skip(1))
+        .env("IDETEA_DETACHED", "1")
         .stdin(Stdio::null())
         .stdout(out)
         .stderr(err)

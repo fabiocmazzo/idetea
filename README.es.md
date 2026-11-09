@@ -70,7 +70,7 @@ una extensión que puedes desactivar.
 
 ## Instalación
 
-**Linux, macOS y Windows, listo para usar:** descarga el paquete de tu sistema (`.tar.gz` o `.AppImage` para Linux x86_64/aarch64, `.tar.gz` con `IDE TEA.app` para macOS aarch64, o `.zip` con `idetea.exe` para Windows x86_64) en
+**Linux, macOS y Windows, listo para usar:** descarga el paquete de tu sistema (`.tar.gz` o `.AppImage` para Linux x86_64/aarch64, `.tar.gz` con `IDE TEA.app` para macOS aarch64, o el instalador `-setup.exe` / `.zip` portátil para Windows x86_64) en
 [Releases](https://github.com/fabiocmazzo/idetea/releases). En Linux, `./install.sh` pone `idetea` en
 `~/.local/bin` y en el menú de aplicaciones; el AppImage funciona tal cual (`chmod +x` antes) y `--install-desktop`
 lo pone en el menú. En macOS, `--install-desktop` crea `~/Applications/IDE TEA.app`. `SHA256SUMS` tiene las sumas de verificación.

@@ -7,7 +7,7 @@ Free code signing on Windows is provided by [SignPath.io](https://signpath.io), 
 ## 1. Code Signing Policy
 
 - **Source Repository:** Official releases of IDE TEA are built exclusively from tagged commits (`v*`) in the public GitHub repository [`https://github.com/fabiocmazzo/idetea`](https://github.com/fabiocmazzo/idetea) under the [Apache License 2.0](LICENSE).
-- **Automated Build Pipeline:** All release binaries (`idetea.exe` for Windows, `idetea` / `IDE TEA.app` for macOS, and `.tar.gz` / `.AppImage` for Linux) are compiled reproducibly via GitHub Actions (`.github/workflows/release.yml`) on clean GitHub-hosted runners. Local developer builds are never signed with production certificates.
+- **Automated Build Pipeline:** All release binaries (`idetea.exe` and `IDE_TEA-*-x86_64-setup.exe` for Windows, `idetea` / `IDE TEA.app` for macOS, and `.tar.gz` / `.AppImage` for Linux) are compiled reproducibly via GitHub Actions (`.github/workflows/release.yml`) on clean GitHub-hosted runners. Local developer builds are never signed with production certificates.
 - **Committers, Reviewers, and Approvers:**
   - [Fabio C. Mazzo (`@fabiocmazzo`)](https://github.com/fabiocmazzo) — Author, maintainer, reviewer, and release approver.
 

@@ -126,7 +126,7 @@ jobs:
           key: dist-windows-x86_64
       - name: Testes
         run: cargo test --locked --workspace
-      - name: Pacote Windows (.zip)
+      - name: Pacote Windows (.zip e instalador Inno Setup .exe)
         shell: pwsh
         run: |
           $version = (Select-String -Path Cargo.toml -Pattern '^version = "(.*)"' | Select-Object -First 1).Matches.Groups[1].Value
@@ -135,13 +135,14 @@ jobs:
           $pkg = "dist/$name"
           if (Test-Path dist) { Remove-Item -Recurse -Force dist }
           New-Item -ItemType Directory -Force -Path "$pkg/licenses" | Out-Null
-          Copy-Item target/dist/idetea.exe, assets/idetea.svg, LICENSE, README.md "$pkg/"
+          Copy-Item target/dist/idetea.exe, assets/idetea.svg, assets/idetea.ico, LICENSE, README.md "$pkg/"
           Copy-Item crates/tea-core/assets/NOTICE.md "$pkg/licenses/NOTICE.md"
           Copy-Item crates/tea-core/assets/fonts/OFL.txt "$pkg/licenses/JetBrainsMono-OFL.txt"
           Copy-Item crates/tea-core/assets/seti/LICENSE.txt "$pkg/licenses/Seti-LICENSE.txt"
           Copy-Item crates/tea-core/assets/syntaxes/LICENSE-ziex.txt "$pkg/licenses/Ziex-LICENSE.txt"
           Copy-Item crates/tea-core/assets/syntaxes/LICENSE-zig-sublime.txt "$pkg/licenses/sublime-zig-language-LICENSE.txt"
           Compress-Archive -Path "$pkg" -DestinationPath "dist/$name.zip"
+          iscc "/DAppVersion=$version" packaging/windows/idetea.iss
           Remove-Item -Recurse -Force "$pkg"
           ./target/dist/idetea.exe --version
       - name: Assinar com SignPath Foundation (opcional, quando SIGNPATH_ORGANIZATION_ID estiver configurado)
@@ -158,7 +159,9 @@ jobs:
       - uses: actions/upload-artifact@v7
         with:
           name: idetea-windows-x86_64
-          path: dist/*.zip
+          path: |
+            dist/*.zip
+            dist/*-setup.exe
           if-no-files-found: error
 
   publish:

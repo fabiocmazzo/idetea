@@ -74,7 +74,10 @@ impl Client {
     /// Inicia o servidor na pasta `root`. O handshake acontece em segundo plano;
     /// o que for enviado antes disso fica na fila.
     pub fn start(config: &ServerConfig, root: &Path, sink: EventSink) -> std::io::Result<Self> {
-        let mut child = Command::new(&config.command)
+        let mut cmd = Command::new(&config.command);
+        #[cfg(windows)]
+        std::os::windows::process::CommandExt::creation_flags(&mut cmd, 0x0800_0000);
+        let mut child = cmd
             .args(&config.args)
             .current_dir(root)
             .stdin(Stdio::piped())

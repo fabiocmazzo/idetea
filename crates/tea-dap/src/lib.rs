@@ -182,7 +182,10 @@ impl Session {
         breakpoints: HashMap<PathBuf, Vec<usize>>,
         sink: EventSink,
     ) -> std::io::Result<Self> {
-        let mut child = Command::new(&adapter.command)
+        let mut cmd = Command::new(&adapter.command);
+        #[cfg(windows)]
+        std::os::windows::process::CommandExt::creation_flags(&mut cmd, 0x0800_0000);
+        let mut child = cmd
             .args(&adapter.args)
             .current_dir(&launch.cwd)
             .stdin(Stdio::piped())

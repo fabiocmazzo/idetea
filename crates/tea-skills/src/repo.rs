@@ -86,6 +86,7 @@ impl Entry {
 
 fn git(dir: Option<&Path>, args: &[&str]) -> Result<Vec<u8>, String> {
     let mut cmd = Command::new("git");
+    tea_core::os::hide_console(&mut cmd);
     if let Some(dir) = dir {
         cmd.arg("-C").arg(dir);
     }

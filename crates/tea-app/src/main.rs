@@ -193,6 +193,7 @@ fn main() -> iced::Result {
                 .font(tea_core::icons::FONT_BYTES)
                 .window(window::Settings {
                     size: saved.window().unwrap_or(window::Settings::default().size),
+                    icon: window::icon::from_file_data(include_bytes!("../../../assets/idetea.png"), None).ok(),
                     platform_specific: window::settings::PlatformSpecific {
                         #[cfg(target_os = "linux")]
                         application_id: APP_ID.into(),

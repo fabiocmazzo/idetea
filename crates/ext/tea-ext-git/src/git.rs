@@ -20,7 +20,8 @@ pub struct Repo {
 
 /// Roda `git` na pasta e devolve a saída. Códigos de saída em `ok_codes` contam como sucesso.
 pub fn run(dir: &Path, args: &[&str], ok_codes: &[i32]) -> Result<String, String> {
-    let out = Command::new("git")
+    let mut cmd = Command::new("git");
+    let out = tea_core::os::hide_console(&mut cmd)
         .arg("-C")
         .arg(dir)
         .args(["-c", "color.ui=false", "-c", "core.quotepath=false"])
@@ -493,7 +494,8 @@ pub fn parse_blame(out: &str) -> Blame {
 /// - o erro devolve toda a saída de erro, para [`explain`] reconhecer o motivo.
 fn run_net(dir: &Path, args: &[&str], timeout: Duration) -> Result<String, String> {
     let mut cmd = Command::new("git");
-    cmd.arg("-C")
+    tea_core::os::hide_console(&mut cmd)
+        .arg("-C")
         .arg(dir)
         .args(["-c", "color.ui=false", "-c", "core.quotepath=false"])
         .args(args)

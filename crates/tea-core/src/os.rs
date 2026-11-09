@@ -160,7 +160,9 @@ pub fn process_alive(pid: u32) -> bool {
     #[cfg(windows)]
     {
         let filter = format!("PID eq {pid}");
-        match std::process::Command::new("tasklist")
+        let mut cmd = std::process::Command::new("tasklist");
+        hide_console(&mut cmd);
+        match cmd
             .args(["/FI", &filter, "/NH"])
             .stdin(std::process::Stdio::null())
             .stderr(std::process::Stdio::null())
@@ -170,6 +172,18 @@ pub fn process_alive(pid: u32) -> bool {
             Err(_) => true,
         }
     }
+}
+
+/// No Windows, evita que um comando de segundo plano (`git`, servidor LSP, `gdb`, `tasklist`) abra
+/// uma janela rápida de console (`conhost.exe`) quando a IDE está rodando sem terminal.
+pub fn hide_console(cmd: &mut std::process::Command) -> &mut std::process::Command {
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+        cmd.creation_flags(CREATE_NO_WINDOW);
+    }
+    cmd
 }
 
 /// Abre a pasta no gerenciador de arquivos do sistema (sem esperar ele fechar).

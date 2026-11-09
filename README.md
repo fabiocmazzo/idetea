@@ -69,7 +69,7 @@ extension you can turn off.
 
 ## Install
 
-**Linux, macOS and Windows, ready to run:** download the package for your platform (`.tar.gz` or `.AppImage` for Linux x86_64/aarch64, `.tar.gz` with `IDE TEA.app` for macOS aarch64, or `.zip` with `idetea.exe` for Windows x86_64) from
+**Linux, macOS and Windows, ready to run:** download the package for your platform (`.tar.gz` or `.AppImage` for Linux x86_64/aarch64, `.tar.gz` with `IDE TEA.app` for macOS aarch64, or the `-setup.exe` installer / portable `.zip` for Windows x86_64) from
 [Releases](https://github.com/fabiocmazzo/idetea/releases). On Linux, `./install.sh` puts `idetea` in
 `~/.local/bin` and adds it to the app menu; the AppImage runs as is (`chmod +x` first) and `--install-desktop` adds it
 to the menu. On macOS, `--install-desktop` creates `~/Applications/IDE TEA.app`. `SHA256SUMS` has the checksums.
