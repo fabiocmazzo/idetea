@@ -179,6 +179,18 @@ mod tests {
         }
     }
 
+    /// Descarta avisos até passar `gap` sem nenhum (no máximo 5 s).
+    fn quiet(rx: &mut mpsc::UnboundedReceiver<Change>, gap: Duration) {
+        let deadline = Instant::now() + Duration::from_secs(5);
+        let mut last = Instant::now();
+        while Instant::now() < deadline && last.elapsed() < gap {
+            if rx.try_recv().is_ok() {
+                last = Instant::now();
+            }
+            std::thread::sleep(Duration::from_millis(20));
+        }
+    }
+
     fn wait_for(rx: &mut mpsc::UnboundedReceiver<Change>, want: &Path) -> bool {
         let deadline = Instant::now() + Duration::from_secs(5);
         while Instant::now() < deadline {
@@ -214,12 +226,19 @@ mod tests {
         std::fs::write(root.join("nova/b.rs"), "2").unwrap();
         assert!(wait_for(&mut rx, &root.join("nova/b.rs")));
 
-        // Ignorada pelo .gitignore e dentro do .git: nada chega.
-        while rx.try_recv().is_ok() {}
+        // Ignorada pelo .gitignore e dentro do .git: nada de lá chega. O FSEvents (macOS) entrega avisos atrasados
+        // das mudanças acima; espera o silêncio antes e só reprova caminhos de `target/` ou `.git`.
+        quiet(&mut rx, Duration::from_millis(500));
         std::fs::write(root.join("target/x.o"), "").unwrap();
         std::fs::write(root.join(".git/index"), "").unwrap();
-        std::thread::sleep(Duration::from_millis(400));
-        assert!(rx.try_recv().is_err(), "não observa target/ nem .git");
+        std::thread::sleep(Duration::from_millis(600));
+        let mut leaked = Vec::new();
+        while let Ok(change) = rx.try_recv() {
+            if let Change::Paths(paths) = change {
+                leaked.extend(paths.into_iter().filter(|p| p.starts_with(root.join("target")) || p.starts_with(root.join(".git"))));
+            }
+        }
+        assert!(leaked.is_empty(), "não observa target/ nem .git: {leaked:?}");
 
         // Várias mudanças seguidas viram um aviso só.
         for i in 0..20 {
