@@ -601,6 +601,11 @@ impl Editor {
         self.inner.lose_focus();
     }
 
+    /// Este editor recebe o teclado?
+    pub fn is_focused(&self) -> bool {
+        self.inner.is_focused()
+    }
+
     /// Move o cursor. Linha e coluna começam em 1 (coluna em caracteres).
     pub fn goto(&mut self, line: usize, column: usize) -> Task<EditorMessage> {
         self.widget(Inner::GotoPosition(line.saturating_sub(1), column.saturating_sub(1)))

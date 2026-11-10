@@ -594,6 +594,12 @@ struct App {
     splash: Option<Splash>,
     /// Ponteiro sobre um painel lateral: um clique ali tira o foco do editor.
     pointer_over_panel: bool,
+    /// Ilha de painel sob o mouse e a que recebeu o último clique (RFC 0015: a borda da ilha com o foco). O editor
+    /// com o foco vale mais que esta.
+    hover_slot: Option<Slot>,
+    focus_slot: Option<Slot>,
+    /// Aba sob o mouse: mostra o "×" dela.
+    hover_tab: Option<u64>,
     dialog: Option<dialog::Open>,
     menu: Option<context_menu::Open>,
     /// Uma janela nativa de arquivo/pasta está aberta (não abre outra por cima).
@@ -673,6 +679,10 @@ enum Message {
     WindowResized(iced::Size),
     Frame(Instant),
     PointerOverPanel(bool),
+    /// O mouse entrou (`true`) ou saiu de uma ilha de painel.
+    HoverSlot(Slot, bool),
+    /// O mouse entrou (`true`) ou saiu de uma aba.
+    HoverTab(u64, bool),
     MousePressed,
     ModifiersChanged(keyboard::Modifiers),
     WheelScrolled(f32),
@@ -772,6 +782,9 @@ impl App {
             restart: false,
             splash: show_splash.then(|| Splash::new(started)),
             pointer_over_panel: false,
+            hover_slot: None,
+            focus_slot: None,
+            hover_tab: None,
             dialog: None,
             menu: None,
             picking: false,
@@ -2891,6 +2904,9 @@ impl App {
                     Some(i) => {
                         // A extensão pode abrir um campo de texto: o editor não pode ficar com o teclado.
                         self.editor_mut().lose_focus();
+                        if let Some(p) = self.panels.iter().find(|p| p.ext == i && p.visible) {
+                            self.focus_slot = Some(p.slot);
+                        }
                         self.call_ext(i, |e, ctx| e.on_command(id, ctx))
                     }
                     None => self.notify(fl!("unknown-command", id = id.to_string())),
@@ -3138,6 +3154,7 @@ impl App {
             return Task::none();
         }
         let (ext, id, bottom) = (p.ext, p.id, p.slot == Slot::Bottom);
+        self.focus_slot = Some(p.slot);
         if bottom {
             // Painéis de baixo costumam querer o teclado (terminal, busca).
             self.editor_mut().lose_focus();
@@ -3999,6 +4016,22 @@ impl App {
                 self.pointer_over_panel = over;
                 Task::none()
             }
+            Message::HoverSlot(slot, over) => {
+                if over {
+                    self.hover_slot = Some(slot);
+                } else if self.hover_slot == Some(slot) {
+                    self.hover_slot = None;
+                }
+                Task::none()
+            }
+            Message::HoverTab(id, over) => {
+                if over {
+                    self.hover_tab = Some(id);
+                } else if self.hover_tab == Some(id) {
+                    self.hover_tab = None;
+                }
+                Task::none()
+            }
             Message::BackupTick => {
                 self.backup_tick();
                 Task::none()
@@ -4028,6 +4061,7 @@ impl App {
                 if self.pointer_over_panel {
                     self.editor_mut().lose_focus();
                 }
+                self.focus_slot = self.hover_slot;
                 Task::none()
             }
             Message::ModifiersChanged(modifiers) => {
@@ -4256,25 +4290,37 @@ impl App {
         let shown = if focused { Some(self.active) } else { self.other_index() };
         let tabs = tea_core::style::scrollable(
             row(self.tabs.iter().enumerate().filter(|(_, t)| t.right == right).map(|(i, t)| {
-                let style = if i == self.active {
-                    button::primary
+                use tea_core::style::Tab;
+                let kind = if i == self.active {
+                    Tab::Active
                 } else if Some(i) == shown {
-                    button::secondary
+                    Tab::Shown
                 } else {
-                    button::text
+                    Tab::Idle
                 };
-                let close =
-                    button(text("×").size(13)).on_press(Message::CloseTab(t.id)).style(button::text).padding([0, 4]);
                 let id = t.id;
-                let title = t.editor.title();
-                // Na aba ativa o fundo é da cor de destaque: o ícone fica na cor do texto.
-                let kind = tea_core::file_icons::icon(&t.editor.file_name(), 13.0, i != self.active);
-                let tab = button(row![kind, text(title).size(13), close].spacing(6).align_y(iced::Center))
+                // O "×" aparece na aba ativa e na que está sob o mouse; nas outras, um ponto se não está salva. O
+                // espaço é o mesmo nos três casos, para a aba não mudar de largura.
+                let close: Element<'_, Message> = if kind == Tab::Active || self.hover_tab == Some(id) {
+                    button(text("×").size(13)).on_press(Message::CloseTab(id)).style(button::text).padding(0).into()
+                } else if t.editor.is_modified() {
+                    text("●").size(10).style(text::secondary).into()
+                } else {
+                    iced::widget::space().into()
+                };
+                let close = container(close).width(14).center_x(14);
+                // Na aba ativa o "●" de não salvo some no lugar do "×"; aí ele fica no título.
+                let title = if kind == Tab::Active { t.editor.title() } else { t.editor.file_name() };
+                let icon = tea_core::file_icons::icon(&t.editor.file_name(), 13.0, true);
+                let tab = button(row![icon, text(title).size(13), close].spacing(6).align_y(iced::Center))
                     .on_press(Message::SelectTab(id))
-                    .style(style)
+                    .style(move |theme: &Theme, status| tea_core::style::tab(theme, status, kind))
                     .padding([3, 8]);
                 // Botão do meio fecha; botão direito abre o menu.
-                let tab = mouse_area(tab).on_middle_press(Message::CloseTab(id));
+                let tab = mouse_area(tab)
+                    .on_middle_press(Message::CloseTab(id))
+                    .on_enter(Message::HoverTab(id, true))
+                    .on_exit(Message::HoverTab(id, false));
                 tea_core::menu::context_area(tab, move |at| Message::TabMenu(id, at))
             }))
             .spacing(2),
@@ -4358,19 +4404,25 @@ impl App {
         use tea_core::style::{GAP, ISLAND_INSET};
         // RFC 0015: cada área numa ilha arredondada sobre um fundo mais escuro; o vão entre elas é o divisor.
         let islands = self.config.ui.style != "classic";
-        fn island(islands: bool, content: Element<'_, Message>) -> Element<'_, Message> {
+        fn island(islands: bool, focused: bool, content: Element<'_, Message>) -> Element<'_, Message> {
             if islands {
-                container(content)
-                    .padding(ISLAND_INSET)
-                    .width(Fill)
-                    .height(Fill)
-                    .style(tea_core::style::island)
-                    .into()
+                let style = if focused { tea_core::style::island_focused } else { tea_core::style::island };
+                container(content).padding(ISLAND_INSET).width(Fill).height(Fill).style(style).into()
             } else {
                 content
             }
         }
-        let island = |content| island(islands, content);
+        // Onde está o teclado: o editor com o foco vale mais; senão, a ilha de painel do último clique.
+        let editor_focus = self.editor().is_focused().then(|| self.tabs[self.active].right);
+        let panel_focus = if editor_focus.is_some() { None } else { self.focus_slot };
+        let side_island = |right: bool, content| island(islands, editor_focus == Some(right), content);
+        // Ilha de painel: avisa quando o mouse entra ou sai, para saber qual recebe o clique.
+        let panel_island = |slot: Slot, content| -> Element<'_, Message> {
+            mouse_area(island(islands, panel_focus == Some(slot), content))
+                .on_enter(Message::HoverSlot(slot, true))
+                .on_exit(Message::HoverSlot(slot, false))
+                .into()
+        };
         let divider = |axis, edge| {
             divider::divider(axis, move |d| Message::Resize(edge, d), Message::ResizeDone, Message::ResizeReset(edge))
                 .islands(islands)
@@ -4379,21 +4431,21 @@ impl App {
         let editors: Element<'_, Message> = if self.other_index().is_some() {
             let left = (self.ui_state.split * 1000.0).round() as u16;
             row![
-                container(island(self.side_view(false))).width(iced::FillPortion(left)),
+                container(side_island(false, self.side_view(false))).width(iced::FillPortion(left)),
                 divider(divider::Axis::Vertical, Edge::Split),
-                container(island(self.side_view(true))).width(iced::FillPortion(1000 - left)),
+                container(side_island(true, self.side_view(true))).width(iced::FillPortion(1000 - left)),
             ]
             .height(Fill)
             .into()
         } else {
-            island(self.side_view(false))
+            side_island(false, self.side_view(false))
         };
 
         let mut center = column![editors].spacing(if islands { 0 } else { 4 }).width(Fill).height(Fill);
         if let Some(bottom) = self.bottom_view() {
             center = center
                 .push(divider(divider::Axis::Horizontal, Edge::Bottom))
-                .push(container(island(bottom)).height(self.ui_state.bottom_height));
+                .push(container(panel_island(Slot::Bottom, bottom)).height(self.ui_state.bottom_height));
         }
 
         let mut body = row![].height(Fill);
@@ -4403,14 +4455,14 @@ impl App {
         }
         if let Some(left) = self.slot_view(Slot::Left) {
             body = body
-                .push(container(island(left)).width(self.ui_state.left_width).height(Fill))
+                .push(container(panel_island(Slot::Left, left)).width(self.ui_state.left_width).height(Fill))
                 .push(divider(divider::Axis::Vertical, Edge::Left));
         }
         body = body.push(center);
         if let Some(right) = self.slot_view(Slot::Right) {
             body = body
                 .push(divider(divider::Axis::Vertical, Edge::Right))
-                .push(container(island(right)).width(self.ui_state.right_width).height(Fill));
+                .push(container(panel_island(Slot::Right, right)).width(self.ui_state.right_width).height(Fill));
         }
 
         let mut page = column![body].spacing(if islands { GAP } else { 4.0 }).padding(if islands { GAP } else { 6.0 });
@@ -4445,10 +4497,10 @@ impl App {
             (0..self.panels.len()).filter(|&i| self.panels[i].slot == Slot::Bottom && self.panels[i].visible).collect();
         let active = self.active_bottom.filter(|i| visible.contains(i)).or(visible.first().copied())?;
         let tabs = row(visible.iter().map(|&i| {
-            let style = if i == active { button::secondary } else { button::text };
+            let kind = if i == active { tea_core::style::Tab::Shown } else { tea_core::style::Tab::Idle };
             button(text(self.panels[i].title.to_uppercase()).size(11))
                 .on_press(Message::SelectBottom(i))
-                .style(style)
+                .style(move |theme: &Theme, status| tea_core::style::tab(theme, status, kind))
                 .padding([2, 8])
                 .into()
         }))

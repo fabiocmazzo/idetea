@@ -1,7 +1,7 @@
 //! Medidas e cores da UI num lugar só (RFC 0015): raios, vãos e as cores derivadas do tema para as ilhas.
 
 use iced::widget::scrollable::{self, Rail, Scroller, Scrollable};
-use iced::widget::container;
+use iced::widget::{button, container};
 use iced::{Border, Color, Element, Theme};
 
 /// Raio dos cantos de uma ilha (painel, lado do editor).
@@ -87,6 +87,49 @@ pub fn scrollbar_style(theme: &Theme, status: scrollable::Status) -> scrollable:
         gap: None,
         ..scrollable::default(theme, status)
     }
+}
+
+/// A ilha que tem o foco do teclado: a mesma, com uma borda fina na cor de destaque.
+pub fn island_focused(theme: &Theme) -> container::Style {
+    let p = theme.extended_palette();
+    let border = Border { color: p.primary.base.color.scale_alpha(0.55), width: 1.0, radius: RADIUS_ISLAND.into() };
+    container::Style { border, ..island(theme) }
+}
+
+/// Raio dos controles pequenos (abas, itens da barra de atividades).
+pub const RADIUS_CONTROL: f32 = 6.0;
+
+/// Como uma aba aparece.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Tab {
+    /// A aba ativa do lado com o foco.
+    Active,
+    /// Aberta no outro lado do editor dividido, ou a aba escolhida de um painel.
+    Shown,
+    /// As demais.
+    Idle,
+}
+
+/// Aba discreta: fundo um pouco mais claro na mostrada, borda fina na cor de destaque na ativa (como o item ativo
+/// da barra de atividades), texto apagado nas demais.
+pub fn tab(theme: &Theme, status: button::Status, kind: Tab) -> button::Style {
+    let p = theme.extended_palette();
+    let hovered = matches!(status, button::Status::Hovered | button::Status::Pressed);
+    let background = match kind {
+        Tab::Active | Tab::Shown => Some(p.background.weak.color.into()),
+        Tab::Idle if hovered => Some(p.background.weak.color.scale_alpha(0.6).into()),
+        Tab::Idle => None,
+    };
+    let text_color = match kind {
+        Tab::Active | Tab::Shown => p.background.base.text,
+        Tab::Idle if hovered => p.background.base.text,
+        Tab::Idle => p.background.base.text.scale_alpha(0.65),
+    };
+    let border = match kind {
+        Tab::Active => Border { color: p.primary.base.color.scale_alpha(0.6), width: 1.0, radius: RADIUS_CONTROL.into() },
+        _ => Border { radius: RADIUS_CONTROL.into(), ..Border::default() },
+    };
+    button::Style { background, text_color, border, ..button::Style::default() }
 }
 
 /// `a` misturada com `b` (`t` = 0 é só `a`, 1 é só `b`).

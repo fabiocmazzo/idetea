@@ -242,3 +242,9 @@ operacionais, e quebra comportamentos do gerenciador de janelas).
   roláveis do app e das extensões, com teste que falha se um `scrollable(` escapar. Barra do editor sem trilho e
   translúcida pelo `Style` que a IDE passa ao widget. Falta, se quisermos: afinar a largura e o raio da barra do
   editor no fork.
+- **Etapa 2, abas e foco (2026-11-10, aprovada no teste manual):** `tea_core::style::tab` (ativa com fundo mais
+  claro e borda fina na cor de destaque, a do outro lado só com o fundo, as demais apagadas) nas abas do editor e
+  do painel de baixo; "×" só na ativa e sob o mouse, "●" nas não salvas, sem mudar a largura. A ilha com o teclado
+  ganha borda na cor de destaque (`island_focused`): o lado do editor com o foco, senão o painel do último clique,
+  do último comando de painel ou o aberto pela barra de atividades. Falta da etapa 2: cabeçalhos de painel,
+  seleção de lista, barra de atividades e sobreposições unificadas (4.4, itens 2, 4, 5 e 7).
