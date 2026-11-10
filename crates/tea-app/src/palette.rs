@@ -326,7 +326,8 @@ impl Palette {
                 for (pos, &i) in found.iter().enumerate() {
                     let cmd = &commands[i];
                     let hint = keymap.chord_for(&cmd.id).map(|c| c.to_string()).unwrap_or_default();
-                    let style = if pos == self.selected { button::primary } else { button::text };
+                    let selected = pos == self.selected;
+                    let style = move |t: &Theme, st| tea_core::style::list_item(t, st, selected);
                     list = list.push(
                         button(
                             row![
@@ -365,7 +366,8 @@ impl Palette {
                         Some((d, n)) => (d, n),
                         None => ("", path.as_str()),
                     };
-                    let style = if pos == self.selected { button::primary } else { button::text };
+                    let selected = pos == self.selected;
+                    let style = move |t: &Theme, st| tea_core::style::list_item(t, st, selected);
                     list = list.push(
                         button(
                             row![
@@ -394,7 +396,8 @@ impl Palette {
                 let mut list = column![];
                 for (pos, &i) in self.found.iter().enumerate() {
                     let item = &self.recent_items[i];
-                    let style = if pos == self.selected { button::primary } else { button::text };
+                    let selected = pos == self.selected;
+                    let style = move |t: &Theme, st| tea_core::style::list_item(t, st, selected);
                     list = list.push(
                         button(
                             row![
@@ -425,7 +428,10 @@ impl Palette {
                 if self.found.is_empty() && !create {
                     body = body.push(text(fl!("palette-no-items")).size(13).style(text::secondary));
                 }
-                let row_style = |pos: usize| if pos == self.selected { button::primary } else { button::text };
+                let row_style = |pos: usize| {
+                    let selected = pos == self.selected;
+                    move |t: &Theme, st| tea_core::style::list_item(t, st, selected)
+                };
                 let create_button = |pos: usize| {
                     let label = pick.create.as_ref().map(|c| c.label.clone()).unwrap_or_default();
                     button(
@@ -483,7 +489,8 @@ impl Palette {
                     } else {
                         format!(":{}", s.line)
                     };
-                    let style = if pos == self.selected { button::primary } else { button::text };
+                    let selected = pos == self.selected;
+                    let style = move |t: &Theme, st| tea_core::style::list_item(t, st, selected);
                     list = list.push(
                         button(
                             row![
@@ -512,19 +519,7 @@ impl Palette {
         container(body)
             .width(560)
             .padding(8)
-            .style(|theme: &Theme| {
-                let p = theme.extended_palette();
-                container::Style {
-                    background: Some(p.background.weak.color.into()),
-                    border: iced::Border { color: p.background.strong.color, width: 1.0, radius: 8.0.into() },
-                    shadow: iced::Shadow {
-                        color: iced::Color::from_rgba(0.0, 0.0, 0.0, 0.4),
-                        offset: iced::Vector::new(0.0, 8.0),
-                        blur_radius: 24.0,
-                    },
-                    ..container::Style::default()
-                }
-            })
+            .style(tea_core::style::dialog)
             .into()
     }
 }

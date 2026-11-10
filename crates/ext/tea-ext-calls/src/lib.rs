@@ -111,17 +111,13 @@ impl CallsExtension {
             }
             line = line.push(text(format!("{}:{}", self.rel(&n.path), n.line)).size(11).style(text::secondary));
             let selected = self.current == Some(n.id);
-            list = list.push(button(line).on_press(Message::Open(n.id)).padding([1, 4]).width(Fill).style(
-                move |t: &Theme, st| {
-                    let base = button::text(t, st);
-                    if selected {
-                        let p = t.extended_palette();
-                        button::Style { background: Some(p.primary.weak.color.scale_alpha(0.35).into()), ..base }
-                    } else {
-                        base
-                    }
-                },
-            ));
+            list = list.push(
+                button(line)
+                    .on_press(Message::Open(n.id))
+                    .padding([1, 4])
+                    .width(Fill)
+                    .style(move |t: &Theme, st| tea_core::style::list_item(t, st, selected)),
+            );
             if !open {
                 continue;
             }
@@ -147,15 +143,7 @@ fn direction_button<'a>(label: String, icon: Icon, d: Direction, active: Directi
     button(row![icons::icon(icon).size(13), text(label).size(12)].spacing(4).align_y(iced::Center))
         .on_press(Message::SetDirection(d))
         .padding([2, 8])
-        .style(move |t: &Theme, st| {
-            let base = button::text(t, st);
-            if on {
-                let p = t.extended_palette();
-                button::Style { background: Some(p.primary.weak.color.scale_alpha(0.35).into()), ..base }
-            } else {
-                base
-            }
-        })
+        .style(move |t: &Theme, st| tea_core::style::list_item(t, st, on))
         .into()
 }
 

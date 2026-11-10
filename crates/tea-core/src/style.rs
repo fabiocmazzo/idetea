@@ -96,8 +96,72 @@ pub fn island_focused(theme: &Theme) -> container::Style {
     container::Style { border, ..island(theme) }
 }
 
-/// Raio dos controles pequenos (abas, itens da barra de atividades).
+/// Raio dos controles (abas, itens de lista, itens da barra de atividades, menus, botões de diálogo).
 pub const RADIUS_CONTROL: f32 = 6.0;
+/// Raio das peças miúdas (dicas, teclas, botões de ícone).
+pub const RADIUS_SMALL: f32 = 4.0;
+/// Altura do cabeçalho de painel (título e abas do painel de baixo).
+pub const HEADER_HEIGHT: f32 = 24.0;
+
+/// Sombra de menus e dicas.
+pub const SHADOW_POPUP: iced::Shadow =
+    iced::Shadow { color: Color::from_rgba(0.0, 0.0, 0.0, 0.35), offset: iced::Vector::new(0.0, 6.0), blur_radius: 16.0 };
+/// Sombra das janelas sobre a IDE (diálogo, paleta, ajuda, configurações).
+pub const SHADOW_DIALOG: iced::Shadow =
+    iced::Shadow { color: Color::from_rgba(0.0, 0.0, 0.0, 0.45), offset: iced::Vector::new(0.0, 10.0), blur_radius: 30.0 };
+
+/// Janela sobre a IDE (diálogo, paleta, ajuda, configurações): o mesmo raio das ilhas.
+pub fn dialog(theme: &Theme) -> container::Style {
+    let p = theme.extended_palette();
+    container::Style {
+        background: Some(p.background.weak.color.into()),
+        border: Border { color: p.background.strong.color, width: 1.0, radius: RADIUS_ISLAND.into() },
+        shadow: SHADOW_DIALOG,
+        ..container::Style::default()
+    }
+}
+
+/// Menu de contexto e listas suspensas.
+pub fn menu(theme: &Theme) -> container::Style {
+    let p = theme.extended_palette();
+    container::Style {
+        background: Some(p.background.weak.color.into()),
+        border: Border { color: p.background.strong.color, width: 1.0, radius: RADIUS_CONTROL.into() },
+        shadow: SHADOW_POPUP,
+        ..container::Style::default()
+    }
+}
+
+/// Dica ao parar o mouse.
+pub fn tooltip(theme: &Theme) -> container::Style {
+    let p = theme.extended_palette();
+    container::Style {
+        background: Some(p.background.strong.color.into()),
+        text_color: Some(p.background.strong.text),
+        border: Border { color: p.background.strongest.color, width: 1.0, radius: RADIUS_SMALL.into() },
+        shadow: iced::Shadow { color: Color::from_rgba(0.0, 0.0, 0.0, 0.25), offset: iced::Vector::new(0.0, 2.0), blur_radius: 6.0 },
+        ..container::Style::default()
+    }
+}
+
+/// Item de lista ou da árvore: pílula arredondada no hover e na seleção (não de ponta a ponta, em retângulo).
+pub fn list_item(theme: &Theme, status: button::Status, selected: bool) -> button::Style {
+    let p = theme.extended_palette();
+    let hovered = matches!(status, button::Status::Hovered | button::Status::Pressed);
+    let background = if selected {
+        Some(mix(p.background.weak.color, p.primary.base.color, 0.22).into())
+    } else if hovered {
+        Some(p.background.weak.color.into())
+    } else {
+        None
+    };
+    let text_color = if matches!(status, button::Status::Disabled) {
+        p.background.base.text.scale_alpha(0.35)
+    } else {
+        p.background.base.text
+    };
+    button::Style { background, text_color, border: Border { radius: RADIUS_CONTROL.into(), ..Border::default() }, ..button::Style::default() }
+}
 
 /// Como uma aba aparece.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

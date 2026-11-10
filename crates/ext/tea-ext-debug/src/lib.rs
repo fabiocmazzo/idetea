@@ -219,15 +219,7 @@ fn list_button<'a>(content: impl Into<Element<'a, Message>>, msg: Message, selec
         .on_press(msg)
         .padding([1, 4])
         .width(Fill)
-        .style(move |t: &Theme, s| {
-            let base = button::text(t, s);
-            if selected {
-                let p = t.extended_palette();
-                button::Style { background: Some(p.primary.weak.color.scale_alpha(0.35).into()), ..base }
-            } else {
-                base
-            }
-        })
+        .style(move |t: &Theme, s| tea_core::style::list_item(t, s, selected))
         .into()
 }
 

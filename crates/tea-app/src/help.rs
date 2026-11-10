@@ -190,7 +190,7 @@ fn key_cap<'a>(key: String) -> Element<'a, Msg> {
             let p = theme.extended_palette();
             container::Style {
                 background: Some(p.background.strong.color.into()),
-                border: iced::Border { color: p.background.strongest.color, width: 1.0, radius: 4.0.into() },
+                border: iced::Border { color: p.background.strongest.color, width: 1.0, radius: tea_core::style::RADIUS_SMALL.into() },
                 ..container::Style::default()
             }
         })

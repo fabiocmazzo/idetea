@@ -248,3 +248,9 @@ operacionais, e quebra comportamentos do gerenciador de janelas).
   ganha borda na cor de destaque (`island_focused`): o lado do editor com o foco, senão o painel do último clique,
   do último comando de painel ou o aberto pela barra de atividades. Falta da etapa 2: cabeçalhos de painel,
   seleção de lista, barra de atividades e sobreposições unificadas (4.4, itens 2, 4, 5 e 7).
+- **Resto da etapa 2 (2026-11-10, aprovado no teste manual):** cabeçalho de painel de 24 px em todos os painéis e
+  nas abas do painel de baixo; `list_item` (pílula com um toque da cor de destaque na seleção, hover suave) na
+  árvore, git, paleta, problemas, busca, referências, estrutura, chamadas e debug; item aberto da barra de
+  atividades como pílula, sem borda; `dialog`, `menu` e `tooltip` com `SHADOW_DIALOG`/`SHADOW_POPUP` e os raios
+  `RADIUS_ISLAND`/`RADIUS_CONTROL`/`RADIUS_SMALL` no diálogo, paleta, ajuda, configurações, menus e dicas; abas
+  do terminal no estilo das outras. Ficam de fora o mascote (estilo próprio) e as animações (etapa 3).

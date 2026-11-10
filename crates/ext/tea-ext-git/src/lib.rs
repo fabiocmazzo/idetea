@@ -739,7 +739,7 @@ impl GitExtension {
         let line = row![
             button(label)
                 .on_press(Message::Select { path: e.path.clone(), staged })
-                .style(if selected { button::secondary } else { button::text })
+                .style(move |t: &iced::Theme, st| tea_core::style::list_item(t, st, selected))
                 .padding([1, 4])
                 .width(Fill),
             icon_button(Icon::GoToFile, fl!("git-open-file"), Some(Message::Open(e.path.clone()))),

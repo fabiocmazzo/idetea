@@ -999,7 +999,7 @@ impl Editor {
             let p = t.extended_palette();
             container::Style {
                 background: Some(p.background.weak.color.into()),
-                border: iced::Border { color: p.primary.weak.color, width: 1.0, radius: 6.0.into() },
+                border: iced::Border { color: p.primary.weak.color, width: 1.0, radius: tea_core::style::RADIUS_CONTROL.into() },
                 ..Default::default()
             }
         });
@@ -1076,7 +1076,7 @@ impl Editor {
             let p = t.extended_palette();
             container::Style {
                 background: Some(p.background.weak.color.into()),
-                border: iced::Border { color: p.primary.weak.color, width: 1.0, radius: 6.0.into() },
+                border: iced::Border { color: p.primary.weak.color, width: 1.0, radius: tea_core::style::RADIUS_CONTROL.into() },
                 ..Default::default()
             }
         });

@@ -60,7 +60,7 @@ impl Open {
                         ButtonKind::Danger => button::danger(theme, status),
                         ButtonKind::Secondary => button::secondary(theme, status),
                     };
-                    style.border.radius = 5.0.into();
+                    style.border.radius = tea_core::style::RADIUS_CONTROL.into();
                     if selected {
                         // Anel de foco: mostra o que o Enter vai fazer.
                         style.border.width = 2.0;
@@ -87,19 +87,7 @@ impl Open {
         )
         .width(460)
         .padding(18)
-        .style(|theme: &Theme| {
-            let p = theme.extended_palette();
-            container::Style {
-                background: Some(p.background.weak.color.into()),
-                border: iced::Border { color: p.background.strong.color, width: 1.0, radius: 10.0.into() },
-                shadow: iced::Shadow {
-                    color: Color::from_rgba(0.0, 0.0, 0.0, 0.45),
-                    offset: iced::Vector::new(0.0, 10.0),
-                    blur_radius: 30.0,
-                },
-                ..container::Style::default()
-            }
-        });
+        .style(tea_core::style::dialog);
 
         // `opaque` na caixa: clicar dentro dela não conta como "clique fora".
         let scrim = container(opaque(card)).center(Fill).style(|_: &Theme| container::Style {

@@ -2,7 +2,7 @@
 
 use std::path::{Path, PathBuf};
 
-use iced::widget::{column, scrollable, text};
+use iced::widget::{column, text};
 use iced::{Element, Fill, Task, Theme};
 use tea_core::icons::Icon;
 use tea_core::{Context, CoreEvent, Extension, PanelId};

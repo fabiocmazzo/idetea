@@ -148,15 +148,7 @@ impl Extension for ReferencesExtension {
                     .on_press(Message::Open(i))
                     .padding([1, 4])
                     .width(Fill)
-                    .style(move |t: &Theme, s| {
-                        let base = button::text(t, s);
-                        if selected {
-                            let p = t.extended_palette();
-                            button::Style { background: Some(p.primary.weak.color.scale_alpha(0.35).into()), ..base }
-                        } else {
-                            base
-                        }
-                    }),
+                    .style(move |t: &Theme, s| tea_core::style::list_item(t, s, selected)),
             );
         }
         tea_core::style::scrollable(list).height(Fill).into()

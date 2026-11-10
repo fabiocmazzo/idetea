@@ -875,7 +875,12 @@ impl Extension for TerminalExtension {
             return body;
         }
         let tab = |label: String, on: bool, msg: Message| -> Element<'_, Message> {
-            button(text(label).size(12)).on_press(msg).padding([2, 10]).style(if on { button::secondary } else { button::text }).into()
+            let kind = if on { tea_core::style::Tab::Shown } else { tea_core::style::Tab::Idle };
+            button(text(label).size(12))
+                .on_press(msg)
+                .padding([2, 10])
+                .style(move |t: &iced::Theme, st| tea_core::style::tab(t, st, kind))
+                .into()
         };
         let mut bar = row![].spacing(4).align_y(iced::Center);
         for (i, s) in self.shells.iter().enumerate() {

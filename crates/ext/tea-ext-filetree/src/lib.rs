@@ -569,11 +569,7 @@ impl FileTreeExtension {
         };
         let is_active = self.active.as_deref() == Some(entry.path.as_path());
         let is_selected = self.selected.as_deref() == Some(entry.path.as_path());
-        let style = if is_selected {
-            button::secondary
-        } else {
-            button::text
-        };
+        let style = move |t: &iced::Theme, st| tea_core::style::list_item(t, st, is_selected);
         let status = self.status_of(&entry.path);
         // Letra à direita (como no painel do git); pasta com mudanças dentro ganha um ponto.
         let badge = match status {

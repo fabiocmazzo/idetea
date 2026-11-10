@@ -109,15 +109,7 @@ impl OutlineExtension {
                     .on_press(Message::Open { line: s.line, column: s.column })
                     .padding([1, 4])
                     .width(Fill)
-                    .style(move |t: &Theme, st| {
-                        let base = button::text(t, st);
-                        if selected {
-                            let p = t.extended_palette();
-                            button::Style { background: Some(p.primary.weak.color.scale_alpha(0.35).into()), ..base }
-                        } else {
-                            base
-                        }
-                    }),
+                    .style(move |t: &Theme, st| tea_core::style::list_item(t, st, selected)),
             );
             if open && !s.children.is_empty() {
                 list = self.push_rows(list, &s.children, &k, depth + 1, current);

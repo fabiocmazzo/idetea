@@ -158,7 +158,7 @@ impl Extension for ProblemsExtension {
             list = list.push(
                 button(line)
                     .on_press(Message::Open { path: path.to_path_buf(), line: d.line, column: d.column })
-                    .style(button::text)
+                    .style(|t: &Theme, st| tea_core::style::list_item(t, st, false))
                     .padding([1, 4])
                     .width(Fill),
             );

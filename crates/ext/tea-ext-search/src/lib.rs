@@ -422,7 +422,7 @@ impl Extension for SearchExtension {
             ];
             let header = button(header)
                 .on_press(Message::ToggleFile(file.path.clone()))
-                .style(button::text)
+                .style(|t: &iced::Theme, st| tea_core::style::list_item(t, st, false))
                 .padding([2, 4])
                 .width(Fill);
             list = list.push(if self.replace_open {
@@ -448,7 +448,7 @@ impl Extension for SearchExtension {
                 let line = row![space::horizontal().width(14), number, body].spacing(8);
                 let line = button(line)
                     .on_press(Message::Open { path: file.path.clone(), line: m.line, column: m.column })
-                    .style(button::text)
+                    .style(|t: &iced::Theme, st| tea_core::style::list_item(t, st, false))
                     .padding([1, 4])
                     .width(Fill);
                 list = list.push(match preview {

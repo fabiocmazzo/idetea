@@ -534,7 +534,7 @@ fn key_cap<'a>(key: String, on_press: Msg) -> Element<'a, Msg> {
             button::Style {
                 background: Some(bg.into()),
                 text_color: p.background.base.text,
-                border: iced::Border { color: p.background.strongest.color, width: 1.0, radius: 4.0.into() },
+                border: iced::Border { color: p.background.strongest.color, width: 1.0, radius: tea_core::style::RADIUS_SMALL.into() },
                 ..button::Style::default()
             }
         })

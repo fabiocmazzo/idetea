@@ -1,7 +1,7 @@
 //! Menu de contexto aberto: desenho (no ponto do clique, sem sair da janela) e navegação.
 
 use iced::widget::{button, column, container, mouse_area, opaque, pin, responsive, row, rule, space, text};
-use iced::{Color, Element, Fill, Point, Size, Theme};
+use iced::{Element, Fill, Point, Size, Theme};
 use tea_core::icons::icon;
 use tea_core::keymap::Keymap;
 use tea_core::menu::{Menu, MenuAction, MenuItem};
@@ -118,19 +118,7 @@ impl Open {
         container(list)
             .width(WIDTH)
             .padding(PADDING)
-            .style(|theme: &Theme| {
-                let p = theme.extended_palette();
-                container::Style {
-                    background: Some(p.background.weak.color.into()),
-                    border: iced::Border { color: p.background.strong.color, width: 1.0, radius: 6.0.into() },
-                    shadow: iced::Shadow {
-                        color: Color::from_rgba(0.0, 0.0, 0.0, 0.35),
-                        offset: iced::Vector::new(0.0, 6.0),
-                        blur_radius: 16.0,
-                    },
-                    ..container::Style::default()
-                }
-            })
+            .style(tea_core::style::menu)
             .into()
     }
 }
@@ -141,7 +129,7 @@ fn item_style(theme: &Theme, status: button::Status, selected: bool, danger: boo
     let base = button::Style {
         background: None,
         text_color,
-        border: iced::Border { radius: 4.0.into(), ..iced::Border::default() },
+        border: iced::Border { radius: tea_core::style::RADIUS_CONTROL.into(), ..iced::Border::default() },
         ..button::Style::default()
     };
     let highlight = button::Style {

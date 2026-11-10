@@ -3208,7 +3208,7 @@ impl App {
                 .width(Fill)
                 .padding([7, 0])
                 .style(move |t: &Theme, status| activity_style(t, status, shown));
-            let tip = container(text(format!("{}{key}", p.title)).size(12)).padding([3, 8]).style(container::bordered_box);
+            let tip = container(text(format!("{}{key}", p.title)).size(12)).padding([3, 8]).style(tea_core::style::tooltip);
             Some(iced::widget::tooltip(b, tip, iced::widget::tooltip::Position::Right).gap(4).into())
         };
         let side = (0..self.panels.len())
@@ -4508,7 +4508,8 @@ impl App {
         let p = &self.panels[active];
         let ext = p.ext;
         let body = self.extensions[ext].view(p.id).map(move |m| Message::Ext(ext, m));
-        let content = column![tabs, self.pass_ide_keys(body)].spacing(4).padding(4);
+        let tabs = container(tabs).height(tea_core::style::HEADER_HEIGHT).align_y(iced::Center);
+        let content = column![tabs, self.pass_ide_keys(body)].spacing(2).padding(4);
         Some(
             mouse_area(content)
                 .on_enter(Message::PointerOverPanel(true))
@@ -4555,9 +4556,12 @@ impl App {
             if slot == Slot::Status {
                 body
             } else {
-                column![text(p.title.to_uppercase()).size(11).style(text::secondary), self.pass_ide_keys(body)]
-                    .spacing(4)
-                    .into()
+                // Cabeçalho da mesma altura em todos os painéis (e nas abas do painel de baixo).
+                let header = container(text(p.title.to_uppercase()).size(11).style(text::secondary))
+                    .height(tea_core::style::HEADER_HEIGHT)
+                    .padding([0, 4])
+                    .align_y(iced::Center);
+                column![header, self.pass_ide_keys(body)].spacing(2).into()
             }
         });
         let content: Element<'_, Message> = if slot == Slot::Status {
@@ -4624,20 +4628,17 @@ fn resolve_theme(name: &str) -> (Theme, Option<String>) {
 /// Ícone da barra de ícones: destacado quando o painel está aberto.
 fn activity_style(theme: &Theme, status: button::Status, shown: bool) -> button::Style {
     let p = theme.extended_palette();
-    let text_color = if shown { p.background.base.text } else { p.background.base.text.scale_alpha(0.55) };
+    // Painel aberto: pílula de fundo suave e o ícone na cor de destaque (RFC 0015); sem a borda de antes.
+    let text_color = if shown { p.primary.base.color } else { p.background.base.text.scale_alpha(0.55) };
     let background = match status {
         button::Status::Hovered | button::Status::Pressed => Some(p.background.strong.color.into()),
-        _ if shown => Some(p.background.weak.color.into()),
+        _ if shown => Some(tea_core::style::mix(p.background.weak.color, p.primary.base.color, 0.18).into()),
         _ => None,
     };
     button::Style {
         background,
         text_color,
-        border: iced::Border {
-            radius: 5.0.into(),
-            width: if shown { 1.0 } else { 0.0 },
-            color: p.primary.base.color.scale_alpha(0.6),
-        },
+        border: iced::Border { radius: tea_core::style::RADIUS_CONTROL.into(), ..iced::Border::default() },
         ..button::Style::default()
     }
 }

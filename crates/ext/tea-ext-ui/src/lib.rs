@@ -920,7 +920,7 @@ fn card(theme: &Theme, status: button::Status) -> button::Style {
     button::Style {
         background: Some(background.into()),
         text_color: p.background.weak.text,
-        border: iced::Border { color: p.background.strong.color, width: 1.0, radius: 6.0.into() },
+        border: iced::Border { color: p.background.strong.color, width: 1.0, radius: tea_core::style::RADIUS_CONTROL.into() },
         ..button::Style::default()
     }
 }

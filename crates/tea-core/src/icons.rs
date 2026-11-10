@@ -5,7 +5,7 @@
 use std::time::Duration;
 
 use iced::widget::{Text, button, container, text, tooltip};
-use iced::{Background, Border, Color, Element, Font, Theme};
+use iced::{Background, Border, Element, Font, Theme};
 
 /// Arquivo da fonte (80 KB). Licença em `assets/NOTICE.md`.
 pub const FONT_BYTES: &[u8] = include_bytes!("../assets/codicon.ttf");
@@ -195,7 +195,7 @@ fn icon_button_style(theme: &Theme, status: button::Status) -> button::Style {
     let base = button::Style {
         background: None,
         text_color: p.background.base.text,
-        border: Border { radius: 4.0.into(), ..Border::default() },
+        border: Border { radius: crate::style::RADIUS_SMALL.into(), ..Border::default() },
         ..button::Style::default()
     };
     match status {
@@ -217,18 +217,7 @@ pub fn with_tip<'a, M: 'a>(content: impl Into<Element<'a, M>>, tip: impl Into<St
 }
 
 fn tooltip_style(theme: &Theme) -> container::Style {
-    let p = theme.extended_palette();
-    container::Style {
-        background: Some(p.background.strong.color.into()),
-        text_color: Some(p.background.strong.text),
-        border: Border { color: p.background.strongest.color, width: 1.0, radius: 4.0.into() },
-        shadow: iced::Shadow {
-            color: Color::from_rgba(0.0, 0.0, 0.0, 0.25),
-            offset: iced::Vector::new(0.0, 2.0),
-            blur_radius: 6.0,
-        },
-        ..container::Style::default()
-    }
+    crate::style::tooltip(theme)
 }
 
 #[cfg(test)]
