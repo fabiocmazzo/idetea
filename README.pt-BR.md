@@ -116,6 +116,8 @@ Mais no [manifesto](MANIFESTO.pt-BR.md).
 
 - [Manifesto](MANIFESTO.pt-BR.md): no que a IDE TEA acredita, e o que ela não vai fazer.
 - [Funcionalidades e atalhos](docs/features.md): a lista completa, para quem quer o detalhe técnico (em inglês).
+- [Linguagens](docs/languages.md): o que a IDE faz em cada linguagem, inclusive Hare e MoonBit, com
+  [exemplos](examples/languages) para experimentar (em inglês).
 - [Interfaces para agentes](docs/interfaces/formato.md) e [terminais de agente](docs/terminais-de-agente.md).
 - [SPEC.md](SPEC.md) e [DESENVOLVIMENTO.md](DESENVOLVIMENTO.md): especificação, arquitetura e como compilar,
   testar e escrever uma extensão.

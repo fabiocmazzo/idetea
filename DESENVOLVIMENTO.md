@@ -154,6 +154,45 @@ tema e fonte, status do git, painel aberto pela barra de ícones...
 Extensões não se chamam diretamente: conversam só por **comandos** e **eventos**. Toda extensão pode ser desligada
 em `[extensions] <id> = { enabled = false }` (vale ao reiniciar) ou mudar de lado com `slot = "right"`.
 
+## Language packs embutidos
+
+Um language pack junta, para uma linguagem, os tipos de arquivo, a gramática de cores, o servidor LSP padrão e,
+quando houver um marcador confiável de projeto, tarefas. Decisões e limites do formato:
+[RFC 0014](docs/rfc/0014-language-packs-hare-e-moonbit.md). O que cada linguagem oferece ao usuário:
+[docs/languages.md](docs/languages.md).
+
+**Antes de começar**, confira os critérios da RFC (seção 5.4): licença compatível, um projeto ou usuário real para o
+dogfooding, LSP/CLI oficiais ou mantidos, nada baixado ou executado sozinho, e um motivo para embutir em vez de só
+documentar a configuração (`[lsp.servers]`, `[tasks]` e `~/.config/idetea/syntaxes/` já resolvem muita coisa).
+
+**Passos**
+
+1. Crie `crates/tea-core/assets/languages/<id>/` com:
+   - `pack.toml` (formato 1). Campos: `format`, `id`, `name`; `[files]` com `extensions` (extensão → `languageId`
+     enviado ao LSP) e `syntaxes`; opcionais `[project] markers`, `[lsp]` (`name`, `command`, `args`) e
+     `[[tasks]]` (`name`, `command`). Campo desconhecido é erro. Tarefas só com um marcador que prove a linguagem
+     (`moon.mod` sim; `Makefile` não).
+   - a gramática `.sublime-syntax`, copiada de uma revisão identificada, e o `LICENSE.txt` dela;
+   - `README.md` em português: suporte, procedência (URL, revisão, licença, alterações locais) e validação
+     (versões testadas, data, o que foi conferido e as limitações).
+2. Registre o pack em `builtins()` (`crates/tea-core/src/languages.rs`) e acrescente a gramática a
+   `crates/tea-core/assets/NOTICE.md`.
+3. Testes, em `languages.rs`: o pack em `builtin_packs_describe_hare_and_moonbit` (ou num teste próprio) e um
+   exemplo pequeno em `builtin_syntaxes_produce_language_scopes`, com os escopos de palavra-chave, tipo, número,
+   string e comentário. Os testes de unicidade (ids, extensões, servidores, tarefas) e de parsing pelo editor já
+   cobrem o pack novo sozinhos.
+4. Se o servidor precisa de dica de instalação, acrescente um caso em `with_hint` (`crates/tea-app/src/lsp.rs`) e
+   o texto nos três `tea-app.ftl`. Se o toolchain instala numa pasta própria (como `~/.moon/bin`), veja
+   `extra_tool_dirs` (`crates/tea-core/src/os.rs`).
+5. Um exemplo em `examples/languages/<id>/` (com `README.md` em inglês) e a linha e a seção da linguagem em
+   `docs/languages.md`; o teste `every_pack_is_documented` falha se faltar. Atualize também a lista de servidores
+   em `docs/features.md`.
+6. Dogfooding com o toolchain de verdade (cores, LSP, tarefas e a IDE sem o toolchain) e registre o resultado no
+   README do pack.
+
+Comportamento que não cabe no TOML (descoberta de executável, fallback como o do Ziex) vira um hook Rust na IDE, não
+um campo novo no manifesto.
+
 ## Textos da interface (idiomas)
 
 A interface fala português, inglês e espanhol ([Fluent](https://projectfluent.org), via `i18n-embed`).

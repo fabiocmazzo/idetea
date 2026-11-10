@@ -63,7 +63,8 @@ The full list, for the technical reader. For the short version, see the [README]
   `zx lsp` ([Ziex](https://ziex.dev); without the `zx` CLI, a Ziex project builds its own server with `zig build`),
   `hare-lsp -S` and `moon lsp`. Just install the server; you can change the command, disable it or add others in the
   config. Hare's server is limited to parsing diagnostics, definition, hover and document symbols; MoonBit support
-  covers `.mbt` and `.mbti`, subject to the capabilities of the installed toolchain.
+  covers `.mbt` and `.mbti`, subject to the capabilities of the installed toolchain. Per-language details:
+  [languages.md](languages.md).
 
 ## Terminal
 

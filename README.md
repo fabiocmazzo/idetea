@@ -116,6 +116,8 @@ Read more in the [manifesto](MANIFESTO.md).
 
 - [Manifesto](MANIFESTO.md): what IDE TEA believes in, and what it will not do.
 - [Features and shortcuts](docs/features.md): the full list, for the technical reader.
+- [Languages](docs/languages.md): what the IDE does for each language, including Hare and MoonBit, with
+  [examples](examples/languages) to try.
 - [Interfaces for agents](docs/interfaces/formato.md) and [agent terminals](docs/terminais-de-agente.md) (in
   Portuguese for now).
 - [SPEC.md](SPEC.md) and [DESENVOLVIMENTO.md](DESENVOLVIMENTO.md): specification, architecture and how to build,

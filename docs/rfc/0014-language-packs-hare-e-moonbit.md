@@ -426,6 +426,12 @@ uma avaliação pequena e voluntária, sem telemetria ou infraestrutura de analy
    e o spike de debug de MoonBit separadamente. Não migrar linguagens antigas nem abrir pacotes externos sem uma
    necessidade observada.
 
+   **Feito (2026-11-10):** matriz pública em `docs/languages.md` (todas as linguagens e uma seção por pack, com
+   instalação, capacidades conferidas e limitações), exemplos em `examples/languages/{hare,moonbit}`, guia de novos
+   packs em `DESENVOLVIMENTO.md` e o teste `every_pack_is_documented`, que exige seção e exemplo para cada pack.
+   Ficam para depois: a avaliação de adoção da seção 8 (divulgar nas comunidades, sessões com usuários externos) e
+   o spike de debug de MoonBit.
+
 Uma etapa futura poderá ler packs de uma pasta do usuário. Nesse momento serão necessários confiança explícita,
 versão de formato, instalação/remoção e regras para comandos. Isso não deve atrasar os pacotes embutidos nem ser
 implementado de forma implícita pelo primeiro loader.

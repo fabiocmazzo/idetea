@@ -192,6 +192,23 @@ mod tests {
     }
 
     #[test]
+    fn every_pack_is_documented() {
+        let languages = include_str!("../../../docs/languages.md");
+        let (packs, errors) = builtins();
+        assert!(errors.is_empty(), "{errors:?}");
+        for pack in packs {
+            let manifest = pack.manifest;
+            let section = format!("\n## {}\n", manifest.name);
+            assert!(languages.contains(&section), "docs/languages.md sem a seção de {}", manifest.name);
+            for extension in manifest.files.extensions.keys() {
+                assert!(languages.contains(&format!("`.{extension}`")), "docs/languages.md sem `.{extension}`");
+            }
+            let example = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../examples/languages").join(&manifest.id);
+            assert!(example.join("README.md").is_file(), "falta o exemplo {}", example.display());
+        }
+    }
+
+    #[test]
     fn builtin_packs_describe_hare_and_moonbit() {
         let (packs, errors) = builtins();
         assert!(errors.is_empty(), "{errors:?}");

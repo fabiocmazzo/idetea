@@ -1,0 +1,15 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "idetea/example"
+
+// Values
+pub fn greet(String) -> String
+
+pub fn sum_to(Int32) -> Int32
+
+// Errors
+
+// Types and methods
+
+// Type aliases
+
+// Traits
