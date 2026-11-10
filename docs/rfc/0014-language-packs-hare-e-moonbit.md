@@ -276,6 +276,24 @@ o nome e o destino. O `[debug]` atual atende esses casos enquanto não houver um
 o script `$MOON_HOME/share/lldb/moonbit.py`. Só generalizar debug no manifesto se uma segunda linguagem apresentar o
 mesmo contrato.
 
+**Resultado do spike (2026-11-10, Linux x86-64, `moon 0.1.20261104`, `moonc v0.10.20`, gdb 18):**
+
+- **[Fato]** O backend nativo estável (`moon build --target native -g`) já gera DWARF próprio (`DW_AT_producer`
+  "MoonBit x86_64") apontando para os `.mbt`; não é preciso LLVM nem nightly. Não havia `lldb`/`lldb-dap` nem
+  `moonbit.py` nessa instalação, e o gdb que a IDE já usa bastou.
+- **[Fato]** No gdb: breakpoint por `arquivo.mbt:linha`, `next`, pilha com arquivos e linhas certos (`sum.mbt:6` →
+  `sum.mbt:14` → `cmd/main/main.mbt:3`), argumentos e locais numéricos (`n = 10`, `total = 1`).
+- **[Fato]** `moon build --output-json` traz os executáveis em mensagens `artifact` (pacote, backend, caminho) e os
+  erros em `diagnostic`; não é preciso adivinhar `_build/native/debug/build/...`.
+- **[Fato]** Limitações: nomes de função compilados (`_M0FP26idetea7example7sum__to`; o formato não tem
+  documentação pública nem demangler no toolchain), strings como bytes UTF-16 (`moonbit_string_t { body }`, pediria
+  um pretty-printer Python para o gdb) e variáveis `<optimized out>` depois de alguns passos.
+- **Implementado** como hook Rust, igual a Cargo e Zig (`tea-app/src/debug_build.rs`): sem `[debug] build` e com
+  `moon.mod` na raiz aberta, o `F5` roda esse build e usa o executável nativo do JSON. Nada mudou no manifesto: segue
+  valendo generalizar só quando uma segunda linguagem pedir o mesmo contrato.
+- **Depois:** demangling dos nomes (com o formato confirmado pelo upstream), pretty-printer de strings e o
+  `moon.mod` mais próximo do arquivo ativo, como nas tarefas, em vez de só o da raiz.
+
 ## 5. Avaliação dos pilotos
 
 ### 5.1 Hare

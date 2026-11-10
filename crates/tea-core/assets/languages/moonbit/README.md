@@ -14,6 +14,9 @@
 - Tarefas `moon check`, `moon build`, `moon test` e `moon fmt --check`, ativadas pelo `moon.mod` mais próximo do arquivo
   ativo e executadas nesse diretório. Sem arquivo ativo, usa-se o `moon.mod` da raiz.
 - `moon.mod.json` é legado e não ativa tarefas. `moon.work` não cria um segundo modelo de workspaces nesta etapa.
+- Debug experimental (fora do manifesto, hook em `tea-app/src/debug_build.rs`): com `moon.mod` na raiz e sem
+  `[debug] build`, o `F5` roda `moon build --target native -g` e depura com o gdb. Limitações em
+  `docs/languages.md` e na RFC 0014, seção 4.4.
 - Instalação do toolchain e debug declarativo não fazem parte deste pack.
 
 ## Procedência

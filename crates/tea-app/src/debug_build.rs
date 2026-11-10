@@ -4,6 +4,9 @@
 //! - Sem `build` e com `Cargo.toml` na raiz: `cargo build`, lendo a saída JSON do cargo para
 //!   saber quais executáveis ele gerou (não precisa adivinhar `target/debug/<nome>`).
 //! - Sem `build` e com `build.zig` na raiz: `zig build`, e os executáveis são os de `zig-out/bin/`.
+//! - Sem `build` e com `moon.mod` na raiz (MoonBit): `moon build --target native -g --output-json`; os executáveis
+//!   vêm das mensagens `artifact` e os erros das `diagnostic`. O backend nativo gera DWARF apontando para os `.mbt`,
+//!   então o gdb para nos breakpoints e mostra pilha e variáveis (RFC 0014, spike de debug).
 //! - Sem nada disso: não compila.
 
 use std::path::{Path, PathBuf};
@@ -16,6 +19,7 @@ use tea_core::config::DebugConfig;
 pub enum Build {
     Cargo,
     Zig,
+    Moon,
     Shell(String),
 }
 
@@ -24,6 +28,7 @@ impl Build {
         match self {
             Build::Cargo => "cargo build",
             Build::Zig => "zig build",
+            Build::Moon => "moon build --target native -g",
             Build::Shell(cmd) => cmd,
         }
     }
@@ -47,6 +52,7 @@ pub fn plan(config: &DebugConfig, root: &Path) -> Option<Build> {
         Some(cmd) => Some(Build::Shell(cmd.to_string())),
         None if root.join("Cargo.toml").is_file() => Some(Build::Cargo),
         None if root.join("build.zig").is_file() => Some(Build::Zig),
+        None if root.join("moon.mod").is_file() => Some(Build::Moon),
         None => None,
     }
 }
@@ -62,6 +68,11 @@ pub fn run(build: &Build, root: &Path) -> Outcome {
         Build::Zig => {
             let mut c = Command::new("zig");
             c.arg("build");
+            c
+        }
+        Build::Moon => {
+            let mut c = Command::new("moon");
+            c.args(["build", "--target", "native", "-g", "--output-json"]);
             c
         }
         Build::Shell(line) => {
@@ -93,15 +104,20 @@ pub fn run(build: &Build, root: &Path) -> Outcome {
     };
     let stdout = String::from_utf8_lossy(&out.stdout);
     let stderr = String::from_utf8_lossy(&out.stderr).into_owned();
-    let cargo = *build == Build::Cargo;
-    // No cargo, o stdout é JSON (para nós) e o stderr é o texto para gente.
-    let log = if cargo { stderr } else { format!("{stdout}{stderr}") };
+    // No cargo, o stdout é JSON (para nós) e o stderr é o texto para gente. No moon, o JSON também traz os erros,
+    // que viram texto (`arquivo:linha:coluna: error: ...`) para o log.
+    let log = match build {
+        Build::Cargo => stderr,
+        Build::Moon => format!("{}{stderr}", moon_errors(&stdout)),
+        _ => format!("{stdout}{stderr}"),
+    };
     let ok = out.status.success();
     Outcome {
         ok,
         executables: match build {
             Build::Cargo => executables(&stdout),
             Build::Zig if ok => zig_executables(&root.join("zig-out/bin")),
+            Build::Moon if ok => moon_executables(&stdout),
             _ => Vec::new(),
         },
         error: (!ok).then(|| first_error(&log)),
@@ -126,6 +142,47 @@ pub fn executables(json_lines: &str) -> Vec<PathBuf> {
         }
     }
     found
+}
+
+/// Executáveis nativos nas mensagens `artifact` de `moon build --output-json` (a lista também traz bibliotecas
+/// externas: só valem os `.exe` ou sem extensão).
+fn moon_executables(json_lines: &str) -> Vec<PathBuf> {
+    let mut found = Vec::new();
+    for line in json_lines.lines() {
+        let Ok(msg) = serde_json::from_str::<Value>(line) else { continue };
+        if msg["$message_type"] == "artifact"
+            && msg["target_backend"] == "native"
+            && let Some(path) = msg["path"].as_str()
+        {
+            let path = PathBuf::from(path);
+            let program = path.extension().is_none_or(|e| e.eq_ignore_ascii_case("exe"));
+            if program && !found.contains(&path) {
+                found.push(path);
+            }
+        }
+    }
+    found
+}
+
+/// Os erros de `moon build --output-json`, um por linha: `arquivo:linha:coluna: error: mensagem` (a primeira linha
+/// da mensagem; o resto, recuado, embaixo).
+fn moon_errors(json_lines: &str) -> String {
+    let mut out = String::new();
+    for line in json_lines.lines() {
+        let Ok(msg) = serde_json::from_str::<Value>(line) else { continue };
+        if msg["$message_type"] != "diagnostic" || msg["level"] != "error" {
+            continue;
+        }
+        let path = msg["path"].as_str().unwrap_or_default();
+        let at = msg["loc"].as_str().and_then(|l| l.split('-').next()).unwrap_or_default();
+        let text = msg["message"].as_str().unwrap_or_default();
+        let mut lines = text.lines();
+        out.push_str(&format!("{path}:{at}: error: {}\n", lines.next().unwrap_or_default()));
+        for rest in lines {
+            out.push_str(&format!("    {}\n", rest.trim()));
+        }
+    }
+    out
 }
 
 /// Executáveis em `zig-out/bin/` (o `zig build` instala lá), em ordem de nome.
@@ -248,6 +305,53 @@ não é json"#;
 
         let log = "install\n+- compile exe app Debug native 1 errors\nsrc/main.zig:3:5: error: use of undeclared identifier 'x'\n";
         assert_eq!(first_error(log), "src/main.zig:3:5: error: use of undeclared identifier 'x'");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn moonbit_modules_build_native_with_debug_info() {
+        let dir = std::env::temp_dir().join(format!("idetea-moon-debug-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(dir.join("moon.mod"), "name = \"x/y\"\n").unwrap();
+        assert_eq!(plan(&cfg(None), &dir), Some(Build::Moon));
+        assert_eq!(plan(&cfg(Some("make")), &dir), Some(Build::Shell("make".into())), "o config vence");
+        let _ = std::fs::remove_dir_all(&dir);
+
+        let ok = r#"{"$message_type":"artifact","package":"x/y/cmd/main","target_backend":"native","path":"/p/_build/native/debug/build/cmd/main/main.exe"}
+{"$message_type":"artifact","package":"x/y/lib","target_backend":"native","path":"/p/_build/native/debug/build/lib/liblib.a","kind":"foreign"}
+{"$message_type":"artifact","package":"x/y/web","target_backend":"wasm","path":"/p/_build/wasm/web.wasm"}"#;
+        assert_eq!(moon_executables(ok), [PathBuf::from("/p/_build/native/debug/build/cmd/main/main.exe")]);
+
+        let failed = r#"{"$message_type":"diagnostic","level":"error","error_code":4014,"path":"/p/sum.mbt","loc":"6:21-6:24","message":"Expr Type Mismatch\n        has type : String\n        wanted   : Int"}
+{"$message_type":"diagnostic","level":"warning","path":"/p/a.mbt","loc":"1:1-1:2","message":"unused"}"#;
+        let log = moon_errors(failed);
+        assert_eq!(first_error(&log), "/p/sum.mbt:6:21: error: Expr Type Mismatch");
+        assert!(log.contains("    has type : String") && !log.contains("unused"));
+    }
+
+    /// Compila um módulo MoonBit de verdade no backend nativo (pula sem `moon`).
+    #[test]
+    fn real_moon_build() {
+        if tea_lsp::find_in_path("moon").is_none() {
+            return;
+        }
+        let dir = std::env::temp_dir().join(format!("idetea-moon-build-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(dir.join("cmd/main")).unwrap();
+        std::fs::write(dir.join("moon.mod"), "name = \"idetea/demo\"\n").unwrap();
+        std::fs::write(dir.join("moon.pkg"), "").unwrap();
+        std::fs::write(dir.join("cmd/main/moon.pkg"), "pkgtype(kind: \"executable\")\n").unwrap();
+        std::fs::write(dir.join("cmd/main/main.mbt"), "fn main {\n  println(\"oi\")\n}\n").unwrap();
+        let out = run(&Build::Moon, &dir);
+        assert!(out.ok, "{}", out.log);
+        assert_eq!(out.executables.len(), 1, "{:?}", out.executables);
+        assert!(out.executables[0].is_file());
+
+        std::fs::write(dir.join("cmd/main/main.mbt"), "fn main {\n  let x : Int = \"oi\"\n}\n").unwrap();
+        let out = run(&Build::Moon, &dir);
+        assert!(!out.ok);
+        assert!(out.error.as_deref().is_some_and(|e| e.contains("main.mbt:2:") && e.contains("error")), "{:?}", out.error);
         let _ = std::fs::remove_dir_all(&dir);
     }
 }

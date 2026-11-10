@@ -85,11 +85,12 @@ The full list, for the technical reader. For the short version, see the [README]
 
 - Breakpoints with a click on the line number (`F9`); they move with the text as you edit.
 - `F5` builds and runs: in Rust projects it uses `cargo build` and finds the executable; in Zig projects,
-  `zig build` and the executables in `zig-out/bin`; elsewhere, a `[debug]`
+  `zig build` and the executables in `zig-out/bin`; in MoonBit modules, `moon build --target native -g`
+  (experimental, see [languages.md](languages.md#moonbit)); elsewhere, a `[debug]`
   section in the config says the program, the arguments and the build command.
 - Step over, into and out (`F10`, `F11`, `Shift+F11`), pause and stop, with the current line marked in the editor.
 - Panel with the call stack (click to go to the frame), variables as a tree, and the program's output.
-- Uses `gdb` 14 or newer (Rust, C and C++).
+- Uses `gdb` 14 or newer (Rust, C, C++, Zig and, experimentally, MoonBit).
 
 ## Working with agents
 

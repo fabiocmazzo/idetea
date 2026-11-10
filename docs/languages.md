@@ -19,7 +19,7 @@ For the full feature list, see [features.md](features.md).
 | Zig | `.zig` `.zon` | `zls` | `build.zig` steps | gdb, builds with `zig build` |
 | [Ziex](https://ziex.dev) | `.zx` `.mdzx` | `zx lsp` | `build.zig` steps | — |
 | [Hare](#hare) | `.ha` | `hare-lsp -S` | Makefile targets | — |
-| [MoonBit](#moonbit) | `.mbt` `.mbti` `.mbt.md` | `moon lsp` | `moon check`, `build`, `test`, `fmt --check` | — |
+| [MoonBit](#moonbit) | `.mbt` `.mbti` `.mbt.md` | `moon lsp` | `moon check`, `build`, `test`, `fmt --check` | gdb, builds with `moon build --target native -g` (experimental) |
 
 What a language server offers (completion, rename, formatting...) depends on the server: the IDE uses what it
 announces. Every language gets colors; Hare, MoonBit and Ziex bring their own grammar with the IDE.
@@ -79,12 +79,22 @@ install.
 | Type errors | yes |
 | Completion, go to definition, formatting through the server | whatever `moon lsp` offers; not checked one by one yet |
 | Tasks | `moon check`, `moon build`, `moon test`, `moon fmt --check` |
-| Debug | not yet |
+| Debug (`F5`) | experimental: native backend with gdb, see below |
 | `.mbt.md` (Markdown with MoonBit code) | colors in ` ```mbt ` and ` ```moonbit ` blocks, hover inside them; `moon test` runs the ` ```mbt check ` blocks |
 
 Tasks run in the folder of the `moon.mod` closest to the open file, so each module of a workspace runs its own;
 without an open file, the project root's `moon.mod` is used. The old `moon.mod.json` does not turn the tasks on:
 MoonBit asks you to migrate it with `moon fmt`.
+
+**Debug** (checked on 2026-11-10, Linux, gdb 18): with a `moon.mod` at the root of the open folder and no `[debug]`
+build in the config, `F5` runs `moon build --target native -g` and debugs the program it built. Breakpoints in
+`.mbt` files, stepping, the call stack with the right files and lines, and the values of numbers and other simple
+variables work. What is still rough:
+
+- Function names in the call stack are the compiled ones, such as `_M0FP26idetea7example7sum__to` for `sum_to`.
+- Strings show as UTF-16 bytes (`"M\000o\000o\000n..."`).
+- Right after a step, a variable may show as `<optimized out>`.
+- Only the native backend: Wasm and JavaScript programs cannot be debugged from the IDE.
 
 In `.mbt.md` files, Markdown around and MoonBit inside the code blocks; the Markdown preview works as for any
 `.md`. The IDE uses a small Markdown grammar of its own there, so the rest of the text gets fewer colors than in a
