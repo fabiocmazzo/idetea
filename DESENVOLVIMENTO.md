@@ -170,7 +170,7 @@ documentar a configuração (`[lsp.servers]`, `[tasks]` e `~/.config/idetea/synt
 1. Crie `crates/tea-core/assets/languages/<id>/` com:
    - `pack.toml` (formato 1). Campos: `format`, `id`, `name`; `[files]` com `extensions` (extensão → `languageId`
      enviado ao LSP) e `syntaxes`; opcionais `[project] markers`, `[lsp]` (`name`, `command`, `args`) e
-     `[[tasks]]` (`name`, `command`). Campo desconhecido é erro. Tarefas só com um marcador que prove a linguagem
+     `[[tasks]]` (`name`, `command`) e `[icon]` (`glyph`, `color`, `light`). Campo desconhecido é erro. Tarefas só com um marcador que prove a linguagem
      (`moon.mod` sim; `Makefile` não).
    - a gramática `.sublime-syntax`, copiada de uma revisão identificada, e o `LICENSE.txt` dela;
    - `README.md` em português: suporte, procedência (URL, revisão, licença, alterações locais) e validação
@@ -181,13 +181,16 @@ documentar a configuração (`[lsp.servers]`, `[tasks]` e `~/.config/idetea/synt
    exemplo pequeno em `builtin_syntaxes_produce_language_scopes`, com os escopos de palavra-chave, tipo, número,
    string e comentário. Os testes de unicidade (ids, extensões, servidores, tarefas) e de parsing pelo editor já
    cobrem o pack novo sozinhos.
-4. Se o servidor precisa de dica de instalação, acrescente um caso em `with_hint` (`crates/tea-app/src/lsp.rs`) e
+4. Ícone: se o Seti não tem a linguagem, desenhe um glifo em `tools/language-icons.py` (uma cor só, no quadro do
+   Seti), gere a fonte (`venv/bin/python tools/language-icons.py --preview <pasta>` mostra o desenho em SVG) e
+   aponte o caractere em `[icon]`. O teste `pack_icons_exist_in_the_icon_font` confere que ele está na fonte.
+5. Se o servidor precisa de dica de instalação, acrescente um caso em `with_hint` (`crates/tea-app/src/lsp.rs`) e
    o texto nos três `tea-app.ftl`. Se o toolchain instala numa pasta própria (como `~/.moon/bin`), veja
    `extra_tool_dirs` (`crates/tea-core/src/os.rs`).
-5. Um exemplo em `examples/languages/<id>/` (com `README.md` em inglês) e a linha e a seção da linguagem em
+6. Um exemplo em `examples/languages/<id>/` (com `README.md` em inglês) e a linha e a seção da linguagem em
    `docs/languages.md`; o teste `every_pack_is_documented` falha se faltar. Atualize também a lista de servidores
    em `docs/features.md`.
-6. Dogfooding com o toolchain de verdade (cores, LSP, tarefas e a IDE sem o toolchain) e registre o resultado no
+7. Dogfooding com o toolchain de verdade (cores, LSP, tarefas e a IDE sem o toolchain) e registre o resultado no
    README do pack.
 
 Comportamento que não cabe no TOML (descoberta de executável, fallback como o do Ziex) vira um hook Rust na IDE, não

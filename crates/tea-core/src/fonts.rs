@@ -26,7 +26,7 @@ pub const EMBEDDED: [&[u8]; 2] = [
 pub fn load_embedded() {
     use iced::advanced::graphics::text::font_system;
     let mut system = font_system().write().unwrap_or_else(|p| p.into_inner());
-    for bytes in EMBEDDED.into_iter().chain([crate::file_icons::FONT_BYTES]) {
+    for bytes in EMBEDDED.into_iter().chain([crate::file_icons::FONT_BYTES, crate::languages::ICON_FONT_BYTES]) {
         system.load_font(std::borrow::Cow::Borrowed(bytes));
     }
 }

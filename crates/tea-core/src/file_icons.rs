@@ -4,7 +4,10 @@
 //! no formato de *file icon theme* do VS Code (`vs-seti-icon-theme.json`), com cores para tema escuro e claro.
 //! Licenças em `assets/seti/LICENSE.txt`. O app carrega a fonte com [`crate::fonts::load_embedded`].
 //!
-//! Ordem de busca, como no VS Code: nome exato, extensões compostas da mais longa para a mais curta (`d.ts` antes
+//! Os language packs (RFC 0014) trazem ícones próprios para linguagens que o Seti não tem, numa fonte à parte
+//! (`assets/languages/icons.ttf`, ver [`crate::languages::Icon`]); a extensão de um pack vem antes do Seti.
+//!
+//! Ordem de busca no Seti, como no VS Code: nome exato, extensões compostas da mais longa para a mais curta (`d.ts` antes
 //! de `ts`), linguagem (pela extensão ou pelo nome), o padrão do tema.
 
 use std::collections::HashMap;
@@ -17,6 +20,8 @@ use iced::{Color, Font};
 /// A fonte do Seti (TrueType convertida do `seti.woff` do VS Code, sem outras mudanças).
 pub const FONT_BYTES: &[u8] = include_bytes!("../assets/seti/seti.ttf");
 pub const FONT: Font = Font::with_name("seti");
+/// A fonte dos ícones dos language packs (`tools/language-icons.py`).
+pub const LANGUAGE_FONT: Font = Font::with_name("idetea-languages");
 const THEME_JSON: &str = include_str!("../assets/seti/vs-seti-icon-theme.json");
 
 /// Os glifos do Seti são pequenos no quadro: o VS Code desenha a 150%. Aqui, um pouco menos, para caber na linha.
@@ -41,22 +46,45 @@ pub fn problem(setting: &str) -> Option<String> {
     }
 }
 
-/// O ícone de um arquivo: o caractere na fonte do Seti e a cor no tema escuro e no claro.
+/// O ícone de um arquivo: o caractere, a fonte dele (Seti ou a dos packs) e a cor no tema escuro e no claro.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct FileIcon {
     pub glyph: char,
+    pub font: Font,
     pub dark: Option<Color>,
     pub light: Option<Color>,
 }
 
 /// O ícone para o nome do arquivo (só o nome, sem pastas).
 pub fn lookup(name: &str) -> FileIcon {
+    let lower = name.to_lowercase();
+    if let Some(icon) = lower.rsplit_once('.').and_then(|(_, ext)| pack_icons().get(ext)) {
+        return *icon;
+    }
     let theme = theme();
     let dark = theme.dark.find(name).unwrap_or(&theme.dark.file);
     let light = theme.light.find(name).unwrap_or(dark);
     let d = theme.defs.get(dark).copied().unwrap_or(theme.fallback);
     let l = theme.defs.get(light).copied().unwrap_or(d);
-    FileIcon { glyph: d.0, dark: d.1, light: l.1 }
+    FileIcon { glyph: d.0, font: FONT, dark: d.1, light: l.1 }
+}
+
+/// Extensão → ícone, dos language packs que trazem `[icon]`.
+fn pack_icons() -> &'static HashMap<String, FileIcon> {
+    static ICONS: OnceLock<HashMap<String, FileIcon>> = OnceLock::new();
+    ICONS.get_or_init(|| {
+        let mut map = HashMap::new();
+        for pack in crate::languages::builtins().0 {
+            let Some(icon) = pack.manifest.icon else { continue };
+            let Some(glyph) = icon.glyph.chars().next() else { continue };
+            let dark = hex(&icon.color);
+            let light = icon.light.as_deref().and_then(hex).or(dark);
+            for extension in pack.manifest.files.extensions.keys() {
+                map.insert(extension.to_lowercase(), FileIcon { glyph, font: LANGUAGE_FONT, dark, light });
+            }
+        }
+        map
+    })
 }
 
 /// O ícone já como texto, na cor do tema (escuro ou claro). Desligado (`file_icons = "none"`), o genérico da
@@ -66,7 +94,7 @@ pub fn icon<'a>(name: &str, size: f32, colored: bool) -> Text<'a> {
         return crate::icons::icon(crate::icons::Icon::File).size(size);
     }
     let i = lookup(name);
-    let t = text(i.glyph.to_string()).font(FONT).size(size * SCALE).line_height(1.0);
+    let t = text(i.glyph.to_string()).font(i.font).size(size * SCALE).line_height(1.0);
     if !colored {
         return t;
     }
@@ -306,6 +334,16 @@ mod tests {
         assert!(rs.dark.is_some() && rs.light.is_some());
         assert_ne!(rs.dark, rs.light, "o Seti escurece as cores no tema claro");
         assert_eq!(lookup("main.rs").glyph, '\u{E082}');
+    }
+
+    #[test]
+    fn language_packs_bring_their_own_icons() {
+        let mbt = lookup("main.mbt");
+        assert_eq!((mbt.glyph, mbt.font), ('\u{E001}', LANGUAGE_FONT));
+        assert_eq!(lookup("pkg.generated.MBTI").glyph, '\u{E001}');
+        assert_eq!(lookup("sum.ha").glyph, '\u{E000}');
+        assert!(mbt.dark.is_some() && mbt.light.is_some() && mbt.dark != mbt.light);
+        assert_eq!(lookup("main.rs").font, FONT);
     }
 
     #[test]

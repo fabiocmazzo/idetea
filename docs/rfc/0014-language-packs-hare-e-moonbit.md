@@ -429,6 +429,9 @@ uma avaliação pequena e voluntária, sem telemetria ou infraestrutura de analy
    **Feito (2026-11-10):** matriz pública em `docs/languages.md` (todas as linguagens e uma seção por pack, com
    instalação, capacidades conferidas e limitações), exemplos em `examples/languages/{hare,moonbit}`, guia de novos
    packs em `DESENVOLVIMENTO.md` e o teste `every_pack_is_documented`, que exige seção e exemplo para cada pack.
+   Ícones: o Seti não tem Hare nem MoonBit, então os packs ganharam `[icon]` (opcional: `glyph`, `color`, `light`),
+   apontando para uma fonte própria da IDE (`assets/languages/icons.ttf`, desenhos gerados por
+   `tools/language-icons.py`). A extensão de um pack vem antes do Seti na busca do ícone.
    Ficam para depois: a avaliação de adoção da seção 8 (divulgar nas comunidades, sessões com usuários externos) e
    o spike de debug de MoonBit.
 

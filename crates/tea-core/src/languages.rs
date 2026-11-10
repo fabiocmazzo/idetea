@@ -12,6 +12,7 @@ pub struct Manifest {
     pub name: String,
     pub files: Files,
     pub project: Option<Project>,
+    pub icon: Option<Icon>,
     pub lsp: Option<Lsp>,
     #[serde(default)]
     pub tasks: Vec<Task>,
@@ -29,6 +30,19 @@ pub struct Files {
 pub struct Project {
     pub markers: Vec<String>,
 }
+
+/// Ícone dos arquivos do pack: um caractere da fonte [`ICON_FONT_BYTES`] e a cor (`#rrggbb`) no tema escuro e,
+/// opcional, no claro.
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Icon {
+    pub glyph: String,
+    pub color: String,
+    pub light: Option<String>,
+}
+
+/// A fonte com os ícones dos packs: desenhos próprios, gerados por `tools/language-icons.py`.
+pub const ICON_FONT_BYTES: &[u8] = include_bytes!("../assets/languages/icons.ttf");
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -80,6 +94,19 @@ fn parse_builtin(id: &str, text: &str, resources: &[(&str, &str)]) -> Result<Bui
     let manifest: Manifest = toml::from_str(text).map_err(|e| format!("language pack {id}: {e}"))?;
     if manifest.format != 1 {
         return Err(format!("language pack {id}: formato {} desconhecido; esperado formato 1", manifest.format));
+    }
+    if let Some(icon) = &manifest.icon {
+        let mut chars = icon.glyph.chars();
+        let in_private_area = |c: char| ('\u{E000}'..='\u{F8FF}').contains(&c);
+        if !matches!((chars.next(), chars.next()), (Some(c), None) if in_private_area(c)) {
+            return Err(format!("language pack {id}: [icon] glyph deve ser um caractere de uso privado, como \"\\uE000\""));
+        }
+        for color in std::iter::once(&icon.color).chain(&icon.light) {
+            let hex = color.strip_prefix('#').filter(|h| h.len() == 6 && u32::from_str_radix(h, 16).is_ok());
+            if hex.is_none() {
+                return Err(format!("language pack {id}: cor inválida em [icon]: {color} (use #rrggbb)"));
+            }
+        }
     }
     let mut syntaxes = Vec::new();
     for name in &manifest.files.syntaxes {
@@ -189,6 +216,28 @@ mod tests {
         ] {
             assert!(moonbit_scopes.contains(expected), "escopo {expected} ausente: {moonbit_scopes:?}");
         }
+    }
+
+    #[test]
+    fn pack_icons_exist_in_the_icon_font() {
+        let face = ttf_parser::Face::parse(ICON_FONT_BYTES, 0).unwrap();
+        let (packs, errors) = builtins();
+        assert!(errors.is_empty(), "{errors:?}");
+        for pack in packs {
+            let icon = pack.manifest.icon.unwrap_or_else(|| panic!("{} sem [icon]", pack.manifest.id));
+            let glyph = icon.glyph.chars().next().unwrap();
+            assert!(face.glyph_index(glyph).is_some(), "{}: {glyph:?} não está em icons.ttf", pack.manifest.id);
+        }
+    }
+
+    #[test]
+    fn icon_glyph_and_colors_are_checked() {
+        let pack = |icon: &str| format!("format = 1\nid = \"x\"\nname = \"X\"\n[files]\nextensions = {{ x = \"x\" }}\nsyntaxes = []\n[icon]\n{icon}\n");
+        assert!(parse_builtin("x", &pack("glyph = \"\\uE000\"\ncolor = \"#A78BFA\""), &[]).is_ok());
+        assert!(parse_builtin("x", &pack("glyph = \"A\"\ncolor = \"#A78BFA\""), &[]).is_err());
+        assert!(parse_builtin("x", &pack("glyph = \"\\uE000\\uE001\"\ncolor = \"#A78BFA\""), &[]).is_err());
+        assert!(parse_builtin("x", &pack("glyph = \"\\uE000\"\ncolor = \"roxo\""), &[]).is_err());
+        assert!(parse_builtin("x", &pack("glyph = \"\\uE000\"\ncolor = \"#A78BFA\"\nlight = \"#12\""), &[]).is_err());
     }
 
     #[test]

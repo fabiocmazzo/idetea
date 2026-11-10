@@ -6,6 +6,12 @@ name = "Hare"
 extensions = { ha = "hare" }
 syntaxes = ["hare.sublime-syntax"]
 
+# Ícone de arquivo: caractere em assets/languages/icons.ttf (tools/language-icons.py) e cores no tema escuro e claro.
+[icon]
+glyph = "\uE000"
+color = "#C8A26E"
+light = "#8A6A3A"
+
 [lsp]
 name = "hare-lsp"
 command = "hare-lsp"
