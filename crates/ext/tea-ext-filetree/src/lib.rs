@@ -12,7 +12,7 @@ use std::collections::{HashMap, HashSet};
 use std::path::{Component, Path, PathBuf};
 use std::sync::Arc;
 
-use iced::widget::{Id, button, column, container, operation, row, scrollable, space, text, text_input};
+use iced::widget::{Id, button, column, container, operation, row, space, text, text_input};
 use iced::{Element, Fill, Length, Point, Task};
 use tea_core::icons::{Icon, icon, icon_button};
 use tea_core::menu::{Menu, context_area};
@@ -547,7 +547,7 @@ impl Extension for FileTreeExtension {
             panel = panel.push(text(err).size(12).style(text::danger));
         }
         // Botão direito no espaço vazio: menu da raiz.
-        let list = context_area(scrollable(list).id(scroll_id()).height(Fill), |at| Message::ContextMenu(None, at));
+        let list = context_area(tea_core::style::scrollable(list).id(scroll_id()).height(Fill), |at| Message::ContextMenu(None, at));
         panel.push(list).into()
     }
 }

@@ -6,7 +6,7 @@ use std::fmt;
 use std::path::{Path, PathBuf};
 
 use iced::widget::{
-    Id, button, column, container, pick_list, row, rule, scrollable, space, text, text_input, toggler,
+    Id, button, column, container, pick_list, row, rule, space, text, text_input, toggler,
 };
 use iced::{Element, Fill, Font, Theme};
 use tea_core::Slot;
@@ -225,7 +225,7 @@ impl Settings {
             text(fl!("keys-help"))
                 .size(11)
                 .style(text::secondary),
-            scrollable(list.padding([0, 12])).height(Fill)
+            tea_core::style::scrollable(list.padding([0, 12])).height(Fill)
         ]
         .spacing(8)
         .into()
@@ -259,7 +259,7 @@ impl Settings {
             .align_y(iced::Center)
             .padding([10, 0]),
         );
-        scrollable(list.padding([0, 12])).height(Fill).into()
+        tea_core::style::scrollable(list.padding([0, 12])).height(Fill).into()
     }
 }
 
@@ -458,7 +458,7 @@ fn editor_view(config: &Config) -> Element<'_, Msg> {
     ]
     .spacing(4)
     .padding([0, 12]);
-    scrollable(list).height(Fill).into()
+    tea_core::style::scrollable(list).height(Fill).into()
 }
 
 fn extensions_view<'a>(config: &'a Config, extensions: &'a [ExtRow]) -> Element<'a, Msg> {
@@ -487,7 +487,7 @@ fn extensions_view<'a>(config: &'a Config, extensions: &'a [ExtRow]) -> Element<
             .size(11)
             .style(text::secondary),
     );
-    scrollable(list.padding([0, 12])).height(Fill).into()
+    tea_core::style::scrollable(list.padding([0, 12])).height(Fill).into()
 }
 
 fn describe(id: &str) -> String {

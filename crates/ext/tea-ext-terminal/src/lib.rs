@@ -24,7 +24,7 @@ use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 use iced::futures::channel::mpsc;
-use iced::widget::{button, column, container, keyed_column, row, scrollable, space, text};
+use iced::widget::{button, column, container, keyed_column, row, space, text};
 use iced::{Color, Element, Fill, Font, Subscription, Task, Theme};
 use iced_term::actions::Action;
 use iced_term::settings::{BackendSettings, FontSettings, Settings, ThemeSettings};
@@ -631,7 +631,7 @@ impl TerminalExtension {
             let count = self.pending.len() - 1;
             col = col.push(text(fl!("agent-request-more", count = count)).size(12).style(text::secondary));
         }
-        scrollable(col).height(Fill).into()
+        tea_core::style::scrollable(col).height(Fill).into()
     }
 
     /// Mostra um shell (abre um, se não houver) e pega o teclado.

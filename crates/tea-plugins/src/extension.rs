@@ -287,7 +287,7 @@ impl Extension for PluginExtension {
             }
             None => {}
         }
-        scrollable(out).height(Fill).into()
+        tea_core::style::scrollable(out).height(Fill).into()
     }
 }
 

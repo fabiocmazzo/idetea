@@ -20,7 +20,7 @@ use std::time::Duration;
 
 use iced::futures::channel::oneshot;
 use regex::Regex;
-use iced::widget::{Id, button, column, operation, row, scrollable, space, text, text_input};
+use iced::widget::{Id, button, column, operation, row, space, text, text_input};
 use iced::{Element, Fill, Task};
 use tea_core::icons::Icon;
 use tea_core::replace::{Replace, Target};
@@ -461,6 +461,6 @@ impl Extension for SearchExtension {
             }
         }
 
-        column![bar].push(replace_bar).push(summary).push(scrollable(list).height(Fill)).spacing(4).into()
+        column![bar].push(replace_bar).push(summary).push(tea_core::style::scrollable(list).height(Fill)).spacing(4).into()
     }
 }

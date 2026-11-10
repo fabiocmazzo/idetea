@@ -139,6 +139,8 @@ Details (in Portuguese for now): [terminais-de-agente.md](terminais-de-agente.md
 - Help (`F1`) with all current shortcuts and a short guide.
 - Settings (`Ctrl+,`): appearance, extensions, shortcuts (records the key you press) and language servers.
 - Activity bar to show and hide panels; panels resize with the mouse.
+- Panels as rounded islands over a darker background, with thin pill scrollbars that fade when the mouse is away;
+  `[ui] style = "classic"` keeps everything on one background, split by lines.
 - Interface in English, Portuguese and Spanish (`[ui] language`, or the system's).
 
 ## Not losing work

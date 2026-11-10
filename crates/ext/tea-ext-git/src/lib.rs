@@ -703,7 +703,7 @@ impl GitExtension {
                 list = list.push(text(fl!("git-nothing-to-commit")).size(12).style(text::secondary));
             }
         }
-        column![header, commit, scrollable(list).height(Fill)].spacing(4).into()
+        column![header, commit, tea_core::style::scrollable(list).height(Fill)].spacing(4).into()
     }
 
     fn section<'a>(&self, title: String, n: usize, action: Element<'a, Message>) -> Element<'a, Message> {
@@ -812,9 +812,9 @@ impl GitExtension {
         }
         column![
             title,
-            scrollable(lines).direction(scrollable::Direction::Both {
-                vertical: scrollable::Scrollbar::default(),
-                horizontal: scrollable::Scrollbar::default(),
+            tea_core::style::scrollable(lines).direction(scrollable::Direction::Both {
+                vertical: tea_core::style::scrollbar(),
+                horizontal: tea_core::style::scrollbar(),
             })
         ]
         .spacing(4)

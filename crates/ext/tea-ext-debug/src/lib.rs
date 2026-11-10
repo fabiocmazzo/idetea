@@ -14,7 +14,7 @@ macro_rules! fl {
 
 use std::collections::{HashMap, HashSet, VecDeque};
 
-use iced::widget::{button, column, container, row, rule, scrollable, space, text};
+use iced::widget::{button, column, container, row, rule, space, text};
 use iced::{Element, Fill, Font, Task, Theme};
 use tea_core::debug::{Event, Frame, Scope, Status, Variable};
 use tea_core::icons::{self, Icon};
@@ -302,7 +302,7 @@ impl DebugExtension {
             .spacing(6);
             list = list.push(list_button(line, Message::SelectFrame(i), i == self.selected));
         }
-        scrollable(list).height(Fill).into()
+        tea_core::style::scrollable(list).height(Fill).into()
     }
 
     fn variables_view(&self) -> Element<'_, Message> {
@@ -318,7 +318,7 @@ impl DebugExtension {
                 list = self.push_children(list, scope.reference, &scope.name, 1);
             }
         }
-        scrollable(list).height(Fill).into()
+        tea_core::style::scrollable(list).height(Fill).into()
     }
 
     fn push_children<'a>(
@@ -378,7 +378,7 @@ impl DebugExtension {
             };
             list = list.push(text(line).size(12).font(Font::MONOSPACE).style(style));
         }
-        column![heading(fl!("debug-output")), scrollable(list).anchor_bottom().width(Fill).height(Fill)].spacing(1).into()
+        column![heading(fl!("debug-output")), tea_core::style::scrollable(list).anchor_bottom().width(Fill).height(Fill)].spacing(1).into()
     }
 }
 

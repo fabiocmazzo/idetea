@@ -4254,7 +4254,7 @@ impl App {
     fn side_view(&self, right: bool) -> Element<'_, Message> {
         let focused = self.tabs[self.active].right == right;
         let shown = if focused { Some(self.active) } else { self.other_index() };
-        let tabs = scrollable(
+        let tabs = tea_core::style::scrollable(
             row(self.tabs.iter().enumerate().filter(|(_, t)| t.right == right).map(|(i, t)| {
                 let style = if i == self.active {
                     button::primary
@@ -4347,7 +4347,7 @@ impl App {
         // Um respiro à esquerda: colado na borda do painel, o primeiro caractere fica cortado.
         let line = row(parts).spacing(2).align_y(iced::Center).padding(iced::Padding { left: 6.0, right: 6.0, ..iced::Padding::ZERO });
         Some(
-            scrollable(line)
+            tea_core::style::scrollable(line)
                 .direction(scrollable::Direction::Horizontal(scrollable::Scrollbar::new().width(2).scroller_width(2)))
                 .width(Fill)
                 .into(),
@@ -4355,76 +4355,88 @@ impl App {
     }
 
     fn workspace_view(&self) -> Element<'_, Message> {
+        use tea_core::style::{GAP, ISLAND_INSET};
+        // RFC 0015: cada área numa ilha arredondada sobre um fundo mais escuro; o vão entre elas é o divisor.
+        let islands = self.config.ui.style != "classic";
+        fn island(islands: bool, content: Element<'_, Message>) -> Element<'_, Message> {
+            if islands {
+                container(content)
+                    .padding(ISLAND_INSET)
+                    .width(Fill)
+                    .height(Fill)
+                    .style(tea_core::style::island)
+                    .into()
+            } else {
+                content
+            }
+        }
+        let island = |content| island(islands, content);
+        let divider = |axis, edge| {
+            divider::divider(axis, move |d| Message::Resize(edge, d), Message::ResizeDone, Message::ResizeReset(edge))
+                .islands(islands)
+        };
+
         let editors: Element<'_, Message> = if self.other_index().is_some() {
             let left = (self.ui_state.split * 1000.0).round() as u16;
-            let handle = divider::divider(
-                divider::Axis::Vertical,
-                |d| Message::Resize(Edge::Split, d),
-                Message::ResizeDone,
-                Message::ResizeReset(Edge::Split),
-            );
             row![
-                container(self.side_view(false)).width(iced::FillPortion(left)),
-                handle,
-                container(self.side_view(true)).width(iced::FillPortion(1000 - left)),
+                container(island(self.side_view(false))).width(iced::FillPortion(left)),
+                divider(divider::Axis::Vertical, Edge::Split),
+                container(island(self.side_view(true))).width(iced::FillPortion(1000 - left)),
             ]
             .height(Fill)
             .into()
         } else {
-            self.side_view(false)
+            island(self.side_view(false))
         };
 
-        let mut center = column![editors].spacing(4).width(Fill).height(Fill);
+        let mut center = column![editors].spacing(if islands { 0 } else { 4 }).width(Fill).height(Fill);
         if let Some(bottom) = self.bottom_view() {
-            let handle = divider::divider(
-                divider::Axis::Horizontal,
-                |d| Message::Resize(Edge::Bottom, d),
-                Message::ResizeDone,
-                Message::ResizeReset(Edge::Bottom),
-            );
-            center = center.push(handle).push(container(bottom).height(self.ui_state.bottom_height));
+            center = center
+                .push(divider(divider::Axis::Horizontal, Edge::Bottom))
+                .push(container(island(bottom)).height(self.ui_state.bottom_height));
         }
 
         let mut body = row![].height(Fill);
         if self.config.ui.activity_bar {
-            body = body.push(self.activity_bar()).push(rule::vertical(1));
+            body = body.push(self.activity_bar());
+            body = if islands { body.push(iced::widget::space().width(GAP)) } else { body.push(rule::vertical(1)) };
         }
         if let Some(left) = self.slot_view(Slot::Left) {
-            let handle = divider::divider(
-                divider::Axis::Vertical,
-                |d| Message::Resize(Edge::Left, d),
-                Message::ResizeDone,
-                Message::ResizeReset(Edge::Left),
-            );
-            body = body.push(container(left).width(self.ui_state.left_width).height(Fill)).push(handle);
+            body = body
+                .push(container(island(left)).width(self.ui_state.left_width).height(Fill))
+                .push(divider(divider::Axis::Vertical, Edge::Left));
         }
         body = body.push(center);
         if let Some(right) = self.slot_view(Slot::Right) {
-            let handle = divider::divider(
-                divider::Axis::Vertical,
-                |d| Message::Resize(Edge::Right, d),
-                Message::ResizeDone,
-                Message::ResizeReset(Edge::Right),
-            );
-            body = body.push(handle).push(container(right).width(self.ui_state.right_width).height(Fill));
+            body = body
+                .push(divider(divider::Axis::Vertical, Edge::Right))
+                .push(container(island(right)).width(self.ui_state.right_width).height(Fill));
         }
 
-        let mut page = column![body].spacing(4).padding(6);
+        let mut page = column![body].spacing(if islands { GAP } else { 4.0 }).padding(if islands { GAP } else { 6.0 });
+        // Nas ilhas a barra de status fica no fundo da janela, sem linha: o contraste já separa.
+        let status_rule = || -> Element<'_, Message> {
+            if islands { iced::widget::space().height(0).into() } else { rule::horizontal(1).into() }
+        };
         let status_view = self.slot_view(Slot::Status);
         let mascot_btn = self.mascot.status_bar_button(self.config.mascot.enabled).map(|b| b.map(Message::Mascot));
         match (status_view, mascot_btn) {
             (Some(status), Some(btn)) => {
-                page = page.push(rule::horizontal(1)).push(row![status, btn].spacing(12).align_y(iced::Center));
+                page = page.push(status_rule()).push(row![status, btn].spacing(12).align_y(iced::Center));
             }
             (Some(status), None) => {
-                page = page.push(rule::horizontal(1)).push(status);
+                page = page.push(status_rule()).push(status);
             }
             (None, Some(btn)) => {
-                page = page.push(rule::horizontal(1)).push(row![iced::widget::space::horizontal(), btn].align_y(iced::Center));
+                page = page.push(status_rule()).push(row![iced::widget::space::horizontal(), btn].align_y(iced::Center));
             }
             (None, None) => {}
         }
-        page.into()
+        if islands {
+            container(page).width(Fill).height(Fill).style(tea_core::style::canvas_style).into()
+        } else {
+            page.into()
+        }
     }
 
     /// Slot inferior: abas com os painéis visíveis e só o painel em destaque aberto.

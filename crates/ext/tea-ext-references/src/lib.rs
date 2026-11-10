@@ -9,7 +9,7 @@ macro_rules! fl {
 
 use std::path::{Path, PathBuf};
 
-use iced::widget::{button, column, row, scrollable, space, text};
+use iced::widget::{button, column, row, space, text};
 use iced::{Element, Fill, Font, Task, Theme};
 use tea_core::icons::Icon;
 use tea_core::{Context, CoreEvent, Extension, LocationKind, PanelId, Reference, Slot};
@@ -159,7 +159,7 @@ impl Extension for ReferencesExtension {
                     }),
             );
         }
-        scrollable(list).height(Fill).into()
+        tea_core::style::scrollable(list).height(Fill).into()
     }
 }
 

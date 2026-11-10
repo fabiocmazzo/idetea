@@ -1,5 +1,5 @@
-//! Divisor arrastável entre um painel e o editor. Desenha uma linha fina; o
-//! cursor vira "redimensionar" em cima dele. Duplo clique volta ao padrão.
+//! Divisor arrastável entre um painel e o editor. Desenha uma linha fina (ou, entre ilhas, nada: o vão já separa);
+//! o cursor vira "redimensionar" em cima dele. Duplo clique volta ao padrão.
 
 use std::time::{Duration, Instant};
 
@@ -25,11 +25,24 @@ pub struct Divider<'a, M> {
     on_drag: Box<dyn Fn(f32) -> M + 'a>,
     on_release: M,
     on_reset: M,
+    islands: bool,
 }
 
 /// `on_drag` recebe quanto o mouse andou (px) no eixo do arraste.
 pub fn divider<'a, M: Clone>(axis: Axis, on_drag: impl Fn(f32) -> M + 'a, on_release: M, on_reset: M) -> Divider<'a, M> {
-    Divider { axis, on_drag: Box::new(on_drag), on_release, on_reset }
+    Divider { axis, on_drag: Box::new(on_drag), on_release, on_reset, islands: false }
+}
+
+impl<M> Divider<'_, M> {
+    /// Entre ilhas (RFC 0015): ocupa o vão inteiro e só aparece com o mouse em cima.
+    pub fn islands(mut self, on: bool) -> Self {
+        self.islands = on;
+        self
+    }
+
+    fn grab(&self) -> f32 {
+        if self.islands { tea_core::style::GAP } else { GRAB }
+    }
 }
 
 #[derive(Default)]
@@ -50,8 +63,8 @@ impl<M: Clone, Renderer: renderer::Renderer> Widget<M, Theme, Renderer> for Divi
 
     fn size(&self) -> Size<Length> {
         match self.axis {
-            Axis::Vertical => Size::new(Length::Fixed(GRAB), Length::Fill),
-            Axis::Horizontal => Size::new(Length::Fill, Length::Fixed(GRAB)),
+            Axis::Vertical => Size::new(Length::Fixed(self.grab()), Length::Fill),
+            Axis::Horizontal => Size::new(Length::Fill, Length::Fixed(self.grab())),
         }
     }
 
@@ -142,6 +155,35 @@ impl<M: Clone, Renderer: renderer::Renderer> Widget<M, Theme, Renderer> for Divi
         let b = layout.bounds();
         let active = tree.state.downcast_ref::<State>().dragging.is_some() || cursor.is_over(b);
         let p = theme.extended_palette();
+        if self.islands {
+            // Entre ilhas o vão é a fronteira: só uma barrinha arredondada quando dá para arrastar, sem passar
+            // dos cantos das ilhas.
+            if !active {
+                return;
+            }
+            let (thick, end) = (3.0, tea_core::style::RADIUS_ISLAND);
+            let bar = match self.axis {
+                Axis::Vertical => Rectangle {
+                    x: b.center_x() - thick / 2.0,
+                    y: b.y + end,
+                    width: thick,
+                    height: (b.height - 2.0 * end).max(0.0),
+                },
+                Axis::Horizontal => Rectangle {
+                    x: b.x + end,
+                    y: b.center_y() - thick / 2.0,
+                    width: (b.width - 2.0 * end).max(0.0),
+                    height: thick,
+                },
+            };
+            let quad = renderer::Quad {
+                bounds: bar,
+                border: iced::Border { radius: (thick / 2.0).into(), ..iced::Border::default() },
+                ..renderer::Quad::default()
+            };
+            renderer.fill_quad(quad, p.primary.base.color);
+            return;
+        }
         // Linha fina normalmente; mais grossa e colorida quando dá para arrastar.
         let (thick, color) = if active { (3.0, p.primary.base.color) } else { (1.0, p.background.strong.color) };
         let line = match self.axis {

@@ -563,7 +563,11 @@ impl Editor {
     }
 
     pub fn set_theme(&mut self, theme: &Theme) {
-        self.inner.set_theme(theme::from_iced_theme(theme));
+        // Barra como a do resto da IDE (RFC 0015): sem trilho, polegar translúcido. Raio e largura são do widget.
+        let mut style = theme::from_iced_theme(theme);
+        style.scrollbar_background = iced::Color::TRANSPARENT;
+        style.scroller_color = theme.extended_palette().background.strongest.color.scale_alpha(0.5);
+        self.inner.set_theme(style);
         self.theme = theme.clone();
     }
 
@@ -947,7 +951,7 @@ impl Editor {
 
     /// Caixa do trecho aberto: como era, e o botão de desfazer. Fica logo abaixo do trecho.
     fn hunk_layer(&self) -> Option<Element<'_, EditorMessage>> {
-        use iced::widget::{button, column, container, pin, row, scrollable, space, text};
+        use iced::widget::{button, column, container, pin, row, space, text};
         let i = self.hunk_open?;
         let h = self.hunks.get(i)?;
         let lh = self.inner.line_height();
@@ -984,7 +988,7 @@ impl Editor {
             old = old.push(text(fl!("hunk-added-note")).size(fs * 0.85).style(text::secondary));
         }
         let shown = h.old.len().clamp(1, 12) as f32;
-        let body = scrollable(old).height(iced::Length::Fixed(shown * lh * 0.95 + 4.0));
+        let body = tea_core::style::scrollable(old).height(iced::Length::Fixed(shown * lh * 0.95 + 4.0));
         let width = (self.inner.viewport_width() - marks::GUTTER_WIDTH - 12.0).clamp(160.0, 900.0);
         let card = container(column![header, body].spacing(4)).padding(6).width(width).style(|t: &Theme| {
             let p = t.extended_palette();

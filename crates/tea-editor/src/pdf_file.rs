@@ -271,9 +271,9 @@ impl PdfFile {
                 .anticipate(400);
             list = list.push(page);
         }
-        let pages = scrollable(list).direction(scrollable::Direction::Both {
-            vertical: scrollable::Scrollbar::default(),
-            horizontal: scrollable::Scrollbar::default(),
+        let pages = tea_core::style::scrollable(list).direction(scrollable::Direction::Both {
+            vertical: tea_core::style::scrollbar(),
+            horizontal: tea_core::style::scrollbar(),
         });
         let area = sensor(container(pages).width(Fill).height(Fill).style(|t: &Theme| {
             container::Style::default().background(t.extended_palette().background.weak.color)

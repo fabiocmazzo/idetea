@@ -9,7 +9,7 @@ macro_rules! fl {
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
-use iced::widget::{button, column, row, scrollable, space, text};
+use iced::widget::{button, column, row, space, text};
 use iced::{Element, Fill, Task, Theme};
 use tea_core::icons::Icon;
 use tea_core::{Context, CoreEvent, Diagnostic, Extension, PanelId, Severity, Slot};
@@ -163,7 +163,7 @@ impl Extension for ProblemsExtension {
                     .width(Fill),
             );
         }
-        scrollable(list).height(Fill).into()
+        tea_core::style::scrollable(list).height(Fill).into()
     }
 }
 

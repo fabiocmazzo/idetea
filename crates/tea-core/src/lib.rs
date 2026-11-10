@@ -33,6 +33,7 @@ pub mod outline;
 pub mod os;
 pub mod pick;
 pub mod replace;
+pub mod style;
 pub mod keymap;
 pub mod languages;
 

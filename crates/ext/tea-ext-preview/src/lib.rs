@@ -11,7 +11,7 @@ macro_rules! fl {
 
 use std::path::{Path, PathBuf};
 
-use iced::widget::{column, container, image, markdown, row, scrollable, svg, text};
+use iced::widget::{column, container, image, markdown, row, svg, text};
 use iced::{ContentFit, Element, Fill, Length, Task, Theme};
 use tea_core::icons::Icon;
 use tea_core::{Context, CoreEvent, Extension, FileAction, PanelId, Slot};
@@ -220,7 +220,7 @@ impl Extension for PreviewExtension {
             Doc::Markdown(content) => {
                 let viewer = Viewer { base: self.path.as_deref() };
                 let body = markdown::view_with(content.items(), self.settings(), &viewer);
-                scrollable(container(body).padding([8, 14]).width(Fill)).height(Fill).into()
+                tea_core::style::scrollable(container(body).padding([8, 14]).width(Fill)).height(Fill).into()
             }
             Doc::Svg { handle, size, error } => {
                 let mut info = row![text(format!("{} × {}", size.0.round(), size.1.round())).size(11).style(text::secondary)];

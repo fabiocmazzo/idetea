@@ -11,7 +11,7 @@ macro_rules! fl {
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 
-use iced::widget::{Column, button, column, row, scrollable, space, text};
+use iced::widget::{Column, button, column, row, space, text};
 use iced::{Element, Fill, Task, Theme};
 use tea_core::calls::{Direction, Event, Node};
 use tea_core::icons::{self, Icon};
@@ -236,7 +236,7 @@ impl Extension for CallsExtension {
         ]
         .spacing(4);
         let list = self.push_rows(column![].spacing(0), &self.roots, 0);
-        column![header, scrollable(list).height(Fill)].spacing(4).into()
+        column![header, tea_core::style::scrollable(list).height(Fill)].spacing(4).into()
     }
 }
 

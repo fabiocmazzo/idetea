@@ -7,7 +7,7 @@ use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
 use iced::widget::{
-    Id, button, column, container, rich_text, row, rule, scrollable, space, span, text, text_input,
+    Id, button, column, container, rich_text, row, rule, space, span, text, text_input,
 };
 use iced::{Element, Fill, Font, Theme};
 use tea_core::icons::{Icon, icon_button};
@@ -109,8 +109,8 @@ impl Help {
 
         let body: Element<'a, Msg> = match self.tab {
             Tab::Shortcuts => self.shortcuts(commands, keymap),
-            Tab::Guide => scrollable(guide(keymap)).height(Fill).into(),
-            Tab::About => scrollable(about_view(about)).height(Fill).into(),
+            Tab::Guide => tea_core::style::scrollable(guide(keymap)).height(Fill).into(),
+            Tab::About => tea_core::style::scrollable(about_view(about)).height(Fill).into(),
         };
 
         crate::overlay::modal(column![header, rule::horizontal(1), body].spacing(10), 860.0, Msg::Close)
@@ -158,7 +158,7 @@ impl Help {
                 list = list.push(shortcut_row(desc, None, keys));
             }
         }
-        column![search, scrollable(list.padding([0, 12])).height(Fill)].spacing(8).into()
+        column![search, tea_core::style::scrollable(list.padding([0, 12])).height(Fill)].spacing(8).into()
     }
 }
 

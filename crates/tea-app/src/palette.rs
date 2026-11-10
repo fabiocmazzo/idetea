@@ -5,7 +5,7 @@
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 
-use iced::widget::{Id, button, column, container, row, scrollable, space, text, text_input};
+use iced::widget::{Id, button, column, container, row, space, text, text_input};
 use iced::{Element, Fill, Length, Theme};
 use tea_core::icons::{Icon, icon};
 use tea_core::keymap::Keymap;
@@ -344,7 +344,7 @@ impl Palette {
                     );
                 }
                 let rows = found.len().min(MAX_ROWS) as f32;
-                body = body.push(scrollable(list).id(list_id()).height(Length::Fixed(rows * ROW_HEIGHT)));
+                body = body.push(tea_core::style::scrollable(list).id(list_id()).height(Length::Fixed(rows * ROW_HEIGHT)));
             }
             Mode::SaveAs => {
                 body = body.push(text(fl!("palette-save-hint")).size(12).style(text::secondary));
@@ -384,7 +384,7 @@ impl Palette {
                     );
                 }
                 let rows = self.found.len().min(MAX_ROWS) as f32;
-                body = body.push(scrollable(list).id(list_id()).height(Length::Fixed(rows * ROW_HEIGHT)));
+                body = body.push(tea_core::style::scrollable(list).id(list_id()).height(Length::Fixed(rows * ROW_HEIGHT)));
             }
             Mode::Recent => {
                 if self.found.is_empty() {
@@ -417,7 +417,7 @@ impl Palette {
                     );
                 }
                 let rows = self.found.len().min(MAX_ROWS) as f32;
-                body = body.push(scrollable(list).id(list_id()).height(Length::Fixed(rows * ROW_HEIGHT)));
+                body = body.push(tea_core::style::scrollable(list).id(list_id()).height(Length::Fixed(rows * ROW_HEIGHT)));
             }
             Mode::Pick => {
                 let Some(pick) = &self.pick else { return column![].into() };
@@ -461,7 +461,7 @@ impl Palette {
                     list = list.push(create_button(self.found.len()));
                 }
                 let rows = (self.found.len() + usize::from(create)).min(MAX_ROWS) as f32;
-                body = body.push(scrollable(list).id(list_id()).height(Length::Fixed(rows * ROW_HEIGHT)));
+                body = body.push(tea_core::style::scrollable(list).id(list_id()).height(Length::Fixed(rows * ROW_HEIGHT)));
             }
             Mode::FileSymbols | Mode::ProjectSymbols => {
                 if self.found.is_empty() {
@@ -505,7 +505,7 @@ impl Palette {
                     );
                 }
                 let rows = self.found.len().min(MAX_ROWS) as f32;
-                body = body.push(scrollable(list).id(list_id()).height(Length::Fixed(rows * ROW_HEIGHT)));
+                body = body.push(tea_core::style::scrollable(list).id(list_id()).height(Length::Fixed(rows * ROW_HEIGHT)));
             }
         }
 

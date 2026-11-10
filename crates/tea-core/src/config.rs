@@ -24,6 +24,9 @@ theme = "dark"
 font_size = 14
 # Faixa de ícones na borda esquerda para mostrar/ocultar painéis.
 activity_bar = true
+# Painéis em ilhas de cantos arredondados, separadas por um vão mais escuro ("islands"), ou no mesmo fundo,
+# separados por linhas ("classic").
+style = "islands"
 # Ícone de cada arquivo pela linguagem ou pelo tipo (árvore, abas, Ctrl+P, breadcrumbs, busca, git):
 # "seti" (o conjunto do VS Code, embutido) ou "none" (o ícone genérico).
 file_icons = "seti"
@@ -185,6 +188,8 @@ pub struct UiConfig {
     pub theme: String,
     pub font_size: f32,
     pub activity_bar: bool,
+    /// `"islands"` (painéis em ilhas arredondadas) ou `"classic"` (mesmo fundo, separados por linhas).
+    pub style: String,
     /// Ícones de arquivo pela linguagem: `"seti"` (embutido) ou `"none"` (o genérico).
     pub file_icons: String,
     /// `"auto"` (o do sistema), `"pt-BR"`, `"en"` ou `"es"`. Vale ao reiniciar.
@@ -200,6 +205,7 @@ impl Default for UiConfig {
             theme: "dark".into(),
             font_size: 14.0,
             activity_bar: true,
+            style: "islands".into(),
             file_icons: "seti".into(),
             language: "auto".into(),
             restore_session: true,

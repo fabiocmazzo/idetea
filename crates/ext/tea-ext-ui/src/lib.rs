@@ -24,7 +24,7 @@ use std::sync::Arc;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use iced::futures::channel::{mpsc, oneshot};
-use iced::widget::{Column, button, column, container, row, scrollable, space, text, text_input};
+use iced::widget::{Column, button, column, container, row, space, text, text_input};
 use iced::{Element, Fill, Subscription, Task, Theme};
 use serde::{Deserialize, Serialize};
 use tea_core::icons::Icon;
@@ -704,7 +704,7 @@ impl UiExtension {
     /// O painel do histórico: as abertas, as entradas por dia (com busca) ou uma entrada aberta.
     fn history_view(&self) -> Element<'_, Message> {
         if let Some(opened) = &self.history_open {
-            return scrollable(self.history_entry_view(opened).padding(12)).height(Fill).into();
+            return tea_core::style::scrollable(self.history_entry_view(opened).padding(12)).height(Fill).into();
         }
         let mut out: Column<'_, Message> = column![].spacing(8).padding(12).width(Fill);
         out = out.push(
@@ -758,7 +758,7 @@ impl UiExtension {
                 button(text(fl!("ui-history-clear-button")).size(12)).style(button::text).on_press(Message::AskClearHistory),
             );
         }
-        scrollable(out).height(Fill).into()
+        tea_core::style::scrollable(out).height(Fill).into()
     }
 
     fn history_entry_view<'a>(&'a self, o: &'a Opened) -> Column<'a, Message> {
@@ -1135,7 +1135,7 @@ impl Extension for UiExtension {
             out = out.push(text(fl!("ui-empty")).size(13).style(text::secondary).width(Fill));
             out = out.push(text(fl!("ui-teach-hint")).size(13).style(text::secondary).width(Fill));
             out = out.push(button(text(fl!("ui-teach-button")).size(13)).style(button::secondary).on_press(Message::AskTeach));
-            return scrollable(out).height(Fill).into();
+            return tea_core::style::scrollable(out).height(Fill).into();
         }
         if self.files.len() > 1 {
             let tabs = row(self.files.iter().map(|f| {
@@ -1151,7 +1151,7 @@ impl Extension for UiExtension {
         if let Some(f) = self.selected.as_deref().and_then(|s| self.file(s)) {
             out = out.push(self.surface_view(f));
         }
-        scrollable(out).height(Fill).into()
+        tea_core::style::scrollable(out).height(Fill).into()
     }
 
     fn subscription(&self) -> Subscription<Message> {

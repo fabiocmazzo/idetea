@@ -14,7 +14,7 @@ use std::collections::HashSet;
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use iced::widget::{Column, button, column, row, scrollable, space, text};
+use iced::widget::{Column, button, column, row, space, text};
 use iced::{Element, Fill, Task, Theme};
 use tea_core::icons::{self, Icon};
 use tea_core::outline::Symbol;
@@ -214,7 +214,7 @@ impl Extension for OutlineExtension {
         }
         let current = innermost(&self.symbols, self.cursor_line, "");
         let list = self.push_rows(column![].spacing(0), &self.symbols, "", 0, current.as_deref());
-        column![header, scrollable(list).height(Fill)].spacing(4).into()
+        column![header, tea_core::style::scrollable(list).height(Fill)].spacing(4).into()
     }
 }
 
