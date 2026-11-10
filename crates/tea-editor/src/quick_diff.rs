@@ -39,9 +39,14 @@ impl Hunk {
 }
 
 pub fn hunks(old: &str, new: &str) -> Vec<Hunk> {
+    hunks_until(old, new, Some(Instant::now() + DEADLINE))
+}
+
+/// [`hunks`] com outro prazo (`None`: sem prazo, o diff sempre fino; para os testes não dependerem da máquina).
+fn hunks_until(old: &str, new: &str, deadline: Option<Instant>) -> Vec<Hunk> {
     let old: Vec<&str> = old.lines().collect();
     let new: Vec<&str> = new.lines().collect();
-    let ops = capture_diff_slices_deadline(Algorithm::Myers, &old, &new, Some(Instant::now() + DEADLINE));
+    let ops = capture_diff_slices_deadline(Algorithm::Myers, &old, &new, deadline);
     let mut out = Vec::new();
     // Juntar apagar + inserir seguidos num trecho "mudado".
     let mut group: Option<(usize, usize, usize, usize)> = None; // (início antigo, fim antigo, início novo, fim novo)
@@ -86,7 +91,7 @@ mod tests {
     fn kinds_and_revert() {
         let old = "a\nb\nc\nd\ne\n";
         let new = "a\nB\nc\nnova\nd\n";
-        let h = hunks(old, new);
+        let h = hunks_until(old, new, None);
         let shape: Vec<_> = h.iter().map(|h| (h.kind, h.start, h.len, h.old.clone())).collect();
         assert_eq!(
             shape,
