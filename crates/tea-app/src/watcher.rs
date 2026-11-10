@@ -257,11 +257,13 @@ mod tests {
                     std::fs::rename(&tmp, &file).unwrap();
                 }
             }
-            match next(&mut rx) {
-                Some(Change::Paths(p)) if p.contains(&file) => {}
-                other => faltou.push((i, format!("{other:?}"))),
+            // O aviso pode vir em mais de um lote (no renomear, às vezes o `.tmp` chega sozinho primeiro).
+            if !wait_for(&mut rx, &file) {
+                faltou.push(i);
             }
             std::thread::sleep(Duration::from_millis(400));
+            // Lotes que sobraram deste passo não podem contar como aviso do próximo.
+            while rx.try_recv().is_ok() {}
         }
         let _ = std::fs::remove_dir_all(&root);
         assert!(faltou.is_empty(), "{faltou:?}");
