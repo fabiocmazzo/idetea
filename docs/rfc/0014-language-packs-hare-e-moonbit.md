@@ -1,7 +1,8 @@
 # RFC 0014 — Language packs: Hare e MoonBit
 
 - **Data:** 2026-11-09
-- **Status:** implementado e validado no dogfooding; smoke test real de `hare-lsp` pendente por falta da toolchain.
+- **Status:** implementado e validado no dogfooding, incluindo o smoke test real de `hare-lsp` (2026-11-09; ver o
+  README do pack Hare, que registra uma queda do servidor com certos erros de sintaxe).
 - **Base:** `main` em `181948b` (0.5.1).
 - **Origem:** pedido do usuário no dogfooding: definir uma arquitetura para apoiar linguagens open-source com
   pouca cobertura em outras IDEs, tendo [Hare](https://harelang.org) e MoonBit como primeiros candidatos.
