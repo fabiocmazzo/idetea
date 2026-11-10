@@ -4,6 +4,7 @@ use std::collections::HashMap;
 use std::io::{BufRead, BufReader};
 use std::path::{Path, PathBuf};
 use std::process::{Child, ChildStdin, Command, Stdio};
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard};
 use std::time::Duration;
 
@@ -27,6 +28,8 @@ pub struct Client {
 }
 
 struct Inner {
+    /// Único por processo iniciado (ver [`Client::id`]).
+    id: u64,
     name: String,
     sink: EventSink,
     state: Mutex<State>,
@@ -88,7 +91,9 @@ impl Client {
         let stdout = child.stdout.take().expect("stdout piped");
         let stderr = child.stderr.take().expect("stderr piped");
 
+        static NEXT_ID: AtomicU64 = AtomicU64::new(1);
         let inner = Arc::new(Inner {
+            id: NEXT_ID.fetch_add(1, Ordering::Relaxed),
             name: config.name.clone(),
             sink,
             state: Mutex::new(State {
@@ -131,7 +136,11 @@ impl Client {
             std::thread::sleep(Duration::from_millis(50));
             let stderr = reader.last_stderr.lock().unwrap_or_else(|e| e.into_inner()).join(" | ");
             let detail = if stderr.is_empty() { String::new() } else { format!(": {stderr}") };
-            (reader.sink)(Event::Exited { server: reader.name.clone(), reason: format!("{reason}{status}{detail}") });
+            (reader.sink)(Event::Exited {
+                server: reader.name.clone(),
+                client: reader.id,
+                reason: format!("{reason}{status}{detail}"),
+            });
         })?;
 
         let logger = inner.clone();
@@ -159,6 +168,16 @@ impl Client {
 
     pub fn is_alive(&self) -> bool {
         self.inner.lock().alive
+    }
+
+    /// Identifica este processo do servidor: o mesmo nome pode ter vários ao longo do tempo.
+    pub fn id(&self) -> u64 {
+        self.inner.id
+    }
+
+    /// O handshake (`initialize`) terminou.
+    pub fn is_ready(&self) -> bool {
+        self.inner.lock().ready
     }
 
     fn initialize(&self, root: &Path) {
@@ -604,7 +623,7 @@ impl Inner {
             // Pedido cancelado ou conteúdo mudou: normal, não incomoda o usuário.
             let code = err.get("code").and_then(Value::as_i64).unwrap_or(0);
             if matches!(pending, Pending::Initialize) {
-                return vec![Event::Exited { server, reason: format!("falha no initialize: {text}") }];
+                return vec![Event::Exited { server, client: self.id, reason: format!("falha no initialize: {text}") }];
             }
             if code == -32800 || code == -32801 {
                 // Pedido feito pelo usuário (definição, referências...) não pode sumir sem resposta:

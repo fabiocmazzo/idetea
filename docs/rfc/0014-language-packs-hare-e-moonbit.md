@@ -217,7 +217,13 @@ Regras implementadas no formato 1:
    instalação, documentação e limitações. Não baixa nem compila servidores automaticamente. O ciclo de vida é o atual:
    configuração registrada, cliente iniciado sob demanda ou falha memorizada. Executável ausente ou falha de
    inicialização não provoca novas tentativas automáticas; `lsp.restart` limpa a falha. A falha é isolada pelo nome do
-   servidor e não impede abrir/editar o arquivo nem usar outro servidor.
+   servidor e não impede abrir/editar o arquivo nem usar outro servidor. **Revisão (2026-11-09):** um servidor que cai
+   *depois* do handshake religa sozinho quando a digitação num arquivo dele pausa por 1 s (não na hora, que reabriria o
+   texto que o derrubou). Só a primeira queda de uma janela de 5 minutos é avisada; na 11ª queda dessa janela volta à
+   regra acima. Como cada religação exige uma edição do usuário, não há laço automático; o teto só segura um servidor
+   quebrado de vez. Motivo: o parser da biblioteca padrão do Hare (`hare::parse`), usado pelo `hare-lsp`, aborta com
+   qualquer `;` faltando num comando, e religar à mão a cada erro de digitação tornava o servidor inutilizável. O aviso de saída traz o
+   identificador do processo, para que a saída de um cliente já trocado por `lsp.restart` não derrube o novo.
 5. Os servidores dos packs entram no merge antes de `[lsp.servers.<nome>]`. A configuração do usuário vence por nome,
    inclusive `enabled = false`, que remove o servidor. Servidores nomeados no config continuam ordenados antes dos
    embutidos e podem assumir uma extensão. Recarregar config mantém a semântica atual: vale para servidores iniciados

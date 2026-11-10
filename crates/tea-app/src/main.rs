@@ -573,6 +573,8 @@ struct App {
     /// Versão de referência de cada arquivo para as marcas do git (vem do git; vale ao abrir de novo).
     diff_bases: std::collections::HashMap<PathBuf, std::sync::Arc<str>>,
     diff_wait: u64,
+    /// Espera para religar servidores que caíram (cada edição adia; ver `relink_later`).
+    relink_wait: u64,
     /// Última tarefa rodada (`Ctrl+Shift+R` roda de novo).
     last_task: Option<tasks::TaskDef>,
     /// Botões da barra de abas por tipo de arquivo (extensão dona, ação).
@@ -692,6 +694,8 @@ enum Message {
     FormatSaveDue(u64),
     /// Hora de comparar o arquivo ativo com o último commit (só a última espera vale).
     DiffDue(u64),
+    /// A digitação pausou: religa os servidores que caíram (só a última espera vale).
+    RelinkDue(u64),
     /// Passou a espera depois de digitar na busca de símbolos do projeto.
     SymbolQueryDue(u64),
     /// Botões voltar/avançar do mouse (`true` = avançar).
@@ -804,6 +808,7 @@ impl App {
             format_save_wait: 0,
             diff_bases: std::collections::HashMap::new(),
             diff_wait: 0,
+            relink_wait: 0,
             last_task: None,
             file_actions: Vec::new(),
             config,
@@ -2047,6 +2052,19 @@ impl App {
         Task::future(async move { rx.await.ok() }).and_then(|wait| Task::done(Message::DiffDue(wait)))
     }
 
+    /// Religa daqui a pouco os servidores que caíram (cada edição adia; só a última espera vale). Esperar a pausa
+    /// evita reabrir um comando pela metade, que pode derrubar o servidor de novo (ex.: `hare-lsp` sem o `;`).
+    fn relink_later(&mut self) -> Task<Message> {
+        self.relink_wait += 1;
+        let wait = self.relink_wait;
+        let (tx, rx) = iced::futures::channel::oneshot::channel();
+        std::thread::spawn(move || {
+            std::thread::sleep(Duration::from_millis(1000));
+            let _ = tx.send(wait);
+        });
+        Task::future(async move { rx.await.ok() }).and_then(|wait| Task::done(Message::RelinkDue(wait)))
+    }
+
     /// Manda o texto daqui a pouco (cada edição adia; só a última espera vale).
     fn text_later(&mut self) -> Task<Message> {
         self.text_wait += 1;
@@ -2241,8 +2259,11 @@ impl App {
             }
             E::DocumentSymbols { path, symbols } => self.show_outline(&path, &symbols),
             E::WorkspaceSymbols { query, symbols } => self.show_project_symbols(&query, symbols),
-            E::Exited { server, reason } => {
-                self.lsp.on_exit(&server, &reason);
+            E::Exited { server, client, reason } => {
+                let exit = self.lsp.on_exit(&server, client, &reason);
+                if exit == lsp::Exit::Stale {
+                    return Task::none();
+                }
                 for tab in &mut self.tabs {
                     if tab.editor.lsp_server() == Some(server.as_str()) {
                         tab.editor.detach_lsp();
@@ -2251,7 +2272,22 @@ impl App {
                 let activity = self.broadcast(CoreEvent::Activity { source: server.clone(), text: None });
                 let outline = self.request_outline();
                 let reason = lsp::with_hint(&server, &reason);
-                let note = self.notify(fl!("lsp-server-stopped", server = server.clone(), reason = reason));
+                let text = match exit {
+                    // Quedas seguidas (ex.: a cada `;` faltando no Hare): avisa só a primeira.
+                    lsp::Exit::WillRestart { first: false } => return Task::batch([activity, outline]),
+                    lsp::Exit::WillRestart { first: true } => {
+                        fl!("lsp-server-crashed", server = server.clone(), reason = reason)
+                    }
+                    lsp::Exit::TooManyCrashes => fl!(
+                        "lsp-server-crashed-too-often",
+                        server = server.clone(),
+                        count = (lsp::MAX_CRASHES + 1).to_string(),
+                        minutes = (lsp::CRASH_WINDOW.as_secs() / 60).to_string(),
+                        reason = reason
+                    ),
+                    _ => fl!("lsp-server-stopped", server = server.clone(), reason = reason),
+                };
+                let note = self.notify(text);
                 Task::batch([activity, outline, note])
             }
         }
@@ -3831,7 +3867,15 @@ impl App {
                 }
                 let toggled = msg.is_breakpoint_toggle();
                 let press = msg.is_press();
-                let task = self.tabs[i].editor.update(msg).map(move |m| Message::Editor(id, m));
+                let revision = self.tabs[i].editor.text_revision();
+                let mut task = self.tabs[i].editor.update(msg).map(move |m| Message::Editor(id, m));
+                // O servidor desta aba caiu: religa quando a digitação pausar (talvez já com o que o derrubou consertado).
+                if self.tabs[i].editor.text_revision() != revision
+                    && self.tabs[i].editor.lsp_server().is_none()
+                    && self.tabs[i].editor.path().is_some_and(|p| self.lsp.awaits_restart(p))
+                {
+                    task = Task::batch([task, self.relink_later()]);
+                }
                 if toggled {
                     self.sync_breakpoints(i);
                 }
@@ -4009,6 +4053,13 @@ impl App {
             }
             Message::TextDue(wait) => {
                 if wait == self.text_wait { self.send_active_text() } else { Task::none() }
+            }
+            Message::RelinkDue(wait) => {
+                if wait != self.relink_wait {
+                    return Task::none();
+                }
+                let relink: Vec<Task<Message>> = (0..self.tabs.len()).map(|t| self.ensure_lsp(t)).collect();
+                Task::batch(relink)
             }
             Message::DiffDue(wait) => {
                 if wait == self.diff_wait {

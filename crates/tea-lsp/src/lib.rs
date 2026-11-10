@@ -191,7 +191,9 @@ pub enum Event {
     Log { server: String, text: String },
     /// O servidor terminou o handshake e está pronto.
     Ready { server: String },
-    Exited { server: String, reason: String },
+    /// O processo do servidor terminou. `client`: o [`Client::id`] de quem terminou (um cliente antigo, já
+    /// substituído por um reinício, também avisa quando sai).
+    Exited { server: String, client: u64, reason: String },
 }
 
 /// Como iniciar um servidor e para quais arquivos ele serve.

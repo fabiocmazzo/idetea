@@ -2,6 +2,7 @@
 
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
+use std::time::{Duration, Instant};
 
 use tea_core::config::LspConfig;
 use tea_lsp::{Client, EventSink, ServerConfig};
@@ -10,8 +11,11 @@ pub struct LspManager {
     enabled: bool,
     servers: Vec<ServerConfig>,
     clients: HashMap<String, Client>,
-    /// Servidores que falharam: não tentamos de novo sozinhos (evita loop). `lsp.restart` limpa.
+    /// Servidores que falharam (no início ou com quedas demais): não tentamos de novo sozinhos (evita loop).
+    /// `lsp.restart` limpa.
     failed: HashMap<String, String>,
+    /// Servidores que caíram depois de prontos: religam na próxima edição (ver [`LspManager::on_exit`]).
+    crashed: HashMap<String, Vec<Instant>>,
     root: PathBuf,
     sink: EventSink,
 }
@@ -23,6 +27,7 @@ impl LspManager {
             servers: servers_from_config(config),
             clients: HashMap::new(),
             failed: HashMap::new(),
+            crashed: HashMap::new(),
             root: root.to_path_buf(),
             sink,
         }
@@ -95,9 +100,38 @@ impl LspManager {
         }
     }
 
-    pub fn on_exit(&mut self, server: &str, reason: &str) {
+    /// Um processo de servidor terminou. Só conta se for o cliente atual desse servidor: o antigo, trocado por
+    /// `lsp.restart`, também avisa quando sai. Caiu depois de pronto: religa quando a digitação pausar (e não na
+    /// hora, que reabriria o mesmo texto que o derrubou), até [`MAX_CRASHES`] vezes em [`CRASH_WINDOW`]. Falha no
+    /// início ou quedas demais: fica parado até `lsp.restart`.
+    pub fn on_exit(&mut self, server: &str, client: u64, reason: &str) -> Exit {
+        self.on_exit_at(server, client, reason, Instant::now())
+    }
+
+    fn on_exit_at(&mut self, server: &str, client: u64, reason: &str, now: Instant) -> Exit {
+        let Some(current) = self.clients.get(server).filter(|c| c.id() == client) else { return Exit::Stale };
+        let ready = current.is_ready();
         self.clients.remove(server);
+        if ready {
+            let crashes = self.crashed.entry(server.to_string()).or_default();
+            if count_crash(crashes, now) {
+                return Exit::WillRestart { first: crashes.len() == 1 };
+            }
+            self.crashed.remove(server);
+            self.failed.insert(server.to_string(), reason.to_string());
+            return Exit::TooManyCrashes;
+        }
         self.failed.insert(server.to_string(), reason.to_string());
+        Exit::Failed
+    }
+
+    /// O servidor do arquivo caiu e espera uma edição para voltar.
+    pub fn awaits_restart(&self, path: &Path) -> bool {
+        let ext = path.extension().and_then(|e| e.to_str()).unwrap_or_default();
+        self.servers
+            .iter()
+            .find(|s| s.language_for(ext).is_some())
+            .is_some_and(|s| self.crashed.contains_key(&s.name) && !self.clients.contains_key(&s.name))
     }
 
     /// Encerra tudo e esquece falhas. Os editores devem ser religados depois.
@@ -105,6 +139,7 @@ impl LspManager {
         self.shutdown_all();
         self.clients.clear();
         self.failed.clear();
+        self.crashed.clear();
     }
 
     pub fn shutdown_all(&self) {
@@ -116,6 +151,32 @@ impl LspManager {
 
 /// Servidores embutidos + mudanças do config (por nome).
 /// Acrescenta como resolver falhas conhecidas.
+/// Quedas que ainda religam sozinhas dentro de [`CRASH_WINDOW`]. Cada religação espera uma edição e a pausa na
+/// digitação, então não há laço sem o usuário; o teto só segura um servidor quebrado de vez.
+pub const MAX_CRASHES: usize = 10;
+pub const CRASH_WINDOW: Duration = Duration::from_secs(5 * 60);
+
+/// O que fazer depois que um servidor terminou.
+#[derive(Debug, PartialEq, Eq)]
+pub enum Exit {
+    /// Era um cliente antigo (já trocado): nada a fazer.
+    Stale,
+    /// Caiu depois de pronto: as abas religam quando a digitação pausar. `first`: primeira queda da janela (só
+    /// ela é avisada).
+    WillRestart { first: bool },
+    /// Caiu mais de [`MAX_CRASHES`] vezes em pouco tempo: parado até `lsp.restart`.
+    TooManyCrashes,
+    /// Não chegou a ficar pronto: parado até `lsp.restart`.
+    Failed,
+}
+
+/// Anota uma queda em `now`. `true`: ainda cabe religar sozinho.
+fn count_crash(crashes: &mut Vec<Instant>, now: Instant) -> bool {
+    crashes.retain(|t| now.duration_since(*t) < CRASH_WINDOW);
+    crashes.push(now);
+    crashes.len() <= MAX_CRASHES
+}
+
 pub fn with_hint(server: &str, reason: &str) -> String {
     // O rustup instala um atalho `rust-analyzer` que só funciona com o componente instalado.
     if reason.contains("Unknown binary") && reason.contains("rust-analyzer") {
@@ -335,3 +396,53 @@ mod hint_tests {
         let _ = std::fs::remove_dir_all(&dir);
     }
 }
+
+#[cfg(test)]
+mod crash_tests {
+    use std::sync::Arc;
+    use std::time::{Duration, Instant};
+
+    use tea_core::config::LspConfig;
+    use tea_lsp::{Client, ServerConfig};
+
+    use super::{CRASH_WINDOW, Exit, LspManager, MAX_CRASHES, count_crash};
+
+    #[test]
+    fn crashes_restart_until_too_many_in_the_window() {
+        let start = Instant::now();
+        let mut crashes = Vec::new();
+        for n in 0..MAX_CRASHES {
+            assert!(count_crash(&mut crashes, start + Duration::from_secs(n as u64)), "queda {n}");
+        }
+        assert!(!count_crash(&mut crashes, start + Duration::from_secs(10)));
+        // Passada a janela, as quedas antigas não contam mais.
+        let mut crashes = vec![start; MAX_CRASHES];
+        assert!(count_crash(&mut crashes, start + CRASH_WINDOW));
+        assert_eq!(crashes.len(), 1);
+    }
+
+    #[test]
+    fn exit_of_an_old_client_is_ignored_and_a_failed_start_stays_failed() {
+        let root = std::env::temp_dir();
+        let config = LspConfig { enabled: true, servers: Default::default() };
+        let mut manager = LspManager::new(&root, &config, Arc::new(|_| {}));
+        // O próprio binário de teste faz as vezes do servidor: lista os testes e sai, sem handshake.
+        let exe = std::env::current_exe().unwrap();
+        let server = ServerConfig {
+            name: "falso".into(),
+            command: exe.to_string_lossy().into_owned(),
+            args: vec!["--list".into()],
+            languages: vec![("falso".into(), "falso".into())],
+        };
+        let client = Client::start(&server, &root, Arc::new(|_| {})).unwrap();
+        manager.clients.insert("falso".into(), client.clone());
+
+        assert_eq!(manager.on_exit("falso", client.id() + 1000, "saiu"), Exit::Stale);
+        assert!(manager.clients.contains_key("falso"), "o cliente atual continua");
+        assert_eq!(manager.on_exit("falso", client.id(), "saiu"), Exit::Failed);
+        assert!(!manager.clients.contains_key("falso") && manager.failed.contains_key("falso"));
+        assert_eq!(manager.on_exit("falso", client.id(), "saiu"), Exit::Stale, "aviso repetido não conta");
+        client.kill_now();
+    }
+}
+

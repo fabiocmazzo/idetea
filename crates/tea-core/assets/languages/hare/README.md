@@ -28,7 +28,8 @@ A gramática deriva de <https://github.com/aDotInTheVoid/hare-highlighing-vscode
   compilado com `make build PREFIX=/usr`). Num projeto com dois módulos e `Makefile`, conferidos na IDE: cores,
   hover, definição entre módulos (`F12`), símbolos/Outline, diagnóstico de sintaxe e alvos do Makefile nas tarefas.
   Erro de tipo não gera diagnóstico, como esperado. O servidor também anuncia inlay hints, que a IDE ainda não mostra.
-- Limitação conhecida: com certos erros de sintaxe (ex.: sem o `;` depois do `}` de um `for`), o `hare-lsp` aborta
-  com `hare/lex/lex.ha:947:15: attempted to unlex more than one token` (SIGABRT). O `harec` dá um erro normal para o
-  mesmo texto; a falha está no parser usado pelo servidor. A IDE isola a falha e avisa; "LSP: reiniciar servidores"
-  religa o servidor. Reportar ao upstream.
+- Limitação conhecida: o `hare-lsp` aborta (SIGABRT, `hare/lex/lex.ha:947:15: attempted to unlex more than one token`)
+  com qualquer `;` faltando num comando, por exemplo `let x = 1` seguido de outra linha. A falha é do parser da
+  biblioteca padrão (`hare::parse`), reproduzida sem o `hare-lsp` em Hare 0.26.0.1 e ainda presente no `master`
+  (`27d9d92`); o `harec` dá um erro normal para o mesmo texto. A IDE avisa na primeira queda e religa o servidor quando
+  a digitação pausa. Relato para o upstream (projeto Hare) em preparação.
