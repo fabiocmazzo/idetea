@@ -8,6 +8,9 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
+  # Só linhas na informação de debug: os backtraces de um teste que falha continuam com arquivo e linha, mas
+  # compila e liga mais rápido (no Windows, o PDB completo pesa muito) e o cache do `target` fica bem menor.
+  CARGO_PROFILE_DEV_DEBUG: line-tables-only
 
 jobs:
   check:
@@ -17,12 +20,16 @@ jobs:
         include:
           - os: ubuntu-latest
             targets: wasm32-wasip2
+            timeout: 15
           - os: macos-latest
             targets: ""
+            timeout: 15
+          # O runner do Windows é bem mais lento para compilar e para salvar o cache.
           - os: windows-latest
             targets: ""
+            timeout: 30
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 15
+    timeout-minutes: ${{ matrix.timeout }}
     steps:
       - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
