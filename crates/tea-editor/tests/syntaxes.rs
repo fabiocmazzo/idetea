@@ -21,6 +21,7 @@ fn embedded_and_user_syntaxes_register_and_bad_ones_are_reported() {
     let name = |file: &str| iced_code_editor::CodeEditor::new("", file).syntax_name();
     assert_eq!(name("mbt"), "MoonBit");
     assert_eq!(name("mbti"), "MoonBit");
+    assert_eq!(name("mbt.md"), "MoonBit Markdown");
     assert_eq!(name("ha"), "Hare do usuário", "a sintaxe do usuário substitui a do pack");
     let _ = std::fs::remove_dir_all(&dir);
 }

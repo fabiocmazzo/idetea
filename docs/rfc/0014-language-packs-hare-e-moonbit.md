@@ -449,6 +449,8 @@ implementado de forma implícita pelo primeiro loader.
 4. **Pilotos:** Hare e MoonBit permanecem no mesmo RFC e compartilham a infraestrutura do manifesto 1.
 5. **Hare:** sem auto-detecção de tarefas; Makefile/config continuam disponíveis. A gramática embutida tem testes de
    escopo, com a revisão completa e eventuais melhorias upstream registradas como trabalho posterior.
-6. **MoonBit:** `moon lsp` como padrão e somente `.mbt`/`.mbti` nesta etapa; `.mbt.md` fica para depois. As tarefas
+6. **MoonBit:** `moon lsp` como padrão e somente `.mbt`/`.mbti` nesta etapa; `.mbt.md` fica para depois. **Feito depois (2026-11-10):**
+   `.mbt.md` entrou como extensão composta do pack (`"mbt.md" = "moonbit"`), achada antes de `md` para cores, LSP e
+   ícone, com uma gramática Markdown pequena e própria que embute a do MoonBit nos blocos `mbt`/`moonbit`. As tarefas
    seguem o `moon.mod` mais próximo do arquivo ativo e rodam nesse diretório, sem agregar módulos nem criar um sistema
    de workspaces.

@@ -58,7 +58,8 @@ pub struct FileIcon {
 /// O ícone para o nome do arquivo (só o nome, sem pastas).
 pub fn lookup(name: &str) -> FileIcon {
     let lower = name.to_lowercase();
-    if let Some(icon) = lower.rsplit_once('.').and_then(|(_, ext)| pack_icons().get(ext)) {
+    // Da extensão mais longa para a mais curta: `sum.mbt.md` acha a do pack (`mbt.md`) antes de `md`.
+    if let Some(icon) = lower.match_indices('.').filter(|(i, _)| *i > 0).find_map(|(i, _)| pack_icons().get(&lower[i + 1..])) {
         return *icon;
     }
     let theme = theme();
@@ -342,6 +343,8 @@ mod tests {
         assert_eq!((mbt.glyph, mbt.font), ('\u{E001}', LANGUAGE_FONT));
         assert_eq!(lookup("pkg.generated.MBTI").glyph, '\u{E001}');
         assert_eq!(lookup("sum.ha").glyph, '\u{E000}');
+        assert_eq!(lookup("README.mbt.md").glyph, '\u{E001}');
+        assert_eq!(lookup("notes.md").font, FONT);
         assert!(mbt.dark.is_some() && mbt.light.is_some() && mbt.dark != mbt.light);
         assert_eq!(lookup("main.rs").font, FONT);
     }

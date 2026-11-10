@@ -68,7 +68,7 @@ mod tests {
         let (found, errors) = sources(None);
         assert!(errors.is_empty(), "{errors:?}");
         let labels: Vec<_> = found.iter().map(|s| s.label.as_str()).collect();
-        assert_eq!(labels, ["zig.sublime-syntax", "zx.sublime-syntax", "hare/hare.sublime-syntax", "moonbit/moonbit.sublime-syntax"]);
+        assert_eq!(labels, ["zig.sublime-syntax", "zx.sublime-syntax", "hare/hare.sublime-syntax", "moonbit/moonbit.sublime-syntax", "moonbit/moonbit-markdown.sublime-syntax"]);
     }
 
     #[test]
@@ -84,7 +84,7 @@ mod tests {
         assert!(texts.starts_with(&[ZIG, ZX]));
         assert_eq!(&texts[texts.len() - 2..], ["a", "b"]);
         assert!(errors.is_empty());
-        assert_eq!(sources(Some(&dir.join("nao-existe"))).0.len(), 4);
+        assert_eq!(sources(Some(&dir.join("nao-existe"))).0.len(), 5);
         assert!(ZIG.contains("hidden: true") && ZIG.contains("file_extensions: []"));
         assert!(ZX.contains("scope: \"source.zx\""));
         let _ = std::fs::remove_dir_all(&dir);

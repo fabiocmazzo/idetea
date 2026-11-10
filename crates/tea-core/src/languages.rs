@@ -76,7 +76,13 @@ pub fn builtins() -> (Vec<BuiltinPack>, Vec<String>) {
         (
             "moonbit",
             include_str!("../assets/languages/moonbit/pack.toml"),
-            &[("moonbit.sublime-syntax", include_str!("../assets/languages/moonbit/moonbit.sublime-syntax"))][..],
+            &[
+                ("moonbit.sublime-syntax", include_str!("../assets/languages/moonbit/moonbit.sublime-syntax")),
+                (
+                    "moonbit-markdown.sublime-syntax",
+                    include_str!("../assets/languages/moonbit/moonbit-markdown.sublime-syntax"),
+                ),
+            ][..],
         ),
     ];
     let mut packs = Vec::new();
@@ -88,6 +94,30 @@ pub fn builtins() -> (Vec<BuiltinPack>, Vec<String>) {
         }
     }
     (packs, errors)
+}
+
+/// A extensão de `path` para escolher linguagem, servidor e ícone: a composta de um pack quando o nome termina nela
+/// (`sum.mbt.md` → `mbt.md`), senão a de sempre (`md`). Em minúsculas.
+pub fn extension(path: &std::path::Path) -> Option<String> {
+    let name = path.file_name()?.to_string_lossy().to_lowercase();
+    compound_extension(&name).map(str::to_string).or_else(|| path.extension().map(|e| e.to_string_lossy().to_lowercase()))
+}
+
+/// A extensão composta de um pack no fim de `name` (já em minúsculas), a mais longa. `None` sem nenhuma.
+pub fn compound_extension(name: &str) -> Option<&'static str> {
+    static COMPOUND: std::sync::OnceLock<Vec<String>> = std::sync::OnceLock::new();
+    let list = COMPOUND.get_or_init(|| {
+        let mut list: Vec<String> = builtins()
+            .0
+            .into_iter()
+            .flat_map(|p| p.manifest.files.extensions.into_keys())
+            .map(|e| e.to_lowercase())
+            .filter(|e| e.contains('.'))
+            .collect();
+        list.sort_by_key(|e| std::cmp::Reverse(e.len()));
+        list
+    });
+    list.iter().find(|e| name.strip_suffix(e.as_str()).is_some_and(|rest| rest.ends_with('.') && rest.len() > 1)).map(String::as_str)
 }
 
 fn parse_builtin(id: &str, text: &str, resources: &[(&str, &str)]) -> Result<BuiltinPack, String> {
@@ -241,6 +271,47 @@ mod tests {
     }
 
     #[test]
+    fn compound_extensions_come_before_the_last_one() {
+        use std::path::Path;
+        assert_eq!(extension(Path::new("docs/sum.mbt.md")).as_deref(), Some("mbt.md"));
+        assert_eq!(extension(Path::new("README.MBT.MD")).as_deref(), Some("mbt.md"));
+        assert_eq!(extension(Path::new("notes.md")).as_deref(), Some("md"));
+        assert_eq!(extension(Path::new("main.mbt")).as_deref(), Some("mbt"));
+        // O nome inteiro não é extensão.
+        assert_eq!(extension(Path::new(".mbt.md")).as_deref(), Some("md"));
+        assert_eq!(extension(Path::new("Makefile")), None);
+    }
+
+    #[test]
+    fn moonbit_markdown_colors_moonbit_blocks_only() {
+        use syntect::parsing::{ParseState, ScopeStack, SyntaxSetBuilder};
+
+        let (packs, errors) = builtins();
+        assert!(errors.is_empty(), "{errors:?}");
+        let mut builder = SyntaxSetBuilder::new();
+        for source in packs.iter().flat_map(|p| &p.syntaxes) {
+            builder.add(syntect::parsing::SyntaxDefinition::load_from_str(&source.text, true, None).unwrap());
+        }
+        let set = builder.build();
+        let syntax = set.find_syntax_by_extension("mbt.md").expect("sintaxe para mbt.md");
+        let text = "# Soma\n\n```mbt check\nlet x = 1\n```\n\n```sh\nlet y = 2\n```\n";
+        let mut state = ParseState::new(syntax);
+        let mut stack = ScopeStack::new();
+        let mut per_line = Vec::new();
+        for line in text.split_inclusive('\n') {
+            let mut scopes = std::collections::HashSet::new();
+            for (_, op) in state.parse_line(line, &set).unwrap() {
+                stack.apply(&op).unwrap();
+                scopes.extend(stack.as_slice().iter().map(|s| s.build_string()));
+            }
+            per_line.push(scopes);
+        }
+        assert!(per_line[0].contains("markup.heading.markdown"));
+        assert!(per_line[3].contains("keyword.declaration.variable.moonbit") || per_line[3].iter().any(|s| s.ends_with(".moonbit") && s != "source.moonbit"), "{:?}", per_line[3]);
+        assert!(!per_line[7].iter().any(|s| s.ends_with(".moonbit")), "bloco sh não é MoonBit: {:?}", per_line[7]);
+    }
+
+    #[test]
     fn every_pack_is_documented() {
         let languages = include_str!("../../../docs/languages.md");
         let (packs, errors) = builtins();
@@ -278,6 +349,7 @@ mod tests {
         assert_eq!((lsp.command.as_str(), lsp.args.as_slice()), ("moon", ["lsp".to_string()].as_slice()));
         let commands: Vec<_> = moonbit.manifest.tasks.iter().map(|t| t.command.as_str()).collect();
         assert_eq!(commands, ["moon check", "moon build", "moon test", "moon fmt --check"]);
-        assert_eq!(moonbit.syntaxes.len(), 1);
+        assert_eq!(moonbit.manifest.files.extensions.get("mbt.md").map(String::as_str), Some("moonbit"));
+        assert_eq!(moonbit.syntaxes.len(), 2);
     }
 }

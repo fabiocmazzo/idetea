@@ -19,7 +19,7 @@ For the full feature list, see [features.md](features.md).
 | Zig | `.zig` `.zon` | `zls` | `build.zig` steps | gdb, builds with `zig build` |
 | [Ziex](https://ziex.dev) | `.zx` `.mdzx` | `zx lsp` | `build.zig` steps | — |
 | [Hare](#hare) | `.ha` | `hare-lsp -S` | Makefile targets | — |
-| [MoonBit](#moonbit) | `.mbt` `.mbti` | `moon lsp` | `moon check`, `build`, `test`, `fmt --check` | — |
+| [MoonBit](#moonbit) | `.mbt` `.mbti` `.mbt.md` | `moon lsp` | `moon check`, `build`, `test`, `fmt --check` | — |
 
 What a language server offers (completion, rename, formatting...) depends on the server: the IDE uses what it
 announces. Every language gets colors; Hare, MoonBit and Ziex bring their own grammar with the IDE.
@@ -80,14 +80,18 @@ install.
 | Completion, go to definition, formatting through the server | whatever `moon lsp` offers; not checked one by one yet |
 | Tasks | `moon check`, `moon build`, `moon test`, `moon fmt --check` |
 | Debug | not yet |
-| `.mbt.md` (Markdown with code) | not yet |
+| `.mbt.md` (Markdown with MoonBit code) | colors in ` ```mbt ` and ` ```moonbit ` blocks, hover inside them; `moon test` runs the ` ```mbt check ` blocks |
 
 Tasks run in the folder of the `moon.mod` closest to the open file, so each module of a workspace runs its own;
 without an open file, the project root's `moon.mod` is used. The old `moon.mod.json` does not turn the tasks on:
 MoonBit asks you to migrate it with `moon fmt`.
 
+In `.mbt.md` files, Markdown around and MoonBit inside the code blocks; the Markdown preview works as for any
+`.md`. The IDE uses a small Markdown grammar of its own there, so the rest of the text gets fewer colors than in a
+plain `.md`.
+
 **Try it:** open [`examples/languages/moonbit`](../examples/languages/moonbit), hover `sum_to` and run
-`moon test` from the tasks.
+`moon test` from the tasks; `sum.mbt.md` has a test inside its Markdown.
 
 ## A language that is not here
 

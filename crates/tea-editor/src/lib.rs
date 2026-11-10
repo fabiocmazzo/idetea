@@ -1301,6 +1301,10 @@ fn syntax_for(path: Option<&Path>) -> String {
     if ["Cargo.lock", "poetry.lock", "uv.lock", "Pipfile"].contains(&name.as_str()) {
         return "toml".into();
     }
+    // Extensão composta de um language pack (`sum.mbt.md`): a gramática do pack declara `mbt.md`.
+    if let Some(compound) = tea_core::languages::compound_extension(&name.to_lowercase()) {
+        return compound.into();
+    }
     let key = path
         .extension()
         .or_else(|| path.file_name())
@@ -1380,6 +1384,12 @@ fn file_stamp(path: &Path) -> Option<(u64, Option<std::time::SystemTime>)> {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn compound_pack_extension_picks_its_grammar() {
+        assert_eq!(syntax_for(Some(Path::new("docs/README.mbt.md"))), "mbt.md");
+        assert_eq!(syntax_for(Some(Path::new("notes.md"))), "md");
+    }
+
     /// Arquivos comuns que não eram coloridos (config, `.env`, TypeScript…) acham a sintaxe certa.
     #[test]
     fn common_files_get_a_syntax() {

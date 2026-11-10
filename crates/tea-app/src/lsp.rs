@@ -45,7 +45,8 @@ impl LspManager {
         if !self.enabled {
             return Ok(None);
         }
-        let ext = path.extension().and_then(|e| e.to_str()).unwrap_or_default();
+        let ext = tea_core::languages::extension(path).unwrap_or_default();
+        let ext = ext.as_str();
         let Some((server, language)) =
             self.servers.iter().find_map(|s| s.language_for(ext).map(|l| (s.clone(), l.to_string())))
         else {
@@ -90,7 +91,8 @@ impl LspManager {
         if !self.enabled {
             return fl!("lsp-disabled");
         }
-        let ext = path.extension().and_then(|e| e.to_str()).unwrap_or_default();
+        let ext = tea_core::languages::extension(path).unwrap_or_default();
+        let ext = ext.as_str();
         let Some(server) = self.servers.iter().find(|s| s.language_for(ext).is_some()) else {
             return fl!("lsp-no-server-for", ext = ext);
         };
@@ -127,7 +129,8 @@ impl LspManager {
 
     /// O servidor do arquivo caiu e espera uma edição para voltar.
     pub fn awaits_restart(&self, path: &Path) -> bool {
-        let ext = path.extension().and_then(|e| e.to_str()).unwrap_or_default();
+        let ext = tea_core::languages::extension(path).unwrap_or_default();
+        let ext = ext.as_str();
         self.servers
             .iter()
             .find(|s| s.language_for(ext).is_some())
@@ -281,6 +284,7 @@ mod tests {
         assert_eq!(moonbit.args, ["lsp"]);
         assert_eq!(moonbit.language_for("mbt"), Some("moonbit"));
         assert_eq!(moonbit.language_for("mbti"), Some("moonbit"));
+        assert_eq!(moonbit.language_for("mbt.md"), Some("moonbit"));
         let hare = servers.iter().find(|s| s.name == "hare-lsp").unwrap();
         assert_eq!(hare.command, "hare-lsp");
         assert_eq!(hare.args, ["-S"]);
