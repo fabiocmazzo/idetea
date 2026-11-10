@@ -78,13 +78,18 @@ pub fn is_executable(path: &Path) -> bool {
     }
 }
 
-/// Pastas comuns de ferramentas de desenvolvimento (`~/.cargo/bin`, `~/.local/bin` e, no macOS, Homebrew)
-/// que podem faltar no `PATH` quando a IDE é aberta pelo Finder/Dock ou pelo menu de aplicativos.
+/// Pastas comuns de ferramentas de desenvolvimento (`~/.cargo/bin`, `~/.local/bin`, o `bin` do MoonBit em
+/// `$MOON_HOME` ou `~/.moon` e, no macOS, Homebrew) que podem faltar no `PATH` quando a IDE é aberta pelo Finder/Dock ou pelo menu de aplicativos.
 pub fn extra_tool_dirs() -> Vec<PathBuf> {
     let mut dirs = Vec::new();
     if let Some(home) = home_dir() {
         dirs.push(home.join(".cargo").join("bin"));
         dirs.push(home.join(".local").join("bin"));
+    }
+    // O instalador do MoonBit põe `moon` em `$MOON_HOME/bin` (padrão `~/.moon/bin`) e só ajusta o rc do shell.
+    match std::env::var_os("MOON_HOME").map(PathBuf::from).filter(|p| p.is_absolute()) {
+        Some(moon_home) => dirs.push(moon_home.join("bin")),
+        None => dirs.extend(home_dir().map(|h| h.join(".moon").join("bin"))),
     }
     #[cfg(target_os = "macos")]
     {
@@ -95,7 +100,7 @@ pub fn extra_tool_dirs() -> Vec<PathBuf> {
     dirs.into_iter().filter(|d| d.is_dir()).collect()
 }
 
-/// Garante que as pastas de ferramentas do usuário (`~/.cargo/bin`, `~/.local/bin`, Homebrew no macOS)
+/// Garante que as pastas de ferramentas do usuário (`~/.cargo/bin`, `~/.local/bin`, `~/.moon/bin`, Homebrew no macOS)
 /// estejam no `PATH` do processo. Chame no início do `main()`, antes de criar threads.
 pub fn ensure_gui_path() {
     let current = std::env::var_os("PATH").unwrap_or_default();

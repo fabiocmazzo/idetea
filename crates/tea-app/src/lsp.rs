@@ -57,8 +57,9 @@ impl LspManager {
         let server = ziex_fallback(server, &self.root);
         if tea_lsp::find_in_path(&server.command).is_none() {
             let msg = fl!("lsp-command-not-found", server = server.name.clone(), command = server.command.clone());
-            self.failed.insert(server.name.clone(), msg.clone());
-            return Err(msg);
+            let hinted = with_hint(&server.name, &msg);
+            self.failed.insert(server.name.clone(), msg);
+            return Err(hinted);
         }
         match Client::start(&server, &self.root, self.sink.clone()) {
             Ok(client) => {
@@ -67,8 +68,9 @@ impl LspManager {
             }
             Err(e) => {
                 let msg = fl!("lsp-start-error", server = server.name.clone(), error = e.to_string());
-                self.failed.insert(server.name.clone(), msg.clone());
-                Err(msg)
+                let hinted = with_hint(&server.name, &msg);
+                self.failed.insert(server.name.clone(), msg);
+                Err(hinted)
             }
         }
     }
@@ -124,6 +126,13 @@ pub fn with_hint(server: &str, reason: &str) -> String {
     }
     if server == "zxls" && tea_lsp::find_in_path("zx").is_none() {
         return fl!("lsp-hint-ziex", reason = reason);
+    }
+    // Language packs: o README de cada pack fica dentro do binário, então a dica de instalação vem aqui.
+    if server == "moonbit" && tea_lsp::find_in_path("moon").is_none() {
+        return fl!("lsp-hint-moonbit", reason = reason);
+    }
+    if server == "hare-lsp" && tea_lsp::find_in_path("hare-lsp").is_none() {
+        return fl!("lsp-hint-hare", reason = reason);
     }
     reason.to_string()
 }
@@ -288,6 +297,16 @@ mod hint_tests {
         let r = "error: Unknown binary 'rust-analyzer' in official toolchain 'stable-x86_64-unknown-linux-gnu'.";
         assert!(with_hint("rust-analyzer", r).ends_with("rustup component add rust-analyzer"));
         assert_eq!(with_hint("clangd", "saiu"), "saiu");
+    }
+
+    #[test]
+    fn language_pack_servers_get_install_hints_when_missing() {
+        if tea_lsp::find_in_path("moon").is_none() {
+            assert!(with_hint("moonbit", "x").contains("moonbitlang.com"));
+        }
+        if tea_lsp::find_in_path("hare-lsp").is_none() {
+            assert!(with_hint("hare-lsp", "x").contains("git.sr.ht/~whynothugo/hare-lsp"));
+        }
     }
 
     #[test]

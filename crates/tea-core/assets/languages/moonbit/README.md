@@ -4,7 +4,9 @@
 
 - Arquivos `.mbt` e `.mbti`, com `languageId` `moonbit` e a gramática embutida `moonbit.sublime-syntax`.
 - LSP padrão: [`moon lsp`](https://docs.moonbitlang.com/en/stable/toolchain/moon/commands.html), quando `moon` estiver
-  instalado no `PATH`.
+  no `PATH`. A IDE acrescenta ao próprio `PATH` o `bin` de `$MOON_HOME` (padrão `~/.moon/bin`), onde o instalador
+  oficial coloca o toolchain, para funcionar também quando é aberta pelo menu do sistema. Sem o `moon`, o aviso traz o
+  link de instalação.
 - Tarefas `moon check`, `moon build`, `moon test` e `moon fmt --check`, ativadas pelo `moon.mod` mais próximo do arquivo
   ativo e executadas nesse diretório. Sem arquivo ativo, usa-se o `moon.mod` da raiz.
 - `moon.mod.json` é legado e não ativa tarefas. `moon.work` não cria um segundo modelo de workspaces nesta etapa.

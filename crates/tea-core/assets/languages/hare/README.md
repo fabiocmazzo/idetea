@@ -3,7 +3,8 @@
 ## Suporte
 
 - Arquivos `.ha`, com a gramática embutida `hare.sublime-syntax`.
-- LSP padrão: [`hare-lsp -S`](https://git.sr.ht/~whynothugo/hare-lsp), quando `hare-lsp` estiver instalado no `PATH`.
+- LSP padrão: [`hare-lsp -S`](https://git.sr.ht/~whynothugo/hare-lsp), quando `hare-lsp` estiver instalado no `PATH`. Sem
+  ele, o aviso da IDE aponta o repositório para compilar.
 - O servidor oferece definição, hover, símbolos do documento e diagnósticos de parsing. Não promete validação semântica,
   completion, references, rename ou formatting.
 - Não há tarefas declarativas: um `Makefile` não identifica sozinho um projeto Hare. Os alvos do Makefile e as tarefas
