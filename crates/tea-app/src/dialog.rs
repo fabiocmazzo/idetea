@@ -90,10 +90,9 @@ impl Open {
         .style(tea_core::style::dialog);
 
         // `opaque` na caixa: clicar dentro dela não conta como "clique fora".
-        let scrim = container(opaque(card)).center(Fill).style(|_: &Theme| container::Style {
-            background: Some(Color::from_rgba(0.0, 0.0, 0.0, 0.35).into()),
-            ..container::Style::default()
-        });
+        // O fundo escurecido aparece aos poucos e a caixa desliza até o lugar (RFC 0015).
+        let scrim = crate::appear::appear(container(opaque(card)).center(Fill))
+            .backdrop(Color::from_rgba(0.0, 0.0, 0.0, 0.35));
         opaque(mouse_area(scrim).on_press(Msg::Choose(None)))
     }
 }

@@ -140,7 +140,8 @@ Details (in Portuguese for now): [terminais-de-agente.md](terminais-de-agente.md
 - Settings (`Ctrl+,`): appearance, extensions, shortcuts (records the key you press) and language servers.
 - Activity bar to show and hide panels; panels resize with the mouse.
 - Panels as rounded islands over a darker background, with thin pill scrollbars that fade when the mouse is away;
-  `[ui] style = "classic"` keeps everything on one background, split by lines.
+  `[ui] style = "classic"` keeps everything on one background, split by lines. The palette, menus and dialogs slide
+  in softly; `[ui] animations = false` turns that off.
 - Interface in English, Portuguese and Spanish (`[ui] language`, or the system's).
 
 ## Not losing work

@@ -26,11 +26,15 @@ pub struct Divider<'a, M> {
     on_release: M,
     on_reset: M,
     islands: bool,
+    animated: bool,
 }
+
+/// Quanto a barrinha leva para aparecer entre ilhas.
+const FADE: Duration = Duration::from_millis(120);
 
 /// `on_drag` recebe quanto o mouse andou (px) no eixo do arraste.
 pub fn divider<'a, M: Clone>(axis: Axis, on_drag: impl Fn(f32) -> M + 'a, on_release: M, on_reset: M) -> Divider<'a, M> {
-    Divider { axis, on_drag: Box::new(on_drag), on_release, on_reset, islands: false }
+    Divider { axis, on_drag: Box::new(on_drag), on_release, on_reset, islands: false, animated: false }
 }
 
 impl<M> Divider<'_, M> {
@@ -38,6 +42,24 @@ impl<M> Divider<'_, M> {
     pub fn islands(mut self, on: bool) -> Self {
         self.islands = on;
         self
+    }
+
+    /// Entre ilhas, a barrinha surge aos poucos em vez de piscar (`[ui] animations`).
+    pub fn animated(mut self, on: bool) -> Self {
+        self.animated = on;
+        self
+    }
+
+    /// Opacidade da barrinha entre ilhas: 0 sem o mouse, 1 arrastando ou depois de `FADE`.
+    fn reveal(&self, state: &State, now: Instant) -> f32 {
+        match (state.dragging, state.hover_since) {
+            (Some(_), _) => 1.0,
+            (None, None) => 0.0,
+            (None, Some(_)) if !self.animated => 1.0,
+            (None, Some(since)) => {
+                crate::appear::ease_out((now.saturating_duration_since(since).as_secs_f32() / FADE.as_secs_f32()).min(1.0))
+            }
+        }
     }
 
     fn grab(&self) -> f32 {
@@ -50,6 +72,8 @@ struct State {
     /// Posição do mouse no último evento do arraste.
     dragging: Option<f32>,
     last_press: Option<Instant>,
+    /// Desde quando o mouse está em cima (para a barrinha surgir aos poucos).
+    hover_since: Option<Instant>,
 }
 
 impl<M: Clone, Renderer: renderer::Renderer> Widget<M, Theme, Renderer> for Divider<'_, M> {
@@ -89,6 +113,24 @@ impl<M: Clone, Renderer: renderer::Renderer> Widget<M, Theme, Renderer> for Divi
             Axis::Vertical => p.x,
             Axis::Horizontal => p.y,
         };
+        let over = cursor.is_over(layout.bounds());
+        match (over, state.hover_since) {
+            (true, None) => {
+                state.hover_since = Some(Instant::now());
+                shell.request_redraw();
+            }
+            (false, Some(_)) => {
+                state.hover_since = None;
+                shell.request_redraw();
+            }
+            _ => {}
+        }
+        if self.islands
+            && let Event::Window(iced::window::Event::RedrawRequested(now)) = event
+            && state.hover_since.is_some_and(|t| now.saturating_duration_since(t) < FADE)
+        {
+            shell.request_redraw();
+        }
         match event {
             Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Left)) => {
                 if let Some(p) = cursor.position_over(layout.bounds()) {
@@ -153,12 +195,14 @@ impl<M: Clone, Renderer: renderer::Renderer> Widget<M, Theme, Renderer> for Divi
         _viewport: &Rectangle,
     ) {
         let b = layout.bounds();
-        let active = tree.state.downcast_ref::<State>().dragging.is_some() || cursor.is_over(b);
+        let state = tree.state.downcast_ref::<State>();
+        let active = state.dragging.is_some() || cursor.is_over(b);
         let p = theme.extended_palette();
         if self.islands {
             // Entre ilhas o vão é a fronteira: só uma barrinha arredondada quando dá para arrastar, sem passar
             // dos cantos das ilhas.
-            if !active {
+            let alpha = self.reveal(state, Instant::now());
+            if alpha <= 0.0 {
                 return;
             }
             let (thick, end) = (3.0, tea_core::style::RADIUS_ISLAND);
@@ -181,7 +225,7 @@ impl<M: Clone, Renderer: renderer::Renderer> Widget<M, Theme, Renderer> for Divi
                 border: iced::Border { radius: (thick / 2.0).into(), ..iced::Border::default() },
                 ..renderer::Quad::default()
             };
-            renderer.fill_quad(quad, p.primary.base.color);
+            renderer.fill_quad(quad, p.primary.base.color.scale_alpha(alpha));
             return;
         }
         // Linha fina normalmente; mais grossa e colorida quando dá para arrastar.

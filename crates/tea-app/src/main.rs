@@ -8,6 +8,7 @@ macro_rules! fl {
     ($($t:tt)*) => { tea_core::i18n::fl!(crate::LOADER, $($t)*) };
 }
 
+mod appear;
 mod backup;
 mod binary;
 mod calls;
@@ -864,6 +865,7 @@ impl App {
                 .map(|(file, error)| fl!("config-syntax-error", file = file.as_str(), error = error.as_str())),
         );
         tea_core::file_icons::set_enabled(app.config.ui.file_icons.trim() != "none");
+        appear::set_enabled(app.config.ui.animations);
         if !problems.is_empty() {
             for p in &problems {
                 eprintln!("[idetea] {p}");
@@ -2637,6 +2639,7 @@ impl App {
         problems.extend(tea_core::fonts::problem(&config.editor));
         problems.extend(tea_core::file_icons::problem(&config.ui.file_icons));
         tea_core::file_icons::set_enabled(config.ui.file_icons.trim() != "none");
+        appear::set_enabled(config.ui.animations);
         self.keymap = keymap;
         self.lsp.update_config(&config.lsp);
         self.config = config;
@@ -4252,7 +4255,7 @@ impl App {
         }
         if let Some(p) = &self.palette {
             // `opaque` na caixa: clique dentro dela não chega no "clique fora fecha".
-            let overlay = container(opaque(p.view(&self.commands, &self.keymap).map(Message::Palette)))
+            let overlay = container(appear::appear(opaque(p.view(&self.commands, &self.keymap).map(Message::Palette))).slide(-6.0))
                 .width(Fill)
                 .height(Fill)
                 .padding(iced::Padding { top: 60.0, ..iced::Padding::ZERO })
@@ -4273,7 +4276,7 @@ impl App {
             layers = layers.push(h.view(&self.commands, &self.keymap, about).map(Message::Help));
         }
         if let Some(m) = &self.menu {
-            layers = layers.push(m.view(&self.keymap).map(Message::Menu));
+            layers = layers.push(appear::appear(m.view(&self.keymap).map(Message::Menu)).slide(-4.0));
         }
         if let Some(d) = &self.dialog {
             layers = layers.push(d.view().map(Message::Dialog));
@@ -4426,6 +4429,7 @@ impl App {
         let divider = |axis, edge| {
             divider::divider(axis, move |d| Message::Resize(edge, d), Message::ResizeDone, Message::ResizeReset(edge))
                 .islands(islands)
+                .animated(self.config.ui.animations)
         };
 
         let editors: Element<'_, Message> = if self.other_index().is_some() {

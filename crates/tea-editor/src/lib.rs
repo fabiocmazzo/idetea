@@ -566,7 +566,7 @@ impl Editor {
         // Barra como a do resto da IDE (RFC 0015): sem trilho, polegar translúcido. Raio e largura são do widget.
         let mut style = theme::from_iced_theme(theme);
         style.scrollbar_background = iced::Color::TRANSPARENT;
-        style.scroller_color = theme.extended_palette().background.strongest.color.scale_alpha(0.5);
+        style.scroller_color = theme.extended_palette().background.strongest.color.scale_alpha(0.6);
         self.inner.set_theme(style);
         self.theme = theme.clone();
     }

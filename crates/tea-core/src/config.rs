@@ -27,6 +27,8 @@ activity_bar = true
 # Painéis em ilhas de cantos arredondados, separadas por um vão mais escuro ("islands"), ou no mesmo fundo,
 # separados por linhas ("classic").
 style = "islands"
+# Entrada suave da paleta, menus e diálogos, e a barrinha do divisor surgindo aos poucos.
+animations = true
 # Ícone de cada arquivo pela linguagem ou pelo tipo (árvore, abas, Ctrl+P, breadcrumbs, busca, git):
 # "seti" (o conjunto do VS Code, embutido) ou "none" (o ícone genérico).
 file_icons = "seti"
@@ -190,6 +192,8 @@ pub struct UiConfig {
     pub activity_bar: bool,
     /// `"islands"` (painéis em ilhas arredondadas) ou `"classic"` (mesmo fundo, separados por linhas).
     pub style: String,
+    /// Transições curtas (paleta, menus, diálogos, divisor).
+    pub animations: bool,
     /// Ícones de arquivo pela linguagem: `"seti"` (embutido) ou `"none"` (o genérico).
     pub file_icons: String,
     /// `"auto"` (o do sistema), `"pt-BR"`, `"en"` ou `"es"`. Vale ao reiniciar.
@@ -206,6 +210,7 @@ impl Default for UiConfig {
             font_size: 14.0,
             activity_bar: true,
             style: "islands".into(),
+            animations: true,
             file_icons: "seti".into(),
             language: "auto".into(),
             restore_session: true,

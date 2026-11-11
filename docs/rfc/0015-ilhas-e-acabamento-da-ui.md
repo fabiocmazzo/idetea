@@ -256,3 +256,10 @@ operacionais, e quebra comportamentos do gerenciador de janelas).
   do terminal no estilo das outras. Ficam de fora o mascote (estilo próprio) e as animações (etapa 3).
 - **Barra com espaço próprio (2026-11-11):** flutuando por cima das linhas, a barra cobria os atalhos da paleta e
   as letras do git na árvore; `scrollbar()` passa a reservar o espaço dela (`spacing(2)`) em todas as listas.
+- **Etapa 3 (2026-11-11, aprovada no teste manual):** widget `appear` (`tea-app/src/appear.rs`): paleta e menu de
+  contexto entram deslizando alguns pixels; diálogo, ajuda e configurações com o fundo escurecendo aos poucos e o
+  cartão deslizando (140 ms, curva de saída cúbica). Sem opacidade de bloco no iced 0.14, o deslize e o fundo
+  fazem o papel do "fade". A barrinha do divisor entre ilhas surge em 120 ms. `[ui] animations = false` desliga
+  tudo. Fork do editor (`69eb56b`, branch `idetea`): barra de 6 px em pílula, com a opacidade seguindo o mouse
+  como as outras. Fica de fora: hover animado nos botões e listas (o iced não anima estilos; exigiria estado por
+  item) e o esmaecer da barra de rolagem por tempo.
