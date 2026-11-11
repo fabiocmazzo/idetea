@@ -49,9 +49,10 @@ pub fn island(theme: &Theme) -> container::Style {
 }
 
 /// Barra de rolagem fina, afastada da borda: trilho de 8 px (a área que pega o mouse), polegar de 6 px, 2 px de
-/// margem.
+/// margem. Com espaço próprio (`spacing`): flutuando por cima, cobria o que fica à direita das linhas (atalhos na
+/// paleta, letras do git na árvore).
 pub fn scrollbar() -> scrollable::Scrollbar {
-    scrollable::Scrollbar::new().width(8).scroller_width(6).margin(2)
+    scrollable::Scrollbar::new().width(8).scroller_width(6).margin(2).spacing(2)
 }
 
 /// Uma área rolável com a barra da IDE: vertical, fina, em pílula. Para outra direção, `.direction(…)` com

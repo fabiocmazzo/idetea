@@ -254,3 +254,5 @@ operacionais, e quebra comportamentos do gerenciador de janelas).
   atividades como pílula, sem borda; `dialog`, `menu` e `tooltip` com `SHADOW_DIALOG`/`SHADOW_POPUP` e os raios
   `RADIUS_ISLAND`/`RADIUS_CONTROL`/`RADIUS_SMALL` no diálogo, paleta, ajuda, configurações, menus e dicas; abas
   do terminal no estilo das outras. Ficam de fora o mascote (estilo próprio) e as animações (etapa 3).
+- **Barra com espaço próprio (2026-11-11):** flutuando por cima das linhas, a barra cobria os atalhos da paleta e
+  as letras do git na árvore; `scrollbar()` passa a reservar o espaço dela (`spacing(2)`) em todas as listas.
