@@ -263,3 +263,7 @@ operacionais, e quebra comportamentos do gerenciador de janelas).
   tudo. Fork do editor (`69eb56b`, branch `idetea`): barra de 6 px em pílula, com a opacidade seguindo o mouse
   como as outras. Fica de fora: hover animado nos botões e listas (o iced não anima estilos; exigiria estado por
   item) e o esmaecer da barra de rolagem por tempo.
+- **Tela inicial (2026-11-11, pedida no chat, aprovada no teste manual):** sem arquivo aberto, a ilha do editor
+  mostra logo e projeto, ações de começar (com atalhos), os 5 arquivos e 5 projetos recentes e as teclas principais
+  (`tea-app/src/welcome.rs`). A aba vazia continua por baixo: digitar ou `Ctrl+N` a mostram, sem criar outra. O
+  logo usa um handle criado uma vez (um handle novo por quadro fazia o iced decodificar de novo e piscar).

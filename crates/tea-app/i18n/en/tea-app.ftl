@@ -580,3 +580,16 @@ mascot-usage =
     
     States: idle, working, thinking, attention, celebrating, error, sleeping, curious, annoyed.
     Writes .idetea/mascot.json so the IDE mascot reacts in real time (expires after --ttl, default 30s).
+
+## Welcome screen
+welcome-start = Start
+welcome-new-file = New file
+welcome-quick-open = Open a project file…
+welcome-open-file = Open file…
+welcome-open-folder = Open folder in a new window…
+welcome-recent = Open recent…
+welcome-recent-files = Recent files
+welcome-recent-projects = Recent projects
+welcome-hint-palette = all commands
+welcome-hint-search = search the project
+welcome-hint-terminal = terminal

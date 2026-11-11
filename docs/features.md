@@ -139,6 +139,8 @@ Details (in Portuguese for now): [terminais-de-agente.md](terminais-de-agente.md
 - Help (`F1`) with all current shortcuts and a short guide.
 - Settings (`Ctrl+,`): appearance, extensions, shortcuts (records the key you press) and language servers.
 - Activity bar to show and hide panels; panels resize with the mouse.
+- Welcome screen when no file is open: new file, open file or folder, recent files and projects, and the main
+  shortcuts. Typing or `Ctrl+N` brings back an untitled editor.
 - Panels as rounded islands over a darker background, with thin pill scrollbars that fade when the mouse is away;
   `[ui] style = "classic"` keeps everything on one background, split by lines. The palette, menus and dialogs slide
   in softly; `[ui] animations = false` turns that off.

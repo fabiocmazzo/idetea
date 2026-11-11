@@ -38,6 +38,7 @@ mod recent;
 mod session;
 mod ui_state;
 mod watcher;
+mod welcome;
 
 use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
@@ -466,6 +467,8 @@ struct Tab {
     editor: Editor,
     /// Editor dividido: a aba fica no lado direito.
     right: bool,
+    /// Aba sem título pedida pelo usuário (`Ctrl+N`): mesmo vazia, aparece no lugar da tela inicial.
+    kept: bool,
 }
 
 struct Panel {
@@ -619,6 +622,8 @@ struct App {
     session_saved: Option<session::Session>,
     /// Lista de recentes (`None`: sem pasta de estado).
     recent_path: Option<PathBuf>,
+    /// Recentes da tela inicial, lidos quando ela aparece.
+    welcome_recents: welcome::Recents,
     /// Cópias das abas alteradas: pasta do projeto e, por aba, a chave e o hash do texto copiado.
     backup_dir: Option<PathBuf>,
     backed_up: std::collections::HashMap<u64, (String, u64)>,
@@ -651,6 +656,8 @@ enum Message {
     BreadcrumbSymbol(PathBuf, usize, usize),
     /// Botão de uma extensão na barra de abas: roda o comando.
     RunCommand(String),
+    /// Na tela inicial: um arquivo recente (`false`) ou um projeto recente (`true`, abre em outra janela).
+    OpenRecentPath(PathBuf, bool),
     /// Botão direito numa aba.
     TabMenu(u64, iced::Point),
     CloseTab(u64),
@@ -798,6 +805,7 @@ impl App {
             session_path,
             session_saved: None,
             recent_path: recent::path(),
+            welcome_recents: welcome::Recents::default(),
             backup_dir: backup::dir_for(&launch.root),
             backed_up: Default::default(),
             pending_recovery: Vec::new(),
@@ -831,6 +839,7 @@ impl App {
         if let Some(path) = &app.recent_path {
             recent::Recent::add_project(path, &app.root);
         }
+        app.welcome_recents = welcome::Recents::load(app.recent_path.as_deref(), &app.root);
 
         let mut tasks = vec![Task::run(lsp_rx, Message::Lsp), Task::run(dap_rx, |(g, e)| Message::Dap(g, e))];
         // Extensões primeiro: assim elas recebem os eventos dos arquivos abertos abaixo.
@@ -1142,9 +1151,14 @@ impl App {
         self.style_editor(&mut editor);
         // Abre no lado com foco.
         let right = self.tabs.get(self.active).is_some_and(|t| t.right);
-        self.tabs.push(Tab { id: self.next_tab_id, editor, right });
+        self.tabs.push(Tab { id: self.next_tab_id, editor, right, kept: false });
         self.next_tab_id += 1;
         self.tabs.len() - 1
+    }
+
+    /// Só a aba vazia do começo (nada aberto, nada digitado): no lugar dela, a tela inicial.
+    fn showing_welcome(&self) -> bool {
+        matches!(self.tabs.as_slice(), [t] if t.editor.is_blank() && !t.kept)
     }
 
     fn tab_index(&self, id: u64) -> Option<usize> {
@@ -2353,6 +2367,7 @@ impl App {
         if self.tabs.is_empty() {
             (self.active, self.other_tab) = (0, None);
             self.push_tab(Editor::scratch(""));
+            self.welcome_recents = welcome::Recents::load(self.recent_path.as_deref(), &self.root);
         } else if removed == active_id {
             // A vizinha do mesmo lado; lado vazio: o foco vai para o outro.
             match self.side_neighbor(i, right, None) {
@@ -2780,8 +2795,12 @@ impl App {
                 }
             }
             "file.new" => {
-                let i = self.push_tab(Editor::scratch(""));
-                self.set_active(i)
+                // Na tela inicial, a aba vazia que já está por baixo vira a nova (sem duas "sem título").
+                let i = if self.showing_welcome() { 0 } else { self.push_tab(Editor::scratch("")) };
+                self.tabs[i].kept = true;
+                let task = self.set_active(i);
+                self.editor_mut().focus();
+                task
             }
             "file.save" => self.save_active(),
             "file.save_all" => {
@@ -3932,6 +3951,14 @@ impl App {
                 None => Task::none(),
             },
             Message::CloseTab(id) => self.close_tab(id, false),
+            Message::OpenRecentPath(path, true) => match picker::open_window(&path) {
+                Ok(()) => self.notify(fl!("folder-opening", path = path.display().to_string())),
+                Err(e) => self.notify(fl!("folder-open-error", error = e.to_string())),
+            },
+            Message::OpenRecentPath(path, false) => {
+                self.remember_spot(&path, None);
+                self.open_file(path)
+            }
             Message::RunCommand(id) => {
                 let task = self.run_command(&id);
                 self.editor_mut().focus();
@@ -4289,6 +4316,9 @@ impl App {
 
     /// Um lado do editor (o único, sem divisão): as abas dele e o editor da aba mostrada.
     fn side_view(&self, right: bool) -> Element<'_, Message> {
+        if self.showing_welcome() {
+            return welcome::view(&self.root, &self.welcome_recents, &self.keymap);
+        }
         let focused = self.tabs[self.active].right == right;
         let shown = if focused { Some(self.active) } else { self.other_index() };
         let tabs = tea_core::style::scrollable(
