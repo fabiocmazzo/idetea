@@ -313,7 +313,7 @@ mod tests {
     #[test]
     fn guide_in_each_language() {
         use tea_core::i18n::{Language, get_with_markers, load_in};
-        for lang in [Language::English, Language::Spanish] {
+        for lang in Language::ALL {
             let loader = load_in("tea-app", &crate::Localizations, lang);
             let text = get_with_markers(&loader, "guide-start-2");
             assert!(text.contains("{palette.open}"), "{lang:?}: {text}");

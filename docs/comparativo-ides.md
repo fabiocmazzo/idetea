@@ -1,5 +1,7 @@
 # Comparativo Honesto: IDE TEA vs. Outras IDEs do Mercado
 
+[Français](comparativo-ides.fr.md) · [Deutsch](comparativo-ides.de.md) · [Italiano](comparativo-ides.it.md) · [日本語](comparativo-ides.ja.md) · [中文](comparativo-ides.zh-CN.md)
+
 Este documento faz uma avaliação técnica, direta e sem maquiagem da **IDE TEA** (estado atual, `v0.4.0`) frente às principais IDEs e editores do mercado:
 
 - **VS Code / VSCodium** (o padrão universal baseado em Electron)
@@ -24,7 +26,7 @@ Este documento faz uma avaliação técnica, direta e sem maquiagem da **IDE TEA
 | **Autocomplete de IA inline ("Ghost text" / Tab)** | **Não tem (por filosofia)** | Via Copilot | **Excelente (líder)** | Muito bom (Zeta) | Bom | Via plugins |
 | **Maturidade do Editor de texto** | Boa no básico, faltam recursos avançados | **Referência** | **Referência** | Muito alta | **Referência** | **Referência (modal)** |
 | **Profundidade de LSP e Refatoração** | Média (sem Code Actions e Inlay Hints) | **Completa** | **Completa** | Alta | **Insuperável (AST próprio)** | Alta |
-| **Depuração (Debug)** | Básica (só GDB 14+ para Rust/C/C++/Zig) | **Completa (qualquer linguagem)** | **Completa** | Básica/Média (DAP recente) | **Excelente** | Básica (nvim-dap) |
+| **Depuração (Debug)** | Básica (GDB 14+ para Rust/C/C++/Zig; MoonBit nativo é experimental) | **Completa (qualquer linguagem)** | **Completa** | Básica/Média (DAP recente) | **Excelente** | Básica (nvim-dap) |
 | **Controle de Versão (Git)** | Básica/Média (sem gutter diff nem merge 3-vias) | **Completa** | **Completa** | Média | **Excelente (melhor merge)** | Via LazyGit / Fugitive |
 | **Suporte Multiplataforma** | **Só Linux (Wayland) testado hoje** | **Linux, macOS, Windows, Web** | **Linux, macOS, Windows** | **macOS, Linux, Windows** | **Linux, macOS, Windows** | **Qualquer SO / SSH** |
 
@@ -127,11 +129,11 @@ A IDE TEA assume que **os melhores agentes já rodam no terminal** (Claude Code,
 ## 6. Depuração (Debug)
 
 ### O que a IDE TEA faz hoje
-- Integração nativa com `gdb` 14+ (via DAP): breakpoints clicando no número da linha (`F9`) que acompanham o texto se você editar o arquivo, `F5` (compila e roda automaticamente em projetos Rust e Zig), Step Over (`F10`), Step Into (`F11`), Step Out (`Shift+F11`), Pausar e Parar.
+- Integração nativa com `gdb` 14+ (via DAP): breakpoints clicando no número da linha (`F9`) que acompanham o texto se você editar o arquivo, `F5` (compila e roda automaticamente em projetos Rust, Zig e, de forma experimental, MoonBit), Step Over (`F10`), Step Into (`F11`), Step Out (`Shift+F11`), Pausar e Parar.
 - Painel com pilha de chamadas (clique leva à linha do frame), árvore de variáveis locais inspecionável e saída do programa.
 
 ### Onde perde para VS Code e JetBrains
-- **Atrelado ao GDB 14+ (Rust, C, C++, Zig):** ainda não suporta adaptadores DAP para Python (`debugpy`), Go (`delve`), JavaScript/TypeScript (`js-debug`) ou `codelldb` (macOS).
+- **Atrelado ao GDB 14+ (Rust, C, C++, Zig e, de forma experimental, MoonBit):** ainda não suporta adaptadores DAP para Python (`debugpy`), Go (`delve`), JavaScript/TypeScript (`js-debug`) ou `codelldb` (macOS). Hare não tem depurador na IDE.
 - **Recursos avançados de debug ausentes:** não há breakpoints condicionais (*"parar só quando `i == 42`"*), logpoints, janela de *Watch Expressions* arbitrárias (REPL durante o breakpoint) nem valores de variáveis desenhados inline ao lado do código no editor.
 
 ---
@@ -156,7 +158,7 @@ A IDE TEA assume que **os melhores agentes já rodam no terminal** (Claude Code,
 ### A IDE TEA já é melhor ou única quando você:
 1. **Programa em Linux ao lado de agentes de terminal (Claude Code, Codex, Gemini CLI, etc.)** e quer que o agente faça perguntas estruturadas, mostre planos/testes manuais, peça permissão explícita para rodar comandos, use worktrees isolados e tenha um mascote reativo (**Tea**) sem depender de nuvem ou assinatura.
 2. **Prioriza velocidade, previsibilidade e baixo ruído sensorial:** abre em menos de 200 ms, consome pouca memória, não tem conta, não tem telemetria, não muda a UI sozinha e respeita arquivos TOML simples.
-3. **Lida com projetos em Rust, Zig, C/C++, Python, Go ou Web** onde o fluxo principal é editar rápido, navegar por símbolos/referências do LSP, rodar tasks/testes no terminal integrado e revisar commits.
+3. **Lida com projetos em Rust, Zig, C/C++, Python, Go, Hare, MoonBit ou Web** onde o fluxo principal é editar rápido, navegar por símbolos/referências do LSP, rodar tasks/testes no terminal integrado e revisar commits.
 
 ### Outra IDE ainda é melhor quando você:
 1. **Quer autocomplete preditivo de IA a cada tecla (`Tab` / Ghost Text) ou edição inline por diff:** **Cursor**, **Windsurf** ou **Zed** atendem melhor esse estilo.

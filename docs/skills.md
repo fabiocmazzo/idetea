@@ -1,5 +1,7 @@
 # Skills de agentes
 
+[Français](skills.fr.md) · [Deutsch](skills.de.md) · [Italiano](skills.it.md) · [日本語](skills.ja.md) · [中文](skills.zh-CN.md)
+
 Uma skill é uma pasta com um `SKILL.md` (um cabeçalho com `name` e `description`, e as instruções) e arquivos de
 apoio: referências, modelos, às vezes scripts. O agente lê a descrição de todas e abre a skill inteira quando ela
 serve para o que está fazendo. Estudo e decisões: [RFC 0005](rfc/0005-agentes-e-projetos.md), etapa 2.

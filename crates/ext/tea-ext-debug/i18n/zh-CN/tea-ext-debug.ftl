@@ -1,0 +1,22 @@
+## 调试面板
+debug-panel = 调试
+cmd-debug-focus = 调试: 显示面板
+debug-idle = 没有会话。按F5启动。
+debug-building = 正在构建…
+debug-running = 正在运行
+debug-stopped = 已停止（{ $reason }）
+debug-start = 启动
+debug-continue = 继续
+debug-pause = 暂停
+debug-step-over = 逐过程
+debug-step-into = 逐语句
+debug-step-out = 逐出
+debug-stop = 停止
+debug-call-stack = 调用堆栈
+debug-no-stack = 没有堆栈。
+debug-only-stopped = 仅在程序停止时可用。
+debug-no-source = 没有源代码
+debug-variables = 变量
+debug-empty = （空）
+debug-nothing-yet = 还没有。
+debug-output = 输出

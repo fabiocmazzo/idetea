@@ -8,6 +8,12 @@
 <link rel="alternate" hreflang="en" href="https://idetea.belabs.cloud/start.html">
 <link rel="alternate" hreflang="pt-BR" href="https://idetea.belabs.cloud/pt-br/start.html">
 <link rel="alternate" hreflang="es" href="https://idetea.belabs.cloud/es/start.html">
+<link rel="alternate" hreflang="fr" href="https://idetea.belabs.cloud/fr/start.html">
+<link rel="alternate" hreflang="de" href="https://idetea.belabs.cloud/de/start.html">
+<link rel="alternate" hreflang="it" href="https://idetea.belabs.cloud/it/start.html">
+<link rel="alternate" hreflang="ja" href="https://idetea.belabs.cloud/ja/start.html">
+<link rel="alternate" hreflang="zh-CN" href="https://idetea.belabs.cloud/zh-cn/start.html">
+<link rel="alternate" hreflang="x-default" href="https://idetea.belabs.cloud/start.html">
 <link rel="icon" href="../img/idetea.svg" type="image/svg+xml">
 <link rel="stylesheet" href="../style.css">
 </head>
@@ -21,7 +27,7 @@
     <a href="../features.html">Funciones <small>(en inglés)</small></a>
     <a href="https://github.com/fabiocmazzo/idetea">GitHub</a>
   </nav>
-  <nav class="lang" aria-label="Idioma"><a href="../start.html" hreflang="en">EN</a><a href="../pt-br/start.html" hreflang="pt-BR">PT</a><a href="start.html" aria-current="true">ES</a></nav>
+  <nav class="lang" aria-label="Idioma"><a href="../start.html" hreflang="en">EN</a><a href="../pt-br/start.html" hreflang="pt-BR">PT</a><a href="start.html" aria-current="true">ES</a><a href="../fr/start.html" hreflang="fr">FR</a><a href="../de/start.html" hreflang="de">DE</a><a href="../it/start.html" hreflang="it">IT</a><a href="../ja/start.html" hreflang="ja">JA</a><a href="../zh-cn/start.html" hreflang="zh-CN">中文</a></nav>
   <a class="btn primary small" href="https://github.com/fabiocmazzo/idetea/releases/latest">Descargar</a>
 </div></header>
 
@@ -110,14 +116,18 @@ idetea src/main.rs    # la carpeta actual, con este archivo abierto</code></pre>
     <tr><td>TypeScript, JavaScript</td><td><code>typescript-language-server</code></td></tr>
     <tr><td>Go</td><td><code>gopls</code></td></tr>
     <tr><td>Lua</td><td><code>lua-language-server</code></td></tr>
+    <tr><td>Zig</td><td><code>zls</code></td></tr>
+    <tr><td>Ziex</td><td><code>zx lsp</code></td></tr>
+    <tr><td>Hare</td><td><code>hare-lsp -S</code></td></tr>
+    <tr><td>MoonBit</td><td><code>moon lsp</code></td></tr>
   </table></div>
-  <p>Se pueden agregar otros en la configuración (sección <code>[lsp]</code>).</p>
+  <p>Hare y MoonBit vienen con la IDE (colores, tareas y el comando predeterminado del servidor). Se pueden agregar otros en la configuración (sección <code>[lsp]</code>). El detalle por lenguaje está en <a href="https://github.com/fabiocmazzo/idetea/blob/main/docs/languages.md">languages.md</a>.</p>
 </section>
 
 <section id="terminal">
   <h2>5. Terminal y tareas</h2>
   <ul>
-    <li><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>T</kbd> abre la terminal. <code>+</code> agrega otro shell en una
+    <li><kbd>Ctrl</kbd>+<kbd>'</kbd> o <kbd>Ctrl</kbd>+<kbd>&#96;</kbd> enfoca la terminal. <code>+</code> agrega otro shell en una
       pestaña; <code>exit</code> la cierra. Los atajos <kbd>Ctrl</kbd>+<kbd>Shift</kbd> del IDE siguen funcionando
       mientras escribes en ella.</li>
     <li><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>B</kbd> ejecuta una tarea: lo que el IDE encuentra en el proyecto (cargo,
@@ -147,7 +157,7 @@ idetea src/main.rs    # la carpeta actual, con este archivo abierto</code></pre>
 <pre><code>[ui]
 theme = "dark"          # "light", o un tema de iced como "Nord" o "Dracula"
 font_size = 14
-language = "auto"       # "en", "pt-BR", "es"
+language = "auto"       # "en", "pt-BR", "es", "fr", "de", "it", "ja", "zh-CN"
 
 [editor]
 wrap = true
@@ -170,7 +180,8 @@ line_height = 1.45
     <tr><td><kbd>Ctrl</kbd>+<kbd>,</kbd></td><td>Configuración</td></tr>
     <tr><td><kbd>Ctrl</kbd>+<kbd>B</kbd></td><td>Mostrar u ocultar el árbol de archivos</td></tr>
     <tr><td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>F</kbd></td><td>Buscar en el proyecto</td></tr>
-    <tr><td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>T</kbd></td><td>Terminal</td></tr>
+    <tr><td><kbd>Ctrl</kbd>+<kbd>'</kbd> / <kbd>Ctrl</kbd>+<kbd>&#96;</kbd></td><td>Terminal</td></tr>
+    <tr><td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>T</kbd></td><td>Reabrir la última pestaña cerrada</td></tr>
     <tr><td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>B</kbd></td><td>Ejecutar una tarea</td></tr>
     <tr><td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>G</kbd></td><td>Git</td></tr>
     <tr><td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>M</kbd> / <kbd>F8</kbd></td><td>Problemas / siguiente problema</td></tr>

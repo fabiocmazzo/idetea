@@ -33,7 +33,7 @@ animations = true
 # "seti" (o conjunto do VS Code, embutido) ou "none" (o ícone genérico).
 file_icons = "seti"
 # Idioma da interface: "auto" (o do sistema), "pt-BR", "en", "es", "fr", "de", "it", "ja" ou "zh-CN".
-# Vale ao reiniciar. fr/de/it/ja/zh-CN traduzem o mascote; o resto da interface cai no inglês.
+# Vale ao reiniciar. Os oito idiomas traduzem a interface inteira.
 language = "auto"
 # Reabrir as abas e os painéis de cada projeto como estavam (não vale para `idetea arquivo...`).
 restore_session = true
@@ -73,7 +73,8 @@ line_height = 1.45
 # "servidor" = "cargo run -- --porta 8080"
 
 # Servidores de linguagem (LSP). Embutidos: rust-analyzer, clangd, pyright,
-# typescript, gopls, lua, zls (Zig) e zxls (Ziex, `zx lsp`). Só iniciam se o comando existir no PATH.
+# typescript, gopls, lua, zls (Zig) e zxls (Ziex, `zx lsp`). Hare (`hare-lsp -S`) e MoonBit
+# (`moon lsp`) vêm nos language packs. Só iniciam se o comando existir no PATH.
 [lsp]
 enabled = true
 # Exemplos:
@@ -202,7 +203,7 @@ pub struct UiConfig {
     /// Ícones de arquivo pela linguagem: `"seti"` (embutido) ou `"none"` (o genérico).
     pub file_icons: String,
     /// `"auto"` (o do sistema), `"pt-BR"`, `"en"`, `"es"`, `"fr"`, `"de"`, `"it"`, `"ja"` ou `"zh-CN"`.
-    /// Vale ao reiniciar. Os cinco últimos traduzem o mascote; o resto da interface cai no inglês.
+    /// Vale ao reiniciar. Os oito idiomas traduzem a interface inteira.
     pub language: String,
     /// Reabrir as abas e os painéis do projeto como estavam.
     pub restore_session: bool,

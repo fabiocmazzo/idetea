@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>IDE TEA — コードだけでいい。氷はあとで。</title>
+<meta name="description" content="純粋な Rust で作った、高速で静かな IDE です。コーディング エージェントは、動く前に尋ねます。アカウントなし、テレメトリなし、マーケットプレースなし。Apache 2.0。">
+<meta property="og:title" content="IDE TEA">
+<meta property="og:description" content="純粋な Rust で作った、高速で静かな IDE です。コーディング エージェントは、動く前に尋ねます。">
+<meta property="og:image" content="https://idetea.belabs.cloud/img/demo-poster.png">
+<meta property="og:type" content="website">
+<link rel="alternate" hreflang="en" href="https://idetea.belabs.cloud/">
+<link rel="alternate" hreflang="pt-BR" href="https://idetea.belabs.cloud/pt-br/">
+<link rel="alternate" hreflang="es" href="https://idetea.belabs.cloud/es/">
+<link rel="alternate" hreflang="fr" href="https://idetea.belabs.cloud/fr/">
+<link rel="alternate" hreflang="de" href="https://idetea.belabs.cloud/de/">
+<link rel="alternate" hreflang="it" href="https://idetea.belabs.cloud/it/">
+<link rel="alternate" hreflang="ja" href="https://idetea.belabs.cloud/ja/">
+<link rel="alternate" hreflang="zh-CN" href="https://idetea.belabs.cloud/zh-cn/">
+<link rel="alternate" hreflang="x-default" href="https://idetea.belabs.cloud/">
+<link rel="icon" href="../img/idetea.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../style.css">
+</head>
+<body>
+<header class="top"><div class="wrap">
+  <a class="brand" href="./"><img src="../img/idetea.svg" alt="">IDE TEA</a>
+  <nav class="main">
+    <a href="./" aria-current="page">ホーム</a>
+    <a href="start.html">はじめに</a>
+    <a href="agents.html">エージェントと働く</a>
+    <a href="features.html">機能</a>
+    <a href="https://github.com/fabiocmazzo/idetea">GitHub</a>
+  </nav>
+  <nav class="lang" aria-label="言語"><a href="../" hreflang="en">EN</a><a href="../pt-br/" hreflang="pt-BR">PT</a><a href="../es/" hreflang="es">ES</a><a href="../fr/" hreflang="fr">FR</a><a href="../de/" hreflang="de">DE</a><a href="../it/" hreflang="it">IT</a><a href="./" aria-current="true">JA</a><a href="../zh-cn/" hreflang="zh-CN">中文</a></nav>
+  <a class="btn primary small" href="https://github.com/fabiocmazzo/idetea/releases/latest">ダウンロード</a>
+</div></header>
+
+<main>
+<div class="wrap">
+  <div class="hero-grid">
+    <div class="hero-copy">
+      <p class="eyebrow">無料 · Apache 2.0 · 純粋な Rust</p>
+      <h1>コードだけ。<br><span class="ice">氷はあとで。</span></h1>
+      <p class="lead">高速で静かな IDE です。コーディング エージェントは、動く前に尋ねます。編集はエディター、エージェントはターミナルです。質問はフォームになり、承認するまで何も実行しません。</p>
+      <div class="actions">
+        <a class="btn primary" href="https://github.com/fabiocmazzo/idetea/releases/latest">ダウンロード</a>
+        <a class="btn" href="#demo">デモを見る</a>
+        <a class="btn" href="https://github.com/fabiocmazzo/idetea">GitHub でスター</a>
+      </div>
+      <p class="note">Linux (x86_64 と aarch64)、macOS (Apple Silicon)、Windows (x86_64)。1.0 より前です。</p>
+    </div>
+    <figure class="player" id="demo" data-demo>
+      <video poster="../img/demo-poster.png" width="1280" height="720" playsinline muted loop autoplay preload="metadata" controls>
+        <source src="../img/idetea-demo.mp4" type="video/mp4">
+      </video>
+      <button type="button" class="sound" data-play="音声付きで再生" data-replay="音声付きでもう一度">音声付きで再生</button>
+      <figcaption>52 秒。英語のナレーションで、字幕は映像に入っています。プレビューはミュートで繰り返します。再生すると音声が聞こえます。</figcaption>
+    </figure>
+  </div>
+
+  <p class="who"><strong>対象。</strong> Claude Code、Codex、または <code>AGENTS.md</code> と <code>CLAUDE.md</code> を読むエージェントのそばでコードを書き、エディターには速く開くこと、予測できること、ネットワークに手を出さないことを求める人向けです。</p>
+</div>
+
+<section><div class="wrap">
+  <h2>得られるもの</h2>
+  <div class="cards">
+    <article class="card"><p class="kicker">高速</p><h3>開いて、邪魔をしない</h3><p>起動は 200&nbsp;ms を大きく下回ります。50&nbsp;MB のファイルは 0.1 秒で開きます。1 行が巨大なミニファイ済みファイルは、ウィンドウを固める代わりに、軽量モードで開きます。</p></article>
+    <article class="card"><p class="kicker">静か</p><h3>アカウントなし、テレメトリなし、マーケットプレースなし</h3><p>頼んでいない機能のポップアップはありません。ネットワークを使うのは、要求したときだけです (プッシュ、プル、フェッチ、またはインストールするスキル)。設定は 1 つのプレーンな TOML ファイルにあります。</p></article>
+    <article class="card"><p class="kicker">承認</p><h3>エージェントは尋ね、決定は残ります</h3><p>質問は本物のフォームです。選択肢、チェックボックス、手順、画像、音声。ターミナルの要求はコマンド全文を表示します。プロジェクトが許可リストに自分を入れることはできません。</p></article>
+    <article class="card"><p class="kicker">エディター</p><h3>必要なところは一通り</h3><p>マルチ カーソル、任意の vim モード、ファイル ツリー、プロジェクト検索、LSP、git、統合ターミナル、gdb によるデバッグ、Markdown、SVG、画像、PDF のタブです。</p></article>
+    <article class="card"><p class="kicker">小さい中身</p><h3>ファイルだけを編集するコア</h3><p>ツリー、ターミナル、git、デバッグは、オフにできる拡張機能です。ピクセル アートのマスコット Tea は、待っている質問を見張り、折りたたむと退きます。</p></article>
+  </div>
+</div></section>
+
+<section><div class="wrap">
+  <h2>同じ IDE を、もう少し近く</h2>
+  <div class="gallery">
+    <figure>
+      <img src="../img/panel-question.png" alt="インターフェースが、使うキャッシュのバックエンドを尋ねます。テストのチェックボックスがあり、エージェントはターミナルで待っています。">
+      <figcaption>質問はインターフェースにあります。チャットの中には埋もれません。</figcaption>
+    </figure>
+    <figure>
+      <img src="../img/terminal-request.png" alt="ターミナル要求がコマンド cargo test を表示します。許可して実行と、拒否があります。">
+      <figcaption>実行前に、コマンドが見えます。</figcaption>
+    </figure>
+    <figure>
+      <img src="../img/terminal-tests.png" alt="許可したテストを実行している統合ターミナル。">
+      <figcaption>許可したあと、コマンドは統合ターミナルで実行します。</figcaption>
+    </figure>
+  </div>
+  <p><a href="agents.html">エージェントと働く、手順 →</a></p>
+</div></section>
+
+<section><div class="wrap">
+  <h2>なぜ IDE TEA</h2>
+  <p class="note"><a href="https://github.com/fabiocmazzo/idetea/blob/main/docs/comparativo-ides.ja.md">率直な比較</a>から。VS Code、Cursor、Zed、JetBrains、Helix との比較です。あの文書は 0.4.0 前後に書かれています。それ以降のリリースでは、macOS (Apple Silicon) と Windows (x86_64) も配布しています。</p>
+  <div class="compare">
+    <article class="card">
+      <h3>これが要点</h3>
+      <ul>
+        <li>ターミナルのエージェントは、ファイルベースの手順を得ます。フォーム、承認したコマンド、worktree、マスコット Tea です。すべての回答の履歴は、プロジェクトに残ります。</li>
+        <li>アカウントもテレメトリもありません。バイナリは、勝手に外部へ通信しません。</li>
+        <li>速く開き、大きなファイルやミニファイ済みファイルでウィンドウは固まりません。</li>
+      </ul>
+    </article>
+    <article class="card">
+      <h3>これが要点ではない</h3>
+      <ul>
+        <li>ゴースト テキストの補完はありません。足りないスイッチではなく、選択です。</li>
+        <li>インラインの「この hunk を採用」差分はありません。エージェントがファイルを編集したときは、git パネルで確認します。</li>
+        <li>コード アクション、インレイ ヒント、デバッグの対応範囲は、VS Code と JetBrains より後ろです。比較はそのように書いています。</li>
+      </ul>
+    </article>
+  </div>
+</div></section>
+
+<section id="install"><div class="wrap">
+  <h2>インストール</h2>
+  <p><strong>すぐに実行できます。</strong> <a href="https://github.com/fabiocmazzo/idetea/releases/latest">最新リリース</a>から。<code>SHA256SUMS</code> にチェックサムがあります。</p>
+  <div class="cards">
+    <article class="card"><h3>Linux</h3><p>x86_64 と aarch64。<code>.tar.gz</code> または <code>.AppImage</code>。<code>./install.sh</code> が <code>idetea</code> を <code>~/.local/bin</code> とアプリ メニューに置きます。AppImage には <code>chmod +x</code> が必要です。<code>--install-desktop</code> がメニュー項目を追加します。</p></article>
+    <article class="card"><h3>macOS</h3><p>Apple Silicon。<code>IDE TEA.app</code> 入りの <code>.tar.gz</code>。<code>idetea --install-desktop</code> が <code>~/Applications/IDE TEA.app</code> を作ります。</p></article>
+    <article class="card"><h3>Windows</h3><p>x86_64。<code>-setup.exe</code> インストーラー、またはポータブルな <code>.zip</code>。無料のコード署名は <a href="https://signpath.io">SignPath.io</a>、証明書は <a href="https://signpath.org">SignPath Foundation</a> です。</p></article>
+  </div>
+  <p><strong>ソースから</strong> (<a href="https://rustup.rs">Rust</a> stable が必要):</p>
+<pre><code>cargo install --locked --git https://github.com/fabiocmazzo/idetea tea-app
+idetea --install-desktop</code></pre>
+  <p class="note">任意: git パネル用の <code>git</code>、デバッグ用の <code>gdb</code> 14 以降 (macOS では <code>lldb-dap</code>)、使う言語サーバー。rust-analyzer、clangd、pyright、typescript-language-server、gopls、lua-language-server、zls、<code>zx lsp</code>、<code>hare-lsp</code> (Hare)、<code>moon lsp</code> (MoonBit) は設定済みです。</p>
+  <p><a href="start.html">はじめに →</a></p>
+</div></section>
+
+<section><div class="wrap">
+  <div class="star">
+    <img src="../img/idetea.svg" alt="">
+    <div>
+      <h2>探していた部屋なら、スターを付けてください。</h2>
+      <p>IDE TEA は 1 人のプロジェクトで、Apache 2.0 です。これからも無料です。スターは、次の人が見つける助けになります。</p>
+      <p><a class="btn primary" href="https://github.com/fabiocmazzo/idetea">GitHub で IDE TEA にスター</a></p>
+    </div>
+  </div>
+</div></section>
+
+<section><div class="wrap narrow">
+  <h2>名前について</h2>
+  <p>iced tea の洒落から始まりました。IDE は <a href="https://github.com/iced-rs/iced">iced</a> で作られているからです。ポルトガル語では、TEA は自閉スペクトラム症の略でもあります。IDE TEA は自閉スペクトラム症の開発者が作っていて、価値観に出ています。雑音が少ないこと、明確なテキスト、毎回同じように振る舞うこと、集中する余地です。</p>
+  <p><a href="https://github.com/fabiocmazzo/idetea/blob/main/MANIFESTO.ja.md">マニフェスト</a>を読んでください。機能の一覧は <a href="features.html">機能のページ</a> です。</p>
+</div></section>
+</main>
+
+<footer><div class="wrap">
+  <span>IDE TEA · Apache 2.0 · <a href="https://github.com/iced-rs/iced">iced</a> で作成</span>
+  <span><a href="https://github.com/fabiocmazzo/idetea/blob/main/CODE_SIGNING_POLICY.md">コード署名とプライバシー</a> ·
+    <a href="https://github.com/fabiocmazzo/idetea/issues">バグを報告</a> ·
+    <a href="https://github.com/fabiocmazzo/idetea">GitHub</a></span>
+</div></footer>
+<script src="../demo.js"></script>
+</body>
+</html>

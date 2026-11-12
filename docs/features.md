@@ -148,8 +148,8 @@ Details (in Portuguese for now): [terminais-de-agente.md](terminais-de-agente.md
 - Panels as rounded islands over a darker background, with thin pill scrollbars that fade when the mouse is away;
   `[ui] style = "classic"` keeps everything on one background, split by lines. The palette, menus and dialogs slide
   in softly; `[ui] animations = false` turns that off.
-- Interface in English, Portuguese and Spanish (`[ui] language`, or the system's). French, German, Italian,
-  Japanese and Simplified Chinese translate the mascot; the rest of the interface falls back to English.
+- Interface in Portuguese, English, Spanish, French, German, Italian, Japanese and Simplified Chinese
+  (`[ui] language`, or the system's). It takes effect after restarting the IDE.
 
 ## Not losing work
 

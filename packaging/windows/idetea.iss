@@ -35,17 +35,37 @@ OutputBaseFilename=IDE_TEA-{#AppVersion}-x86_64-setup
 Name: "ptbr"; MessagesFile: "compiler:Languages\BrazilianPortuguese.isl"
 Name: "en"; MessagesFile: "compiler:Default.isl"
 Name: "es"; MessagesFile: "compiler:Languages\Spanish.isl"
+Name: "fr"; MessagesFile: "compiler:Languages\French.isl"
+Name: "de"; MessagesFile: "compiler:Languages\German.isl"
+Name: "it"; MessagesFile: "compiler:Languages\Italian.isl"
+Name: "ja"; MessagesFile: "compiler:Languages\Japanese.isl"
+Name: "zh"; MessagesFile: "compiler:Languages\ChineseSimplified.isl"
 
 [CustomMessages]
 ptbr.AddToPath=Adicionar ao PATH (permite rodar "idetea ." no terminal)
 en.AddToPath=Add to PATH (allows running "idetea ." from the terminal)
 es.AddToPath=Añadir al PATH (permite ejecutar "idetea ." en la terminal)
+fr.AddToPath=Ajouter au PATH (permet d'exécuter "idetea ." dans le terminal)
+de.AddToPath=Zum PATH hinzufügen (damit "idetea ." im Terminal läuft)
+it.AddToPath=Aggiungi al PATH (permette di eseguire "idetea ." nel terminale)
+ja.AddToPath=PATH に追加する（ターミナルで "idetea ." を実行できます）
+zh.AddToPath=添加到 PATH（即可在终端中运行 "idetea ."）
 ptbr.ContextMenu=Adicionar "Abrir com IDE TEA" ao menu de contexto do Windows Explorer
 en.ContextMenu=Add "Open with IDE TEA" to the Windows Explorer context menu
 es.ContextMenu=Añadir "Abrir con IDE TEA" al menú contextual del Explorador de Windows
+fr.ContextMenu=Ajouter « Ouvrir avec IDE TEA » au menu contextuel de l'Explorateur Windows
+de.ContextMenu="Mit IDE TEA öffnen" zum Kontextmenü des Windows-Explorers hinzufügen
+it.ContextMenu=Aggiungi "Apri con IDE TEA" al menu contestuale di Esplora file
+ja.ContextMenu=エクスプローラーのコンテキスト メニューに「IDE TEA で開く」を追加する
+zh.ContextMenu=在 Windows 资源管理器的右键菜单中添加“用 IDE TEA 打开”
 ptbr.OpenWithIdeTea=Abrir com IDE TEA
 en.OpenWithIdeTea=Open with IDE TEA
 es.OpenWithIdeTea=Abrir con IDE TEA
+fr.OpenWithIdeTea=Ouvrir avec IDE TEA
+de.OpenWithIdeTea=Mit IDE TEA öffnen
+it.OpenWithIdeTea=Apri con IDE TEA
+ja.OpenWithIdeTea=IDE TEA で開く
+zh.OpenWithIdeTea=用 IDE TEA 打开
 
 [Tasks]
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked

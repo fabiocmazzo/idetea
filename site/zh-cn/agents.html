@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>和智能体一起工作·IDE TEA</title>
+<meta name="description" content="一步一步：教会编程智能体在IDE里提问，批准它要的终端，并把工作交给助手智能体。">
+<link rel="alternate" hreflang="en" href="https://idetea.belabs.cloud/agents.html">
+<link rel="alternate" hreflang="pt-BR" href="https://idetea.belabs.cloud/pt-br/agents.html">
+<link rel="alternate" hreflang="es" href="https://idetea.belabs.cloud/es/agents.html">
+<link rel="alternate" hreflang="fr" href="https://idetea.belabs.cloud/fr/agents.html">
+<link rel="alternate" hreflang="de" href="https://idetea.belabs.cloud/de/agents.html">
+<link rel="alternate" hreflang="it" href="https://idetea.belabs.cloud/it/agents.html">
+<link rel="alternate" hreflang="ja" href="https://idetea.belabs.cloud/ja/agents.html">
+<link rel="alternate" hreflang="zh-CN" href="https://idetea.belabs.cloud/zh-cn/agents.html">
+<link rel="alternate" hreflang="x-default" href="https://idetea.belabs.cloud/agents.html">
+<link rel="icon" href="../img/idetea.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../style.css">
+</head>
+<body>
+<header class="top"><div class="wrap">
+  <a class="brand" href="./"><img src="../img/idetea.svg" alt="">IDE TEA</a>
+  <nav class="main">
+    <a href="./">首页</a>
+    <a href="start.html">入门</a>
+    <a href="agents.html" aria-current="page">和智能体一起工作</a>
+    <a href="features.html">功能</a>
+    <a href="https://github.com/fabiocmazzo/idetea">GitHub</a>
+  </nav>
+  <nav class="lang" aria-label="语言"><a href="../agents.html" hreflang="en">EN</a><a href="../pt-br/agents.html" hreflang="pt-BR">PT</a><a href="../es/agents.html" hreflang="es">ES</a><a href="../fr/agents.html" hreflang="fr">FR</a><a href="../de/agents.html" hreflang="de">DE</a><a href="../it/agents.html" hreflang="it">IT</a><a href="../ja/agents.html" hreflang="ja">JA</a><a href="agents.html" aria-current="true" hreflang="zh-CN">中文</a></nav>
+  <a class="btn primary small" href="https://github.com/fabiocmazzo/idetea/releases/latest">下载</a>
+</div></header>
+
+<main class="wrap narrow">
+<div class="page-head">
+  <h1>和智能体一起工作，一步一步来</h1>
+  <p>你的编程智能体继续在终端里跑。IDE TEA给它一条正经提问的路，并且保证没有你的话，什么都不会跑。</p>
+</div>
+
+<div class="toc"><strong>本页</strong>
+  <ol>
+    <li><a href="#before">开始之前</a></li>
+    <li><a href="#teach">教会这个项目的智能体</a></li>
+    <li><a href="#run">在IDE里运行你的智能体</a></li>
+    <li><a href="#answer">回答一个问题</a></li>
+    <li><a href="#approve">批准一个终端</a></li>
+    <li><a href="#allow">你信任的命令，不必再问</a></li>
+    <li><a href="#helpers">把工作交给助手智能体</a></li>
+    <li><a href="#commands"><code>idetea</code>命令</a></li>
+    <li><a href="#new">用智能体开始一个新项目</a></li>
+    <li><a href="#files">底下是怎么做的</a></li>
+  </ol>
+</div>
+
+<section id="before">
+  <h2>1. 开始之前</h2>
+  <ul>
+    <li>一个会读<code>AGENTS.md</code>或<code>CLAUDE.md</code>的编程智能体：Claude Code、Codex，以及其他。</li>
+    <li><code>PATH</code>上有<code>idetea</code>（<a href="start.html#install">安装脚本</a>会做这件事）。智能体找到<code>idetea</code>命令就用，找不到就自己写那些文件。</li>
+    <li>IDE TEA里打开着一个项目。</li>
+  </ul>
+</section>
+
+<section id="teach">
+  <h2>2. 教会这个项目的智能体</h2>
+  <ol class="steps">
+    <li>打开命令面板（<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>P</kbd>）。</li>
+    <li>运行<strong>界面: 教会本项目的智能体</strong>。</li>
+    <li>IDE把一小段说明写进你已经有的<code>AGENTS.md</code>和<code>CLAUDE.md</code>，每个文件的其余部分不动。两个都没有时，它会创建一份<code>AGENTS.md</code>，以及一份导入它的<code>CLAUDE.md</code>。跟项目一起提交，或只留在你自己这边：你选。</li>
+  </ol>
+  <div class="callout">这段说明带版本。更新的IDE有更新的说明时，面板会告诉你；再跑一次同一条命令。</div>
+</section>
+
+<section id="run">
+  <h2>3. 在IDE里运行你的智能体</h2>
+  <p>打开终端（<kbd>Ctrl</kbd>+<kbd>'</kbd>或<kbd>Ctrl</kbd>+<kbd>&#96;</kbd>），像在别的地方一样启动你的智能体：</p>
+<pre><code>claude        # 或codex，或你选的智能体</code></pre>
+  <p>照常说出你要什么。智能体需要你做决定时，它用面板，不用聊天。你也可以直接说：<em>“在IDE的面板里问我”</em>。</p>
+</section>
+
+<section id="answer">
+  <h2>4. 回答一个问题</h2>
+  <p>智能体提问时，<strong>界面</strong>会打开一张真正的表单，状态栏会说有一个新问题到了。</p>
+  <figure>
+    <img src="../img/panel-question.png" width="886" height="448" loading="lazy"
+      alt="右侧的界面显示“缓存后端”：一个问题，后端选成内存，一个“为它写测试”的复选框，评论框，以及确认 / 现在先不的按钮。智能体在下面的终端里等着。">
+    <figcaption>智能体在问用哪种缓存后端，并在下面的终端里等着。</figcaption>
+  </figure>
+  <ol class="steps">
+    <li>填表：选项、复选框、文本框。需要先做完某件事的按钮，会说出还缺什么。</li>
+    <li>可选：给智能体写一条评论（一句保留，或反问一句）。它会跟着你点的按钮一起走。</li>
+    <li>点一个按钮。回答回到智能体那里，它接着做。</li>
+  </ol>
+  <p>每一个问题和你的回答都会留下。打开<strong>界面历史</strong>（命令面板，或面板顶部的<em>历史</em>链接），先看到还开着的问题，再按天看到已回答的，可以搜索。一条记录以只读方式打开，就是你当时回答的样子，并写着智能体何时读到它。</p>
+  <p>智能体也可以给你看图像、用来挑选的图库、动画精灵、带波形的声音、要编辑的文件（提交消息、PR说明），以及手工测试的步骤列表。批准按钮会等到你做完这些步骤。<strong>选择文本</strong>在界面顶部，用来复制它的文本。</p>
+</section>
+
+<section id="approve">
+  <h2>5. 批准一个终端</h2>
+  <p>要跑一件你该看着的事（测试、开发服务器、另一个智能体）时，智能体向IDE要一个终端。<strong>终端请求</strong>选项卡会把将要运行的内容、以及在哪里运行，原样显示出来。</p>
+  <figure>
+    <img src="../img/terminal-request.png" width="886" height="448" loading="lazy"
+      alt="底部面板里的“终端请求”选项卡：“智能体请求终端：测试”，命令“cargo test”，文件夹，一条它会用你的权限运行的警告，以及“允许并运行”和“拒绝”按钮。">
+    <figcaption>在你点<strong>允许并运行</strong>之前，什么都不会跑。</figcaption>
+  </figure>
+  <ol class="steps">
+    <li>读这条命令。它会原样运行，用你的权限，就跟你自己敲进去一样。</li>
+    <li>点<strong>允许并运行</strong>，或<strong>拒绝</strong>。智能体知道你选了哪一个。</li>
+    <li>命令在自己的选项卡里跑。结束后，选项卡留着输出和退出码，直到你按<kbd>Enter</kbd>；智能体拿到这个码（如果命令写了一份回答，也拿到那份文件）。</li>
+  </ol>
+  <figure>
+    <img src="../img/terminal-tests.png" width="886" height="448" loading="lazy"
+      alt="智能体的终端选项卡显示cargo test的输出，3个测试通过，以及“已结束，代码0。按Enter关闭选项卡。”">
+    <figcaption>测试通过了；智能体拿到了代码0。</figcaption>
+  </figure>
+  <p>结束之前关掉选项卡，命令会停，智能体也会被告知。</p>
+</section>
+
+<section id="allow">
+  <h2>6. 你信任的命令，不必再问</h2>
+  <p>把它们写进<strong>你的</strong>配置，<code>~/.config/idetea/config.toml</code>：</p>
+<pre><code>[agents]
+allow = ["npm run dev", "cargo test", "claude *"]</code></pre>
+  <p>一条要么是整条命令，要么是开头再跟一个<code>*</code>：那个开头加上普通参数，不能有<code>;</code> <code>&amp;</code> <code>|</code> <code>$</code>、反引号或重定向。</p>
+  <div class="callout warn">这份列表只从你自己的配置读取。写在项目的<code>.idetea/config.toml</code>里会被忽略（并给出警告）：智能体可以写项目文件，项目绝不能给自己授权。</div>
+</section>
+
+<section id="helpers">
+  <h2>7. 把工作交给助手智能体</h2>
+  <p>你的智能体可以再启动一个，做一次审阅或旁边的修复，在它自己的git工作树里，这样两个不会改同一批文件：</p>
+<pre><code>idetea run --title "Reviewer" --worktree agent/review -- \
+  claude -p 'Review the last commit. Write your findings to the file in $IDETEA_ANSWER.'</code></pre>
+  <ol class="steps">
+    <li>像第5步那样批准这份请求。选项卡会显示它要用的分支。</li>
+    <li>IDE在该分支上创建<code>.idetea/worktrees/&lt;name&gt;</code>，并在那里运行助手。</li>
+    <li>助手把回答写到<code>$IDETEA_ANSWER</code>；你的主智能体读它，再按平时的办法从那个分支把代码带回来（经过你的测试和批准）。</li>
+    <li>做完之后，如果工作树里没有未提交的内容，工作树会被移除。分支始终保留。</li>
+  </ol>
+</section>
+
+<section id="commands">
+  <h2>8. <code>idetea</code>命令</h2>
+  <p><code>idetea</code>在<code>PATH</code>上时，智能体用这些命令。每一条都用一次调用走完整个来回。你也可以在IDE终端里自己试。</p>
+  <div class="table-scroll"><table>
+    <tr><th>命令</th><th>它做什么</th></tr>
+    <tr><td><code>idetea ask --text "Deploy now?" --confirm</code></td>
+      <td>在面板里显示一个问题并等待（默认10分钟）。短形式：<code>--options "a|b|c"</code>、<code>--confirm</code>、<code>--input "Name"</code>；或从一份JSON文件给出完整表单。打印回答。</td></tr>
+    <tr><td><code>idetea run --title "Tests" -- cargo test</code></td>
+      <td>要一个终端，等到结束，打印助手的回答，并以命令的退出码退出（你拒绝时是5）。</td></tr>
+    <tr><td><code>idetea status</code></td>
+      <td>你打开了什么：带光标的当前文件、打开的文件，以及哪些有未保存的更改（也可以<code>--json</code>）。</td></tr>
+    <tr><td><code>idetea open src/main.rs:42</code></td>
+      <td>在IDE里给你看一个文件，停在那一行，什么都不问。</td></tr>
+    <tr><td><code>idetea history</code></td>
+      <td>你在面板里回答过什么，从旧到新（<code>--name</code>、<code>--since</code>、<code>--last N</code>、<code>--all</code>、<code>--json</code>）。丢了上下文的智能体用得上。</td></tr>
+    <tr><td><code>idetea mascot working --text "Compiling…"</code></td>
+      <td>实时设置会反应的吉祥物的心情和对话气泡（<code>idle</code>、<code>working</code>、<code>thinking</code>、<code>attention</code>、<code>celebrating</code>、<code>error</code>、<code>sleeping</code>、<code>curious</code>、<code>annoyed</code>，或<code>clear</code>）。</td></tr>
+  </table></div>
+  <p>单独运行其中任何一条，就能看到全部选项。</p>
+</section>
+
+<section id="new">
+  <h2>9. 用智能体开始一个新项目</h2>
+  <p>命令面板里的<strong>项目: 新建…</strong>（或<code>idetea new</code>）会创建文件夹、运行<code>git init</code>、安装模板的智能体技能（空项目、Rust、网站、Python、FastAPI）、把初始请求写进<code>AGENTS.md</code>，并可以在IDE终端里打开你的智能体，等你批准：</p>
+<pre><code>idetea new my-app --modelo rust --descricao "a unit converter" --agente claude</code></pre>
+</section>
+
+<section id="files">
+  <h2>10. 底下是怎么做的</h2>
+  <p>全部都是项目<code>.idetea/</code>文件夹里的普通文件。下面这些不进git：</p>
+  <ul>
+    <li><code>.idetea/ui/&lt;name&gt;.json</code>：一个问题；你的回答落到<code>.idetea/ui/responses/</code>。</li>
+    <li><code>.idetea/agents/&lt;name&gt;.json</code>：一份终端请求；进度在<code>&lt;name&gt;.status.json</code>。</li>
+    <li><code>.idetea/state.json</code>：你打开了什么，给<code>idetea status</code>用。</li>
+    <li><code>.idetea/mascot.json</code>：通过<code>idetea mascot</code>送来的可选状态和对话气泡。</li>
+    <li><code>.idetea/history/</code>：每一个问题和回答，直到你清空。</li>
+  </ul>
+  <p>所以任何能读写文件的智能体都能用，每一条消息你自己也读得懂。完整格式（暂时为葡萄牙语）：<a href="https://github.com/fabiocmazzo/idetea/blob/main/docs/interfaces/formato.md">界面的格式</a>和<a href="https://github.com/fabiocmazzo/idetea/blob/main/docs/terminais-de-agente.md">智能体终端</a>。</p>
+  <div class="next">
+    <a class="btn" href="start.html">← 入门</a>
+    <a class="btn primary" href="features.html">全部功能 →</a>
+  </div>
+</section>
+</main>
+
+<footer><div class="wrap">
+  <span>IDE TEA·Apache 2.0·用<a href="https://github.com/iced-rs/iced">iced</a>写成</span>
+  <span><a href="https://github.com/fabiocmazzo/idetea/issues">报告缺陷</a>·<a href="https://github.com/fabiocmazzo/idetea">GitHub</a></span>
+</div></footer>
+</body>
+</html>

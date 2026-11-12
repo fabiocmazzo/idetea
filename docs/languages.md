@@ -1,5 +1,7 @@
 # Languages
 
+[Français](languages.fr.md) · [Deutsch](languages.de.md) · [Italiano](languages.it.md) · [日本語](languages.ja.md) · [中文](languages.zh-CN.md)
+
 What IDE TEA does for each language, and what it does not. The IDE integrates tools you install yourself
 (compiler, language server, debugger); it never downloads them. Without them, files still open with colors
 and editing works; only the parts that need the tool are missing, and the IDE says what to install.

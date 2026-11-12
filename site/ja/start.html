@@ -1,0 +1,203 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>はじめに · IDE TEA</title>
+<meta name="description" content="IDE TEA をインストールし、プロジェクトを開き、どこへでも行くいくつかのショートカットを覚えます。">
+<link rel="alternate" hreflang="en" href="https://idetea.belabs.cloud/start.html">
+<link rel="alternate" hreflang="pt-BR" href="https://idetea.belabs.cloud/pt-br/start.html">
+<link rel="alternate" hreflang="es" href="https://idetea.belabs.cloud/es/start.html">
+<link rel="alternate" hreflang="fr" href="https://idetea.belabs.cloud/fr/start.html">
+<link rel="alternate" hreflang="de" href="https://idetea.belabs.cloud/de/start.html">
+<link rel="alternate" hreflang="it" href="https://idetea.belabs.cloud/it/start.html">
+<link rel="alternate" hreflang="ja" href="https://idetea.belabs.cloud/ja/start.html">
+<link rel="alternate" hreflang="zh-CN" href="https://idetea.belabs.cloud/zh-cn/start.html">
+<link rel="alternate" hreflang="x-default" href="https://idetea.belabs.cloud/start.html">
+<link rel="icon" href="../img/idetea.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../style.css">
+</head>
+<body>
+<header class="top"><div class="wrap">
+  <a class="brand" href="./"><img src="../img/idetea.svg" alt="">IDE TEA</a>
+  <nav class="main">
+    <a href="./">ホーム</a>
+    <a href="start.html" aria-current="page">はじめに</a>
+    <a href="agents.html">エージェントと働く</a>
+    <a href="features.html">機能</a>
+    <a href="https://github.com/fabiocmazzo/idetea">GitHub</a>
+  </nav>
+  <nav class="lang" aria-label="言語"><a href="../start.html" hreflang="en">EN</a><a href="../pt-br/start.html" hreflang="pt-BR">PT</a><a href="../es/start.html" hreflang="es">ES</a><a href="../fr/start.html" hreflang="fr">FR</a><a href="../de/start.html" hreflang="de">DE</a><a href="../it/start.html" hreflang="it">IT</a><a href="start.html" aria-current="true">JA</a><a href="../zh-cn/start.html" hreflang="zh-CN">中文</a></nav>
+  <a class="btn primary small" href="https://github.com/fabiocmazzo/idetea/releases/latest">ダウンロード</a>
+</div></header>
+
+<main class="wrap narrow">
+<div class="page-head">
+  <h1>はじめに</h1>
+  <p>ダウンロードから、使いやすい状態まで、およそ 10 分です。</p>
+</div>
+
+<div class="toc"><strong>このページ</strong>
+  <ol>
+    <li><a href="#install">インストール</a></li>
+    <li><a href="#open">プロジェクトを開く</a></li>
+    <li><a href="#find">何でも見つける: 3 つのショートカット</a></li>
+    <li><a href="#languages">言語サーバー</a></li>
+    <li><a href="#terminal">ターミナルとタスク</a></li>
+    <li><a href="#git">Git</a></li>
+    <li><a href="#settings">設定</a></li>
+    <li><a href="#shortcuts">主なショートカット</a></li>
+  </ol>
+</div>
+
+<section id="install">
+  <h2>1. インストール</h2>
+  <ol class="steps">
+    <li>プラットフォーム用のパッケージをダウンロードします (Linux x86_64/aarch64 は <code>.tar.gz</code> または <code>.AppImage</code>、
+      macOS aarch64 は <code>IDE TEA.app</code> 入りの <code>.tar.gz</code>、Windows x86_64 は <code>-setup.exe</code> インストーラーまたは
+      ポータブルな <code>.zip</code>)。入手先は
+      <a href="https://github.com/fabiocmazzo/idetea/releases/latest">最新リリース</a>です。
+      <code>SHA256SUMS</code> にチェックサムがあります。</li>
+    <li>Linux では、展開してインストーラーを実行します。<code>idetea</code> を <code>~/.local/bin</code> に置き、IDE TEA を
+      アプリ メニューに追加します。
+<pre><code>tar -xzf idetea-*-linux.tar.gz
+cd idetea-*-linux
+./install.sh</code></pre></li>
+    <li>インストーラーが、<code>~/.local/bin</code> は <code>PATH</code> にないと言うときは、追加します (例は
+      <code>~/.profile</code>)。ターミナルから <code>idetea</code> を実行でき、エージェントも実行できます。</li>
+  </ol>
+  <p>Linux で 1 ファイルがよいときは、AppImage をそのまま実行します。<code>chmod +x IDE_TEA-*.AppImage</code> して開きます。
+    <code>--install-desktop</code> でメニューに追加します。macOS では、<code>idetea --install-desktop</code> が
+    <code>~/Applications/IDE TEA.app</code> を作ります。ソースからのビルドは 1 コマンドです。
+    <code>cargo install --locked --git https://github.com/fabiocmazzo/idetea tea-app</code>。</p>
+  <p class="note">Windows の無料コード署名は <a href="https://signpath.io">SignPath.io</a> が提供し、証明書は
+    <a href="https://signpath.org">SignPath Foundation</a> です (<a href="https://github.com/fabiocmazzo/idetea/blob/main/CODE_SIGNING_POLICY.md">コード署名とプライバシーの方針</a>)。</p>
+  <div class="callout">任意のもの: git パネル用の <code>git</code>、デバッグ用の <code>gdb</code> 14 以降 (macOS では <code>lldb-dap</code>)、
+    使う言語サーバー (次の手順)。</div>
+</section>
+
+<section id="open">
+  <h2>2. プロジェクトを開く</h2>
+  <p>プロジェクトは、ただのフォルダーです。ターミナルから:</p>
+<pre><code>idetea                # 現在のフォルダー
+idetea ~/code/my-app  # 別のフォルダー
+idetea src/main.rs    # 現在のフォルダー。このファイルを開いた状態</code></pre>
+  <p>IDE は、すぐにプロンプトを返します。アプリ メニューからは、最後のプロジェクトを開き直します。タブ、アクティブな
+    ファイル、開いていたパネルは、離れたときの状態で戻ります。</p>
+  <p>配置: 左がファイル ツリー、中央がエディター、右がパネル (アウトライン、プレビュー、
+    インターフェース)、下がパネル (ターミナル、検索、問題、git) です。エディターの上のパンくずリストは、ファイルのパスと、
+    カーソルがあるシンボルを示します。左端のアイコン バーで
+    各パネルの表示と非表示を切り替えます。境界をドラッグしてサイズを変えます。</p>
+</section>
+
+<section id="find">
+  <h2>3. 何でも見つける: 3 つのショートカット</h2>
+  <ol class="steps">
+    <li><kbd>Ctrl</kbd>+<kbd>P</kbd> は、名前でファイルを開きます。名前の一部を入力します。<code>main.rs:42</code> はその
+      行へ移動します。</li>
+    <li><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>P</kbd> はコマンド パレットです。すべてのコマンドと、その横のショートカットです。
+      1 つだけ覚えるなら、これです。</li>
+    <li><kbd>F1</kbd> は、今のすべてのショートカットと、短いガイドを出します。</li>
+  </ol>
+  <p>プロジェクト全体の検索は <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>F</kbd> です (入力に合わせて、<code>.gitignore</code> を尊重し、
+    正規表現と置換があります)。</p>
+</section>
+
+<section id="languages">
+  <h2>4. 言語サーバー</h2>
+  <p>エラー、補完、ホバー、定義へ移動 (<kbd>F12</kbd>)、参照 (<kbd>Shift</kbd>+<kbd>F12</kbd>)、
+    アウトラインは、言語サーバーから来ます。これらは設定済みです。必要なものをインストールすると、自分で起動します。</p>
+  <div class="table-scroll"><table>
+    <tr><th>言語</th><th>サーバー</th></tr>
+    <tr><td>Rust</td><td><code>rust-analyzer</code></td></tr>
+    <tr><td>C, C++</td><td><code>clangd</code></td></tr>
+    <tr><td>Python</td><td><code>pyright</code></td></tr>
+    <tr><td>TypeScript, JavaScript</td><td><code>typescript-language-server</code></td></tr>
+    <tr><td>Go</td><td><code>gopls</code></td></tr>
+    <tr><td>Lua</td><td><code>lua-language-server</code></td></tr>
+    <tr><td>Zig</td><td><code>zls</code></td></tr>
+    <tr><td>Ziex</td><td><code>zx lsp</code></td></tr>
+    <tr><td>Hare</td><td><code>hare-lsp -S</code></td></tr>
+    <tr><td>MoonBit</td><td><code>moon lsp</code></td></tr>
+  </table></div>
+  <p>Hare と MoonBit は IDE に同梱です (構文、タスク、サーバーの既定コマンド)。他は設定で追加できます (<code>[lsp]</code> セクション)。言語ごとの詳細は <a href="https://github.com/fabiocmazzo/idetea/blob/main/docs/languages.ja.md">languages.ja.md</a> です。</p>
+</section>
+
+<section id="terminal">
+  <h2>5. ターミナルとタスク</h2>
+  <ul>
+    <li><kbd>Ctrl</kbd>+<kbd>'</kbd> または <kbd>Ctrl</kbd>+<kbd>&#96;</kbd> でターミナルにフォーカスします。<code>+</code> はタブにもう 1 つのシェルを追加し、
+      <code>exit</code> で閉じます。入力中も、IDE の <kbd>Ctrl</kbd>+<kbd>Shift</kbd> ショートカットは動いたままです。</li>
+    <li><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>B</kbd> はタスクを実行します。IDE がプロジェクトから見つけるもの (cargo、
+      <code>package.json</code> のスクリプト、Makefile のターゲット) に加え、設定の自分のタスクです。
+<pre><code># プロジェクトの .idetea/config.toml
+[tasks]
+"server" = "cargo run -- --port 8080"</code></pre></li>
+  </ul>
+</section>
+
+<section id="git">
+  <h2>6. Git</h2>
+  <p><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>G</kbd> は git パネルを開きます。ステージとステージの解除、色付き差分、コミット、破棄
+    (確認付き)、プッシュ、プル、フェッチです。インストール済みの <code>git</code> を使うので、設定、フック、ssh エージェント、
+    資格情報ヘルパーが適用されます。ブランチと変更の件数は、ステータス バーにあります。</p>
+</section>
+
+<section id="settings">
+  <h2>7. 設定</h2>
+  <p><kbd>Ctrl</kbd>+<kbd>,</kbd> は設定画面を開きます。外観、拡張機能、ショートカット (使いたいキーを押す)、
+    言語サーバーです。すべてはプレーンな TOML にもあります。</p>
+  <ul>
+    <li>利用者用は <code>~/.config/idetea/config.toml</code>。</li>
+    <li>プロジェクト用は、そのプロジェクトの <code>.idetea/config.toml</code> (利用者の設定より優先します)。</li>
+  </ul>
+<pre><code>[ui]
+theme = "dark"          # "light"、または "Nord" や "Dracula" などの iced のテーマ
+font_size = 14
+language = "auto"       # "en", "pt-BR", "es", "fr", "de", "it", "ja", "zh-CN"
+
+[editor]
+wrap = true
+format_on_save = false
+breadcrumbs = true
+font = "JetBrains Mono"  # インストール済みのフォント、または "monospace"
+line_height = 1.45
+
+[keys]
+"ctrl+shift+p" = "palette.open"</code></pre>
+</section>
+
+<section id="shortcuts">
+  <h2>8. 主なショートカット</h2>
+  <div class="table-scroll"><table>
+    <tr><th>ショートカット</th><th>内容</th></tr>
+    <tr><td><kbd>Ctrl</kbd>+<kbd>P</kbd></td><td>名前でファイルを開く</td></tr>
+    <tr><td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>P</kbd></td><td>コマンド パレット</td></tr>
+    <tr><td><kbd>F1</kbd></td><td>すべてのショートカットとガイド</td></tr>
+    <tr><td><kbd>Ctrl</kbd>+<kbd>,</kbd></td><td>設定</td></tr>
+    <tr><td><kbd>Ctrl</kbd>+<kbd>B</kbd></td><td>ファイル ツリーの表示または非表示</td></tr>
+    <tr><td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>F</kbd></td><td>プロジェクト内を検索</td></tr>
+    <tr><td><kbd>Ctrl</kbd>+<kbd>'</kbd> / <kbd>Ctrl</kbd>+<kbd>&#96;</kbd></td><td>ターミナル</td></tr>
+    <tr><td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>T</kbd></td><td>最後に閉じたタブを開き直す</td></tr>
+    <tr><td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>B</kbd></td><td>タスクを実行</td></tr>
+    <tr><td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>G</kbd></td><td>Git</td></tr>
+    <tr><td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>M</kbd> / <kbd>F8</kbd></td><td>問題 / 次の問題</td></tr>
+    <tr><td><kbd>F12</kbd> / <kbd>Shift</kbd>+<kbd>F12</kbd></td><td>定義へ移動 / 参照を検索</td></tr>
+    <tr><td><kbd>Alt</kbd>+<kbd>←</kbd> / <kbd>Alt</kbd>+<kbd>→</kbd></td><td>ジャンプのあと、戻る / 進む</td></tr>
+    <tr><td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>V</kbd></td><td>Markdown または SVG のプレビュー</td></tr>
+    <tr><td><kbd>F5</kbd> / <kbd>F9</kbd></td><td>デバッグ / ブレークポイントの切り替え</td></tr>
+  </table></div>
+  <div class="next">
+    <a class="btn" href="./">← ホーム</a>
+    <a class="btn primary" href="agents.html">次: エージェントと働く →</a>
+  </div>
+</section>
+</main>
+
+<footer><div class="wrap">
+  <span>IDE TEA · Apache 2.0 · <a href="https://github.com/iced-rs/iced">iced</a> で作成</span>
+  <span><a href="https://github.com/fabiocmazzo/idetea/issues">バグを報告</a> ·
+    <a href="https://github.com/fabiocmazzo/idetea">GitHub</a></span>
+</div></footer>
+</body>
+</html>

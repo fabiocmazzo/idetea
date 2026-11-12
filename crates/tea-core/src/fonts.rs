@@ -20,10 +20,9 @@ pub const EMBEDDED: [&[u8]; 2] = [
 ];
 
 /// Recorte da Droid Sans Fallback (Apache-2.0, aviso em `assets/fonts/DroidSansFallback-Subset.NOTICE`)
-/// com os glifos das falas em japonês e chinês simplificado. O iced desenha o balão com a fonte da
-/// interface e, quando falta um glifo, usa outra fonte já carregada. Cerca de 85 KB: o bastante para
-/// o texto que vem no programa, sem embutir um CJK inteiro. Um nome de arquivo em japonês, se o
-/// sistema não tiver fonte CJK, pode sair em branco — o sistema cobre isso quando a fonte está instalada.
+/// com os glifos de todo o texto em japonês e chinês simplificado da interface. O iced usa primeiro
+/// a fonte do sistema (e a da interface); este recorte só entra quando falta um glifo. Um nome de
+/// arquivo fora deste conjunto ainda precisa de uma fonte CJK do sistema. Cerca de 172 KB.
 pub const CJK_SUBSET: &[u8] = include_bytes!("../assets/fonts/DroidSansFallback-Subset.ttf");
 
 /// Põe a fonte embutida (e a dos ícones de arquivo) no motor de texto do iced. Tem que vir antes de abrir qualquer editor: o widget
@@ -185,28 +184,55 @@ mod tests {
             assert!(bytes.len() > 100_000);
             assert_eq!(&bytes[..4], &[0, 1, 0, 0], "TrueType");
         }
-        assert!(CJK_SUBSET.len() > 10_000 && CJK_SUBSET.len() < 200_000, "{}", CJK_SUBSET.len());
+        assert!(CJK_SUBSET.len() > 10_000 && CJK_SUBSET.len() < 1_500_000, "{}", CJK_SUBSET.len());
         assert_eq!(&CJK_SUBSET[..4], &[0, 1, 0, 0], "TrueType");
     }
 
     #[test]
-    fn cjk_subset_covers_mascot_copy() {
+    fn cjk_subset_covers_ui_copy() {
         let face = ttf_parser::Face::parse(CJK_SUBSET, 0).expect("fonte");
-        let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../tea-app/i18n");
-        for lang in ["ja", "zh-CN"] {
-            let text = std::fs::read_to_string(root.join(lang).join("tea-app.ftl")).unwrap();
+        let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("..");
+        for path in walk_ftl(&root) {
+            let lang = path.parent().and_then(|p| p.file_name()).and_then(|n| n.to_str()).unwrap_or("");
+            if lang != "ja" && lang != "zh-CN" {
+                continue;
+            }
+            let text = std::fs::read_to_string(&path).unwrap();
             for ch in text.chars().filter(|c| needs_cjk_fallback(*c)) {
-                assert!(face.glyph_index(ch).is_some(), "{lang} sem glifo para {ch} U+{:04X}", ch as u32);
+                assert!(
+                    face.glyph_index(ch).is_some(),
+                    "{} sem glifo para {ch} U+{:04X}",
+                    path.display(),
+                    ch as u32
+                );
             }
         }
-        for ch in "日本語中文简体".chars() {
-            assert!(face.glyph_index(ch).is_some(), "nome do idioma sem {ch}");
+        for ch in "日本語中文（简体）、。！？「」『』".chars() {
+            assert!(face.glyph_index(ch).is_some(), "pontuação ou nome sem {ch}");
         }
+    }
+
+    fn walk_ftl(dir: &std::path::Path) -> Vec<std::path::PathBuf> {
+        let mut out = Vec::new();
+        let Ok(entries) = std::fs::read_dir(dir) else { return out };
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.is_dir() {
+                out.extend(walk_ftl(&path));
+            } else if path.extension().and_then(|e| e.to_str()) == Some("ftl") {
+                out.push(path);
+            }
+        }
+        out
     }
 
     fn needs_cjk_fallback(ch: char) -> bool {
         let u = ch as u32;
-        (0x3040..=0x30FF).contains(&u) || (0x3400..=0x9FFF).contains(&u) || (0xFF00..=0xFFEF).contains(&u)
+        (0x3000..=0x303F).contains(&u)
+            || (0x3040..=0x30FF).contains(&u)
+            || (0x31F0..=0x31FF).contains(&u)
+            || (0x3400..=0x9FFF).contains(&u)
+            || (0xFF00..=0xFFEF).contains(&u)
     }
 
     #[test]

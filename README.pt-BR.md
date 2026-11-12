@@ -12,7 +12,9 @@
 </p>
 
 <p align="center">
-  <a href="README.md">English</a> · <b>Português</b> · <a href="README.es.md">Español</a><br>
+  <a href="README.md">English</a> · <b>Português</b> · <a href="README.es.md">Español</a> ·
+  <a href="README.fr.md">Français</a> · <a href="README.de.md">Deutsch</a> · <a href="README.it.md">Italiano</a> ·
+  <a href="README.ja.md">日本語</a> · <a href="README.zh-CN.md">中文（简体）</a><br>
   <a href="https://idetea.belabs.cloud/pt-br/"><b>Site e guias</b></a>
   · <a href="https://github.com/fabiocmazzo/idetea">GitHub</a>
 </p>
@@ -84,8 +86,8 @@ idetea --install-desktop   # opcional: entrada no menu de aplicativos e ícone
 ```
 
 Opcionais: `git` para a integração com git, `gdb` 14+ (ou `lldb-dap` no macOS) para o debug, e os servidores de
-linguagem que você usa (rust-analyzer, clangd, pyright, typescript-language-server, gopls e lua-language-server já
-vêm configurados).
+linguagem que você usa (rust-analyzer, clangd, pyright, typescript-language-server, gopls, lua-language-server,
+zls, `zx lsp`, `hare-lsp` para Hare e `moon lsp` para MoonBit já vêm configurados).
 
 ## Assinatura de código e privacidade
 
@@ -117,8 +119,9 @@ JetBrains e Helix. Foi escrito por volta da 0.4.0. O que continua sendo o produt
 
 A xícara no canto tem várias falas para cada humor. Ela nota um arquivo salvo, uma pausa longa, a hora do dia e
 o build do depurador, e de vez em quando cita um atalho que existe de verdade. `[mascot] chatty` é `quiet`,
-`normal` ou `chatty`; `[mascot] tips` liga ou desliga as dicas. Ela fala português, inglês, espanhol, francês,
-alemão, italiano, japonês e chinês simplificado. Não rouba o foco.
+`normal` ou `chatty`; `[mascot] tips` liga ou desliga as dicas. A interface inteira, inclusive o Tea, está em
+português, inglês, espanhol, francês, alemão, italiano, japonês e chinês simplificado (`[ui] language`, ou o
+idioma do sistema). Não rouba o foco.
 - Não tem autocomplete fantasma, de propósito. Se você quer completar com Tab ou diff inline, o texto aponta para
   Cursor, Windsurf ou Zed.
 - Code actions, inlay hints e a cobertura do depurador ficam atrás do VS Code e do JetBrains.

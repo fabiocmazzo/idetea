@@ -5,7 +5,7 @@ name: Site
 on:
   push:
     branches: [main]
-    paths: ["site/**", "docs/features.md", "assets/**", ".github/workflows/site.yml"]
+    paths: ["site/**", "docs/features.md", "docs/features.*.md", "assets/**", ".github/workflows/site.yml"]
   workflow_dispatch:
 
 permissions:

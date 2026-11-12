@@ -1,15 +1,17 @@
 Droid Sans Fallback subset
 Copyright 2006–2010 Google Corp. Droid is a trademark of Google Corp.
 
-This file is a subset of Droid Sans Fallback, kept so the Tea mascot can draw
-Japanese and Simplified Chinese when the operating system has no CJK font.
-The UI font is used first; this face only supplies glyphs the UI font lacks.
-It is not a general-purpose CJK font: a file name outside this character set
-still needs a system font.
+This file is a subset of Droid Sans Fallback. The IDE loads system fonts first.
+This face only supplies glyphs the UI font and the system fonts lack, so Japanese
+and Simplified Chinese still draw when the machine has no CJK font. It covers the
+characters in every ja and zh-CN Fluent file, plus the language names and common
+CJK punctuation. A file name outside this set still needs a system font.
+
+The full face is about 3.9 MB. This subset is 175984 bytes (about 172 KB),
+generated with fontTools (`tools/fonts/subset_cjk.py`).
 
 Licensed under the Apache License, Version 2.0. You may obtain a copy at
 http://www.apache.org/licenses/LICENSE-2.0
 
 Source: https://android.googlesource.com/platform/frameworks/base/
-Subset generated with fontTools pyftsubset from the characters in
-crates/tea-app/i18n/{ja,zh-CN}/tea-app.ftl plus the language names 日本語 and 中文（简体）.
+(on Debian/Ubuntu: fonts-droid-fallback, DroidSansFallbackFull.ttf)

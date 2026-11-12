@@ -4743,7 +4743,7 @@ mod tests {
 
     #[test]
     fn translations_are_complete() {
-        // Todos os crates com textos: inglês e espanhol têm as mesmas mensagens e valores que o português.
+        // Todos os crates com textos: cada idioma tem as mesmas mensagens e valores que o inglês.
         let workspace = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
         let mut dirs: Vec<PathBuf> = std::fs::read_dir(workspace.join("crates")).unwrap().flatten().map(|e| e.path()).collect();
         dirs.extend(std::fs::read_dir(workspace.join("crates/ext")).unwrap().flatten().map(|e| e.path()));
@@ -4768,12 +4768,21 @@ mod tests {
         assert_eq!(es.get_args_concrete("settings-language-auto", args), "Automático (English)");
         // Testes sem `init`: português, os textos de hoje.
         assert_eq!(fl!("settings-theme-detail"), "Cores da IDE, do editor e do terminal.");
-        for lang in [Language::French, Language::German, Language::Italian, Language::Japanese, Language::ChineseSimplified] {
+        let themes = [
+            (Language::French, "Thème"),
+            (Language::German, "Design"),
+            (Language::Italian, "Tema"),
+            (Language::Japanese, "テーマ"),
+            (Language::ChineseSimplified, "主题"),
+        ];
+        for (lang, theme) in themes {
             let loader = load_in("tea-app", &Localizations, lang);
-            assert_eq!(loader.get("settings-theme"), "Theme", "{lang:?} cai no inglês");
+            assert_eq!(loader.get("settings-theme"), theme, "{lang:?}");
             assert_ne!(loader.get("mascot-state-idle"), en.get("mascot-state-idle"), "{lang:?}");
             let line = loader.get("mascot-idle-1");
             assert!(!line.contains("No localization") && !line.is_empty(), "{lang:?}: {line}");
+            let detail = loader.get("settings-language-detail");
+            assert!(!detail.is_empty() && !detail.contains("falls back"), "{lang:?}: {detail}");
         }
     }
 

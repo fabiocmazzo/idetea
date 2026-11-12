@@ -1,0 +1,15 @@
+plugin-failed = Plugin { $name } ausgeschaltet: { $error }
+plugin-off = Plugin ausgeschaltet: { $error }
+plugin-bad-panel = Der Plugin-Bereich ist ungültig: { $error }
+plugin-timeout = hat länger als { $ms } ms gedauert
+plugin-bad-id = ungültige ID "{ $id }" (Kleinbuchstaben, Ziffern, _ und -)
+plugin-id-folder = die ID "{ $id }" muss der Ordnername sein ({ $folder })
+plugin-id-taken = die ID "{ $id }" wird bereits von der IDE verwendet
+plugin-api = für API { $found } erstellt; diese IDE hat { $expected }
+plugin-bad-wasm = das Feld wasm muss ein .wasm-Dateiname im selben Ordner sein ({ $wasm })
+plugin-command-prefix = Befehl { $id } ignoriert: er muss mit "{ $prefix }." beginnen
+plugin-run-cwd = Ordner { $cwd } liegt außerhalb des Projekts
+plugin-run-start = { $program } konnte nicht ausgeführt werden: { $error }
+plugin-run-timeout = hat länger als { $ms } ms gedauert und wurde beendet
+plugin-run-busy = { $max } Programme dieses Plugins laufen bereits
+plugin-run-too-big = Anfrage zu groß (Programm, Argumente oder Eingabe)

@@ -1,0 +1,22 @@
+## デバッグ パネル
+debug-panel = デバッグ
+cmd-debug-focus = デバッグ: パネルを表示
+debug-idle = セッションがありません。F5 で開始します。
+debug-building = ビルド中…
+debug-running = 実行中
+debug-stopped = 停止 ({ $reason })
+debug-start = 開始
+debug-continue = 継続
+debug-pause = 一時停止
+debug-step-over = ステップ オーバー
+debug-step-into = ステップ イン
+debug-step-out = ステップ アウト
+debug-stop = 停止
+debug-call-stack = 呼び出しスタック
+debug-no-stack = スタックがありません。
+debug-only-stopped = プログラムが停止しているあいだだけです。
+debug-no-source = ソース コードがありません
+debug-variables = 変数
+debug-empty = (空)
+debug-nothing-yet = まだありません。
+debug-output = 出力
