@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>IDE TEA — Nur der Code. Eis darfst du selbst zugeben.</title>
+<meta name="description" content="Eine schnelle, stille IDE in reinem Rust, in der Coding-Agenten fragen, bevor sie handeln. Kein Konto, keine Telemetrie, kein Marketplace. Apache 2.0.">
+<meta property="og:title" content="IDE TEA">
+<meta property="og:description" content="Eine schnelle, stille IDE in reinem Rust, in der Coding-Agenten fragen, bevor sie handeln.">
+<meta property="og:image" content="https://idetea.belabs.cloud/img/demo-poster.png">
+<meta property="og:type" content="website">
+<link rel="alternate" hreflang="en" href="https://idetea.belabs.cloud/">
+<link rel="alternate" hreflang="pt-BR" href="https://idetea.belabs.cloud/pt-br/">
+<link rel="alternate" hreflang="es" href="https://idetea.belabs.cloud/es/">
+<link rel="alternate" hreflang="fr" href="https://idetea.belabs.cloud/fr/">
+<link rel="alternate" hreflang="de" href="https://idetea.belabs.cloud/de/">
+<link rel="alternate" hreflang="it" href="https://idetea.belabs.cloud/it/">
+<link rel="alternate" hreflang="ja" href="https://idetea.belabs.cloud/ja/">
+<link rel="alternate" hreflang="zh-CN" href="https://idetea.belabs.cloud/zh-cn/">
+<link rel="alternate" hreflang="x-default" href="https://idetea.belabs.cloud/">
+<link rel="icon" href="../img/idetea.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../style.css">
+</head>
+<body>
+<header class="top"><div class="wrap">
+  <a class="brand" href="./"><img src="../img/idetea.svg" alt="">IDE TEA</a>
+  <nav class="main">
+    <a href="./" aria-current="page">Start</a>
+    <a href="start.html">Erste Schritte</a>
+    <a href="agents.html">Mit Agenten arbeiten</a>
+    <a href="features.html">Funktionen</a>
+    <a href="https://github.com/fabiocmazzo/idetea">GitHub</a>
+  </nav>
+  <nav class="lang" aria-label="Sprache"><a href="../" hreflang="en">EN</a><a href="../pt-br/" hreflang="pt-BR">PT</a><a href="../es/" hreflang="es">ES</a><a href="../fr/" hreflang="fr">FR</a><a href="./" aria-current="true">DE</a><a href="../it/" hreflang="it">IT</a><a href="../ja/" hreflang="ja">JA</a><a href="../zh-cn/" hreflang="zh-CN">中文</a></nav>
+  <a class="btn primary small" href="https://github.com/fabiocmazzo/idetea/releases/latest">Herunterladen</a>
+</div></header>
+
+<main>
+<div class="wrap">
+  <div class="hero-grid">
+    <div class="hero-copy">
+      <p class="eyebrow">Frei · Apache 2.0 · reines Rust</p>
+      <h1>Nur der Code.<br><span class="ice">Eis darfst du selbst zugeben.</span></h1>
+      <p class="lead">Eine schnelle, stille IDE, in der Coding-Agenten fragen, bevor sie handeln. Sie bleiben im Editor. Der Agent bleibt im Terminal. Die Frage erscheint als Formular, und nichts läuft, bis Sie es sagen.</p>
+      <div class="actions">
+        <a class="btn primary" href="https://github.com/fabiocmazzo/idetea/releases/latest">Herunterladen</a>
+        <a class="btn" href="#demo">Demo ansehen</a>
+        <a class="btn" href="https://github.com/fabiocmazzo/idetea">Stern auf GitHub</a>
+      </div>
+      <p class="note">Linux (x86_64 und aarch64), macOS (Apple Silicon) und Windows (x86_64). Vor 1.0.</p>
+    </div>
+    <figure class="player" id="demo" data-demo>
+      <video poster="../img/demo-poster.png" width="1280" height="720" playsinline muted loop autoplay preload="metadata" controls>
+        <source src="../img/idetea-demo.mp4" type="video/mp4">
+      </video>
+      <button type="button" class="sound" data-play="Mit Ton abspielen" data-replay="Mit Ton wiederholen">Mit Ton abspielen</button>
+      <figcaption>52 Sekunden, auf Englisch erzählt, Untertitel eingebrannt. Die Vorschau läuft stumm in einer Schleife. Abspielen, um sie zu hören.</figcaption>
+    </figure>
+  </div>
+
+  <p class="who"><strong>Für wen sie ist.</strong> Für Menschen, die neben Claude Code, Codex oder jedem Agenten programmieren, der <code>AGENTS.md</code> und <code>CLAUDE.md</code> liest, und die wollen, dass der Editor schnell öffnet, vorhersehbar bleibt und das Netz in Ruhe lässt.</p>
+</div>
+
+<section><div class="wrap">
+  <h2>Was Sie bekommen</h2>
+  <div class="cards">
+    <article class="card"><p class="kicker">Schnell</p><h3>Öffnet und geht aus dem Weg</h3><p>Startet deutlich unter 200&nbsp;ms. Eine Datei von 50&nbsp;MB öffnet in einer Zehntelsekunde. Eine minifizierte Datei mit einer riesigen Zeile öffnet in einem Leichtmodus, statt das Fenster einzufrieren.</p></article>
+    <article class="card"><p class="kicker">Still</p><h3>Kein Konto, keine Telemetrie, kein Marketplace</h3><p>Keine Pop-ups über Funktionen, um die Sie nicht gebeten haben. Das Netz wird nur genutzt, wenn Sie es verlangen (Pushen, Pullen, Abrufen oder einen Skill, den Sie installieren). Die Einstellungen leben in einer schlichten TOML-Datei.</p></article>
+    <article class="card"><p class="kicker">Am Steuer</p><h3>Agenten fragen. Sie entscheiden.</h3><p>Fragen sind echte Formulare: Auswahl, Kontrollkästchen, Schritte, Bilder, Klänge. Eine Terminalanfrage zeigt den ganzen Befehl. Ein Projekt kann sich nicht selbst auf Ihre Zulassungsliste setzen.</p></article>
+    <article class="card"><p class="kicker">Editor</p><h3>Vollständig, wo es zählt</h3><p>Mehrfachcursor, optionaler Vim-Modus, Dateibaum, Projektsuche, LSP, git, ein integriertes Terminal, Debuggen mit gdb und Registerkarten für Markdown, SVG, Bilder und PDF.</p></article>
+    <article class="card"><p class="kicker">Klein</p><h3>Ein Kern, der nur Dateien bearbeitet</h3><p>Baum, Terminal, git und der Debugger sind Erweiterungen, die Sie abschalten können. Tea, das Maskottchen in Pixel-Art, achtet auf eine wartende Frage und geht aus dem Weg, wenn Sie es einklappen.</p></article>
+  </div>
+</div></section>
+
+<section><div class="wrap">
+  <h2>Dieselbe IDE, etwas näher</h2>
+  <div class="gallery">
+    <figure>
+      <img src="../img/panel-question.png" alt="Der Bereich Interfaces fragt, welches Cache-Backend genutzt werden soll, mit einem Kontrollkästchen für Tests, während der Agent im Terminal wartet.">
+      <figcaption>Eine Frage im Bereich Interfaces, nicht im Chat vergraben.</figcaption>
+    </figure>
+    <figure>
+      <img src="../img/terminal-request.png" alt="Eine Terminalanfrage zeigt den Befehl cargo test, mit Zulassen und ausführen und Ablehnen.">
+      <figcaption>Sie sehen den Befehl, bevor er läuft.</figcaption>
+    </figure>
+    <figure>
+      <img src="../img/terminal-tests.png" alt="Das integrierte Terminal führt die Tests aus, die Sie zugelassen haben.">
+      <figcaption>Nachdem Sie zulassen, läuft der Befehl im integrierten Terminal.</figcaption>
+    </figure>
+  </div>
+  <p><a href="agents.html">Mit Agenten arbeiten, Schritt für Schritt →</a></p>
+</div></section>
+
+<section><div class="wrap">
+  <h2>Warum IDE TEA</h2>
+  <p class="note">Aus dem <a href="https://github.com/fabiocmazzo/idetea/blob/main/docs/comparativo-ides.de.md">ehrlichen Vergleich</a> mit VS Code, Cursor, Zed, JetBrains und Helix. Diese Notiz entstand um 0.4.0. Versionen seither liefern auch macOS (Apple Silicon) und Windows (x86_64).</p>
+  <div class="compare">
+    <article class="card">
+      <h3>Darum geht es</h3>
+      <ul>
+        <li>Terminal-Agenten bekommen ein dateibasiertes Protokoll: Formulare, genehmigte Befehle, Worktrees und das Maskottchen Tea. Der Verlauf jeder Antwort bleibt im Projekt.</li>
+        <li>Kein Konto und keine Telemetrie. Das Programm meldet sich nicht von selbst.</li>
+        <li>Schnelles Öffnen, und große oder minifizierte Dateien, die das Fenster nicht einfrieren.</li>
+      </ul>
+    </article>
+    <article class="card">
+      <h3>Darum geht es nicht</h3>
+      <ul>
+        <li>Keine Ghost-Text-Vervollständigung. Das ist eine Entscheidung, kein fehlender Schalter.</li>
+        <li>Keine Inline-Diffs der Art „diesen Hunk annehmen“. Wenn ein Agent eine Datei bearbeitet, prüfen Sie sie im Git-Bereich.</li>
+        <li>Code Actions, Inlay Hints und die Abdeckung des Debuggers liegen hinter VS Code und JetBrains. Der Vergleich sagt das.</li>
+      </ul>
+    </article>
+  </div>
+</div></section>
+
+<section id="install"><div class="wrap">
+  <h2>Installation</h2>
+  <p><strong>Startklar</strong> über das <a href="https://github.com/fabiocmazzo/idetea/releases/latest">neueste Release</a>. <code>SHA256SUMS</code> enthält die Prüfsummen.</p>
+  <div class="cards">
+    <article class="card"><h3>Linux</h3><p>x86_64 und aarch64, <code>.tar.gz</code> oder <code>.AppImage</code>. <code>./install.sh</code> legt <code>idetea</code> nach <code>~/.local/bin</code> und ins Anwendungsmenü. Das AppImage braucht <code>chmod +x</code>; <code>--install-desktop</code> fügt den Menüeintrag hinzu.</p></article>
+    <article class="card"><h3>macOS</h3><p>Apple Silicon, ein <code>.tar.gz</code> mit <code>IDE TEA.app</code>. <code>idetea --install-desktop</code> legt <code>~/Applications/IDE TEA.app</code> an.</p></article>
+    <article class="card"><h3>Windows</h3><p>x86_64, der Installer <code>-setup.exe</code> oder ein portables <code>.zip</code>. Kostenlose Codesignatur von <a href="https://signpath.io">SignPath.io</a>, Zertifikat der <a href="https://signpath.org">SignPath Foundation</a>.</p></article>
+  </div>
+  <p><strong>Aus dem Quellcode</strong> (braucht <a href="https://rustup.rs">Rust</a> stable):</p>
+<pre><code>cargo install --locked --git https://github.com/fabiocmazzo/idetea tea-app
+idetea --install-desktop</code></pre>
+  <p class="note">Optional: <code>git</code> für den Git-Bereich, <code>gdb</code> 14+ (oder <code>lldb-dap</code> unter macOS) zum Debuggen und die Sprachserver, die Sie nutzen. rust-analyzer, clangd, pyright, typescript-language-server, gopls, lua-language-server, zls, <code>zx lsp</code>, <code>hare-lsp</code> (Hare) und <code>moon lsp</code> (MoonBit) sind schon eingerichtet.</p>
+  <p><a href="start.html">Erste Schritte →</a></p>
+</div></section>
+
+<section><div class="wrap">
+  <div class="star">
+    <img src="../img/idetea.svg" alt="">
+    <div>
+      <h2>Wenn das der Raum ist, den Sie wollten, geben Sie einen Stern.</h2>
+      <p>IDE TEA ist das Projekt einer Person, Apache 2.0, und sie bleibt frei. Ein Stern hilft der nächsten Person, sie zu finden.</p>
+      <p><a class="btn primary" href="https://github.com/fabiocmazzo/idetea">IDE TEA auf GitHub einen Stern geben</a></p>
+    </div>
+  </div>
+</div></section>
+
+<section><div class="wrap narrow">
+  <h2>Zum Namen</h2>
+  <p>Es begann als Wortspiel mit Iced Tea, weil die IDE mit <a href="https://github.com/iced-rs/iced">iced</a> gebaut ist. Auf Portugiesisch ist TEA auch die Abkürzung für Autismus. IDE TEA wird von einem autistischen Entwickler gemacht, und das zeigt sich in dem, was sie schätzt: wenig Lärm, klarer Text, Dinge, die sich jedes Mal gleich verhalten, und Raum zum Konzentrieren.</p>
+  <p>Lesen Sie das <a href="https://github.com/fabiocmazzo/idetea/blob/main/MANIFESTO.de.md">Manifest</a>. Die vollständige Funktionsliste steht auf der <a href="features.html">Seite der Funktionen</a>.</p>
+</div></section>
+</main>
+
+<footer><div class="wrap">
+  <span>IDE TEA · Apache 2.0 · gemacht mit <a href="https://github.com/iced-rs/iced">iced</a></span>
+  <span><a href="https://github.com/fabiocmazzo/idetea/blob/main/CODE_SIGNING_POLICY.md">Codesignatur und Datenschutz</a> ·
+    <a href="https://github.com/fabiocmazzo/idetea/issues">Fehler melden</a> ·
+    <a href="https://github.com/fabiocmazzo/idetea">GitHub</a></span>
+</div></footer>
+<script src="../demo.js"></script>
+</body>
+</html>

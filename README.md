@@ -12,7 +12,9 @@
 </p>
 
 <p align="center">
-  <b>English</b> · <a href="README.pt-BR.md">Português</a> · <a href="README.es.md">Español</a><br>
+  <b>English</b> · <a href="README.pt-BR.md">Português</a> · <a href="README.es.md">Español</a> ·
+  <a href="README.fr.md">Français</a> · <a href="README.de.md">Deutsch</a> · <a href="README.it.md">Italiano</a> ·
+  <a href="README.ja.md">日本語</a> · <a href="README.zh-CN.md">中文（简体）</a><br>
   <a href="https://idetea.belabs.cloud/"><b>Website and guides</b></a>
   · <a href="https://github.com/fabiocmazzo/idetea">GitHub</a>
 </p>
@@ -84,7 +86,7 @@ idetea --install-desktop   # optional: app menu entry and icon
 ```
 
 Optional: `git` for the git integration, `gdb` 14+ (or `lldb-dap` on macOS) for debugging, and the language servers
-you use (rust-analyzer, clangd, pyright, typescript-language-server, gopls and lua-language-server are already set up).
+you use (rust-analyzer, clangd, pyright, typescript-language-server, gopls, lua-language-server, zls, `zx lsp`, `hare-lsp` for Hare and `moon lsp` for MoonBit are already set up).
 
 ## Code signing and privacy
 
@@ -116,8 +118,9 @@ and Helix, written around 0.4.0. The part that is still the product:
 
 The teacup in the corner has several lines for each mood. It notices a save, a long pause, the time of day, and
 the debugger's build, and it can mention a real shortcut now and then. `[mascot] chatty` is `quiet`, `normal` or
-`chatty`; `[mascot] tips` turns the hints on or off. It speaks English, Portuguese, Spanish, French, German,
-Italian, Japanese and Simplified Chinese. It does not take focus.
+`chatty`; `[mascot] tips` turns the hints on or off. The whole interface, including Tea, is in Portuguese, English,
+Spanish, French, German, Italian, Japanese and Simplified Chinese (`[ui] language`, or the system language). It
+does not take focus.
 - There is no ghost-text autocomplete, on purpose. If you want Tab-to-complete or inline diffs, that document points
   at Cursor, Windsurf or Zed.
 - Code actions, inlay hints and debugger coverage are behind VS Code and JetBrains.

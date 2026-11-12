@@ -1,0 +1,22 @@
+## Bereich Debuggen
+debug-panel = Debuggen
+cmd-debug-focus = Debuggen: Bereich anzeigen
+debug-idle = Keine Sitzung. F5 startet eine.
+debug-building = Wird erstellt…
+debug-running = Wird ausgeführt
+debug-stopped = Angehalten ({ $reason })
+debug-start = Starten
+debug-continue = Fortsetzen
+debug-pause = Anhalten
+debug-step-over = Prozedurschritt
+debug-step-into = Einzelschritt
+debug-step-out = Austreten
+debug-stop = Beenden
+debug-call-stack = AUFRUFLISTE
+debug-no-stack = Keine Aufrufliste.
+debug-only-stopped = Nur während das Programm angehalten ist.
+debug-no-source = kein Quellcode
+debug-variables = VARIABLEN
+debug-empty = (leer)
+debug-nothing-yet = Noch nichts.
+debug-output = AUSGABE

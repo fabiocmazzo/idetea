@@ -1,6 +1,8 @@
 # El manifiesto de IDE TEA
 
-<p><a href="MANIFESTO.md">English</a> · <a href="MANIFESTO.pt-BR.md">Português</a> · <b>Español</b></p>
+<p><a href="MANIFESTO.md">English</a> · <a href="MANIFESTO.pt-BR.md">Português</a> · <b>Español</b> ·
+<a href="MANIFESTO.fr.md">Français</a> · <a href="MANIFESTO.de.md">Deutsch</a> · <a href="MANIFESTO.it.md">Italiano</a> ·
+<a href="MANIFESTO.ja.md">日本語</a> · <a href="MANIFESTO.zh-CN.md">中文（简体）</a></p>
 
 El editor es donde pasas el día. Debería sentirse como una sala tranquila, no como un centro comercial.
 

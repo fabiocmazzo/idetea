@@ -1,0 +1,22 @@
+## Panneau Débogage
+debug-panel = Débogage
+cmd-debug-focus = Débogage : afficher le panneau
+debug-idle = Aucune session. F5 en démarre une.
+debug-building = Compilation…
+debug-running = En cours
+debug-stopped = Arrêté ({ $reason })
+debug-start = Démarrer
+debug-continue = Continuer
+debug-pause = Suspendre
+debug-step-over = Pas à pas principal
+debug-step-into = Pas à pas détaillé
+debug-step-out = Pas à pas sortant
+debug-stop = Arrêter
+debug-call-stack = PILE DES APPELS
+debug-no-stack = Pas de pile.
+debug-only-stopped = Uniquement pendant que le programme est arrêté.
+debug-no-source = pas de code source
+debug-variables = VARIABLES
+debug-empty = (vide)
+debug-nothing-yet = Rien pour l'instant.
+debug-output = SORTIE

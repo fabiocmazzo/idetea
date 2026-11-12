@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>入门·IDE TEA</title>
+<meta name="description" content="安装IDE TEA，打开一个项目，记住那几条能走到任何地方的快捷键。">
+<link rel="alternate" hreflang="en" href="https://idetea.belabs.cloud/start.html">
+<link rel="alternate" hreflang="pt-BR" href="https://idetea.belabs.cloud/pt-br/start.html">
+<link rel="alternate" hreflang="es" href="https://idetea.belabs.cloud/es/start.html">
+<link rel="alternate" hreflang="fr" href="https://idetea.belabs.cloud/fr/start.html">
+<link rel="alternate" hreflang="de" href="https://idetea.belabs.cloud/de/start.html">
+<link rel="alternate" hreflang="it" href="https://idetea.belabs.cloud/it/start.html">
+<link rel="alternate" hreflang="ja" href="https://idetea.belabs.cloud/ja/start.html">
+<link rel="alternate" hreflang="zh-CN" href="https://idetea.belabs.cloud/zh-cn/start.html">
+<link rel="alternate" hreflang="x-default" href="https://idetea.belabs.cloud/start.html">
+<link rel="icon" href="../img/idetea.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../style.css">
+</head>
+<body>
+<header class="top"><div class="wrap">
+  <a class="brand" href="./"><img src="../img/idetea.svg" alt="">IDE TEA</a>
+  <nav class="main">
+    <a href="./">首页</a>
+    <a href="start.html" aria-current="page">入门</a>
+    <a href="agents.html">和智能体一起工作</a>
+    <a href="features.html">功能</a>
+    <a href="https://github.com/fabiocmazzo/idetea">GitHub</a>
+  </nav>
+  <nav class="lang" aria-label="语言"><a href="../start.html" hreflang="en">EN</a><a href="../pt-br/start.html" hreflang="pt-BR">PT</a><a href="../es/start.html" hreflang="es">ES</a><a href="../fr/start.html" hreflang="fr">FR</a><a href="../de/start.html" hreflang="de">DE</a><a href="../it/start.html" hreflang="it">IT</a><a href="../ja/start.html" hreflang="ja">JA</a><a href="start.html" aria-current="true" hreflang="zh-CN">中文</a></nav>
+  <a class="btn primary small" href="https://github.com/fabiocmazzo/idetea/releases/latest">下载</a>
+</div></header>
+
+<main class="wrap narrow">
+<div class="page-head">
+  <h1>入门</h1>
+  <p>从下载到一套顺手的配置，大约十分钟。</p>
+</div>
+
+<div class="toc"><strong>本页</strong>
+  <ol>
+    <li><a href="#install">安装</a></li>
+    <li><a href="#open">打开项目</a></li>
+    <li><a href="#find">找到任何东西：三条快捷键</a></li>
+    <li><a href="#languages">语言服务器</a></li>
+    <li><a href="#terminal">终端和任务</a></li>
+    <li><a href="#git">Git</a></li>
+    <li><a href="#settings">设置</a></li>
+    <li><a href="#shortcuts">主要快捷键</a></li>
+  </ol>
+</div>
+
+<section id="install">
+  <h2>1. 安装</h2>
+  <ol class="steps">
+    <li>下载你平台的包（Linux x86_64/aarch64用<code>.tar.gz</code>或<code>.AppImage</code>，macOS aarch64用带<code>IDE TEA.app</code>的<code>.tar.gz</code>，Windows x86_64用<code>-setup.exe</code>安装程序或便携<code>.zip</code>），从<a href="https://github.com/fabiocmazzo/idetea/releases/latest">最新版本</a>获取。<code>SHA256SUMS</code>里是校验和。</li>
+    <li>在Linux上，解压并运行安装脚本。它把<code>idetea</code>放到<code>~/.local/bin</code>，并把IDE TEA加进应用菜单：
+<pre><code>tar -xzf idetea-*-linux.tar.gz
+cd idetea-*-linux
+./install.sh</code></pre></li>
+    <li>如果安装脚本说<code>~/.local/bin</code>不在<code>PATH</code>里，把它加进去（例如写在<code>~/.profile</code>），这样你和你的智能体都能从终端运行<code>idetea</code>。</li>
+  </ol>
+  <p>在Linux上更想要单个文件？AppImage可以直接运行：<code>chmod +x IDE_TEA-*.AppImage</code>然后打开；<code>--install-desktop</code>会把它加进菜单。在macOS上，<code>idetea --install-desktop</code>会创建<code>~/Applications/IDE TEA.app</code>。从源码构建只要一条命令：<code>cargo install --locked --git https://github.com/fabiocmazzo/idetea tea-app</code>。</p>
+  <p class="note">Windows上的免费代码签名由<a href="https://signpath.io">SignPath.io</a>提供，证书来自<a href="https://signpath.org">SignPath Foundation</a>（<a href="https://github.com/fabiocmazzo/idetea/blob/main/CODE_SIGNING_POLICY.md">代码签名与隐私政策</a>）。</p>
+  <div class="callout">可选的额外部分：git面板需要<code>git</code>，调试需要<code>gdb</code> 14+（macOS上可用<code>lldb-dap</code>），以及你要用的语言服务器（下一步）。</div>
+</section>
+
+<section id="open">
+  <h2>2. 打开项目</h2>
+  <p>项目就是一个文件夹。从终端：</p>
+<pre><code>idetea                # 当前文件夹
+idetea ~/code/my-app  # 另一个文件夹
+idetea src/main.rs    # 当前文件夹，并打开这个文件</code></pre>
+  <p>IDE会马上把提示符还给你。从应用菜单打开时，它会重新打开你上次的项目。选项卡、当前文件和打开的面板都会回到你离开时的样子。</p>
+  <p>布局：左边是文件树，中间是编辑器，右边是面板（大纲、预览、界面），底部是面板（终端、搜索、问题、git）。编辑器上方的痕迹显示文件路径和光标所在的符号。左边缘的图标栏用来显示和隐藏每个面板；拖动边界可以调整大小。</p>
+</section>
+
+<section id="find">
+  <h2>3. 找到任何东西：三条快捷键</h2>
+  <ol class="steps">
+    <li><kbd>Ctrl</kbd>+<kbd>P</kbd>按名称打开文件。输入名字的片段；<code>main.rs:42</code>会跳到那一行。</li>
+    <li><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>P</kbd>是命令面板：每一条命令，旁边写着它的快捷键。如果只记一条，就记这条。</li>
+    <li><kbd>F1</kbd>列出你现在的全部快捷键，外加一份简短指南。</li>
+  </ol>
+  <p>用<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>F</kbd>搜索整个项目（随输入进行，遵守<code>.gitignore</code>，支持正则和替换）。</p>
+</section>
+
+<section id="languages">
+  <h2>4. 语言服务器</h2>
+  <p>错误、补全、悬停、转到定义（<kbd>F12</kbd>）、引用（<kbd>Shift</kbd>+<kbd>F12</kbd>）和大纲都来自语言服务器。下面这些已经配好；装上你需要的，它们会自己启动：</p>
+  <div class="table-scroll"><table>
+    <tr><th>语言</th><th>服务器</th></tr>
+    <tr><td>Rust</td><td><code>rust-analyzer</code></td></tr>
+    <tr><td>C、C++</td><td><code>clangd</code></td></tr>
+    <tr><td>Python</td><td><code>pyright</code></td></tr>
+    <tr><td>TypeScript、JavaScript</td><td><code>typescript-language-server</code></td></tr>
+    <tr><td>Go</td><td><code>gopls</code></td></tr>
+    <tr><td>Lua</td><td><code>lua-language-server</code></td></tr>
+    <tr><td>Zig</td><td><code>zls</code></td></tr>
+    <tr><td>Ziex</td><td><code>zx lsp</code></td></tr>
+    <tr><td>Hare</td><td><code>hare-lsp -S</code></td></tr>
+    <tr><td>MoonBit</td><td><code>moon lsp</code></td></tr>
+  </table></div>
+  <p>Hare和MoonBit随IDE一起提供（语法、任务，以及默认的服务器命令）。其他语言可以在配置里添加（<code>[lsp]</code>段）。每种语言的细节在<a href="https://github.com/fabiocmazzo/idetea/blob/main/docs/languages.zh-CN.md">languages.zh-CN.md</a>。</p>
+</section>
+
+<section id="terminal">
+  <h2>5. 终端和任务</h2>
+  <ul>
+    <li><kbd>Ctrl</kbd>+<kbd>'</kbd>或<kbd>Ctrl</kbd>+<kbd>&#96;</kbd>聚焦终端。<code>+</code>在选项卡里再开一个shell；<code>exit</code>关掉它。你在里面打字时，IDE的<kbd>Ctrl</kbd>+<kbd>Shift</kbd>快捷键仍然有效。</li>
+    <li><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>B</kbd>运行任务：IDE在项目里找到的（cargo、<code>package.json</code>脚本、Makefile目标），再加上配置里你自己的：
+<pre><code># 项目里的.idetea/config.toml
+[tasks]
+"server" = "cargo run -- --port 8080"</code></pre></li>
+  </ul>
+</section>
+
+<section id="git">
+  <h2>6. Git</h2>
+  <p><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>G</kbd>打开git面板：暂存和取消暂存、带颜色的差异、提交、放弃更改（会确认）、推送、拉取和获取。它用你已经安装的<code>git</code>，所以你的配置、钩子、ssh agent和凭据助手都生效。分支和更改数量在状态栏上。</p>
+</section>
+
+<section id="settings">
+  <h2>7. 设置</h2>
+  <p><kbd>Ctrl</kbd>+<kbd>,</kbd>打开设置：外观、扩展、快捷键（按下你想要的键）和语言服务器。这一切也都在普通的TOML里：</p>
+  <ul>
+    <li>给你自己的是<code>~/.config/idetea/config.toml</code>；</li>
+    <li>给某个项目的是该项目里的<code>.idetea/config.toml</code>（它优先于你的）。</li>
+  </ul>
+<pre><code>[ui]
+theme = "dark"          # "light"，或iced的主题，例如"Nord"、"Dracula"
+font_size = 14
+language = "auto"       # "en", "pt-BR", "es", "fr", "de", "it", "ja", "zh-CN"
+
+[editor]
+wrap = true
+format_on_save = false
+breadcrumbs = true
+font = "JetBrains Mono"  # 任何已安装的字体，或"monospace"
+line_height = 1.45
+
+[keys]
+"ctrl+shift+p" = "palette.open"</code></pre>
+</section>
+
+<section id="shortcuts">
+  <h2>8. 主要快捷键</h2>
+  <div class="table-scroll"><table>
+    <tr><th>快捷键</th><th>作用</th></tr>
+    <tr><td><kbd>Ctrl</kbd>+<kbd>P</kbd></td><td>按名称打开文件</td></tr>
+    <tr><td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>P</kbd></td><td>命令面板</td></tr>
+    <tr><td><kbd>F1</kbd></td><td>全部快捷键和指南</td></tr>
+    <tr><td><kbd>Ctrl</kbd>+<kbd>,</kbd></td><td>设置</td></tr>
+    <tr><td><kbd>Ctrl</kbd>+<kbd>B</kbd></td><td>显示或隐藏文件树</td></tr>
+    <tr><td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>F</kbd></td><td>在项目里搜索</td></tr>
+    <tr><td><kbd>Ctrl</kbd>+<kbd>'</kbd> / <kbd>Ctrl</kbd>+<kbd>&#96;</kbd></td><td>终端</td></tr>
+    <tr><td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>T</kbd></td><td>重新打开上次关闭的选项卡</td></tr>
+    <tr><td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>B</kbd></td><td>运行任务</td></tr>
+    <tr><td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>G</kbd></td><td>Git</td></tr>
+    <tr><td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>M</kbd> / <kbd>F8</kbd></td><td>问题 / 下一个问题</td></tr>
+    <tr><td><kbd>F12</kbd> / <kbd>Shift</kbd>+<kbd>F12</kbd></td><td>转到定义 / 查找引用</td></tr>
+    <tr><td><kbd>Alt</kbd>+<kbd>←</kbd> / <kbd>Alt</kbd>+<kbd>→</kbd></td><td>跳转之后后退 / 前进</td></tr>
+    <tr><td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>V</kbd></td><td>Markdown或SVG预览</td></tr>
+    <tr><td><kbd>F5</kbd> / <kbd>F9</kbd></td><td>调试 / 切换断点</td></tr>
+  </table></div>
+  <div class="next">
+    <a class="btn" href="./">← 首页</a>
+    <a class="btn primary" href="agents.html">下一步：和智能体一起工作 →</a>
+  </div>
+</section>
+</main>
+
+<footer><div class="wrap">
+  <span>IDE TEA·Apache 2.0·用<a href="https://github.com/iced-rs/iced">iced</a>写成</span>
+  <span><a href="https://github.com/fabiocmazzo/idetea/issues">报告缺陷</a>·<a href="https://github.com/fabiocmazzo/idetea">GitHub</a></span>
+</div></footer>
+</body>
+</html>

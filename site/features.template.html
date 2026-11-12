@@ -1,37 +1,37 @@
 <!doctype html>
-<html lang="en">
+<html lang="{{HTML_LANG}}">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Features · IDE TEA</title>
-<meta name="description" content="Everything IDE TEA does: editor, project, LSP, terminal, git, debug, agents, shortcuts.">
-<link rel="icon" href="img/idetea.svg" type="image/svg+xml">
-<link rel="stylesheet" href="style.css">
+<title>{{TITLE}}</title>
+<meta name="description" content="{{DESCRIPTION}}">
+<link rel="icon" href="{{PREFIX}}img/idetea.svg" type="image/svg+xml">
+<link rel="stylesheet" href="{{PREFIX}}style.css">
 </head>
 <body>
 <header class="top"><div class="wrap">
-  <a class="brand" href="./"><img src="img/idetea.svg" alt="">IDE TEA</a>
+  <a class="brand" href="./"><img src="{{PREFIX}}img/idetea.svg" alt="">IDE TEA</a>
   <nav class="main">
-    <a href="./">Home</a>
-    <a href="start.html">Getting started</a>
-    <a href="agents.html">Working with agents</a>
-    <a href="features.html" aria-current="page">Features</a>
+    <a href="./">{{NAV_HOME}}</a>
+    <a href="start.html">{{NAV_START}}</a>
+    <a href="agents.html">{{NAV_AGENTS}}</a>
+    <a href="features.html" aria-current="page">{{NAV_FEATURES}}</a>
     <a href="https://github.com/fabiocmazzo/idetea">GitHub</a>
   </nav>
-  <nav class="lang" aria-label="Language"><a href="features.html" aria-current="true">EN</a><a href="pt-br/" hreflang="pt-BR">PT</a><a href="es/" hreflang="es">ES</a></nav>
-  <a class="btn primary small" href="https://github.com/fabiocmazzo/idetea/releases/latest">Download</a>
+  <nav class="lang" aria-label="Language"></nav>
+  <a class="btn primary small" href="https://github.com/fabiocmazzo/idetea/releases/latest">{{DOWNLOAD}}</a>
 </div></header>
 
 <main class="wrap narrow features">
 <div class="page-head">
-  <h1>Features and shortcuts</h1>
+  <h1>{{H1}}</h1>
 </div>
 <!-- FEATURES -->
 </main>
 
 <footer><div class="wrap">
-  <span>IDE TEA · Apache 2.0 · made with <a href="https://github.com/iced-rs/iced">iced</a></span>
-  <span><a href="https://github.com/fabiocmazzo/idetea/issues">Report a bug</a> ·
+  <span>IDE TEA · Apache 2.0 · {{MADE}} <a href="https://github.com/iced-rs/iced">iced</a></span>
+  <span><a href="https://github.com/fabiocmazzo/idetea/issues">{{BUG}}</a> ·
     <a href="https://github.com/fabiocmazzo/idetea">GitHub</a></span>
 </div></footer>
 </body>

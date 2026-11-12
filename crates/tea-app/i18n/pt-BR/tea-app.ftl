@@ -17,7 +17,7 @@ settings-activity-bar-detail = Faixa na borda esquerda para mostrar/ocultar pain
 settings-splash = Splash ao abrir
 settings-splash-detail = Tela de abertura (mínimo de 2 s). --no-splash desliga numa execução.
 settings-language = Idioma
-settings-language-detail = Textos da interface. Automático segue o idioma do sistema. Francês, alemão, italiano, japonês e chinês simplificado trazem o mascote; o resto cai no inglês.
+settings-language-detail = Textos da interface. Automático segue o idioma do sistema. Vale ao reiniciar a IDE.
 settings-language-auto = Automático ({ $language })
 settings-language-restart = Vale ao reiniciar a IDE (agora: { $language }).
 

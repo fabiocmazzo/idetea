@@ -1,0 +1,205 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Erste Schritte · IDE TEA</title>
+<meta name="description" content="Installieren Sie IDE TEA, öffnen Sie ein Projekt und lernen Sie die wenigen Tastenkürzel, die überallhin führen.">
+<link rel="alternate" hreflang="en" href="https://idetea.belabs.cloud/start.html">
+<link rel="alternate" hreflang="pt-BR" href="https://idetea.belabs.cloud/pt-br/start.html">
+<link rel="alternate" hreflang="es" href="https://idetea.belabs.cloud/es/start.html">
+<link rel="alternate" hreflang="fr" href="https://idetea.belabs.cloud/fr/start.html">
+<link rel="alternate" hreflang="de" href="https://idetea.belabs.cloud/de/start.html">
+<link rel="alternate" hreflang="it" href="https://idetea.belabs.cloud/it/start.html">
+<link rel="alternate" hreflang="ja" href="https://idetea.belabs.cloud/ja/start.html">
+<link rel="alternate" hreflang="zh-CN" href="https://idetea.belabs.cloud/zh-cn/start.html">
+<link rel="alternate" hreflang="x-default" href="https://idetea.belabs.cloud/start.html">
+<link rel="icon" href="../img/idetea.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../style.css">
+</head>
+<body>
+<header class="top"><div class="wrap">
+  <a class="brand" href="./"><img src="../img/idetea.svg" alt="">IDE TEA</a>
+  <nav class="main">
+    <a href="./">Start</a>
+    <a href="start.html" aria-current="page">Erste Schritte</a>
+    <a href="agents.html">Mit Agenten arbeiten</a>
+    <a href="features.html">Funktionen</a>
+    <a href="https://github.com/fabiocmazzo/idetea">GitHub</a>
+  </nav>
+  <nav class="lang" aria-label="Sprache"><a href="../start.html" hreflang="en">EN</a><a href="../pt-br/start.html" hreflang="pt-BR">PT</a><a href="../es/start.html" hreflang="es">ES</a><a href="../fr/start.html" hreflang="fr">FR</a><a href="start.html" aria-current="true">DE</a><a href="../it/start.html" hreflang="it">IT</a><a href="../ja/start.html" hreflang="ja">JA</a><a href="../zh-cn/start.html" hreflang="zh-CN">中文</a></nav>
+  <a class="btn primary small" href="https://github.com/fabiocmazzo/idetea/releases/latest">Herunterladen</a>
+</div></header>
+
+<main class="wrap narrow">
+<div class="page-head">
+  <h1>Erste Schritte</h1>
+  <p>Vom Download zu einer bequemen Einrichtung in etwa zehn Minuten.</p>
+</div>
+
+<div class="toc"><strong>Auf dieser Seite</strong>
+  <ol>
+    <li><a href="#install">Installation</a></li>
+    <li><a href="#open">Ein Projekt öffnen</a></li>
+    <li><a href="#find">Alles finden: drei Tastenkürzel</a></li>
+    <li><a href="#languages">Sprachserver</a></li>
+    <li><a href="#terminal">Terminal und Aufgaben</a></li>
+    <li><a href="#git">Git</a></li>
+    <li><a href="#settings">Einstellungen</a></li>
+    <li><a href="#shortcuts">Die wichtigsten Tastenkürzel</a></li>
+  </ol>
+</div>
+
+<section id="install">
+  <h2>1. Installation</h2>
+  <ol class="steps">
+    <li>Laden Sie das Paket für Ihre Plattform herunter (<code>.tar.gz</code> oder <code>.AppImage</code> für Linux x86_64/aarch64,
+      <code>.tar.gz</code> mit <code>IDE TEA.app</code> für macOS aarch64 oder den Installer <code>-setup.exe</code> /
+      das portable <code>.zip</code> für Windows x86_64) vom
+      <a href="https://github.com/fabiocmazzo/idetea/releases/latest">neuesten Release</a>.
+      <code>SHA256SUMS</code> enthält die Prüfsummen.</li>
+    <li>Unter Linux packen Sie es aus und führen den Installer aus. Er legt <code>idetea</code> nach <code>~/.local/bin</code> und fügt IDE TEA
+      Ihrem Anwendungsmenü hinzu:
+<pre><code>tar -xzf idetea-*-linux.tar.gz
+cd idetea-*-linux
+./install.sh</code></pre></li>
+    <li>Wenn der Installer sagt, dass <code>~/.local/bin</code> nicht auf Ihrem <code>PATH</code> liegt, fügen Sie es hinzu (zum Beispiel in
+      <code>~/.profile</code>), damit Sie und Ihre Agenten <code>idetea</code> aus einem Terminal ausführen können.</li>
+  </ol>
+  <p>Lieber eine einzelne Datei unter Linux? Das AppImage läuft, wie es ist: <code>chmod +x IDE_TEA-*.AppImage</code> und öffnen;
+    <code>--install-desktop</code> fügt es dem Menü hinzu. Unter macOS legt <code>idetea --install-desktop</code>
+    <code>~/Applications/IDE TEA.app</code> an. Aus dem Quellcode bauen ist ein Befehl:
+    <code>cargo install --locked --git https://github.com/fabiocmazzo/idetea tea-app</code>.</p>
+  <p class="note">Die kostenlose Codesignatur unter Windows stellt <a href="https://signpath.io">SignPath.io</a>, das Zertifikat die
+    <a href="https://signpath.org">SignPath Foundation</a> (<a href="https://github.com/fabiocmazzo/idetea/blob/main/CODE_SIGNING_POLICY.md">Codesignatur und Datenschutz</a>).</p>
+  <div class="callout">Optional dazu: <code>git</code> für den Git-Bereich, <code>gdb</code> 14+ (oder <code>lldb-dap</code> unter macOS) zum Debuggen und die
+    Sprachserver, die Sie nutzen (die nächsten Schritte).</div>
+</section>
+
+<section id="open">
+  <h2>2. Ein Projekt öffnen</h2>
+  <p>Ein Projekt ist nur ein Ordner. Aus einem Terminal:</p>
+<pre><code>idetea                # der aktuelle Ordner
+idetea ~/code/meine-app  # ein anderer Ordner
+idetea src/main.rs    # aktueller Ordner, mit dieser Datei offen</code></pre>
+  <p>Die IDE gibt die Eingabeaufforderung sofort zurück. Aus dem Anwendungsmenü öffnet sie Ihr letztes Projekt wieder. Die Registerkarten, die aktive
+    Datei und die offenen Bereiche kommen so zurück, wie Sie sie verlassen haben.</p>
+  <p>Das Layout: der Dateibaum links, der Editor in der Mitte, Bereiche rechts (Gliederung, Vorschau,
+    Interfaces) und unten (Terminal, Suche, Probleme, Git). Über dem Editor zeigen die Brotkrümel den Pfad der Datei und das Symbol,
+    an dem der Cursor steht. Die Symbolleiste am linken Rand zeigt und verbirgt
+    jeden Bereich; ziehen Sie an einem Rand, um die Größe zu ändern.</p>
+</section>
+
+<section id="find">
+  <h2>3. Alles finden: drei Tastenkürzel</h2>
+  <ol class="steps">
+    <li><kbd>Ctrl</kbd>+<kbd>P</kbd> öffnet eine Datei nach Namen. Tippen Sie Teile des Namens; <code>main.rs:42</code> springt zur
+      Zeile.</li>
+    <li><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>P</kbd> ist die Befehlspalette: jeder Befehl, mit seinem Tastenkürzel daneben.
+      Wenn Sie sich ein Tastenkürzel merken, dann dieses.</li>
+    <li><kbd>F1</kbd> listet jedes Tastenkürzel, das Sie jetzt haben, dazu eine kurze Anleitung.</li>
+  </ol>
+  <p>Durchsuchen Sie das ganze Projekt mit <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>F</kbd> (während Sie tippen, unter Beachtung von
+    <code>.gitignore</code>, mit Regex und Ersetzen).</p>
+</section>
+
+<section id="languages">
+  <h2>4. Sprachserver</h2>
+  <p>Fehler, Vervollständigung, Hover, Gehe zu Definition (<kbd>F12</kbd>), Verweise (<kbd>Shift</kbd>+<kbd>F12</kbd>) und die
+    Gliederung kommen von Sprachservern. Diese sind schon eingerichtet; installieren Sie die, die Sie brauchen, und sie starten von
+    selbst:</p>
+  <div class="table-scroll"><table>
+    <tr><th>Sprache</th><th>Server</th></tr>
+    <tr><td>Rust</td><td><code>rust-analyzer</code></td></tr>
+    <tr><td>C, C++</td><td><code>clangd</code></td></tr>
+    <tr><td>Python</td><td><code>pyright</code></td></tr>
+    <tr><td>TypeScript, JavaScript</td><td><code>typescript-language-server</code></td></tr>
+    <tr><td>Go</td><td><code>gopls</code></td></tr>
+    <tr><td>Lua</td><td><code>lua-language-server</code></td></tr>
+    <tr><td>Zig</td><td><code>zls</code></td></tr>
+    <tr><td>Ziex</td><td><code>zx lsp</code></td></tr>
+    <tr><td>Hare</td><td><code>hare-lsp -S</code></td></tr>
+    <tr><td>MoonBit</td><td><code>moon lsp</code></td></tr>
+  </table></div>
+  <p>Hare und MoonBit werden mit der IDE ausgeliefert (Syntax, Aufgaben und der voreingestellte Serverbefehl). Weitere lassen sich in der Konfiguration hinzufügen (Abschnitt <code>[lsp]</code>). Die Einzelheiten je Sprache stehen in <a href="https://github.com/fabiocmazzo/idetea/blob/main/docs/languages.de.md">languages.de.md</a>.</p>
+</section>
+
+<section id="terminal">
+  <h2>5. Terminal und Aufgaben</h2>
+  <ul>
+    <li><kbd>Ctrl</kbd>+<kbd>'</kbd> oder <kbd>Ctrl</kbd>+<kbd>&#96;</kbd> fokussiert das Terminal. <code>+</code> öffnet eine weitere Shell in einer Registerkarte;
+      <code>exit</code> schließt sie. Die Tastenkürzel der IDE mit <kbd>Ctrl</kbd>+<kbd>Shift</kbd> funktionieren weiter, während Sie darin
+      tippen.</li>
+    <li><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>B</kbd> führt eine Aufgabe aus: was die IDE im Projekt findet (cargo,
+      Skripte aus <code>package.json</code>, Makefile-Ziele) plus Ihre eigenen, aus der Konfiguration:
+<pre><code># .idetea/config.toml im Projekt
+[tasks]
+"server" = "cargo run -- --port 8080"</code></pre></li>
+  </ul>
+</section>
+
+<section id="git">
+  <h2>6. Git</h2>
+  <p><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>G</kbd> öffnet den Git-Bereich: Stagen und das Staging aufheben, farbiger Diff, Commit, Änderungen verwerfen
+    (mit Bestätigung), Pushen, Pullen und Abrufen. Er nutzt Ihr installiertes <code>git</code>, also gelten Ihre Konfiguration, Hooks, der ssh-Agent
+    und der Credential-Helper. Der Branch und die Zahl der Änderungen stehen in der Statusleiste.</p>
+</section>
+
+<section id="settings">
+  <h2>7. Einstellungen</h2>
+  <p><kbd>Ctrl</kbd>+<kbd>,</kbd> öffnet die Einstellungen: Darstellung, Erweiterungen, Tastenkürzel (drücken Sie die Tasten, die Sie wollen)
+    und Sprachserver. Alles steht auch in schlichtem TOML:</p>
+  <ul>
+    <li><code>~/.config/idetea/config.toml</code> für Sie;</li>
+    <li><code>.idetea/config.toml</code> in einem Projekt, für dieses Projekt (sie hat Vorrang vor Ihrer).</li>
+  </ul>
+<pre><code>[ui]
+theme = "dark"          # "light", oder ein Design von iced wie "Nord" oder "Dracula"
+font_size = 14
+language = "auto"       # "en", "pt-BR", "es", "fr", "de", "it", "ja", "zh-CN"
+
+[editor]
+wrap = true
+format_on_save = false
+breadcrumbs = true
+font = "JetBrains Mono"  # eine installierte Schriftart, oder "monospace"
+line_height = 1.45
+
+[keys]
+"ctrl+shift+p" = "palette.open"</code></pre>
+</section>
+
+<section id="shortcuts">
+  <h2>8. Die wichtigsten Tastenkürzel</h2>
+  <div class="table-scroll"><table>
+    <tr><th>Tastenkürzel</th><th>Was</th></tr>
+    <tr><td><kbd>Ctrl</kbd>+<kbd>P</kbd></td><td>Eine Datei nach Namen öffnen</td></tr>
+    <tr><td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>P</kbd></td><td>Befehlspalette</td></tr>
+    <tr><td><kbd>F1</kbd></td><td>Jedes Tastenkürzel und die Anleitung</td></tr>
+    <tr><td><kbd>Ctrl</kbd>+<kbd>,</kbd></td><td>Einstellungen</td></tr>
+    <tr><td><kbd>Ctrl</kbd>+<kbd>B</kbd></td><td>Dateibaum zeigen oder verbergen</td></tr>
+    <tr><td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>F</kbd></td><td>Im Projekt suchen</td></tr>
+    <tr><td><kbd>Ctrl</kbd>+<kbd>'</kbd> / <kbd>Ctrl</kbd>+<kbd>&#96;</kbd></td><td>Terminal</td></tr>
+    <tr><td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>T</kbd></td><td>Die zuletzt geschlossene Registerkarte wieder öffnen</td></tr>
+    <tr><td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>B</kbd></td><td>Eine Aufgabe ausführen</td></tr>
+    <tr><td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>G</kbd></td><td>Git</td></tr>
+    <tr><td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>M</kbd> / <kbd>F8</kbd></td><td>Probleme / nächstes Problem</td></tr>
+    <tr><td><kbd>F12</kbd> / <kbd>Shift</kbd>+<kbd>F12</kbd></td><td>Gehe zu Definition / Verweise suchen</td></tr>
+    <tr><td><kbd>Alt</kbd>+<kbd>←</kbd> / <kbd>Alt</kbd>+<kbd>→</kbd></td><td>Zurück / vorwärts nach einem Sprung</td></tr>
+    <tr><td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>V</kbd></td><td>Markdown- oder SVG-Vorschau</td></tr>
+    <tr><td><kbd>F5</kbd> / <kbd>F9</kbd></td><td>Debuggen / Haltepunkt umschalten</td></tr>
+  </table></div>
+  <div class="next">
+    <a class="btn" href="./">← Start</a>
+    <a class="btn primary" href="agents.html">Weiter: mit Agenten arbeiten →</a>
+  </div>
+</section>
+</main>
+
+<footer><div class="wrap">
+  <span>IDE TEA · Apache 2.0 · gemacht mit <a href="https://github.com/iced-rs/iced">iced</a></span>
+  <span><a href="https://github.com/fabiocmazzo/idetea/issues">Fehler melden</a> ·
+    <a href="https://github.com/fabiocmazzo/idetea">GitHub</a></span>
+</div></footer>
+</body>
+</html>

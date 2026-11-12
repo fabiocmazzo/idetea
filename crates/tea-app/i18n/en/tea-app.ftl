@@ -17,7 +17,7 @@ settings-activity-bar-detail = Strip on the left edge to show/hide panels with o
 settings-splash = Splash on start
 settings-splash-detail = Start screen (at least 2 s). --no-splash turns it off for one run.
 settings-language = Language
-settings-language-detail = Interface text. Automatic follows the system language. French, German, Italian, Japanese and Simplified Chinese include the mascot; other text falls back to English.
+settings-language-detail = Interface text. Automatic follows the system language. It takes effect after you restart the IDE.
 settings-language-auto = Automatic ({ $language })
 settings-language-restart = Takes effect after restarting the IDE (now: { $language }).
 

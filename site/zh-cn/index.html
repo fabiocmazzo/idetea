@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>IDE TEA — 只管写代码。冰，你自己加。</title>
+<meta name="description" content="一个用纯Rust写成的、快而安静的IDE。编程智能体先问，再动手。没有账号，没有遥测，没有扩展市场。Apache 2.0。">
+<meta property="og:title" content="IDE TEA">
+<meta property="og:description" content="一个用纯Rust写成的、快而安静的IDE。编程智能体先问，再动手。">
+<meta property="og:image" content="https://idetea.belabs.cloud/img/demo-poster.png">
+<meta property="og:type" content="website">
+<link rel="alternate" hreflang="en" href="https://idetea.belabs.cloud/">
+<link rel="alternate" hreflang="pt-BR" href="https://idetea.belabs.cloud/pt-br/">
+<link rel="alternate" hreflang="es" href="https://idetea.belabs.cloud/es/">
+<link rel="alternate" hreflang="fr" href="https://idetea.belabs.cloud/fr/">
+<link rel="alternate" hreflang="de" href="https://idetea.belabs.cloud/de/">
+<link rel="alternate" hreflang="it" href="https://idetea.belabs.cloud/it/">
+<link rel="alternate" hreflang="ja" href="https://idetea.belabs.cloud/ja/">
+<link rel="alternate" hreflang="zh-CN" href="https://idetea.belabs.cloud/zh-cn/">
+<link rel="alternate" hreflang="x-default" href="https://idetea.belabs.cloud/">
+<link rel="icon" href="../img/idetea.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../style.css">
+</head>
+<body>
+<header class="top"><div class="wrap">
+  <a class="brand" href="./"><img src="../img/idetea.svg" alt="">IDE TEA</a>
+  <nav class="main">
+    <a href="./" aria-current="page">首页</a>
+    <a href="start.html">入门</a>
+    <a href="agents.html">和智能体一起工作</a>
+    <a href="features.html">功能</a>
+    <a href="https://github.com/fabiocmazzo/idetea">GitHub</a>
+  </nav>
+  <nav class="lang" aria-label="语言"><a href="../" hreflang="en">EN</a><a href="../pt-br/" hreflang="pt-BR">PT</a><a href="../es/" hreflang="es">ES</a><a href="../fr/" hreflang="fr">FR</a><a href="../de/" hreflang="de">DE</a><a href="../it/" hreflang="it">IT</a><a href="../ja/" hreflang="ja">JA</a><a href="./" aria-current="true" hreflang="zh-CN">中文</a></nav>
+  <a class="btn primary small" href="https://github.com/fabiocmazzo/idetea/releases/latest">下载</a>
+</div></header>
+
+<main>
+<div class="wrap">
+  <div class="hero-grid">
+    <div class="hero-copy">
+      <p class="eyebrow">免费·Apache 2.0·纯Rust</p>
+      <h1>只管写代码。<br><span class="ice">冰，你自己加。</span></h1>
+      <p class="lead">一个快而安静的IDE。编程智能体先问，再动手。你留在编辑器里。智能体留在终端里。问题以表单出现，你点头之前，什么都不会跑。</p>
+      <div class="actions">
+        <a class="btn primary" href="https://github.com/fabiocmazzo/idetea/releases/latest">下载</a>
+        <a class="btn" href="#demo">观看演示</a>
+        <a class="btn" href="https://github.com/fabiocmazzo/idetea">在GitHub上点星</a>
+      </div>
+      <p class="note">Linux（x86_64和aarch64）、macOS（Apple Silicon）和Windows（x86_64）。尚未到1.0。</p>
+    </div>
+    <figure class="player" id="demo" data-demo>
+      <video poster="../img/demo-poster.png" width="1280" height="720" playsinline muted loop autoplay preload="metadata" controls>
+        <source src="../img/idetea-demo.mp4" type="video/mp4">
+      </video>
+      <button type="button" class="sound" data-play="带声音播放" data-replay="带声音再播一次">带声音播放</button>
+      <figcaption>52秒，英语旁白，字幕嵌在画面里。预览静音循环。点播放就能听到。</figcaption>
+    </figure>
+  </div>
+
+  <p class="who"><strong>适合谁。</strong>适合在Claude Code、Codex，或任何会读<code>AGENTS.md</code>和<code>CLAUDE.md</code>的智能体旁边写代码的人，并且希望编辑器开得快、行为可预测、不自己去碰网络。</p>
+</div>
+
+<section><div class="wrap">
+  <h2>你会得到什么</h2>
+  <div class="cards">
+    <article class="card"><p class="kicker">快</p><h3>打开，然后让开</h3><p>启动远低于200ms。50MB的文件在零点一秒内打开。一行长到离谱的压缩文件会以轻量模式打开，而不是把窗口卡死。</p></article>
+    <article class="card"><p class="kicker">安静</p><h3>没有账号，没有遥测，没有扩展市场</h3><p>没有你没要的功能弹窗。只有你要求时才用网络（推送、拉取、获取，或你安装的一项技能）。设置写在一个普通的TOML文件里。</p></article>
+    <article class="card"><p class="kicker">你做主</p><h3>智能体来问。你来定。</h3><p>问题是真正的表单：选项、复选框、步骤、图像、声音。终端请求会把整条命令摊开。项目不能把自己写进你的允许列表。</p></article>
+    <article class="card"><p class="kicker">编辑器</p><h3>该有的地方是齐的</h3><p>多光标、可选的vim模式、文件树、项目搜索、LSP、git、集成终端、用gdb调试，以及Markdown、SVG、图像和PDF的选项卡。</p></article>
+    <article class="card"><p class="kicker">小</p><h3>内核只编辑文件</h3><p>文件树、终端、git和调试器都是你可以关掉的扩展。像素吉祥物Tea会留意正在等待的问题，你把它收起来，它就让开。</p></article>
+  </div>
+</div></section>
+
+<section><div class="wrap">
+  <h2>同一个IDE，再靠近一点</h2>
+  <div class="gallery">
+    <figure>
+      <img src="../img/panel-question.png" alt="界面在问用哪种缓存后端，旁边有一个写测试的复选框，智能体在终端里等着。">
+      <figcaption>问题在界面里，不埋在聊天中间。</figcaption>
+    </figure>
+    <figure>
+      <img src="../img/terminal-request.png" alt="一份终端请求显示命令cargo test，按钮是允许并运行，以及拒绝。">
+      <figcaption>运行之前，你先看见这条命令。</figcaption>
+    </figure>
+    <figure>
+      <img src="../img/terminal-tests.png" alt="集成终端正在跑你允许的测试。">
+      <figcaption>你允许之后，命令就在集成终端里跑。</figcaption>
+    </figure>
+  </div>
+  <p><a href="agents.html">和智能体一起工作，一步一步来 →</a></p>
+</div></section>
+
+<section><div class="wrap">
+  <h2>为什么是IDE TEA</h2>
+  <p class="note">来自和VS Code、Cursor、Zed、JetBrains、Helix的<a href="https://github.com/fabiocmazzo/idetea/blob/main/docs/comparativo-ides.zh-CN.md">诚实对比</a>。那篇笔记写于0.4.0前后。此后的版本也提供macOS（Apple Silicon）和Windows x86_64。</p>
+  <div class="compare">
+    <article class="card">
+      <h3>要的就是这个</h3>
+      <ul>
+        <li>终端里的智能体得到一套基于文件的协议：表单、经你批准的命令、工作树，以及吉祥物Tea。每一次回答的历史都留在项目里。</li>
+        <li>没有账号，没有遥测。这个二进制不会自己往家里打电话。</li>
+        <li>打开得快，大文件和压缩文件也不会把窗口卡死。</li>
+      </ul>
+    </article>
+    <article class="card">
+      <h3>不是为了这个</h3>
+      <ul>
+        <li>没有幽灵文本补全。这是取舍，不是藏起来的开关。</li>
+        <li>没有行内“接受这一块”的差异。智能体改了文件，你在git面板里审。</li>
+        <li>代码操作、内联提示和调试器的覆盖面，落后于VS Code和JetBrains。对比里就是这么写的。</li>
+      </ul>
+    </article>
+  </div>
+</div></section>
+
+<section id="install"><div class="wrap">
+  <h2>安装</h2>
+  <p><strong>下载就能跑</strong>，从<a href="https://github.com/fabiocmazzo/idetea/releases/latest">最新版本</a>获取。<code>SHA256SUMS</code>里是校验和。</p>
+  <div class="cards">
+    <article class="card"><h3>Linux</h3><p>x86_64和aarch64，<code>.tar.gz</code>或<code>.AppImage</code>。<code>./install.sh</code>把<code>idetea</code>放到<code>~/.local/bin</code>，并加入应用菜单。AppImage需要<code>chmod +x</code>；<code>--install-desktop</code>会加入菜单项。</p></article>
+    <article class="card"><h3>macOS</h3><p>Apple Silicon，带<code>IDE TEA.app</code>的<code>.tar.gz</code>。<code>idetea --install-desktop</code>会创建<code>~/Applications/IDE TEA.app</code>。</p></article>
+    <article class="card"><h3>Windows</h3><p>x86_64，<code>-setup.exe</code>安装程序或便携<code>.zip</code>。免费代码签名由<a href="https://signpath.io">SignPath.io</a>提供，证书来自<a href="https://signpath.org">SignPath Foundation</a>。</p></article>
+  </div>
+  <p><strong>从源码安装</strong>（需要稳定版<a href="https://rustup.rs">Rust</a>）：</p>
+<pre><code>cargo install --locked --git https://github.com/fabiocmazzo/idetea tea-app
+idetea --install-desktop</code></pre>
+  <p class="note">可选：git面板需要<code>git</code>，调试需要<code>gdb</code> 14+（macOS上可用<code>lldb-dap</code>），以及你要用的语言服务器。rust-analyzer、clangd、pyright、typescript-language-server、gopls、lua-language-server、zls、<code>zx lsp</code>、<code>hare-lsp</code>（Hare）和<code>moon lsp</code>（MoonBit）已经配好。</p>
+  <p><a href="start.html">入门 →</a></p>
+</div></section>
+
+<section><div class="wrap">
+  <div class="star">
+    <img src="../img/idetea.svg" alt="">
+    <div>
+      <h2>如果这就是你想要的那间房间，给它一颗星。</h2>
+      <p>IDE TEA是一个人的项目，Apache 2.0，也会一直免费。星星是下一个人找到它的办法。</p>
+      <p><a class="btn primary" href="https://github.com/fabiocmazzo/idetea">在GitHub上给IDE TEA点星</a></p>
+    </div>
+  </div>
+</div></section>
+
+<section><div class="wrap narrow">
+  <h2>关于这个名字</h2>
+  <p>一开始是iced tea的双关，因为这个IDE用<a href="https://github.com/iced-rs/iced">iced</a>写成。在葡萄牙语里，TEA也是自闭症的缩写。IDE TEA由一名自闭症开发者写成，这体现在它看重的东西上：噪声低、文本清楚、每次行为都一样，并且留得出神的空间。</p>
+  <p>读一读<a href="https://github.com/fabiocmazzo/idetea/blob/main/MANIFESTO.zh-CN.md">宣言</a>。完整功能清单在<a href="features.html">功能页</a>。</p>
+</div></section>
+</main>
+
+<footer><div class="wrap">
+  <span>IDE TEA·Apache 2.0·用<a href="https://github.com/iced-rs/iced">iced</a>写成</span>
+  <span><a href="https://github.com/fabiocmazzo/idetea/blob/main/CODE_SIGNING_POLICY.md">代码签名与隐私</a>·<a href="https://github.com/fabiocmazzo/idetea/issues">报告缺陷</a>·<a href="https://github.com/fabiocmazzo/idetea">GitHub</a></span>
+</div></footer>
+<script src="../demo.js"></script>
+</body>
+</html>

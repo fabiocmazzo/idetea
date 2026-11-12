@@ -1,0 +1,15 @@
+plugin-failed = 插件 { $name } 已关闭：{ $error }
+plugin-off = 插件已关闭：{ $error }
+plugin-bad-panel = 插件面板无效：{ $error }
+plugin-timeout = 耗时超过 { $ms } ms
+plugin-bad-id = id“{ $id }”无效（小写字母、数字、_ 和 -）
+plugin-id-folder = id“{ $id }”必须是文件夹名（{ $folder }）
+plugin-id-taken = id“{ $id }”已被IDE占用
+plugin-api = 为API { $found } 制作；此IDE是 { $expected }
+plugin-bad-wasm = wasm字段必须是同一文件夹里的.wasm文件名（{ $wasm }）
+plugin-command-prefix = 已忽略命令 { $id }：必须以“{ $prefix }.”开头
+plugin-run-cwd = 文件夹 { $cwd } 在项目之外
+plugin-run-start = 无法运行 { $program }：{ $error }
+plugin-run-timeout = 耗时超过 { $ms } ms，已停止
+plugin-run-busy = 此插件已有 { $max } 个程序在运行
+plugin-run-too-big = 请求过大（程序、参数或输入）

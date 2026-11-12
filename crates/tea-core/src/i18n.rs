@@ -2,9 +2,8 @@
 //!
 //! Cada crate tem os próprios textos em `i18n/<idioma>/<nome-do-crate>.ftl` e um `i18n.toml`
 //! (`fallback_language = "pt-BR"`). O português é a língua de origem: a macro `fl!` confere na
-//! compilação que a chave existe nele. Inglês e espanhol traduzem a interface inteira. Francês,
-//! alemão, italiano, japonês e chinês simplificado traduzem o mascote; o que faltar nesses
-//! idiomas cai no inglês (e, se o inglês também não tiver a chave, no português).
+//! compilação que a chave existe nele. Inglês, espanhol, francês, alemão, italiano, japonês e
+//! chinês simplificado traduzem a interface inteira. O português continua sendo a reserva.
 //!
 //! Num crate:
 //!
@@ -50,9 +49,8 @@ impl Language {
         Language::ChineseSimplified,
     ];
 
-    /// Português, inglês e espanhol traduzem a interface inteira. Os outros são parciais.
-    pub const COMPLETE: [Language; 3] =
-        [Language::PortugueseBr, Language::English, Language::Spanish];
+    /// Todos os idiomas da lista traduzem a interface inteira.
+    pub const COMPLETE: [Language; 8] = Self::ALL;
 
     /// Etiqueta do idioma (o nome da pasta dos `.ftl` e o valor no config).
     pub fn tag(self) -> &'static str {
@@ -82,7 +80,7 @@ impl Language {
         }
     }
 
-    /// A interface inteira está traduzida (inglês e espanhol, além do português de origem).
+    /// A interface inteira está traduzida.
     pub fn is_complete(self) -> bool {
         Self::COMPLETE.contains(&self)
     }
@@ -151,8 +149,8 @@ pub fn current() -> Language {
     CURRENT.get().copied().unwrap_or(Language::PortugueseBr)
 }
 
-/// Carrega os textos de um crate no idioma atual. Idiomas parciais caem no inglês, e o
-/// português fica por baixo de tudo. Use pela macro [`i18n_loader!`](crate::i18n_loader).
+/// Carrega os textos de um crate no idioma atual. O português fica por baixo, como reserva.
+/// Use pela macro [`i18n_loader!`](crate::i18n_loader).
 pub fn load(domain: &str, assets: &dyn i18n_embed::I18nAssets) -> FluentLanguageLoader {
     load_in(domain, assets, current())
 }
@@ -169,7 +167,8 @@ pub fn load_in(
     if asset_has(assets, domain, &primary) {
         chain.push(primary);
     }
-    // Francês, alemão, italiano, japonês e chinês não traduzem a interface inteira.
+    // Um pacote incompleto (não deve acontecer: o teste exige todas as chaves) cai no inglês
+    // antes do português.
     if !language.is_complete() {
         let english = Language::English.identifier();
         if asset_has(assets, domain, &english) && !chain.contains(&english) {
@@ -293,31 +292,23 @@ pub fn read_messages(
 
 /// Confere as traduções de uma pasta `i18n/`.
 ///
-/// Inglês e espanhol precisam ter as mesmas mensagens e os mesmos valores (`{ $name }`) que o
-/// português. Os outros idiomas são parciais: se o arquivo existir, cada chave que ele tem tem de
-/// existir em português com os mesmos valores; chave ausente é fallback, não erro.
-/// Devolve a lista de problemas (vazia = tudo certo).
+/// Cada idioma precisa ter as mesmas mensagens e os mesmos valores (`{ $name }`) que o inglês.
+/// Chave ausente é erro, não fallback. Devolve a lista de problemas (vazia = tudo certo).
 pub fn check_translations(i18n_dir: &std::path::Path) -> Vec<String> {
     let mut problems = Vec::new();
-    let Ok(entries) = std::fs::read_dir(i18n_dir.join("pt-BR")) else {
-        return vec![format!("{}: sem a pasta pt-BR", i18n_dir.display())];
+    let Ok(entries) = std::fs::read_dir(i18n_dir.join("en")) else {
+        return vec![format!("{}: sem a pasta en", i18n_dir.display())];
     };
     for file in entries.flatten().map(|e| e.file_name()) {
-        let base = match read_messages(&i18n_dir.join("pt-BR").join(&file)) {
+        let base = match read_messages(&i18n_dir.join("en").join(&file)) {
             Ok(m) => m,
             Err(e) => {
                 problems.push(e);
                 continue;
             }
         };
-        for lang in Language::ALL
-            .iter()
-            .filter(|l| **l != Language::PortugueseBr)
-        {
+        for lang in Language::ALL.iter().filter(|l| **l != Language::English) {
             let path = i18n_dir.join(lang.tag()).join(&file);
-            if !lang.is_complete() && !path.is_file() {
-                continue;
-            }
             let other = match read_messages(&path) {
                 Ok(m) => m,
                 Err(e) => {
@@ -325,39 +316,18 @@ pub fn check_translations(i18n_dir: &std::path::Path) -> Vec<String> {
                     continue;
                 }
             };
-            if lang.is_complete() {
-                for (id, vars) in &base {
-                    match other.get(id) {
-                        None => problems.push(format!("{}: falta \"{id}\"", path.display())),
-                        Some(v) if v != vars => problems.push(format!(
-                            "{}: \"{id}\" usa {v:?}, o português usa {vars:?}",
-                            path.display()
-                        )),
-                        _ => {}
-                    }
-                }
-            } else {
-                for (id, vars) in &other {
-                    match base.get(id) {
-                        None => problems.push(format!(
-                            "{}: \"{id}\" não existe em português",
-                            path.display()
-                        )),
-                        Some(v) if v != vars => problems.push(format!(
-                            "{}: \"{id}\" usa {vars:?}, o português usa {v:?}",
-                            path.display()
-                        )),
-                        _ => {}
-                    }
+            for (id, vars) in &base {
+                match other.get(id) {
+                    None => problems.push(format!("{}: falta \"{id}\"", path.display())),
+                    Some(v) if v != vars => problems.push(format!(
+                        "{}: \"{id}\" usa {v:?}, o inglês usa {vars:?}",
+                        path.display()
+                    )),
+                    _ => {}
                 }
             }
-            if lang.is_complete() {
-                for id in other.keys().filter(|id| !base.contains_key(*id)) {
-                    problems.push(format!(
-                        "{}: \"{id}\" não existe em português",
-                        path.display()
-                    ));
-                }
+            for id in other.keys().filter(|id| !base.contains_key(*id)) {
+                problems.push(format!("{}: \"{id}\" não existe em inglês", path.display()));
             }
         }
     }
@@ -401,11 +371,12 @@ mod tests {
     }
 
     #[test]
-    fn a_locale_without_its_own_file_falls_back_to_english() {
+    fn japanese_catalog_is_used() {
         let loader = load_in("tea-core", &crate::Localizations, Language::Japanese);
         let args = std::collections::HashMap::from([("count", "2")]);
         let got = loader.get_args("count-references", args);
-        assert!(got.contains("references"), "{got}");
+        assert!(got.contains('件'), "{got}");
+        assert!(!got.to_lowercase().contains("reference"), "{got}");
         assert!(!got.contains("referên"), "{got}");
     }
 }

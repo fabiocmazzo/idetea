@@ -18,6 +18,12 @@
 * { box-sizing: border-box; }
 
 html { scroll-behavior: smooth; }
+/* CJK: no webfont (the site stays tracker-free and self-contained). The stacks above and below
+   name the system faces Windows, macOS and Linux already ship, so the browser does not fall
+   through a Latin font that has no glyphs. */
+html[lang="zh-CN"] body { font-family: "PingFang SC", "Hiragino Sans GB", "Noto Sans SC", "Noto Sans CJK SC", "Source Han Sans SC", "Microsoft YaHei", "Segoe UI", system-ui, sans-serif; }
+html[lang="ja"] body { font-family: "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Noto Sans JP", "Noto Sans CJK JP", "Yu Gothic UI", "Yu Gothic", Meiryo, "Segoe UI", system-ui, sans-serif; }
+html[lang="ja"] .hero-copy h1 { font-size: clamp(34px, 4.4vw, 52px); letter-spacing: 0; }
 
 body {
   margin: 0;
@@ -26,7 +32,7 @@ body {
     radial-gradient(720px 420px at -12% 8%, rgb(110 212 190 / 0.08), transparent 52%),
     var(--bg);
   color: var(--text);
-  font: 17px/1.65 "Segoe UI", system-ui, -apple-system, Roboto, "Helvetica Neue", sans-serif;
+  font: 17px/1.65 "Segoe UI", system-ui, -apple-system, Roboto, "Helvetica Neue", "PingFang SC", "Hiragino Sans GB", "Noto Sans SC", "Noto Sans CJK SC", "Source Han Sans SC", "Microsoft YaHei", "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Noto Sans JP", "Noto Sans CJK JP", "Yu Gothic UI", "Yu Gothic", Meiryo, sans-serif;
   -webkit-font-smoothing: antialiased;
 }
 

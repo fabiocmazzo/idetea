@@ -1,0 +1,15 @@
+plugin-failed = Plugin { $name } désactivé : { $error }
+plugin-off = Plugin désactivé : { $error }
+plugin-bad-panel = Le panneau du plugin n'est pas valide : { $error }
+plugin-timeout = a pris plus de { $ms } ms
+plugin-bad-id = id non valide "{ $id }" (lettres minuscules, chiffres, _ et -)
+plugin-id-folder = l'id "{ $id }" doit être le nom du dossier ({ $folder })
+plugin-id-taken = l'id "{ $id }" est déjà utilisé par l'IDE
+plugin-api = conçu pour l'API { $found } ; cet IDE a { $expected }
+plugin-bad-wasm = le champ wasm doit être un nom de fichier .wasm dans le même dossier ({ $wasm })
+plugin-command-prefix = commande { $id } ignorée : elle doit commencer par "{ $prefix }."
+plugin-run-cwd = le dossier { $cwd } est en dehors du projet
+plugin-run-start = impossible de lancer { $program } : { $error }
+plugin-run-timeout = a pris plus de { $ms } ms et a été arrêté
+plugin-run-busy = { $max } programmes de ce plugin sont déjà en cours
+plugin-run-too-big = requête trop volumineuse (programme, arguments ou entrée)

@@ -318,8 +318,14 @@ impl Editor {
         inner.set_language(match tea_core::i18n::current() {
             tea_core::i18n::Language::PortugueseBr => iced_code_editor::Language::PortugueseBR,
             tea_core::i18n::Language::Spanish => iced_code_editor::Language::Spanish,
-            // Inglês, e os idiomas em que o resto da interface cai no inglês.
-            _ => iced_code_editor::Language::English,
+            tea_core::i18n::Language::French => iced_code_editor::Language::French,
+            tea_core::i18n::Language::German => iced_code_editor::Language::German,
+            tea_core::i18n::Language::Italian => iced_code_editor::Language::Italian,
+            tea_core::i18n::Language::ChineseSimplified => iced_code_editor::Language::ChineseSimplified,
+            // O widget de edição não tem japonês: a busca dentro do editor fica em inglês.
+            tea_core::i18n::Language::English | tea_core::i18n::Language::Japanese => {
+                iced_code_editor::Language::English
+            }
         });
         let mut editor = Self {
             path: path.map(Path::to_path_buf),

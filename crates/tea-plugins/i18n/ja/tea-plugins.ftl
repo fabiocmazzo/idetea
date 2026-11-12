@@ -1,0 +1,15 @@
+plugin-failed = プラグイン { $name } をオフにしました: { $error }
+plugin-off = プラグインをオフにしました: { $error }
+plugin-bad-panel = プラグインのパネルが無効です: { $error }
+plugin-timeout = { $ms } ms を超えました
+plugin-bad-id = 無効な id "{ $id }" (小文字、数字、_、-)
+plugin-id-folder = id "{ $id }" はフォルダー名 ({ $folder }) と一致する必要があります
+plugin-id-taken = id "{ $id }" は IDE で既に使われています
+plugin-api = API { $found } 向けです。この IDE は { $expected } です
+plugin-bad-wasm = wasm フィールドは、同じフォルダー内の .wasm ファイル名である必要があります ({ $wasm })
+plugin-command-prefix = コマンド { $id } は無視しました。"{ $prefix }." で始まる必要があります
+plugin-run-cwd = フォルダー { $cwd } はプロジェクトの外です
+plugin-run-start = { $program } を実行できませんでした: { $error }
+plugin-run-timeout = { $ms } ms を超えたため、停止しました
+plugin-run-busy = このプラグインのプログラムは、既に { $max } 個実行中です
+plugin-run-too-big = リクエストが大きすぎます (プログラム、引数、または入力)
