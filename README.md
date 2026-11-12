@@ -111,6 +111,13 @@ and Helix, written around 0.4.0. The part that is still the product:
 
 - Terminal agents get a native, file-based protocol (forms, approved commands, worktrees, the Tea mascot). That is
   the thing the other editors in that note do not have.
+
+### Tea
+
+The teacup in the corner has several lines for each mood. It notices a save, a long pause, the time of day, and
+the debugger's build, and it can mention a real shortcut now and then. `[mascot] chatty` is `quiet`, `normal` or
+`chatty`; `[mascot] tips` turns the hints on or off. It speaks English, Portuguese, Spanish, French, German,
+Italian, Japanese and Simplified Chinese. It does not take focus.
 - There is no ghost-text autocomplete, on purpose. If you want Tab-to-complete or inline diffs, that document points
   at Cursor, Windsurf or Zed.
 - Code actions, inlay hints and debugger coverage are behind VS Code and JetBrains.

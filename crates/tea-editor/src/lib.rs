@@ -317,8 +317,9 @@ impl Editor {
         inner.set_command_palette_enabled(false);
         inner.set_language(match tea_core::i18n::current() {
             tea_core::i18n::Language::PortugueseBr => iced_code_editor::Language::PortugueseBR,
-            tea_core::i18n::Language::English => iced_code_editor::Language::English,
             tea_core::i18n::Language::Spanish => iced_code_editor::Language::Spanish,
+            // Inglês, e os idiomas em que o resto da interface cai no inglês.
+            _ => iced_code_editor::Language::English,
         });
         let mut editor = Self {
             path: path.map(Path::to_path_buf),

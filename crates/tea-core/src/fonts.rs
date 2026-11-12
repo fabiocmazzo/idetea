@@ -19,6 +19,13 @@ pub const EMBEDDED: [&[u8]; 2] = [
     include_bytes!("../assets/fonts/JetBrainsMono-Bold.ttf"),
 ];
 
+/// Recorte da Droid Sans Fallback (Apache-2.0, aviso em `assets/fonts/DroidSansFallback-Subset.NOTICE`)
+/// com os glifos das falas em japonês e chinês simplificado. O iced desenha o balão com a fonte da
+/// interface e, quando falta um glifo, usa outra fonte já carregada. Cerca de 85 KB: o bastante para
+/// o texto que vem no programa, sem embutir um CJK inteiro. Um nome de arquivo em japonês, se o
+/// sistema não tiver fonte CJK, pode sair em branco — o sistema cobre isso quando a fonte está instalada.
+pub const CJK_SUBSET: &[u8] = include_bytes!("../assets/fonts/DroidSansFallback-Subset.ttf");
+
 /// Põe a fonte embutida (e a dos ícones de arquivo) no motor de texto do iced. Tem que vir antes de abrir qualquer editor: o widget
 /// mede a largura do caractere quando a fonte é definida, e sem a fonte carregada ele mede uma fonte
 /// substituta (o realce de sintaxe e os parênteses coloridos saem deslocados). O `.font()` da aplicação
@@ -26,7 +33,7 @@ pub const EMBEDDED: [&[u8]; 2] = [
 pub fn load_embedded() {
     use iced::advanced::graphics::text::font_system;
     let mut system = font_system().write().unwrap_or_else(|p| p.into_inner());
-    for bytes in EMBEDDED.into_iter().chain([crate::file_icons::FONT_BYTES, crate::languages::ICON_FONT_BYTES]) {
+    for bytes in EMBEDDED.into_iter().chain([CJK_SUBSET, crate::file_icons::FONT_BYTES, crate::languages::ICON_FONT_BYTES]) {
         system.load_font(std::borrow::Cow::Borrowed(bytes));
     }
 }
@@ -178,6 +185,28 @@ mod tests {
             assert!(bytes.len() > 100_000);
             assert_eq!(&bytes[..4], &[0, 1, 0, 0], "TrueType");
         }
+        assert!(CJK_SUBSET.len() > 10_000 && CJK_SUBSET.len() < 200_000, "{}", CJK_SUBSET.len());
+        assert_eq!(&CJK_SUBSET[..4], &[0, 1, 0, 0], "TrueType");
+    }
+
+    #[test]
+    fn cjk_subset_covers_mascot_copy() {
+        let face = ttf_parser::Face::parse(CJK_SUBSET, 0).expect("fonte");
+        let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../tea-app/i18n");
+        for lang in ["ja", "zh-CN"] {
+            let text = std::fs::read_to_string(root.join(lang).join("tea-app.ftl")).unwrap();
+            for ch in text.chars().filter(|c| needs_cjk_fallback(*c)) {
+                assert!(face.glyph_index(ch).is_some(), "{lang} sem glifo para {ch} U+{:04X}", ch as u32);
+            }
+        }
+        for ch in "日本語中文简体".chars() {
+            assert!(face.glyph_index(ch).is_some(), "nome do idioma sem {ch}");
+        }
+    }
+
+    fn needs_cjk_fallback(ch: char) -> bool {
+        let u = ch as u32;
+        (0x3040..=0x30FF).contains(&u) || (0x3400..=0x9FFF).contains(&u) || (0xFF00..=0xFFEF).contains(&u)
     }
 
     #[test]

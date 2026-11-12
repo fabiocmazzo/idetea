@@ -1,0 +1,15 @@
+Droid Sans Fallback subset
+Copyright 2006–2010 Google Corp. Droid is a trademark of Google Corp.
+
+This file is a subset of Droid Sans Fallback, kept so the Tea mascot can draw
+Japanese and Simplified Chinese when the operating system has no CJK font.
+The UI font is used first; this face only supplies glyphs the UI font lacks.
+It is not a general-purpose CJK font: a file name outside this character set
+still needs a system font.
+
+Licensed under the Apache License, Version 2.0. You may obtain a copy at
+http://www.apache.org/licenses/LICENSE-2.0
+
+Source: https://android.googlesource.com/platform/frameworks/base/
+Subset generated with fontTools pyftsubset from the characters in
+crates/tea-app/i18n/{ja,zh-CN}/tea-app.ftl plus the language names 日本語 and 中文（简体）.

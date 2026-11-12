@@ -114,6 +114,13 @@ y Helix, escrita alrededor de la 0.4.0 (en portugués). Lo que sigue siendo el p
 
 - El agente de la terminal tiene un protocolo nativo, hecho de archivos (formularios, comandos que tú apruebas,
   worktrees, la mascota Tea). Eso es lo que los otros editores de esa nota no tienen.
+
+### Tea
+
+La taza de la esquina tiene varias frases para cada humor. Nota un archivo guardado, una pausa larga, la hora
+del día y el build del depurador, y de vez en cuando cita un atajo que de verdad existe. `[mascot] chatty` es
+`quiet`, `normal` o `chatty`; `[mascot] tips` enciende o apaga las pistas. Habla portugués, inglés, español,
+francés, alemán, italiano, japonés y chino simplificado. No roba el foco.
 - No hay autocompletado fantasma, a propósito. Si quieres completar con Tab o diffs en línea, ese texto señala a
   Cursor, Windsurf o Zed.
 - Las code actions, los inlay hints y la cobertura del depurador van por detrás de VS Code y JetBrains.

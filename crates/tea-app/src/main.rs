@@ -835,6 +835,7 @@ impl App {
             file_actions: Vec::new(),
             config,
         };
+        app.mascot.configure(&app.config.mascot, &app.keymap);
         app.push_tab(Editor::scratch(""));
         if let Some(path) = &app.recent_path {
             recent::Recent::add_project(path, &app.root);
@@ -1040,6 +1041,11 @@ impl App {
         match &event {
             CoreEvent::Activity { source, text } => self.mascot.set_lsp_activity(source, text.as_deref()),
             CoreEvent::RunTask { name, .. } => self.mascot.notify_task_started(name),
+            CoreEvent::FileSaved(path) => {
+                if let Some(name) = path.file_name().map(|n| n.to_string_lossy().into_owned()) {
+                    self.mascot.notify_saved(&name);
+                }
+            }
             CoreEvent::Diagnostics { source, path, items } => {
                 let errs = items.iter().filter(|d| d.severity == Severity::Error).count();
                 if errs == 0 {
@@ -1285,8 +1291,10 @@ impl App {
         if !outcome.ok {
             let error = outcome.error.clone().unwrap_or_else(|| fl!("unknown-error"));
             let idle = self.debug_event(DebugEvent::Status(DebugStatus::Idle));
+            self.mascot.notify_build(false);
             return Task::batch([log, idle, self.notify(fl!("debug-build-failed", error = error))]);
         }
+        self.mascot.notify_build(true);
         let next = self.debug_choose(&outcome.executables);
         // Escolheu nada (diálogo ou janela de arquivos abertos): o painel volta a "sem sessão".
         let idle = if self.debug.is_running() {
@@ -2656,6 +2664,7 @@ impl App {
         tea_core::file_icons::set_enabled(config.ui.file_icons.trim() != "none");
         appear::set_enabled(config.ui.animations);
         self.keymap = keymap;
+        self.mascot.configure(&config.mascot, &self.keymap);
         self.lsp.update_config(&config.lsp);
         self.config = config;
         self.editor_zoom.reload_base(self.config.ui.font_size);
@@ -4759,6 +4768,13 @@ mod tests {
         assert_eq!(es.get_args_concrete("settings-language-auto", args), "Automático (English)");
         // Testes sem `init`: português, os textos de hoje.
         assert_eq!(fl!("settings-theme-detail"), "Cores da IDE, do editor e do terminal.");
+        for lang in [Language::French, Language::German, Language::Italian, Language::Japanese, Language::ChineseSimplified] {
+            let loader = load_in("tea-app", &Localizations, lang);
+            assert_eq!(loader.get("settings-theme"), "Theme", "{lang:?} cai no inglês");
+            assert_ne!(loader.get("mascot-state-idle"), en.get("mascot-state-idle"), "{lang:?}");
+            let line = loader.get("mascot-idle-1");
+            assert!(!line.contains("No localization") && !line.is_empty(), "{lang:?}: {line}");
+        }
     }
 
     #[test]

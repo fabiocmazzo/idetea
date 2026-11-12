@@ -117,10 +117,14 @@ All of it is plain files in the project's `.idetea/` folder, so any agent that r
   (real-time mascot state and speech bubble). They do the file work above in one call, with the same approvals.
 - **Reactive mascot (Tea):** a pixel-art teacup card in the bottom-right corner (collapsible into the status bar, or
   toggled via the command palette) that watches `.idetea/` in real time (`idle`, `working`, `thinking`, `attention`,
-  `celebrating`, `error`, `sleeping`, plus interactive `curious` and `annoyed` expressions when hovered or poked with
-  the mouse). Clicking the speech bubble opens the Interfaces, Terminal or Problems panel. Agents or hooks can also
-  drive it directly via `idetea mascot <state> [--text "…"] [--source <name>] [--ttl <secs>]`, and custom sprite packs
-  work via `.idetea/mascot/mascot.toml` or `~/.config/idetea/mascots/<pack>/mascot.toml` (`[mascot] enabled = true`).
+  `celebrating`, `error`, `sleeping`, plus interactive `curious` and `annoyed` expressions when hovered, double-clicked
+  or poked). Each situation has several short lines; the same line is not shown twice in a row. It also notices a file
+  save, the debugger's build finishing or failing, a long idle (it dozes, and wakes when you come back) and the time
+  of day, including a gentle late-night hint to rest. Clicking the speech bubble opens the Interfaces, Terminal or
+  Problems panel and never steals focus. With `[mascot] tips = true` (and `chatty` not `quiet`) it occasionally
+  mentions a real shortcut. `[mascot] chatty` is `quiet`, `normal` or `chatty`. Agents or hooks can also drive it
+  directly via `idetea mascot <state> [--text "…"] [--source <name>] [--ttl <secs>]`, and custom sprite packs work via
+  `.idetea/mascot/mascot.toml` or `~/.config/idetea/mascots/<pack>/mascot.toml` (`[mascot] enabled = true`).
 - **Select and copy text:** "Select text" at the top of an interface (open or in the history) shows its texts in a
   read-only editor: select with the mouse, copy with Ctrl+C; "Show formatted" goes back.
 - **History of the questions:** the IDE keeps every question, your answer, your comment and when the agent read
@@ -144,7 +148,8 @@ Details (in Portuguese for now): [terminais-de-agente.md](terminais-de-agente.md
 - Panels as rounded islands over a darker background, with thin pill scrollbars that fade when the mouse is away;
   `[ui] style = "classic"` keeps everything on one background, split by lines. The palette, menus and dialogs slide
   in softly; `[ui] animations = false` turns that off.
-- Interface in English, Portuguese and Spanish (`[ui] language`, or the system's).
+- Interface in English, Portuguese and Spanish (`[ui] language`, or the system's). French, German, Italian,
+  Japanese and Simplified Chinese translate the mascot; the rest of the interface falls back to English.
 
 ## Not losing work
 
