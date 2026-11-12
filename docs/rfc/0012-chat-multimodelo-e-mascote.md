@@ -256,6 +256,30 @@ IDE TEA, um gatinho, um robô, etc.):
   mascote ou clicar 1–2 vezes desperta a expressão `curious` (sobrancelha erguida e `?` flutuante); sacudir o mouse
   sobre ele ou clicar 3+ vezes seguidas dispara a expressão `annoyed` (sobrancelhas franzidas, chá fervendo, tremor e
   falas de irritação progressivas).
+- **2026-11-12 — mais falas, mais reações, mais idiomas.** Cada situação (humor, hover, toque, duplo clique,
+  tarefa, terminal, salvar, sono, cumprimento, dica, build) tem um pequeno conjunto de frases. O sorteio não repete
+  a mesma linha duas vezes seguidas. O mascote reage a arquivo salvo, ao build do depurador (sucesso ou falha), a
+  um tempo longo parado (adormece e acorda quando a pessoa volta) e à hora do dia, com um convite leve a descansar
+  de madrugada. `[mascot] chatty` (`quiet`, `normal`, `chatty`) e `[mascot] tips` controlam o quanto ele fala; as
+  dicas citam atalhos que existem no config padrão. Nada disso rouba o foco nem abre o card se ele estiver
+  recolhido. Francês, alemão, italiano, japonês e chinês simplificado traduzem todas as falas do mascote; o resto
+  da interface desses idiomas cai no inglês. Um recorte pequeno da Droid Sans Fallback (Apache-2.0) cobre os
+  glifos dessas falas quando o sistema não tem fonte CJK.
+
+### 2.6 Falas, reações extras e idiomas
+
+- As falas ficam em `mascot-*` nos `.ftl`. O código guarda um pool por situação e escolhe uma chave que não seja a
+  anterior. A frase escolhida fica estável até a situação mudar: o relógio da animação não sorteia de novo a cada
+  quadro.
+- Prioridade continua a da tabela acima. Salvar, cumprimento, acordar e dica são um aparte com TTL curto, visível
+  só quando o estado de base é calmo, dormindo ou pensando. Erro, pergunta e terminal não são cobertos.
+- `chatty = "quiet"` desliga cumprimento, dica, comentário ao salvar e a fala de acordar. O sono, o erro e a
+  pergunta continuam. `tips = false` desliga só as dicas. O padrão é `normal` e `tips = true`.
+- Tarefas do terminal (`Ctrl+Shift+B`, teste no cursor) avisam quando começam. O fim delas não é um evento da IDE:
+  o script espera o Enter e não devolve o código. O que a IDE já sabe — terminal de agente que saiu, e o build do
+  depurador — muda o mascote.
+- Idiomas parciais (`fr`, `de`, `it`, `ja`, `zh-CN`) carregam o inglês por baixo. Chinês tradicional não vira
+  simplificado.
 
 ## Fontes
 

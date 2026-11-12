@@ -10,7 +10,14 @@
 //! 6. Atividade de LSP em segundo plano → `Thinking`;
 //! 7. Pergunta aberta cujo `.wait` parou de atualizar (> 30 s) ou inatividade prolongada (> 5 min) → `Sleeping`;
 //! 8. Caso contrário → `Idle` (xícara de chá fumegando suavemente).
+//!
+//! Por cima disso, sem roubar o foco: salvar um arquivo, o build do depurador, sono depois de
+//! um tempo parado, cumprimento conforme a hora e, se `[mascot] tips` estiver ligado, uma dica
+//! ocasional de atalho que existe de verdade. `chatty = "quiet"` fica só com o estado.
 
+mod lines;
+
+use std::cell::RefCell;
 use std::collections::{BTreeMap, HashMap};
 use std::io::Cursor;
 use std::path::{Path, PathBuf};
@@ -18,7 +25,9 @@ use std::sync::Arc;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use iced::widget::image::{FilterMethod, Handle};
-use iced::widget::{button, column, container, image as img_widget, mouse_area, opaque, row, space, text};
+use iced::widget::{
+    button, column, container, image as img_widget, mouse_area, opaque, row, space, text,
+};
 use iced::{Color, Element, Fill, Point, Theme};
 use serde::{Deserialize, Serialize};
 
@@ -30,8 +39,16 @@ const CELEBRATE_DURATION: Duration = Duration::from_secs(5);
 const ERROR_DURATION: Duration = Duration::from_secs(8);
 const SLEEP_AFTER_IDLE: Duration = Duration::from_secs(300);
 const POKE_WINDOW: Duration = Duration::from_secs(6);
+const DOUBLE_CLICK: Duration = Duration::from_millis(400);
 const HOVER_PASS_WINDOW: Duration = Duration::from_secs(4);
 const WIGGLE_THRESHOLD: f32 = 220.0;
+const ASIDE_SAVE: Duration = Duration::from_secs(4);
+const ASIDE_WAKE: Duration = Duration::from_secs(5);
+const ASIDE_GREET: Duration = Duration::from_secs(7);
+const ASIDE_TIP: Duration = Duration::from_secs(8);
+const TIP_EVERY: Duration = Duration::from_secs(180);
+const TIP_EVERY_CHATTY: Duration = Duration::from_secs(70);
+const IDLE_ROLL: Duration = Duration::from_secs(40);
 
 const EXIT_OK: i32 = 0;
 const EXIT_INVALID: i32 = 2;
@@ -183,7 +200,10 @@ impl ExternalState {
     pub fn is_active(&self, now_ms: u64) -> bool {
         self.format == FORMAT
             && Mood::parse(&self.state).is_some()
-            && now_ms <= self.timestamp_ms.saturating_add(self.ttl_secs.saturating_mul(1000))
+            && now_ms
+                <= self
+                    .timestamp_ms
+                    .saturating_add(self.ttl_secs.saturating_mul(1000))
     }
 }
 
@@ -217,10 +237,19 @@ pub struct LoadedPack {
 
 impl PartialEq for LoadedPack {
     fn eq(&self, other: &Self) -> bool {
-        self.source_id == other.source_id && self.name == other.name && self.pixelated == other.pixelated
+        self.source_id == other.source_id
+            && self.name == other.name
+            && self.pixelated == other.pixelated
     }
 }
 impl Eq for LoadedPack {}
+
+/// Fala curta que não cobre pergunta, erro nem tarefa (some sozinha).
+struct Aside {
+    mood: Mood,
+    text: String,
+    until: Instant,
+}
 
 /// Estado do mascote dentro do `App`.
 pub struct Mascot {
@@ -244,6 +273,17 @@ pub struct Mascot {
     pokes: Vec<Instant>,
     /// Contador para alternar frases de curiosidade/irritação.
     interaction_seq: usize,
+    chatty: tea_core::config::MascotChatty,
+    tips: bool,
+    keymap: tea_core::keymap::Keymap,
+    picker: RefCell<lines::LinePicker>,
+    /// `(situação, texto)` para a fala não trocar a cada quadro.
+    line_cache: RefCell<(String, String)>,
+    hover_line: Option<String>,
+    aside: Option<Aside>,
+    greeted: Option<lines::DayPart>,
+    last_tip: Instant,
+    last_idle_roll: Instant,
     /// Atividade de LSP em segundo plano (fonte → texto).
     lsp_activity: BTreeMap<String, String>,
     /// Quantidade de erros do LSP no projeto.
@@ -270,6 +310,16 @@ impl Mascot {
             hover_wiggle: 0.0,
             pokes: Vec::new(),
             interaction_seq: 0,
+            chatty: tea_core::config::MascotChatty::Normal,
+            tips: true,
+            keymap: tea_core::keymap::Keymap::default(),
+            picker: RefCell::new(lines::LinePicker::new(picker_seed())),
+            line_cache: RefCell::new((String::new(), String::new())),
+            hover_line: None,
+            aside: None,
+            greeted: None,
+            last_tip: Instant::now(),
+            last_idle_roll: Instant::now(),
             lsp_activity: BTreeMap::new(),
             lsp_errors: 0,
             last_active: Instant::now(),
@@ -277,31 +327,54 @@ impl Mascot {
         }
     }
 
+    /// Nível de conversa, dicas e atalhos de verdade (para as dicas citarem o atalho atual).
+    pub fn configure(
+        &mut self,
+        cfg: &tea_core::config::MascotConfig,
+        keymap: &tea_core::keymap::Keymap,
+    ) {
+        self.chatty = cfg.chatty;
+        self.tips = cfg.tips;
+        self.keymap = keymap.clone();
+    }
+
     pub fn touch_user_activity(&mut self) {
+        self.note_activity(true);
+    }
+
+    fn note_activity(&mut self, wake_line: bool) {
+        let asleep = self.last_active.elapsed() >= SLEEP_AFTER_IDLE;
         self.last_active = Instant::now();
+        if asleep
+            && wake_line
+            && self.chatty != tea_core::config::MascotChatty::Quiet
+            && !self.aside_active()
+        {
+            let text = self.pick_text(lines::WAKE);
+            self.show_aside(Mood::Idle, text, ASIDE_WAKE);
+        }
     }
 
     pub fn on_pointer_entered(&mut self) {
         let now = Instant::now();
-        self.last_active = now;
+        self.note_activity(false);
         self.hovered = true;
-        self.hover_enters.retain(|t| now.duration_since(*t) <= HOVER_PASS_WINDOW);
+        self.hover_enters
+            .retain(|t| now.duration_since(*t) <= HOVER_PASS_WINDOW);
         self.hover_enters.push(now);
         self.interaction_seq = self.interaction_seq.wrapping_add(1);
 
         if self.hover_enters.len() >= 3 {
-            let msg = if self.interaction_seq.is_multiple_of(2) {
-                fl!("mascot-hover-annoyed-1")
-            } else {
-                fl!("mascot-hover-annoyed-2")
-            };
+            let msg = self.pick_text(lines::HOVER_ANNOYED);
             self.interaction = Some((Mood::Annoyed, msg, now + Duration::from_secs(4)));
+        } else {
+            self.hover_line = Some(self.pick_text(lines::HOVER_CURIOUS));
         }
     }
 
     pub fn on_pointer_moved(&mut self, pt: Point) {
         let now = Instant::now();
-        self.last_active = now;
+        self.note_activity(false);
         self.hovered = true;
         if let Some((prev, prev_t)) = self.last_pointer {
             if now.duration_since(prev_t) <= Duration::from_millis(600) {
@@ -317,11 +390,7 @@ impl Mascot {
         if self.hover_wiggle >= WIGGLE_THRESHOLD {
             self.hover_wiggle = 0.0;
             self.interaction_seq = self.interaction_seq.wrapping_add(1);
-            let msg = if self.interaction_seq.is_multiple_of(2) {
-                fl!("mascot-hover-annoyed-1")
-            } else {
-                fl!("mascot-hover-annoyed-2")
-            };
+            let msg = self.pick_text(lines::HOVER_ANNOYED);
             self.interaction = Some((Mood::Annoyed, msg, now + Duration::from_secs(4)));
         }
     }
@@ -333,19 +402,69 @@ impl Mascot {
 
     pub fn on_poke(&mut self) {
         let now = Instant::now();
-        self.last_active = now;
+        self.note_activity(false);
+        let rapid = self
+            .pokes
+            .last()
+            .is_some_and(|t| now.duration_since(*t) <= DOUBLE_CLICK);
         self.pokes.retain(|t| now.duration_since(*t) <= POKE_WINDOW);
         self.pokes.push(now);
         let count = self.pokes.len();
 
-        let (mood, msg, dur) = match count {
-            1 => (Mood::Curious, fl!("mascot-poke-curious-1"), Duration::from_millis(3500)),
-            2 => (Mood::Curious, fl!("mascot-poke-curious-2"), Duration::from_millis(3500)),
-            3 | 4 => (Mood::Annoyed, fl!("mascot-poke-annoyed-1"), Duration::from_millis(4500)),
-            5 | 6 => (Mood::Annoyed, fl!("mascot-poke-annoyed-2"), Duration::from_secs(5)),
-            _ => (Mood::Annoyed, fl!("mascot-poke-annoyed-3"), Duration::from_secs(6)),
+        let (mood, pool, dur) = if rapid && count == 2 {
+            (
+                Mood::Curious,
+                lines::POKE_DOUBLE,
+                Duration::from_millis(3500),
+            )
+        } else {
+            match count {
+                1 | 2 => (
+                    Mood::Curious,
+                    lines::POKE_CURIOUS,
+                    Duration::from_millis(3500),
+                ),
+                3 | 4 => (
+                    Mood::Annoyed,
+                    lines::POKE_ANNOYED,
+                    Duration::from_millis(4500),
+                ),
+                _ => (Mood::Annoyed, lines::POKE_ANNOYED, Duration::from_secs(5)),
+            }
         };
-        self.interaction = Some((mood, msg, now + dur));
+        self.interaction = Some((mood, self.pick_text(pool), now + dur));
+    }
+
+    /// Arquivo gravado pela IDE. `quiet` não comenta.
+    pub fn notify_saved(&mut self, name: &str) {
+        self.last_active = Instant::now();
+        if name.is_empty() || self.chatty == tea_core::config::MascotChatty::Quiet {
+            return;
+        }
+        let text = self.format_fresh(lines::SAVE, &[("name", name)]);
+        self.show_aside(Mood::Celebrating, text, ASIDE_SAVE);
+    }
+
+    /// Resultado do build que o depurador já conhece (não há evento de fim para as tarefas do terminal).
+    pub fn notify_build(&mut self, ok: bool) {
+        self.last_active = Instant::now();
+        if ok {
+            let text = self.pick_text(lines::BUILD_OK);
+            self.transient = Some((
+                Mood::Celebrating,
+                text,
+                Target::None,
+                Instant::now() + CELEBRATE_DURATION,
+            ));
+        } else {
+            let text = self.pick_text(lines::BUILD_ERR);
+            self.transient = Some((
+                Mood::Error,
+                text,
+                Target::Problems,
+                Instant::now() + ERROR_DURATION,
+            ));
+        }
     }
 
     pub fn set_lsp_activity(&mut self, source: &str, text: Option<&str>) {
@@ -365,9 +484,10 @@ impl Mascot {
 
     pub fn notify_task_started(&mut self, name: &str) {
         self.last_active = Instant::now();
+        let text = self.format_fresh(lines::TASK, &[("name", name)]);
         self.transient = Some((
             Mood::Working,
-            fl!("mascot-bubble-task", name = name.to_string()),
+            text,
             Target::Terminal,
             Instant::now() + Duration::from_secs(6),
         ));
@@ -383,7 +503,11 @@ impl Mascot {
             }
         }
         if let Some((mood, text, target)) = snap.event.take() {
-            let dur = if mood == Mood::Error { ERROR_DURATION } else { CELEBRATE_DURATION };
+            let dur = if mood == Mood::Error {
+                ERROR_DURATION
+            } else {
+                CELEBRATE_DURATION
+            };
             self.transient = Some((mood, text, target, Instant::now() + dur));
         }
         self.snapshot = snap;
@@ -392,12 +516,26 @@ impl Mascot {
     pub fn tick(&mut self) {
         self.frame = self.frame.wrapping_add(1);
         let now = Instant::now();
-        if self.transient.as_ref().is_some_and(|(_, _, _, until)| now >= *until) {
+        if self
+            .transient
+            .as_ref()
+            .is_some_and(|(_, _, _, until)| now >= *until)
+        {
             self.transient = None;
         }
-        if self.interaction.as_ref().is_some_and(|(_, _, until)| now >= *until) {
+        if self
+            .interaction
+            .as_ref()
+            .is_some_and(|(_, _, until)| now >= *until)
+        {
             self.interaction = None;
         }
+        if self.aside.as_ref().is_some_and(|a| now >= a.until) {
+            self.aside = None;
+        }
+        self.consider_greeting(local_hour());
+        self.consider_tip();
+        self.consider_idle_refresh();
     }
 
     fn fallback_target(&self) -> Target {
@@ -419,15 +557,47 @@ impl Mascot {
             return (*mood, Some(text.clone()), self.fallback_target());
         }
         if self.hovered {
-            let msg = if self.interaction_seq.is_multiple_of(2) {
-                fl!("mascot-hover-curious-1")
-            } else {
-                fl!("mascot-hover-curious-2")
-            };
+            let msg = self
+                .hover_line
+                .clone()
+                .unwrap_or_else(|| self.cached_line("hover", lines::HOVER_CURIOUS));
             return (Mood::Curious, Some(msg), self.fallback_target());
         }
 
-        let ext_ts = self.snapshot.external.as_ref().map(|(_, _, _, ts)| *ts).unwrap_or(0);
+        let base = self.resolve_base();
+        // Cumprimento, dica, salvar e acordar: só quando não há nada mais urgente, e sem mudar o foco.
+        if let Some(aside) = &self.aside
+            && Instant::now() < aside.until
+            && matches!(base.0, Mood::Idle | Mood::Sleeping | Mood::Thinking)
+        {
+            return (aside.mood, Some(aside.text.clone()), Target::None);
+        }
+        base
+    }
+
+    /// O que o card mostra. `compact` é a barra de status (recolhido): sem a conversa de descanso.
+    fn present(&self, compact: bool) -> (Mood, Option<String>, Target) {
+        let mut shown = self.resolved();
+        if shown.1.is_none() && shown.0 == Mood::Sleeping {
+            shown.1 = Some(self.cached_line("mood:sleep", lines::SLEEP));
+        } else if !compact
+            && shown.1.is_none()
+            && self.chatty != tea_core::config::MascotChatty::Quiet
+            && let Some(pool) = lines::ambient(shown.0.as_str())
+        {
+            let situation = format!("mood:{}", shown.0.as_str());
+            shown.1 = Some(self.cached_line(&situation, pool));
+        }
+        shown
+    }
+
+    fn resolve_base(&self) -> (Mood, Option<String>, Target) {
+        let ext_ts = self
+            .snapshot
+            .external
+            .as_ref()
+            .map(|(_, _, _, ts)| *ts)
+            .unwrap_or(0);
 
         // 1. Pergunta aberta no painel Interfaces com `.wait` ativo que chegou depois do último `idetea mascot`.
         if let Some((_, title, source, true, ui_mtime)) = &self.snapshot.ui_waiting
@@ -443,15 +613,20 @@ impl Mascot {
         if let Some((_, title, agent_mtime)) = &self.snapshot.agent_pending
             && (self.snapshot.external.is_none() || *agent_mtime > ext_ts)
         {
-            return (
-                Mood::Attention,
-                Some(fl!("mascot-bubble-terminal-pending", title = title.clone())),
-                Target::Terminal,
+            let text = self.format_cached(
+                &format!("term-pending:{title}"),
+                lines::TERM_PENDING,
+                &[("title", title.as_str())],
             );
+            return (Mood::Attention, Some(text), Target::Terminal);
         }
         // 3. Estado explícito ativo enviado por `idetea mascot` (dentro do TTL).
         if let Some((mood, text, source, _)) = &self.snapshot.external {
-            return (*mood, format_external(source.as_deref(), text.as_deref()), self.fallback_target());
+            return (
+                *mood,
+                format_external(source.as_deref(), text.as_deref()),
+                self.fallback_target(),
+            );
         }
         // 4. Transição recente (erro ou comemoração).
         if let Some((mood, text, target, until)) = &self.transient
@@ -461,11 +636,12 @@ impl Mascot {
         }
         // 5. Terminal de agente rodando.
         if let Some((_, title)) = &self.snapshot.agent_running {
-            return (
-                Mood::Working,
-                Some(fl!("mascot-bubble-terminal-running", title = title.clone())),
-                Target::Terminal,
+            let text = self.format_cached(
+                &format!("term-run:{title}"),
+                lines::TERM_RUNNING,
+                &[("title", title.as_str())],
             );
+            return (Mood::Working, Some(text), Target::Terminal);
         }
         // 6. Atividade de LSP em segundo plano.
         if let Some((src, act)) = self.lsp_activity.iter().next() {
@@ -473,11 +649,12 @@ impl Mascot {
         }
         // 7. Pergunta aberta mas o `.wait` expirou (o agente parou de esperar).
         if let Some((_, title, _, false, _)) = &self.snapshot.ui_waiting {
-            return (
-                Mood::Sleeping,
-                Some(fl!("mascot-bubble-wait-expired", title = title.clone())),
-                Target::Interfaces,
+            let text = self.format_cached(
+                &format!("wait:{title}"),
+                lines::WAIT,
+                &[("title", title.as_str())],
             );
+            return (Mood::Sleeping, Some(text), Target::Interfaces);
         }
         // 8. Inatividade prolongada.
         if self.last_active.elapsed() >= SLEEP_AFTER_IDLE {
@@ -485,13 +662,132 @@ impl Mascot {
         }
         // 9. Calmo (mostra lembrete discreto se houver erros de LSP).
         if self.lsp_errors > 0 {
-            return (
-                Mood::Idle,
-                Some(fl!("mascot-bubble-errors", count = self.lsp_errors)),
-                Target::Problems,
+            let n = self.lsp_errors.to_string();
+            let text = self.format_cached(
+                &format!("errors:{n}"),
+                lines::ERRORS,
+                &[("count", n.as_str())],
             );
+            return (Mood::Idle, Some(text), Target::Problems);
         }
         (Mood::Idle, None, Target::None)
+    }
+
+    fn aside_active(&self) -> bool {
+        self.aside
+            .as_ref()
+            .is_some_and(|a| Instant::now() < a.until)
+    }
+
+    fn show_aside(&mut self, mood: Mood, text: String, ttl: Duration) {
+        self.aside = Some(Aside {
+            mood,
+            text,
+            until: Instant::now() + ttl,
+        });
+    }
+
+    fn pick_text(&self, pool: &[&'static str]) -> String {
+        let key = self.picker.borrow_mut().pick(pool);
+        self.render_key(key)
+    }
+
+    fn render_key(&self, key: &str) -> String {
+        if lines::is_tip(key) {
+            let marked = tea_core::i18n::get_with_markers(&crate::LOADER, key);
+            return lines::with_shortcuts(&marked, &self.keymap);
+        }
+        crate::LOADER.get(key)
+    }
+
+    fn format_fresh(&self, pool: &[&'static str], pairs: &[(&str, &str)]) -> String {
+        let key = self.picker.borrow_mut().pick(pool);
+        lines::format_key(key, pairs)
+    }
+
+    fn format_cached(
+        &self,
+        situation: &str,
+        pool: &[&'static str],
+        pairs: &[(&str, &str)],
+    ) -> String {
+        if self.line_cache.borrow().0 == situation {
+            return self.line_cache.borrow().1.clone();
+        }
+        let text = self.format_fresh(pool, pairs);
+        *self.line_cache.borrow_mut() = (situation.to_string(), text.clone());
+        text
+    }
+
+    fn cached_line(&self, situation: &str, pool: &[&'static str]) -> String {
+        if self.line_cache.borrow().0 == situation {
+            return self.line_cache.borrow().1.clone();
+        }
+        let text = self.pick_text(pool);
+        *self.line_cache.borrow_mut() = (situation.to_string(), text.clone());
+        text
+    }
+
+    fn consider_greeting(&mut self, hour: u32) {
+        if self.collapsed
+            || self.chatty == tea_core::config::MascotChatty::Quiet
+            || self.hovered
+            || self.aside_active()
+        {
+            return;
+        }
+        let part = lines::DayPart::from_hour(hour);
+        if self.greeted == Some(part) {
+            return;
+        }
+        if self.resolve_base().0 != Mood::Idle {
+            return;
+        }
+        self.greeted = Some(part);
+        let text = self.pick_text(part.pool());
+        self.show_aside(Mood::Idle, text, ASIDE_GREET);
+    }
+
+    fn consider_tip(&mut self) {
+        if self.collapsed
+            || !self.tips
+            || self.chatty == tea_core::config::MascotChatty::Quiet
+            || self.hovered
+        {
+            return;
+        }
+        let every = if self.chatty == tea_core::config::MascotChatty::Chatty {
+            TIP_EVERY_CHATTY
+        } else {
+            TIP_EVERY
+        };
+        if self.last_tip.elapsed() < every || self.aside_active() {
+            return;
+        }
+        if self.resolve_base().0 != Mood::Idle {
+            return;
+        }
+        self.last_tip = Instant::now();
+        let text = self.pick_text(lines::TIPS);
+        self.show_aside(Mood::Curious, text, ASIDE_TIP);
+    }
+
+    fn consider_idle_refresh(&mut self) {
+        if self.collapsed
+            || self.chatty != tea_core::config::MascotChatty::Chatty
+            || self.aside_active()
+        {
+            return;
+        }
+        if self.last_idle_roll.elapsed() < IDLE_ROLL {
+            return;
+        }
+        let (mood, text, _) = self.resolve_base();
+        if mood != Mood::Idle || text.is_some() {
+            return;
+        }
+        self.last_idle_roll = Instant::now();
+        self.line_cache.borrow_mut().0.clear();
     }
 
     /// Intervalo do relógio de animação (desligado quando recolhido).
@@ -526,7 +822,7 @@ impl Mascot {
         if !enabled {
             return None;
         }
-        let (mood, bubble, _) = self.resolved();
+        let (mood, bubble, _) = self.present(true);
         let badge = match mood {
             Mood::Attention => " !",
             Mood::Error => " ×",
@@ -536,14 +832,20 @@ impl Mascot {
             Mood::Annoyed => " #",
             _ => "",
         };
-        let label = if self.collapsed && let Some(b) = &bubble {
+        let label = if self.collapsed
+            && let Some(b) = &bubble
+        {
             let short = truncate_chars(b, 32);
             format!("🍵 {}{badge} · {short}", mood.label())
         } else {
             format!("🍵 {}{badge}", self.pack.name)
         };
         let urgent = matches!(mood, Mood::Attention | Mood::Error | Mood::Annoyed);
-        let style = if urgent { button::primary } else { button::text };
+        let style = if urgent {
+            button::primary
+        } else {
+            button::text
+        };
         Some(
             button(text(label).size(12))
                 .on_press(Msg::ToggleCollapsed)
@@ -558,31 +860,37 @@ impl Mascot {
         if !enabled || self.collapsed {
             return None;
         }
-        let (mood, bubble, target) = self.resolved();
+        let (mood, bubble, target) = self.present(false);
         let (handle, pixelated) = self.current_handle(mood);
 
         let sprite = img_widget(handle)
             .width(56)
             .height(56)
-            .filter_method(if pixelated { FilterMethod::Nearest } else { FilterMethod::Linear });
+            .filter_method(if pixelated {
+                FilterMethod::Nearest
+            } else {
+                FilterMethod::Linear
+            });
 
-        let sprite_box = mouse_area(
-            container(sprite).padding(4).style(move |theme: &Theme| {
-                let p = theme.extended_palette();
-                let border_color = match mood {
-                    Mood::Attention => p.warning.base.color,
-                    Mood::Error | Mood::Annoyed => p.danger.base.color,
-                    Mood::Celebrating => p.success.base.color,
-                    Mood::Working | Mood::Thinking | Mood::Curious => p.primary.base.color,
-                    Mood::Idle | Mood::Sleeping => p.background.strong.color,
-                };
-                container::Style {
-                    background: Some(p.background.base.color.into()),
-                    border: iced::Border { color: border_color, width: 1.5, radius: 8.0.into() },
-                    ..container::Style::default()
-                }
-            }),
-        )
+        let sprite_box = mouse_area(container(sprite).padding(4).style(move |theme: &Theme| {
+            let p = theme.extended_palette();
+            let border_color = match mood {
+                Mood::Attention => p.warning.base.color,
+                Mood::Error | Mood::Annoyed => p.danger.base.color,
+                Mood::Celebrating => p.success.base.color,
+                Mood::Working | Mood::Thinking | Mood::Curious => p.primary.base.color,
+                Mood::Idle | Mood::Sleeping => p.background.strong.color,
+            };
+            container::Style {
+                background: Some(p.background.base.color.into()),
+                border: iced::Border {
+                    color: border_color,
+                    width: 1.5,
+                    radius: 8.0.into(),
+                },
+                ..container::Style::default()
+            }
+        }))
         .on_press(Msg::Poke)
         .interaction(iced::mouse::Interaction::Pointer);
 
@@ -643,44 +951,55 @@ impl Mascot {
                 right_col = right_col.push(poke_text);
             }
         } else {
-            let poke_hint = mouse_area(text(fl!("mascot-idle-hint")).size(11).style(text::secondary))
-                .on_press(Msg::Poke)
-                .interaction(iced::mouse::Interaction::Pointer);
+            let poke_hint = mouse_area(
+                text(fl!("mascot-idle-hint"))
+                    .size(11)
+                    .style(text::secondary),
+            )
+            .on_press(Msg::Poke)
+            .interaction(iced::mouse::Interaction::Pointer);
             right_col = right_col.push(poke_hint);
         }
 
         let card_width = 270.0;
         let card = mouse_area(
-            container(row![sprite_box, right_col].spacing(10).align_y(iced::Center))
-                .width(card_width)
-                .padding(8)
-                .style(move |theme: &Theme| {
-                    let p = theme.extended_palette();
-                    let accent = match mood {
-                        Mood::Attention => p.warning.base.color,
-                        Mood::Error | Mood::Annoyed => p.danger.base.color,
-                        Mood::Curious => p.primary.base.color,
-                        _ => p.background.strong.color,
-                    };
-                    container::Style {
-                        background: Some(p.background.weak.color.into()),
-                        border: iced::Border {
-                            color: accent,
-                            width: if matches!(mood, Mood::Attention | Mood::Error | Mood::Annoyed | Mood::Curious) {
-                                1.5
-                            } else {
-                                1.0
-                            },
-                            radius: 10.0.into(),
+            container(
+                row![sprite_box, right_col]
+                    .spacing(10)
+                    .align_y(iced::Center),
+            )
+            .width(card_width)
+            .padding(8)
+            .style(move |theme: &Theme| {
+                let p = theme.extended_palette();
+                let accent = match mood {
+                    Mood::Attention => p.warning.base.color,
+                    Mood::Error | Mood::Annoyed => p.danger.base.color,
+                    Mood::Curious => p.primary.base.color,
+                    _ => p.background.strong.color,
+                };
+                container::Style {
+                    background: Some(p.background.weak.color.into()),
+                    border: iced::Border {
+                        color: accent,
+                        width: if matches!(
+                            mood,
+                            Mood::Attention | Mood::Error | Mood::Annoyed | Mood::Curious
+                        ) {
+                            1.5
+                        } else {
+                            1.0
                         },
-                        shadow: iced::Shadow {
-                            color: Color::from_rgba(0.0, 0.0, 0.0, 0.35),
-                            offset: iced::Vector::new(0.0, 4.0),
-                            blur_radius: 14.0,
-                        },
-                        ..container::Style::default()
-                    }
-                }),
+                        radius: 10.0.into(),
+                    },
+                    shadow: iced::Shadow {
+                        color: Color::from_rgba(0.0, 0.0, 0.0, 0.35),
+                        offset: iced::Vector::new(0.0, 4.0),
+                        blur_radius: 14.0,
+                    },
+                    ..container::Style::default()
+                }
+            }),
         )
         .on_enter(Msg::PointerEntered)
         .on_move(Msg::PointerMoved)
@@ -692,14 +1011,45 @@ impl Mascot {
                 .height(Fill)
                 .align_x(iced::Right)
                 .align_y(iced::Bottom)
-                .padding(iced::Padding { right: 14.0, bottom: 32.0, ..iced::Padding::ZERO })
+                .padding(iced::Padding {
+                    right: 14.0,
+                    bottom: 32.0,
+                    ..iced::Padding::ZERO
+                })
                 .into(),
         )
     }
 }
 
+fn picker_seed() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map_or(1, |d| d.as_nanos() as u64)
+}
+
+/// Hora local (0–23). Sem fuso conhecido, fica a UTC: o cumprimento ainda muda ao longo do dia.
+fn local_hour() -> u32 {
+    let secs = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map_or(0, |d| d.as_secs());
+    #[cfg(unix)]
+    {
+        #[allow(clippy::useless_conversion)]
+        let raw = secs as libc::time_t;
+        // SAFETY: `localtime_r` só escreve no `tm` que passamos; os dois ponteiros valem durante a chamada.
+        let mut tm: libc::tm = unsafe { std::mem::zeroed() };
+        if !unsafe { libc::localtime_r(&raw, &mut tm) }.is_null() {
+            return tm.tm_hour.clamp(0, 23) as u32;
+        }
+    }
+    ((secs % 86_400) / 3600) as u32
+}
+
 fn format_external(source: Option<&str>, text: Option<&str>) -> Option<String> {
-    match (source.filter(|s| !s.is_empty()), text.filter(|t| !t.is_empty())) {
+    match (
+        source.filter(|s| !s.is_empty()),
+        text.filter(|t| !t.is_empty()),
+    ) {
         (Some(s), Some(t)) => Some(format!("{s}: {t}")),
         (None, Some(t)) => Some(t.to_string()),
         (Some(s), None) => Some(s.to_string()),
@@ -710,13 +1060,19 @@ fn format_external(source: Option<&str>, text: Option<&str>) -> Option<String> {
 fn truncate_chars(s: &str, max: usize) -> String {
     let mut chars = s.chars();
     let head: String = chars.by_ref().take(max).collect();
-    if chars.next().is_some() { format!("{head}…") } else { head }
+    if chars.next().is_some() {
+        format!("{head}…")
+    } else {
+        head
+    }
 }
 
 // ---- Observador de `.idetea/` em thread separada --------------------------
 
 #[allow(clippy::ptr_arg)]
-pub fn watch(spec: &(PathBuf, String)) -> iced::futures::channel::mpsc::UnboundedReceiver<Arc<DiskSnapshot>> {
+pub fn watch(
+    spec: &(PathBuf, String),
+) -> iced::futures::channel::mpsc::UnboundedReceiver<Arc<DiskSnapshot>> {
     let (tx, rx) = iced::futures::channel::mpsc::unbounded();
     let (root, configured_pack) = spec.clone();
     std::thread::spawn(move || {
@@ -730,7 +1086,8 @@ pub fn watch(spec: &(PathBuf, String)) -> iced::futures::channel::mpsc::Unbounde
             if tx.is_closed() {
                 return;
             }
-            let (mut snap, ui_map, agents_map) = scan_project(&root, &prev_ui_unanswered, &prev_agents, first);
+            let (mut snap, ui_map, agents_map) =
+                scan_project(&root, &prev_ui_unanswered, &prev_agents, first);
             prev_ui_unanswered = ui_map;
             prev_agents = agents_map;
             first = false;
@@ -738,9 +1095,12 @@ pub fn watch(spec: &(PathBuf, String)) -> iced::futures::channel::mpsc::Unbounde
             let (pack_sig, pack_dir) = resolve_pack_dir(&root, &configured_pack);
             if pack_sig != last_pack_sig {
                 last_pack_sig = pack_sig.clone();
-                snap.custom_pack = Some(Arc::new( match pack_dir {
+                snap.custom_pack = Some(Arc::new(match pack_dir {
                     Some(dir) => load_custom_pack(&dir, &pack_sig).unwrap_or_else(|e| {
-                        eprintln!("idetea: pacote de mascote inválido em {}: {e}", dir.display());
+                        eprintln!(
+                            "idetea: pacote de mascote inválido em {}: {e}",
+                            dir.display()
+                        );
                         empty_pack()
                     }),
                     None => empty_pack(),
@@ -794,7 +1154,10 @@ pub fn scan_project(
             .flatten()
             .filter_map(|e| {
                 let file = e.file_name().to_str()?.to_string();
-                if file.starts_with('.') || !file.ends_with(".json") || file == "idetea-ui.schema.json" {
+                if file.starts_with('.')
+                    || !file.ends_with(".json")
+                    || file == "idetea-ui.schema.json"
+                {
                     return None;
                 }
                 let name = file.strip_suffix(".json")?.to_string();
@@ -827,7 +1190,7 @@ pub fn scan_project(
             if !current_ui.contains_key(old_name) {
                 snap.event = Some((
                     Mood::Celebrating,
-                    fl!("mascot-bubble-answered", title = old_title.clone()),
+                    lines::format_once(lines::ANSWERED, &[("title", old_title.as_str())]),
                     Target::None,
                 ));
                 break;
@@ -852,8 +1215,12 @@ pub fn scan_project(
         status_files.sort_by(|a, b| a.0.cmp(&b.0));
 
         for (name, status_path) in status_files {
-            let Ok(text) = std::fs::read_to_string(&status_path) else { continue };
-            let Ok(v) = serde_json::from_str::<serde_json::Value>(&text) else { continue };
+            let Ok(text) = std::fs::read_to_string(&status_path) else {
+                continue;
+            };
+            let Ok(v) = serde_json::from_str::<serde_json::Value>(&text) else {
+                continue;
+            };
             let state = v["state"].as_str().unwrap_or_default().to_string();
             let code = v["code"].as_i64().unwrap_or(0);
             let req_path = agents_dir.join(format!("{name}.json"));
@@ -862,7 +1229,8 @@ pub fn scan_project(
 
             match state.as_str() {
                 "pending" if snap.agent_pending.is_none() => {
-                    snap.agent_pending = Some((name.clone(), title.clone(), file_mtime_ms(&status_path)));
+                    snap.agent_pending =
+                        Some((name.clone(), title.clone(), file_mtime_ms(&status_path)));
                 }
                 "running" if snap.agent_running.is_none() => {
                     snap.agent_running = Some((name.clone(), title.clone()));
@@ -871,16 +1239,20 @@ pub fn scan_project(
                     if let Some((prev_state, _)) = prev_agents.get(&name)
                         && prev_state != "exited"
                     {
+                        let code_s = code.to_string();
                         if code == 0 {
                             snap.event = Some((
                                 Mood::Celebrating,
-                                fl!("mascot-bubble-terminal-ok", title = title),
+                                lines::format_once(lines::TERM_OK, &[("title", title.as_str())]),
                                 Target::None,
                             ));
                         } else {
                             snap.event = Some((
                                 Mood::Error,
-                                fl!("mascot-bubble-terminal-err", title = title, code = code),
+                                lines::format_once(
+                                    lines::TERM_ERR,
+                                    &[("title", title.as_str()), ("code", code_s.as_str())],
+                                ),
                                 Target::Terminal,
                             ));
                         }
@@ -906,9 +1278,11 @@ fn has_response(ui_dir: &Path, name: &str) -> bool {
     let Ok(entries) = std::fs::read_dir(ui_dir.join("responses").join(name)) else {
         return false;
     };
-    entries
-        .flatten()
-        .any(|e| e.file_name().to_str().is_some_and(|f| f.ends_with(".json") && !f.starts_with('.')))
+    entries.flatten().any(|e| {
+        e.file_name()
+            .to_str()
+            .is_some_and(|f| f.ends_with(".json") && !f.starts_with('.'))
+    })
 }
 
 fn read_ui_summary(path: &Path, fallback: &str) -> (String, Option<String>, bool) {
@@ -918,11 +1292,19 @@ fn read_ui_summary(path: &Path, fallback: &str) -> (String, Option<String>, bool
     let Ok(v) = serde_json::from_str::<serde_json::Value>(&text) else {
         return (fallback.to_string(), None, false);
     };
-    let title = v["title"].as_str().filter(|s| !s.is_empty()).unwrap_or(fallback).to_string();
-    let source = v["source"].as_str().filter(|s| !s.is_empty()).map(String::from);
-    let has_buttons = v["components"]
-        .as_array()
-        .is_some_and(|arr| arr.iter().any(|c| c["component"].as_str() == Some("button")));
+    let title = v["title"]
+        .as_str()
+        .filter(|s| !s.is_empty())
+        .unwrap_or(fallback)
+        .to_string();
+    let source = v["source"]
+        .as_str()
+        .filter(|s| !s.is_empty())
+        .map(String::from);
+    let has_buttons = v["components"].as_array().is_some_and(|arr| {
+        arr.iter()
+            .any(|c| c["component"].as_str() == Some("button"))
+    });
     (title, source, has_buttons)
 }
 
@@ -933,7 +1315,11 @@ fn read_agent_title(path: &Path, fallback: &str) -> String {
     let Ok(v) = serde_json::from_str::<serde_json::Value>(&text) else {
         return fallback.to_string();
     };
-    v["title"].as_str().filter(|s| !s.is_empty()).unwrap_or(fallback).to_string()
+    v["title"]
+        .as_str()
+        .filter(|s| !s.is_empty())
+        .unwrap_or(fallback)
+        .to_string()
 }
 
 fn is_fresh(path: &Path, max_age: Duration) -> bool {
@@ -954,7 +1340,10 @@ fn file_mtime_ms(path: &Path) -> u64 {
 }
 
 fn now_ms() -> u64 {
-    SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_millis() as u64
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis() as u64
 }
 
 pub fn mascot_state_path(root: &Path) -> PathBuf {
@@ -1021,7 +1410,9 @@ fn resolve_pack_dir(root: &Path, configured: &str) -> (String, Option<PathBuf>) 
         candidates.push(if p.is_absolute() { p } else { root.join(p) });
     }
     candidates.push(root.join(".idetea").join("mascot"));
-    if let Some(cfg) = tea_core::config::global_config_path().and_then(|p| p.parent().map(Path::to_path_buf)) {
+    if let Some(cfg) =
+        tea_core::config::global_config_path().and_then(|p| p.parent().map(Path::to_path_buf))
+    {
         candidates.push(cfg.join("mascot"));
     }
     for dir in candidates {
@@ -1033,7 +1424,10 @@ fn resolve_pack_dir(root: &Path, configured: &str) -> (String, Option<PathBuf>) 
                 .and_then(|t| t.duration_since(UNIX_EPOCH).ok())
                 .map(|d| d.as_nanos())
                 .unwrap_or(0);
-            return (format!("{}:{}:{mtime}", dir.display(), meta.len()), Some(dir));
+            return (
+                format!("{}:{}:{mtime}", dir.display(), meta.len()),
+                Some(dir),
+            );
         }
     }
     (String::new(), None)
@@ -1065,7 +1459,9 @@ pub fn load_custom_pack(dir: &Path, source_id: &str) -> Result<LoadedPack, Strin
         if w == 0 || h == 0 || w > 4096 || h > 4096 {
             return Err(format!("{}: dimensões inválidas ({w}x{h})", spec.path));
         }
-        let rgba = image::load_from_memory(&bytes).map_err(|e| e.to_string())?.to_rgba8();
+        let rgba = image::load_from_memory(&bytes)
+            .map_err(|e| e.to_string())?
+            .to_rgba8();
         let fw = spec.frame_width.unwrap_or(manifest.frame_width).max(1);
         let fh = spec.frame_height.unwrap_or(manifest.frame_height).max(1);
         let count = spec.frames.clamp(1, 64);
@@ -1088,7 +1484,11 @@ pub fn load_custom_pack(dir: &Path, source_id: &str) -> Result<LoadedPack, Strin
     }
 
     Ok(LoadedPack {
-        name: if manifest.name.trim().is_empty() { "Tea".into() } else { manifest.name },
+        name: if manifest.name.trim().is_empty() {
+            "Tea".into()
+        } else {
+            manifest.name
+        },
         pixelated: manifest.pixelated,
         states,
         source_id: source_id.to_string(),
@@ -1125,8 +1525,18 @@ fn render_teacup_frame(mood: Mood, frame: usize) -> Handle {
         Mood::Attention | Mood::Celebrating => (0, if frame % 2 == 1 { -1 } else { 0 }),
         Mood::Working => (0, if frame == 1 || frame == 3 { -1 } else { 0 }),
         Mood::Error => (if frame.is_multiple_of(2) { -1 } else { 1 }, 0),
-        Mood::Curious => (match frame { 1 => -1, 3 => 1, _ => 0 }, if frame == 2 { -1 } else { 0 }),
-        Mood::Annoyed => (if frame.is_multiple_of(2) { -1 } else { 1 }, if frame == 1 { -1 } else { 0 }),
+        Mood::Curious => (
+            match frame {
+                1 => -1,
+                3 => 1,
+                _ => 0,
+            },
+            if frame == 2 { -1 } else { 0 },
+        ),
+        Mood::Annoyed => (
+            if frame.is_multiple_of(2) { -1 } else { 1 },
+            if frame == 1 { -1 } else { 0 },
+        ),
         _ => (0, 0),
     };
 
@@ -1157,7 +1567,13 @@ fn render_teacup_frame(mood: Mood, frame: usize) -> Handle {
 
     // Corpo da xícara (x = 5..17, y = 10..19).
     for y in 10..=19 {
-        let inset = if y >= 18 { 2 } else if y >= 16 { 1 } else { 0 };
+        let inset = if y >= 18 {
+            2
+        } else if y >= 16 {
+            1
+        } else {
+            0
+        };
         let x0 = 5 + inset;
         let x1 = 17 - inset;
         for x in x0..=x1 {
@@ -1470,7 +1886,11 @@ pub fn run_cli(args: &[String], cwd: &Path) -> i32 {
                 i += 2;
             }
             "--ttl" => {
-                let Some(val) = args.get(i + 1).and_then(|v| v.parse::<u64>().ok()).filter(|n| *n > 0) else {
+                let Some(val) = args
+                    .get(i + 1)
+                    .and_then(|v| v.parse::<u64>().ok())
+                    .filter(|n| *n > 0)
+                else {
                     eprintln!("{}", fl!("mascot-usage"));
                     return EXIT_INVALID;
                 };
@@ -1522,10 +1942,17 @@ fn project_root(cwd: &Path) -> PathBuf {
 fn ignore_in_idetea(root: &Path, name: &str) {
     let path = root.join(".idetea").join(".gitignore");
     let text = std::fs::read_to_string(&path).unwrap_or_else(|_| "/.gitignore\n".into());
-    if text.lines().any(|l| l.trim() == name || l.trim() == format!("/{name}")) {
+    if text
+        .lines()
+        .any(|l| l.trim() == name || l.trim() == format!("/{name}"))
+    {
         return;
     }
-    let sep = if text.is_empty() || text.ends_with('\n') { "" } else { "\n" };
+    let sep = if text.is_empty() || text.ends_with('\n') {
+        ""
+    } else {
+        "\n"
+    };
     let _ = std::fs::write(&path, format!("{text}{sep}/{name}\n"));
 }
 
@@ -1559,7 +1986,18 @@ mod tests {
         let args = |s: &[&str]| s.iter().map(|x| x.to_string()).collect::<Vec<_>>();
 
         assert_eq!(
-            run_cli(&args(&["working", "--text", "Compilando…", "--source", "Claude", "--ttl", "60"]), &root),
+            run_cli(
+                &args(&[
+                    "working",
+                    "--text",
+                    "Compilando…",
+                    "--source",
+                    "Claude",
+                    "--ttl",
+                    "60"
+                ]),
+                &root
+            ),
             EXIT_OK
         );
         let ext = read_external_state(&root).expect("arquivo gravado");
@@ -1584,7 +2022,10 @@ mod tests {
         std::fs::create_dir_all(&ui_dir).unwrap();
 
         // 1. Um comando `idetea mascot working` é enviado antes da pergunta.
-        run_cli(&["working".into(), "--text".into(), "Rodando…".into()], &root);
+        run_cli(
+            &["working".into(), "--text".into(), "Rodando…".into()],
+            &root,
+        );
         std::thread::sleep(Duration::from_millis(10));
 
         // 2. Depois chega uma pergunta aberta com `.wait`: ela é mais recente e assume `Attention`.
@@ -1606,7 +2047,10 @@ mod tests {
 
         // 3. Com a pergunta ainda aberta, rodar `idetea mascot error` (mais novo) muda o mascote na hora!
         std::thread::sleep(Duration::from_millis(10));
-        run_cli(&["error".into(), "--text".into(), "Teste de alerta".into()], &root);
+        run_cli(
+            &["error".into(), "--text".into(), "Teste de alerta".into()],
+            &root,
+        );
         let (snap_cli, _, _) = scan_project(&root, &ui1, &agents1, false);
         mascot.apply_snapshot(snap_cli);
         let (mood_cli, bubble_cli, target_cli) = mascot.resolved();
@@ -1633,7 +2077,11 @@ mod tests {
 
         // Cria um PNG 16×8 (2 quadros de 8×8).
         let img = image::RgbaImage::from_fn(16, 8, |x, _y| {
-            if x < 8 { image::Rgba([255, 0, 0, 255]) } else { image::Rgba([0, 255, 0, 255]) }
+            if x < 8 {
+                image::Rgba([255, 0, 0, 255])
+            } else {
+                image::Rgba([0, 255, 0, 255])
+            }
         });
         img.save(pack_dir.join("robo.png")).unwrap();
         std::fs::write(
@@ -1693,5 +2141,119 @@ fps = 5
         mascot2.on_pointer_moved(Point::new(150.0, 0.0));
         mascot2.on_pointer_moved(Point::new(0.0, 0.0));
         assert_eq!(mascot2.resolved().0, Mood::Annoyed);
+    }
+
+    #[test]
+    fn save_sleep_greeting_and_build_respect_chatty() {
+        tea_core::i18n::init("pt-BR");
+        let mut mascot = Mascot::new(false);
+        mascot.notify_saved("main.rs");
+        let (mood, text, target) = mascot.present(false);
+        assert_eq!(mood, Mood::Celebrating);
+        assert!(text.unwrap().contains("main.rs"));
+        assert_eq!(
+            target,
+            Target::None,
+            "salvar não abre painel nem rouba o foco"
+        );
+
+        mascot.chatty = tea_core::config::MascotChatty::Quiet;
+        mascot.aside = None;
+        mascot.notify_saved("lib.rs");
+        assert!(mascot.aside.is_none(), "quiet não comenta o salvar");
+
+        mascot.notify_build(false);
+        assert_eq!(mascot.resolved().0, Mood::Error);
+        assert_eq!(mascot.resolved().2, Target::Problems);
+        mascot.transient = None;
+
+        mascot.chatty = tea_core::config::MascotChatty::Normal;
+        mascot.last_active = Instant::now()
+            .checked_sub(Duration::from_secs(301))
+            .unwrap();
+        let (mood, text, _) = mascot.present(false);
+        assert_eq!(mood, Mood::Sleeping);
+        assert!(text.is_some(), "adormecer tem uma fala");
+        mascot.touch_user_activity();
+        assert_eq!(mascot.resolved().0, Mood::Idle);
+        assert!(
+            mascot.aside.is_some(),
+            "acordar fala quando o usuário volta"
+        );
+
+        mascot.aside = None;
+        mascot.greeted = None;
+        mascot.consider_greeting(23);
+        let late = mascot.present(false).1.unwrap();
+        mascot.consider_greeting(23);
+        assert_eq!(
+            mascot.present(false).1.as_deref(),
+            Some(late.as_str()),
+            "o mesmo período não repete o cumprimento"
+        );
+        mascot.aside = None;
+        mascot.consider_greeting(9);
+        assert_ne!(mascot.present(false).1.as_deref(), Some(late.as_str()));
+    }
+
+    #[test]
+    fn every_locale_has_every_mascot_key() {
+        let dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("i18n");
+        let base = tea_core::i18n::read_messages(&dir.join("pt-BR/tea-app.ftl")).expect("pt-BR");
+        let mascot: Vec<_> = base
+            .iter()
+            .filter(|(k, _)| k.starts_with("mascot-"))
+            .map(|(k, v)| (k.clone(), v.clone()))
+            .collect();
+        assert!(
+            mascot.len() > 40,
+            "o mascote ficou com poucas chaves: {}",
+            mascot.len()
+        );
+        for lang in tea_core::i18n::Language::ALL {
+            let path = dir.join(lang.tag()).join("tea-app.ftl");
+            let other = tea_core::i18n::read_messages(&path).unwrap_or_else(|e| panic!("{e}"));
+            for (id, vars) in &mascot {
+                match other.get(id) {
+                    None => panic!("{}: falta \"{id}\"", path.display()),
+                    Some(v) if v != vars => panic!(
+                        "{}: \"{id}\" usa {v:?}, o português usa {vars:?}",
+                        path.display()
+                    ),
+                    _ => {}
+                }
+            }
+        }
+        let have: std::collections::BTreeSet<_> = mascot.iter().map(|(k, _)| k.as_str()).collect();
+        for pool in lines::all_pools() {
+            for key in *pool {
+                assert!(have.contains(key), "o código pede {key} e o pt-BR não tem");
+            }
+        }
+    }
+
+    #[test]
+    fn tips_use_shortcuts_that_exist_by_default() {
+        let cfg = tea_core::config::Config::load(None, None);
+        assert!(cfg.errors.is_empty(), "{:?}", cfg.errors);
+        let (keymap, errs) = tea_core::keymap::Keymap::from_pairs(
+            cfg.keys.iter().map(|(k, v)| (k.as_str(), v.as_str())),
+        );
+        assert!(errs.is_empty(), "{errs:?}");
+        for cmd in lines::TIP_COMMANDS {
+            let chord = keymap
+                .chord_for(cmd)
+                .unwrap_or_else(|| panic!("{cmd} não tem atalho no config padrão"));
+            assert!(!chord.to_string().is_empty());
+        }
+        let loader = tea_core::i18n::load_in(
+            "tea-app",
+            &crate::Localizations,
+            tea_core::i18n::Language::English,
+        );
+        let marked = tea_core::i18n::get_with_markers(&loader, "mascot-tip-1");
+        let text = lines::with_shortcuts(&marked, &keymap);
+        assert!(text.contains("Ctrl+Shift+P"), "{text}");
+        assert!(!text.contains('$') && !text.contains('{'), "{text}");
     }
 }

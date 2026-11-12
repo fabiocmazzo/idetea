@@ -1,5 +1,6 @@
 # Textos da interface: i18n/<idioma>/tea-app.ftl. O português é a origem (a macro fl! confere as
-# chaves nele na compilação); um teste confere que inglês e espanhol têm as mesmas.
+# chaves nele na compilação). Inglês e espanhol têm as mesmas. fr, de, it, ja e zh-CN traduzem
+# o mascote; o que faltar cai no inglês.
 fallback_language = "pt-BR"
 
 [fluent]

@@ -32,7 +32,8 @@ animations = true
 # Ícone de cada arquivo pela linguagem ou pelo tipo (árvore, abas, Ctrl+P, breadcrumbs, busca, git):
 # "seti" (o conjunto do VS Code, embutido) ou "none" (o ícone genérico).
 file_icons = "seti"
-# Idioma da interface: "auto" (o do sistema), "pt-BR", "en" ou "es". Vale ao reiniciar.
+# Idioma da interface: "auto" (o do sistema), "pt-BR", "en", "es", "fr", "de", "it", "ja" ou "zh-CN".
+# Vale ao reiniciar. fr/de/it/ja/zh-CN traduzem o mascote; o resto da interface cai no inglês.
 language = "auto"
 # Reabrir as abas e os painéis de cada projeto como estavam (não vale para `idetea arquivo...`).
 restore_session = true
@@ -113,10 +114,14 @@ interfaces = { enabled = true, slot = "right" }
 allow = []
 # allow = ["npm run dev", "claude *"]
 
-# Mascote reativo no canto da IDE (RFC 0012): acompanha perguntas no painel, terminais de agentes e `idetea mascot`.
+# Mascote reativo no canto da IDE (RFC 0012): acompanha perguntas no painel, terminais de agentes,
+# salvar, o build do depurador e `idetea mascot`. Não rouba o foco: o balão some sozinho e o card
+# recolhido continua recolhido.
 [mascot]
 enabled = true
 # pack = "" # caminho para uma pasta com mascot.toml (vazio = a xícara de chá embutida)
+# chatty = "normal" # quiet (só o que importa), normal ou chatty (mais falas)
+# tips = true # dicas ocasionais de atalhos que existem de verdade; quiet ignora, mesmo com true
 
 # Plugins (~/.local/share/idetea/plugins/<id>/): a config de cada um, no formato que o plugin pedir.
 # [plugins.contador]
@@ -196,7 +201,8 @@ pub struct UiConfig {
     pub animations: bool,
     /// Ícones de arquivo pela linguagem: `"seti"` (embutido) ou `"none"` (o genérico).
     pub file_icons: String,
-    /// `"auto"` (o do sistema), `"pt-BR"`, `"en"` ou `"es"`. Vale ao reiniciar.
+    /// `"auto"` (o do sistema), `"pt-BR"`, `"en"`, `"es"`, `"fr"`, `"de"`, `"it"`, `"ja"` ou `"zh-CN"`.
+    /// Vale ao reiniciar. Os cinco últimos traduzem o mascote; o resto da interface cai no inglês.
     pub language: String,
     /// Reabrir as abas e os painéis do projeto como estavam.
     pub restore_session: bool,
@@ -304,6 +310,18 @@ pub struct AgentsConfig {
     pub allow: Vec<String>,
 }
 
+/// Quanto o mascote fala além do que o estado pede (`[mascot] chatty`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum MascotChatty {
+    /// Sem cumprimento, dica, comentário ao salvar nem fala ao acordar.
+    Quiet,
+    #[default]
+    Normal,
+    /// Troca a fala de descanso com mais frequência e oferece dicas mais cedo.
+    Chatty,
+}
+
 /// Mascote reativo no canto da IDE (`[mascot]`, RFC 0012).
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 #[serde(default)]
@@ -311,11 +329,15 @@ pub struct MascotConfig {
     pub enabled: bool,
     /// Pasta de um pacote `mascot.toml` customizado (vazio = xícara de chá embutida).
     pub pack: String,
+    /// `quiet`, `normal` ou `chatty`.
+    pub chatty: MascotChatty,
+    /// Dicas ocasionais de atalhos reais. `quiet` não mostra, mesmo com `true`.
+    pub tips: bool,
 }
 
 impl Default for MascotConfig {
     fn default() -> Self {
-        Self { enabled: true, pack: String::new() }
+        Self { enabled: true, pack: String::new(), chatty: MascotChatty::Normal, tips: true }
     }
 }
 
@@ -537,6 +559,17 @@ mod tests {
         assert_eq!(c.editor, EditorConfig::default(), "o texto e o Default dizem o mesmo");
         assert_eq!(layers(&["[editor]\ntab_size = 0"]).editor.tab_size, 1);
         assert!(c.tasks.is_empty());
+        assert!(c.mascot.enabled);
+        assert_eq!(c.mascot.chatty, MascotChatty::Normal);
+        assert!(c.mascot.tips);
+        assert!(c.mascot.pack.is_empty());
+        let quiet = layers(&["[mascot]\nchatty = \"quiet\"\ntips = false\npack = \"cups\""]);
+        assert!(quiet.errors.is_empty(), "{:?}", quiet.errors);
+        assert_eq!(quiet.mascot.chatty, MascotChatty::Quiet);
+        assert!(!quiet.mascot.tips);
+        assert_eq!(quiet.mascot.pack, "cups");
+        assert!(quiet.mascot.enabled, "campo ausente continua no padrão");
+        assert!(!layers(&["[mascot]\nchatty = \"loud\""]).errors.is_empty(), "nível desconhecido avisa");
         assert_eq!(layers(&["[tasks]\nservidor = \"cargo run\""]).tasks["servidor"], "cargo run");
         assert_eq!(c.extension("filetree").slot, Some(Slot::Left));
         assert!(c.keys.iter().any(|(k, v)| k == "ctrl+s" && v == "file.save"));

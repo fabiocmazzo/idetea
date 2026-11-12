@@ -112,6 +112,13 @@ JetBrains e Helix. Foi escrito por volta da 0.4.0. O que continua sendo o produt
 
 - O agente do terminal ganha um protocolo nativo, feito de arquivos (formulários, comandos que você aprova,
   worktrees, o mascote Tea). É isso que os outros editores daquele texto não têm.
+
+### Tea
+
+A xícara no canto tem várias falas para cada humor. Ela nota um arquivo salvo, uma pausa longa, a hora do dia e
+o build do depurador, e de vez em quando cita um atalho que existe de verdade. `[mascot] chatty` é `quiet`,
+`normal` ou `chatty`; `[mascot] tips` liga ou desliga as dicas. Ela fala português, inglês, espanhol, francês,
+alemão, italiano, japonês e chinês simplificado. Não rouba o foco.
 - Não tem autocomplete fantasma, de propósito. Se você quer completar com Tab ou diff inline, o texto aponta para
   Cursor, Windsurf ou Zed.
 - Code actions, inlay hints e a cobertura do depurador ficam atrás do VS Code e do JetBrains.
