@@ -7,84 +7,87 @@
 <p align="center"><b>Just code. Add ice.</b></p>
 
 <p align="center">
-  Uma IDE rápida e silenciosa, em Rust puro com <a href="https://github.com/iced-rs/iced">iced</a>,<br>
-  feita para trabalhar lado a lado com agentes de código. Gratuita, sempre: <a href="LICENSE">Apache 2.0</a>.
+  Uma IDE rápida e silenciosa, em Rust puro, em que os agentes de código perguntam antes de agir.<br>
+  Gratuita, sempre: <a href="LICENSE">Apache 2.0</a>. Sem conta, sem telemetria, sem marketplace.
 </p>
 
 <p align="center">
   <a href="README.md">English</a> · <b>Português</b> · <a href="README.es.md">Español</a><br>
   <a href="https://idetea.belabs.cloud/pt-br/"><b>Site e guias</b></a>
+  · <a href="https://github.com/fabiocmazzo/idetea">GitHub</a>
 </p>
 
-<p align="center"><img src="assets/demo.gif" width="886" alt="Um agente faz uma pergunta no painel Interfaces e depois pede um terminal para rodar os testes; o usuário responde e permite."></p>
+<p align="center">
+  <a href="https://idetea.belabs.cloud/pt-br/#demo">
+    <img src="assets/demo-preview.gif" width="880" alt="Demo narrada: abrir arquivo, Rust com realce de sintaxe, editor dividido, terminal integrado, e um formulário de agente no painel Interfaces enquanto o mascote Tea passa para Atenção.">
+  </a>
+</p>
+
+<p align="center">
+  <a href="https://idetea.belabs.cloud/pt-br/#demo"><b>Assistir à demo de 52 segundos</b></a>
+  · narração em inglês, legendas na imagem<br>
+  O GitHub não toca um vídeo do repositório dentro do README.
+  O clipe acima abre a demo no site, com som.
+  O arquivo está em <a href="assets/idetea-demo.mp4"><code>assets/idetea-demo.mp4</code></a>.
+</p>
 
 ---
-
-A IDE TEA abre num piscar de olhos, não atrapalha e diz o que está fazendo. Sem conta, sem telemetria, sem
-marketplace, sem pop-ups pedindo a sua atenção. Ela só usa a rede quando você pede (push, pull, fetch).
-
-Também é uma IDE pensada para o jeito como muita gente programa hoje: **com um agente no terminal ao lado**. Em vez
-de uma caixa de chat pendurada no canto, a IDE TEA dá aos agentes um protocolo pequeno, feito de arquivos, para
-falar com você pela própria IDE, e deixa você no comando de tudo o que eles rodam.
 
 > **Status:** em desenvolvimento ativo, antes da 1.0. Compilada e testada em Linux, macOS (Apple Silicon) e Windows (x86_64).
 > Espere arestas, e por favor avise quando achar uma.
 
-## Por que a IDE TEA
+## Para quem é
+
+Para quem programa com um agente no terminal ao lado do editor: Claude Code, Codex, ou qualquer agente que leia o
+`AGENTS.md` e o `CLAUDE.md`. A IDE TEA não coloca um modelo de chat dentro da janela. Ela dá a esse agente um jeito
+pequeno, feito de arquivos, de perguntar, e deixa você no comando de cada comando.
+
+## Por que a gente fica
 
 **Rápida.** Abre bem abaixo de 200 ms. Um arquivo de 50 MB abre em um décimo de segundo, e um arquivo minificado
 com uma linha gigante abre num modo leve em vez de travar a janela.
 
-**Silenciosa.** Uma janela, nenhum aviso que você não causou, nenhuma atualização surpresa. Aparência, atalhos e
-painéis ficam num arquivo TOML simples (global ou por projeto), com uma tela de configurações para as mesmas coisas.
+**Silenciosa.** Sem conta, sem telemetria, sem marketplace, sem pop-up que você não pediu. A rede só entra quando
+você pede (push, pull, fetch, ou uma skill que você instala). Aparência, atalhos e painéis ficam num arquivo TOML.
 
-**Completa onde importa.** Editor com multi-cursor, zoom temporário e modo vim opcional, árvore de arquivos, busca no projeto,
-terminal integrado com abas, git (stage, diff, commit, push e pull), LSP para as linguagens de sempre, debug com
-gdb, e prévias de Markdown, SVG, imagens e PDF.
+**Você aprova o que roda.** O agente escreve um JSON pequeno e a IDE mostra um formulário: opções, caixas, texto,
+imagens, sons, teste manual passo a passo. O pedido de terminal mostra o comando inteiro antes. Um ajudante pode
+rodar no próprio worktree do git. Um projeto nunca se dá permissão sozinho. A lista de permissão fica no *seu* config.
 
-**Pequena por dentro.** O núcleo só sabe editar arquivos. O resto (árvore, terminal, git, debug…) é extensão que
-você pode desligar.
+**Completa onde importa.** Vários cursores, zoom temporário, modo vim opcional, árvore de arquivos, busca no
+projeto, terminal integrado, git (stage, diff, commit, push e pull), LSP, depuração com gdb, e prévias de
+Markdown, SVG, imagem e PDF.
 
-**Feita para agentes, com você no comando.**
+**Pequena por dentro.** O núcleo só edita arquivo. Árvore, terminal, git e depurador são extensões que você pode
+desligar. O Tea, uma xícara em pixel art, avisa quando tem pergunta esperando (um clique abre o painel certo) e
+se recolhe na barra de status quando você quer o canto de volta.
 
-- **Perguntas num painel de verdade, não no chat.** O agente escreve um arquivo JSON pequeno e a IDE mostra como
-  formulário: opções, caixas de marcar, campos de texto, imagens, sons, testes manuais passo a passo com botões de
-  "aprovado" e "falhou". A sua resposta volta num arquivo que o agente lê.
-- **Terminais que o agente pede e você aprova.** O agente pode pedir à IDE um terminal rodando um comando: um
-  servidor de desenvolvimento, outro agente, uma ferramenta interativa. Você vê o comando inteiro antes de qualquer
-  coisa rodar. Uma lista curta no *seu* config (nunca no do projeto) pode pular a pergunta para os comandos em que
-  você confia.
-- **Agentes que delegam para agentes.** Um agente ajudante pode rodar no próprio worktree do git, no próprio
-  branch, para dois agentes nunca mexerem nos mesmos arquivos. A resposta do ajudante volta num arquivo; o código
-  volta pelo branch e pela sua revisão de sempre.
-- **Projetos novos que já começam com as skills certas.** "Projeto: novo…" cria a pasta, o git, as skills de agente
-  da pilha (Rust, Python, FastAPI, site…) e um pedido inicial, e abre o agente num terminal da IDE para você aprovar.
-- **Um comando para ensinar qualquer agente.** "Interfaces: ensinar os agentes deste projeto" grava o protocolo no
-  `AGENTS.md` e no `CLAUDE.md`. Funciona com o Claude Code, o Codex e qualquer agente que leia esses arquivos.
-- **Mascote reativo (Tea) que acompanha os agentes.** Uma xícara de chá em pixel art no canto da IDE (recolhível na
-  barra de status) reage em tempo real ao que está acontecendo: avisa quando há pergunta esperando ou pedido de
-  terminal (um clique abre o painel certo), ferve enquanto um agente trabalha, comemora quando termina, reage com
-  curiosidade ou irritação se você mexer com ela no mouse, e aceita estados pelo terminal (`idetea mascot`) ou
-  pacotes customizados (`mascot.toml`).
+Um comando ensina os agentes do projeto: "Interfaces: ensinar os agentes deste projeto" grava o protocolo no
+`AGENTS.md` e no `CLAUDE.md`.
 
 ## Instalando
 
-**Linux, macOS e Windows, pronta para rodar:** baixe o pacote do seu sistema (`.tar.gz` ou `.AppImage` para Linux x86_64/aarch64, `.tar.gz` com `IDE TEA.app` para macOS aarch64, ou o instalador `-setup.exe` / `.zip` portátil para Windows x86_64) em
-[Releases](https://github.com/fabiocmazzo/idetea/releases). No Linux, o `./install.sh` põe o `idetea` em
-`~/.local/bin` e no menu de aplicativos; o AppImage roda direto (`chmod +x` antes) e `--install-desktop` põe no
-menu. No macOS, `--install-desktop` cria `~/Applications/IDE TEA.app`. O `SHA256SUMS` tem as somas de verificação.
+**Linux, macOS e Windows, pronta para rodar.** Baixe o pacote do seu sistema em
+[Releases](https://github.com/fabiocmazzo/idetea/releases): `.tar.gz` ou `.AppImage` para Linux x86_64/aarch64,
+`.tar.gz` com `IDE TEA.app` para macOS aarch64, ou o instalador `-setup.exe` / `.zip` portátil para Windows x86_64.
+O `SHA256SUMS` tem as somas de verificação.
 
-**Pelo código-fonte:** você precisa do [Rust](https://rustup.rs) (estável). Depois:
+No Linux, o `./install.sh` põe o `idetea` em `~/.local/bin` e no menu de aplicativos. O AppImage roda direto
+(`chmod +x` antes) e `--install-desktop` põe no menu. No macOS, `--install-desktop` cria
+`~/Applications/IDE TEA.app`.
+
+**Pelo código-fonte.** Você precisa do [Rust](https://rustup.rs) (estável). Depois:
 
 ```sh
 cargo install --locked --git https://github.com/fabiocmazzo/idetea tea-app
 idetea --install-desktop   # opcional: entrada no menu de aplicativos e ícone
 ```
 
-Opcionais: `git` para a integração com git, `gdb` 14+ (ou `lldb-dap` no macOS) para o debug, e os servidores de linguagem que você usa
-(rust-analyzer, clangd, pyright, typescript-language-server, gopls e lua-language-server já vêm configurados).
+Opcionais: `git` para a integração com git, `gdb` 14+ (ou `lldb-dap` no macOS) para o debug, e os servidores de
+linguagem que você usa (rust-analyzer, clangd, pyright, typescript-language-server, gopls e lua-language-server já
+vêm configurados).
 
-## Assinatura de Código e Privacidade
+## Assinatura de código e privacidade
 
 A assinatura gratuita de código no Windows é fornecida por [SignPath.io](https://signpath.io), com certificado da
 [SignPath Foundation](https://signpath.org). Este programa não transfere nenhuma informação para sistemas externos sem
@@ -100,7 +103,25 @@ idetea new meu-app --modelo rust --agente claude   # um projeto novo, com um age
 ```
 
 Dentro da IDE: `Ctrl+Shift+P` abre a paleta de comandos, `Ctrl+P` abre um arquivo pelo nome, `F1` mostra todos os
-atalhos.
+atalhos. Os guias estão no [site](https://idetea.belabs.cloud/pt-br/).
+
+## Por que a IDE TEA, e quando não
+
+O [`docs/comparativo-ides.md`](docs/comparativo-ides.md) compara a IDE TEA, sem maquiagem, com VS Code, Cursor, Zed,
+JetBrains e Helix. Foi escrito por volta da 0.4.0. O que continua sendo o produto:
+
+- O agente do terminal ganha um protocolo nativo, feito de arquivos (formulários, comandos que você aprova,
+  worktrees, o mascote Tea). É isso que os outros editores daquele texto não têm.
+- Não tem autocomplete fantasma, de propósito. Se você quer completar com Tab ou diff inline, o texto aponta para
+  Cursor, Windsurf ou Zed.
+- Code actions, inlay hints e a cobertura do depurador ficam atrás do VS Code e do JetBrains.
+
+O mesmo texto ainda diz "só Linux". As versões de hoje também saem para macOS (Apple Silicon) e Windows (x86_64).
+
+## Deixa uma estrela
+
+Se esta é a IDE que você queria, [dá uma estrela na IDE TEA](https://github.com/fabiocmazzo/idetea). É projeto de
+uma pessoa, e a estrela é como a próxima pessoa encontra.
 
 ## Sobre o nome
 
@@ -115,6 +136,7 @@ Mais no [manifesto](MANIFESTO.pt-BR.md).
 ## Documentação
 
 - [Manifesto](MANIFESTO.pt-BR.md): no que a IDE TEA acredita, e o que ela não vai fazer.
+- [Site](https://idetea.belabs.cloud/pt-br/): a demo, a instalação e os guias.
 - [Funcionalidades e atalhos](docs/features.md): a lista completa, para quem quer o detalhe técnico (em inglês).
 - [Linguagens](docs/languages.md): o que a IDE faz em cada linguagem, inclusive Hare e MoonBit, com
   [exemplos](examples/languages) para experimentar (em inglês).

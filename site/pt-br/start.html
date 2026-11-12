@@ -22,6 +22,7 @@
     <a href="https://github.com/fabiocmazzo/idetea">GitHub</a>
   </nav>
   <nav class="lang" aria-label="Idioma"><a href="../start.html" hreflang="en">EN</a><a href="start.html" aria-current="true">PT</a><a href="../es/start.html" hreflang="es">ES</a></nav>
+  <a class="btn primary small" href="https://github.com/fabiocmazzo/idetea/releases/latest">Baixar</a>
 </div></header>
 
 <main class="wrap narrow">
@@ -46,10 +47,12 @@
 <section id="install">
   <h2>1. Instalar</h2>
   <ol class="steps">
-    <li>Baixe o <code>.tar.gz</code> da sua máquina (x86_64 ou aarch64) na
+    <li>Baixe o pacote do seu sistema (<code>.tar.gz</code> ou <code>.AppImage</code> para Linux x86_64/aarch64,
+      <code>.tar.gz</code> com <code>IDE TEA.app</code> para macOS aarch64, ou o instalador <code>-setup.exe</code> /
+      <code>.zip</code> portátil para Windows x86_64) na
       <a href="https://github.com/fabiocmazzo/idetea/releases/latest">versão mais recente</a>.
       O <code>SHA256SUMS</code> tem as somas de verificação.</li>
-    <li>Descompacte e rode o instalador. Ele põe o <code>idetea</code> em <code>~/.local/bin</code> e a IDE TEA no
+    <li>No Linux, descompacte e rode o instalador. Ele põe o <code>idetea</code> em <code>~/.local/bin</code> e a IDE TEA no
       menu de aplicativos:
 <pre><code>tar -xzf idetea-*-linux.tar.gz
 cd idetea-*-linux
@@ -57,10 +60,13 @@ cd idetea-*-linux
     <li>Se o instalador avisar que <code>~/.local/bin</code> não está no <code>PATH</code>, acrescente (por exemplo no
       <code>~/.profile</code>), para você e os seus agentes rodarem o <code>idetea</code> de um terminal.</li>
   </ol>
-  <p>Prefere um arquivo só? O AppImage roda como está: <code>chmod +x IDE_TEA-*.AppImage</code> e abra;
-    <code>--install-desktop</code> põe no menu. Compilar pelo código é um comando:
+  <p>Prefere um arquivo só no Linux? O AppImage roda como está: <code>chmod +x IDE_TEA-*.AppImage</code> e abra;
+    <code>--install-desktop</code> põe no menu. No macOS, <code>idetea --install-desktop</code> cria
+    <code>~/Applications/IDE TEA.app</code>. Compilar pelo código é um comando:
     <code>cargo install --locked --git https://github.com/fabiocmazzo/idetea tea-app</code>.</p>
-  <div class="callout">Extras opcionais: <code>git</code> para o painel do git, <code>gdb</code> 14+ para depurar, e
+  <p class="note">A assinatura gratuita de código no Windows é da <a href="https://signpath.io">SignPath.io</a>, certificado da
+    <a href="https://signpath.org">SignPath Foundation</a> (<a href="https://github.com/fabiocmazzo/idetea/blob/main/CODE_SIGNING_POLICY.md">política de assinatura e privacidade</a>).</p>
+  <div class="callout">Extras opcionais: <code>git</code> para o painel do git, <code>gdb</code> 14+ (ou <code>lldb-dap</code> no macOS) para depurar, e
     os servidores de linguagem que você usa (próximos passos).</div>
 </section>
 

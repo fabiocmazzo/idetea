@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Monta o site em uma pasta (padrão: target/site), só com a biblioteca padrão.
 
-- copia site/ (menos este script);
-- traz de assets/ o ícone e o GIF (para não duplicar binários no git);
+- copia site/ (menos este script e os templates);
+- traz de assets/ o ícone, o GIF antigo, o pôster, o GIF curto e o mp4 da demo;
 - gera features.html a partir de docs/features.md (a lista fica num lugar só).
 
 Uso: python3 site/build.py [pasta]
@@ -125,7 +125,7 @@ def main() -> None:
     if out.exists():
         shutil.rmtree(out)
     shutil.copytree(SITE, out, ignore=shutil.ignore_patterns("build.py", "*.template.html", "__pycache__"))
-    for name in ["idetea.svg", "idetea.png", "demo.gif"]:
+    for name in ["idetea.svg", "idetea.png", "demo.gif", "demo-poster.png", "demo-preview.gif", "idetea-demo.mp4"]:
         shutil.copy(ROOT / "assets" / name, out / "img" / name)
     (out / "features.html").write_text(features_page(), encoding="utf-8")
     print(f"site em {out}")

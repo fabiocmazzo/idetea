@@ -2,7 +2,7 @@
 
 The full list, for the technical reader. For the short version, see the [README](../README.md).
 
-> Before 1.0. Built and tested on Linux (Wayland). macOS and Windows have not been tested yet.
+> Before 1.0. Built and tested on Linux, macOS (Apple Silicon) and Windows (x86_64).
 
 ## Editor
 

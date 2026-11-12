@@ -5,7 +5,7 @@ detalhado estão no [SPEC.md](SPEC.md).
 
 ## Compilar e rodar
 
-Precisa do Rust estável (edition 2024). Por enquanto só o Linux é testado. A janela de arquivos (abrir, salvar como)
+Precisa do Rust estável (edition 2024). O CI testa em Linux, macOS e Windows; o dia a dia do desenvolvimento segue no Linux. A janela de arquivos (abrir, salvar como)
 usa o portal do desktop (xdg-desktop-portal) e, sem ele, o `zenity`.
 
 ```sh
@@ -37,6 +37,7 @@ Um arquivo que não existe abre numa aba nova e é criado ao salvar.
 | `just desktop` / `just undesktop` | instala/remove o `idetea.desktop` e o ícone em `~/.local/share` |
 | `just check` | clippy + testes |
 | `just dist [--no-appimage]` | `.tar.gz` e AppImage em `dist/` (perfil `dist`: release sem símbolos) |
+| `just demo` | vídeo narrado em `dist/idetea-demo.mp4` (Xvfb; ver `tools/demo-video/README.md`) |
 
 **Por que o `just desktop`:** no Wayland, o painel do desktop (COSMIC, GNOME, KDE) acha o ícone de uma janela pelo
 app id dela (`idetea`), procurando um `idetea.desktop` com o mesmo nome. Depois de instalado uma vez, até o

@@ -1,0 +1,8 @@
+{
+  "text": "No account, no telemetry, no marketplace. Just code.",
+  "voice": "coral",
+  "model": "openai/gpt-audio",
+  "transcript": "No account, no telemetry, no marketplace. Just code.",
+  "match": true,
+  "attempts": 1
+}

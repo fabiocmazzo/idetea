@@ -1,0 +1,8 @@
+{
+  "text": "IDE TEA is a fast, quiet IDE written in pure Rust with iced, built for working side by side with coding agents.",
+  "voice": "ash",
+  "model": "openai/gpt-audio",
+  "transcript": "IDE TEA is a fast, quiet IDE written in pure Rust with iced, built for working side by side with coding agents.",
+  "match": true,
+  "attempts": 1
+}

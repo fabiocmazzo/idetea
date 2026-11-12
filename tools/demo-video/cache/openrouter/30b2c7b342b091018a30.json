@@ -1,0 +1,8 @@
+{
+  "text": "The integrated terminal opens in the bottom panel, ready when you need it.",
+  "voice": "sage",
+  "model": "openai/gpt-audio",
+  "transcript": "The integrated terminal opens in the bottom panel, ready when you need it.",
+  "match": true,
+  "attempts": 1
+}

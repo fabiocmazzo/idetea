@@ -1,0 +1,62 @@
+{
+  "format": "idetea-ui",
+  "version": 1,
+  "surface": "review",
+  "revision": 1,
+  "title": "Review the greeting API",
+  "source": "coding agent",
+  "data": {
+    "style": "short",
+    "tests": false
+  },
+  "components": [
+    {
+      "id": "info",
+      "component": "text",
+      "text": "I can add a cheers helper next to hello. How should we proceed?"
+    },
+    {
+      "id": "style",
+      "component": "select",
+      "label": "Greeting style",
+      "value": "/style",
+      "options": [
+        {
+          "value": "short",
+          "label": "Short"
+        },
+        {
+          "value": "formal",
+          "label": "Formal"
+        }
+      ]
+    },
+    {
+      "id": "tests",
+      "component": "checkbox",
+      "label": "Add a unit test",
+      "value": "/tests"
+    },
+    {
+      "id": "apply",
+      "component": "button",
+      "label": "Allow",
+      "action": {
+        "name": "allow",
+        "context": [
+          "/style",
+          "/tests"
+        ]
+      }
+    },
+    {
+      "id": "skip",
+      "component": "button",
+      "label": "Skip",
+      "style": "secondary",
+      "action": {
+        "name": "skip"
+      }
+    }
+  ]
+}

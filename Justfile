@@ -45,3 +45,9 @@ dist *args:
 check:
     cargo clippy --workspace --all-targets
     cargo test --workspace
+
+# Grava o vídeo narrado da demo (Xvfb + ffmpeg). Saída: dist/idetea-demo.mp4.
+# Com OPENROUTER_API_KEY no ambiente, usa a voz sage. Sem a chave, usa o Piper local.
+# A chave não é impressa. Ver tools/demo-video/README.md.
+demo *args:
+    ./tools/demo-video/demo.sh "$@"
