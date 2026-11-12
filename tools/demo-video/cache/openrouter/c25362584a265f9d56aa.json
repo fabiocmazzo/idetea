@@ -1,0 +1,8 @@
+{
+  "text": "In the editor, we add a small Rust function, with syntax highlighting as we type.",
+  "voice": "sage",
+  "model": "openai/gpt-audio",
+  "transcript": "In the editor, we add a small Rust function, with syntax highlighting as we type.",
+  "match": true,
+  "attempts": 1
+}

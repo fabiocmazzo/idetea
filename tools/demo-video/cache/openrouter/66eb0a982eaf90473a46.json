@@ -1,0 +1,8 @@
+{
+  "text": "Open any file by name with Control P. The file tree, tabs, and syntax highlighting are ready right away.",
+  "voice": "coral",
+  "model": "openai/gpt-audio",
+  "transcript": "Open any file by name with Control P. The file tree, tabs, and syntax highlighting are ready right away.",
+  "match": true,
+  "attempts": 1
+}

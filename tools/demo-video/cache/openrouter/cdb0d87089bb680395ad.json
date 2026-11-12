@@ -1,0 +1,8 @@
+{
+  "text": "Control Backslash splits the editor, so two files sit side by side.",
+  "voice": "coral",
+  "model": "openai/gpt-audio",
+  "transcript": "Control Backslash splits the editor, so two files sit side by side.",
+  "match": true,
+  "attempts": 1
+}

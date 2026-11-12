@@ -1,0 +1,16 @@
+[ui]
+splash = false
+theme = "dark"
+font_size = 16
+language = "en"
+restore_session = false
+
+[editor]
+show_whitespace = false
+font = "JetBrains Mono"
+
+[lsp]
+enabled = false
+
+[mascot]
+enabled = true

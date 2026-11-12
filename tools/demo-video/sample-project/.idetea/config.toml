@@ -1,0 +1,26 @@
+[ui]
+splash = false
+theme = "dark"
+font_size = 16
+activity_bar = true
+style = "islands"
+animations = true
+file_icons = "seti"
+language = "en"
+restore_session = false
+
+[editor]
+wrap = true
+show_whitespace = false
+indent_guides = true
+tab_size = 4
+insert_spaces = true
+breadcrumbs = true
+font = "JetBrains Mono"
+line_height = 1.45
+
+[lsp]
+enabled = false
+
+[mascot]
+enabled = true

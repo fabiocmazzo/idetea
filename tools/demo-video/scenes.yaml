@@ -1,0 +1,89 @@
+# IDE TEA demo scenes. Each scene has narration (English) and a list of
+# actions. The driver runs the actions, then waits so the scene lasts as
+# long as its generated audio. Only features that exist in the IDE TEA repo
+# are shown or mentioned.
+#
+# Action types:
+#   wait: {seconds}
+#   key:  xdotool key sequence (e.g. "ctrl+p")
+#   type: type text into the focused window
+#   type_code: type text slowly (visible in the editor)
+#   enter / escape: key shortcuts
+#   click: {x, y}  screen coordinates
+#   mousemove: {x, y}
+#   agent_form: {from, name}  write .idetea/ui/<name>.json like an agent would
+title: IDE TEA demo
+width: 1280
+height: 720
+fps: 30
+language: en
+voice: en_US-lessac-medium
+project: sample-project
+open: src/main.rs
+
+scenes:
+  - id: intro
+    narration: "IDE TEA is a fast, quiet IDE written in pure Rust with iced, built for working side by side with coding agents."
+    actions:
+      - mousemove: {x: 180, y: 220}
+      - wait: 1.2
+      - mousemove: {x: 640, y: 360}
+
+  - id: open-file
+    narration: "Open any file by name with Control P. The file tree, tabs, and syntax highlighting are ready right away."
+    actions:
+      - wait: 0.4
+      - key: ctrl+p
+      - wait: 0.6
+      - type: "greet.rs"
+      - wait: 0.5
+      - key: Return
+      - wait: 0.8
+      - mousemove: {x: 720, y: 340}
+
+  - id: type-code
+    narration: "In the editor, we add a small Rust function, with syntax highlighting as we type."
+    actions:
+      - key: ctrl+End
+      - wait: 0.4
+      - key: Return
+      - key: Return
+      - type_code: "pub fn cheers(name: &str) {"
+      - key: Return
+      - type_code: "    println!(\"Cheers, {name}!\");"
+      - key: Return
+      - type_code: "}"
+
+  - id: split
+    narration: "Control Backslash splits the editor, so two files sit side by side."
+    actions:
+      - wait: 0.4
+      - key: ctrl+backslash
+      - wait: 0.8
+      - mousemove: {x: 420, y: 360}
+
+  - id: terminal
+    narration: "The integrated terminal opens in the bottom panel, ready when you need it."
+    actions:
+      - wait: 0.3
+      - key: ctrl+apostrophe
+      - wait: 0.8
+      - type: "echo Just code. Add ice."
+      - key: Return
+      - wait: 0.6
+
+  - id: interfaces
+    narration: "When an agent needs a decision, it writes a form in the Interfaces panel. You review the request and stay in control."
+    actions:
+      - wait: 0.3
+      - agent_form: {from: assets/agent-review.json, name: review}
+      - wait: 1.2
+      - mousemove: {x: 1100, y: 280}
+
+  - id: close
+    narration: "No account, no telemetry, no marketplace. Just code."
+    actions:
+      - wait: 0.4
+      - mousemove: {x: 1180, y: 640}
+      - wait: 1.5
+      - mousemove: {x: 1080, y: 300}

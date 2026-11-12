@@ -1,0 +1,45 @@
+# Regenera o vídeo narrado da demo quando uma versão é publicada, ou pela aba Actions.
+# Com o segredo OPENROUTER_API_KEY usa a voz sage (OpenRouter). Sem o segredo, usa o Piper
+# local. O job passa nos dois casos: a chave não é obrigatória e nunca é impressa.
+name: Vídeo da demo
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: write
+
+jobs:
+  record:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v7
+      - name: Ferramentas (Xvfb, ffmpeg, just)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg xvfb xdotool libgl1-mesa-dri fonts-dejavu-core curl ca-certificates
+          if ! command -v just >/dev/null 2>&1; then
+            curl --proto '=https' --tlsv1.2 -fsSL https://just.systems/install.sh | sudo bash -s -- --to /usr/local/bin
+          fi
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: demo-video
+      - name: Grava o vídeo
+        env:
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+        run: just demo
+      - uses: actions/upload-artifact@v7
+        with:
+          name: idetea-demo
+          path: dist/idetea-demo.mp4
+          if-no-files-found: error
+      - name: Anexa o mp4 à versão
+        if: github.event_name == 'release'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "${{ github.event.release.tag_name }}" dist/idetea-demo.mp4 --clobber

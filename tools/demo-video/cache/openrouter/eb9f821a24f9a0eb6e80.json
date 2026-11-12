@@ -1,0 +1,8 @@
+{
+  "text": "When an agent needs a decision, it writes a form in the Interfaces panel. You review the request and stay in control.",
+  "voice": "sage",
+  "model": "openai/gpt-audio",
+  "transcript": "When an agent needs a decision, it writes a form in the Interfaces panel. You review the request and stay in control.",
+  "match": true,
+  "attempts": 1
+}
