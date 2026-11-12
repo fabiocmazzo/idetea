@@ -5,7 +5,7 @@ detalhado estão no [SPEC.md](SPEC.md).
 
 ## Compilar e rodar
 
-Precisa do Rust estável (edition 2024). Por enquanto só o Linux é testado. A janela de arquivos (abrir, salvar como)
+Precisa do Rust estável (edition 2024). O CI testa em Linux, macOS e Windows; o dia a dia do desenvolvimento segue no Linux. A janela de arquivos (abrir, salvar como)
 usa o portal do desktop (xdg-desktop-portal) e, sem ele, o `zenity`.
 
 ```sh
