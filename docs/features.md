@@ -121,6 +121,9 @@ All of it is plain files in the project's `.idetea/` folder, so any agent that r
 - **Project memory:** the instructions also teach a shared memory in plain files under git: facts in `docs/memory/`
   (one per file, with an index the agents read first) and architecture decisions as ADRs in `docs/decisions/`. Any
   agent that reads `AGENTS.md`/`CLAUDE.md` uses it. See [project-memory.md](project-memory.md).
+  The **Project memory** panel lists facts and decisions with search, opens and deletes them, and warns about stale
+  facts, paths that no longer exist and things that look like credentials. In the Interfaces history, **Record as a
+  decision** turns an answered question into an ADR.
 - **Helpers in their own worktree:** `"worktree": "<branch>"` runs the command in `.idetea/worktrees/<name>` on that
   branch. Every command gets `IDETEA_ANSWER`, a file in the main project for the answer. Deleting the request
   removes the worktree if it has nothing uncommitted; the branch always stays.

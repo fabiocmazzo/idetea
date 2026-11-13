@@ -210,3 +210,10 @@ Cada etapa com teste manual pelo painel antes do commit, como nas RFCs anteriore
   (`constraint`, `convention`, `gotcha`, `reference`) e `updated`, atualizar em vez de duplicar, apagar o que ficou
   errado, decisões como ADR (MADR) em `docs/decisions/` sem reescrever as aceitas, nada de segredo. A lista de
   comandos ganhou `idetea agent`. Documentação em `docs/project-memory.md` (inglês, é para quem usa a IDE).
+- **Etapa 4 (2026-11-13, aprovada no teste manual):** `tea_core::memory` (ler fatos e decisões, avisos, apagar com a
+  linha do índice, próximo ADR) e a extensão `tea-ext-memory`: painel "Memória do projeto" à esquerda (ícone de
+  livro), com busca, abrir, apagar, avisos (mais de 180 dias sem `updated`, caminho entre crases que sumiu, padrão
+  de credencial, fora do índice, índice citando arquivo sumido) e atualização sozinha (olha as pastas a cada
+  segundo). No histórico do Interfaces, "Registrar como decisão" cria `docs/decisions/NNNN-….md` (`status:
+  proposed`) com o contexto, as opções, a escolha e o comentário, e abre. Os títulos do ADR saem no idioma da IDE.
+  No chinês, "记忆" e "决策" não têm glifo na fonte embutida: o painel é "项目记录" e as decisões, "决定".

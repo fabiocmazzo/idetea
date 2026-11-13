@@ -28,6 +28,7 @@ pub mod file_icons;
 pub mod fonts;
 pub mod i18n;
 pub mod icons;
+pub mod memory;
 pub mod menu;
 pub mod syntaxes;
 pub mod outline;

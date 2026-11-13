@@ -9,6 +9,7 @@ macro_rules! fl {
     ($($t:tt)*) => { tea_core::i18n::fl!(crate::LOADER, $($t)*) };
 }
 
+mod decision;
 mod player;
 pub mod ask;
 pub mod check;
@@ -79,6 +80,8 @@ pub enum Message {
     ShowOpen(String),
     AskClearHistory,
     ClearHistory,
+    /// "Registrar como decisão": a entrada aberta vira um ADR em `docs/decisions/`.
+    RecordDecision,
 }
 
 /// Uma entrada do histórico aberta para ver.
@@ -689,6 +692,37 @@ impl UiExtension {
         }
     }
 
+    /// A entrada aberta do histórico vira um ADR (`docs/decisions/NNNN-…md`, `status: proposed`), que abre para a
+    /// pessoa revisar e completar.
+    fn record_decision(&self, ctx: &mut Context) {
+        let Some(o) = &self.history_open else { return };
+        let e = &o.entry;
+        let date = e
+            .answered
+            .as_deref()
+            .and_then(tea_core::memory::parse_date)
+            .map_or_else(|| tea_core::memory::date_text(tea_core::memory::today()), tea_core::memory::date_text);
+        let labels = decision::Labels {
+            context: fl!("adr-context"),
+            options: fl!("adr-options"),
+            decision: fl!("adr-decision"),
+            chosen: fl!("adr-chosen"),
+            consequences: fl!("adr-consequences"),
+            consequences_todo: fl!("adr-consequences-todo"),
+            origin: fl!("adr-origin", name = e.name.clone(), date = date.clone()),
+        };
+        let text = decision::text(e, &date, &labels);
+        match tea_core::memory::create_decision(&self.root, e.title(), |_| text.clone()) {
+            Ok(path) => {
+                let shown = path.strip_prefix(&self.root).unwrap_or(&path).to_string_lossy().replace('\\', "/");
+                ctx.notify(fl!("ui-history-decision-recorded", path = shown));
+                ctx.files_changed();
+                ctx.open_file(path);
+            }
+            Err(err) => ctx.notify(fl!("ui-history-decision-failed", error = err.to_string())),
+        }
+    }
+
     fn ask_clear_history(&self, ctx: &mut Context) {
         if self.history.is_empty() {
             ctx.notify(fl!("ui-history-empty"));
@@ -788,6 +822,9 @@ impl UiExtension {
         }
         if let Some(r) = &e.response {
             out = out.push(text(fl!("ui-history-button", action = r.action.clone())).size(13));
+            out = out.push(
+                button(text(fl!("ui-history-record-decision")).size(12)).style(button::secondary).on_press(Message::RecordDecision),
+            );
             if e.read_by_agent.is_none() {
                 out = out.push(text(fl!("ui-history-not-read")).size(12).style(text::warning).width(Fill));
             }
@@ -910,20 +947,7 @@ fn entry_button<'a>(title: &str, time: String, line2: String, warn: bool, on: Me
     button(column![top, bottom].spacing(3)).style(card).padding([8, 10]).width(Fill).on_press(on).into()
 }
 
-/// O cartão: a superfície do tema com borda, mais clara sob o mouse.
-fn card(theme: &Theme, status: button::Status) -> button::Style {
-    let p = theme.extended_palette();
-    let background = match status {
-        button::Status::Hovered | button::Status::Pressed => p.background.strong.color,
-        _ => p.background.weak.color,
-    };
-    button::Style {
-        background: Some(background.into()),
-        text_color: p.background.weak.text,
-        border: iced::Border { color: p.background.strong.color, width: 1.0, radius: tea_core::style::RADIUS_CONTROL.into() },
-        ..button::Style::default()
-    }
-}
+use tea_core::style::card;
 
 /// Texto secundário do cartão: a cor do texto do cartão, mais apagada (legível nos temas claros e escuros).
 fn card_muted(theme: &Theme) -> text::Style {
@@ -1074,6 +1098,7 @@ impl Extension for UiExtension {
             Message::HistoryQuery(q) => self.history_query = q,
             Message::HistoryOpen(path) => self.open_history(path),
             Message::HistoryBack => self.history_open = None,
+            Message::RecordDecision => self.record_decision(ctx),
             Message::HistoryUi(UiMessage::Open { path, line, column }) => {
                 tea_declarative_ui::open_file(&self.root, &path, line, column, ctx);
             }

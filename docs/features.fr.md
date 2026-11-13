@@ -143,6 +143,9 @@ et `CLAUDE.md`.
   faits dans `docs/memory/` (un par fichier, avec un index que les agents lisent d'abord) et les décisions
   d'architecture en ADR dans `docs/decisions/`. Tout agent qui lit `AGENTS.md`/`CLAUDE.md` s'en sert. Voir
   [project-memory.md](project-memory.md) (en anglais).
+  Le panneau **Mémoire du projet** liste faits et décisions avec recherche, les ouvre et les supprime, et signale les
+  faits anciens, les chemins disparus et ce qui ressemble à un identifiant secret. Dans l'historique des Interfaces,
+  **Enregistrer comme décision** transforme une question répondue en ADR.
 - **Assistants dans leur propre worktree :** `"worktree": "<branch>"` exécute la commande dans
   `.idetea/worktrees/<name>` sur cette branche. Chaque commande reçoit `IDETEA_ANSWER`, un fichier du projet principal
   pour la réponse. Supprimer la demande retire le worktree s'il n'a rien de non validé ; la branche reste toujours.

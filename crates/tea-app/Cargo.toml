@@ -9,7 +9,7 @@ name = "idetea"
 path = "src/main.rs"
 
 [features]
-default = ["ext-filetree", "ext-statusbar", "ext-search", "ext-problems", "ext-terminal", "ext-git", "ext-debug", "ext-references", "ext-outline", "ext-calls", "ext-preview", "ext-ui"]
+default = ["ext-filetree", "ext-statusbar", "ext-search", "ext-problems", "ext-terminal", "ext-git", "ext-debug", "ext-references", "ext-outline", "ext-calls", "ext-preview", "ext-ui", "ext-memory"]
 ext-filetree = ["dep:tea-ext-filetree"]
 ext-statusbar = ["dep:tea-ext-statusbar"]
 ext-search = ["dep:tea-ext-search"]
@@ -22,6 +22,7 @@ ext-outline = ["dep:tea-ext-outline"]
 ext-calls = ["dep:tea-ext-calls"]
 ext-preview = ["dep:tea-ext-preview"]
 ext-ui = ["dep:tea-ext-ui"]
+ext-memory = ["dep:tea-ext-memory"]
 # Protótipo da Fase 4 (docs/rfc/0002-plugins-wasm.md): fora do padrão até a RFC ser aprovada.
 plugins = ["dep:tea-plugins"]
 
@@ -42,6 +43,7 @@ tea-ext-outline = { workspace = true, optional = true }
 tea-ext-calls = { workspace = true, optional = true }
 tea-ext-preview = { workspace = true, optional = true }
 tea-ext-ui = { workspace = true, optional = true }
+tea-ext-memory = { workspace = true, optional = true }
 tea-plugins = { workspace = true, optional = true }
 tea-lsp.workspace = true
 tea-dap.workspace = true

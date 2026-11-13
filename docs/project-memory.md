@@ -88,6 +88,17 @@ One more C dependency; the cache survives crashes; …
 An accepted ADR is not rewritten to change the decision: a new one replaces it, and the old one's status becomes
 "Superseded by 0007".
 
+## In the IDE
+
+- **Project memory panel** (the book icon on the left, or "Project memory: show" in the palette): the facts and
+  decisions, with search. A click opens the file; a right click on a fact deletes it, together with its index
+  line. The panel updates by itself when an agent writes. A fact gets a warning when it hasn't been updated for
+  more than 180 days, mentions a path (between backticks) that no longer exists, looks like it has a credential,
+  or is missing from the index; an index line that points to a missing file shows up too.
+- **Record as a decision:** in the Interfaces panel history, an answered question becomes
+  `docs/decisions/NNNN-….md` with `status: proposed`: the question's text as the context, its options, the button
+  you clicked, the values and your comment. The file opens for you to fill in the consequences and accept it.
+
 ## Good to know
 
 - **Language:** agents write these files in the language of the project's documentation.

@@ -5685,6 +5685,7 @@ dependencies = [
  "tea-ext-debug",
  "tea-ext-filetree",
  "tea-ext-git",
+ "tea-ext-memory",
  "tea-ext-outline",
  "tea-ext-preview",
  "tea-ext-problems",
@@ -5789,6 +5790,14 @@ dependencies = [
  "libc",
  "tea-core",
  "trash",
+]
+
+[[package]]
+name = "tea-ext-memory"
+version = "0.7.0"
+dependencies = [
+ "iced",
+ "tea-core",
 ]
 
 [[package]]

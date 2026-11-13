@@ -146,6 +146,22 @@ pub fn tooltip(theme: &Theme) -> container::Style {
 }
 
 /// Item de lista ou da árvore: pílula arredondada no hover e na seleção (não de ponta a ponta, em retângulo).
+/// Um cartão clicável (histórico do painel, memória do projeto): a superfície do tema com borda, mais clara sob o
+/// mouse.
+pub fn card(theme: &Theme, status: button::Status) -> button::Style {
+    let p = theme.extended_palette();
+    let background = match status {
+        button::Status::Hovered | button::Status::Pressed => p.background.strong.color,
+        _ => p.background.weak.color,
+    };
+    button::Style {
+        background: Some(background.into()),
+        text_color: p.background.weak.text,
+        border: iced::Border { color: p.background.strong.color, width: 1.0, radius: RADIUS_CONTROL.into() },
+        ..button::Style::default()
+    }
+}
+
 pub fn list_item(theme: &Theme, status: button::Status, selected: bool) -> button::Style {
     let p = theme.extended_palette();
     let hovered = matches!(status, button::Status::Hovered | button::Status::Pressed);

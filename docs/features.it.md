@@ -125,6 +125,9 @@ Tutto sono file in chiaro nella cartella `.idetea/` del progetto, così qualsias
   `docs/memory/` (uno per file, con un indice che gli agenti leggono per primo) e decisioni di architettura come ADR
   in `docs/decisions/`. Qualsiasi agente che legge `AGENTS.md`/`CLAUDE.md` la usa. Vedi
   [project-memory.md](project-memory.md) (in inglese).
+  Il pannello **Memoria del progetto** elenca fatti e decisioni con la ricerca, li apre e li elimina, e avvisa di
+  fatti vecchi, percorsi spariti e possibili credenziali. Nella cronologia delle Interfacce, **Registra come
+  decisione** trasforma una domanda con risposta in un ADR.
 - **Aiutanti nel proprio worktree (albero di lavoro):** `"worktree": "<branch>"` esegue il comando in `.idetea/worktrees/<name>` su quel
   ramo. Ogni comando riceve `IDETEA_ANSWER`, un file nel progetto principale per la risposta. Cancellare la richiesta
   toglie il worktree se non ha niente di non committato; il ramo resta sempre.
