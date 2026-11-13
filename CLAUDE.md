@@ -28,6 +28,9 @@ every question and every terminal.
   command wrote to `$IDETEA_ANSWER`, cleans up and exits with the command's code (5 refused, 6 closed by me or lost,
   2 invalid request). `--worktree <branch>` runs it in its own worktree; `--no-wait`, then `idetea run --wait <name>`
   or `idetea run --stop <name>`.
+- `idetea agent [name] [--worktree <branch>]` asks for an IDE terminal tab with a coding agent (`claude`, `codex`…
+  or one of my launchers; `--list` shows them), with the same approval as `idetea run`. It prints the request name;
+  `idetea run --wait <name>` waits for the end.
 - `idetea status` tells what I have open: the active file with the cursor, the open files, and which ones have
   unsaved changes (`--json` for JSON). Exit code 3: the IDE is not open in this project.
 - `idetea open <file>[:<line>[:<column>]]` shows me a file in the IDE, without asking anything.
@@ -176,5 +179,44 @@ always stays.
 
 Never put secrets in the command: I see it on screen, and it stays in the file.
 
-Instructions version: `4503cd30`
+## Project memory (`docs/memory/`, `docs/decisions/`)
+
+This project keeps a memory shared by every agent, in plain files under version control: what one agent learns,
+the next one knows.
+
+- `docs/memory/`: facts, one per Markdown file, and `docs/memory/README.md`, the index, with one line per fact:
+  `- [Title](file.md) — one-line hook`.
+- `docs/decisions/`: architecture decisions as ADRs in the MADR template, numbered (`0001-use-sqlite.md`).
+
+At the start of a task, read `docs/memory/README.md` if it exists, and open the facts that matter for the task.
+A fact reflects what was true when it was written: before relying on one that names a file, function or flag,
+check that it still exists.
+
+When you learn something non-obvious about the project that the next agent will need (a constraint, a convention,
+a gotcha, where something lives outside the repository), write it as a fact and add its line to the index (create
+the folder and the index with the first fact):
+```markdown
+---
+name: tests-offline
+description: the tests must not use the network; CI runs offline
+type: constraint
+updated: 2026-11-13
+---
+The tests run in CI without network access. Use the fixtures in `tests/fixtures/`.
+
+**Why:** the CI runner has no internet access.
+```
+`type` is `constraint`, `convention`, `gotcha` or `reference`. Update an existing fact instead of writing a
+duplicate (and its `updated` date), and delete a fact, with its index line, when it turns out wrong. Don't record
+what the code, the git history or this file already say, nor what only matters to the current task.
+
+When we make an architecture decision (a library, a format, a structure that is hard to change), record it as an
+ADR in `docs/decisions/` with the next number: status, context, the options considered, the decision and its
+consequences. Don't rewrite an accepted ADR to change the decision: write a new one and mark the old one
+"Superseded by NNNN".
+
+Write these files in the language of the project's documentation. They go into git like any other change, so
+never put secrets, credentials or personal data in them.
+
+Instructions version: `531ea1d7`
 <!-- idetea-ui:end -->
