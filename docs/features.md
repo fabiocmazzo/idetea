@@ -108,6 +108,12 @@ All of it is plain files in the project's `.idetea/` folder, so any agent that r
 - **Allow list:** `[agents] allow = ["npm run dev", "claude *"]` in your user config runs those commands without
   asking: the exact command, or a prefix followed only by plain arguments (no `;`, `&`, `|`, `$`, backticks,
   redirections…). In a project config it is ignored, with a warning.
+- **Start an agent** (`Ctrl+Shift+A`, also on the welcome screen): the coding agents found on the PATH (Claude
+  Code, Codex, Gemini CLI, OpenCode, Aider, Cursor Agent) plus your own `[agents.launchers]`, in a terminal tab in
+  the project folder or in a new worktree (`.idetea/worktrees/launch-<branch>`, removed when the tab closes if it is
+  clean; the branch stays). `[agents] default` comes first. Launchers only count in your user config. If
+  `AGENTS.md`/`CLAUDE.md` lacks this IDE's instructions, it asks first: write them, just open, or don't ask again
+  in this project.
 - **Helpers in their own worktree:** `"worktree": "<branch>"` runs the command in `.idetea/worktrees/<name>` on that
   branch. Every command gets `IDETEA_ANSWER`, a file in the main project for the answer. Deleting the request
   removes the worktree if it has nothing uncommitted; the branch always stays.

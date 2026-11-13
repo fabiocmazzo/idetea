@@ -186,3 +186,14 @@ Cada etapa com teste manual pelo painel antes do commit, como nas RFCs anteriore
 4. **Instruções desatualizadas ao abrir um agente:** perguntar antes ("Gravar e abrir", "Só abrir", "Não perguntar
    neste projeto").
 5. **`idetea memory`:** fica para depois; a etapa 3 entrega só a convenção de arquivos.
+
+## Andamento
+
+- **Etapa 1 (2026-11-13, aprovada no teste manual):** "Agentes: iniciar…" (`Ctrl+Shift+A`, paleta e tela inicial)
+  com os agentes conhecidos no PATH e `[agents.launchers]`, `[agents] default` primeiro (as duas chaves só no config
+  do usuário); cada agente na pasta do projeto ou numa worktree nova (`.idetea/worktrees/launch-<branch>`), aberto
+  pela extensão do terminal via `CoreEvent::LaunchAgent`. Pergunta antes de abrir quando o `AGENTS.md`/`CLAUDE.md`
+  não tem as instruções da IDE ("Gravar e abrir", "Só abrir", "Não perguntar neste projeto", que grava
+  `.idetea/launcher-skip-teach`). O teste achou dois defeitos, corrigidos: o editor engolia `Ctrl+Shift+A` como
+  "selecionar tudo" (agora passa para a IDE, como `Ctrl+Shift+V`), e fechar a aba com Enter depois do fim não tirava
+  a worktree (agora sai pelos dois caminhos).

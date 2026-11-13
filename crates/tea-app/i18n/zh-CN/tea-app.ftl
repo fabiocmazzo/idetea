@@ -734,3 +734,19 @@ welcome-recent-projects = 最近的项目
 welcome-hint-palette = 全部命令
 welcome-hint-search = 搜索项目
 welcome-hint-terminal = 终端
+
+## Lançador de agentes (RFC 0016)
+cmd-agents-launch = 智能体: 启动…
+launcher-placeholder = 启动智能体…
+launcher-worktree = { $name } · 在新的 worktree 中…
+launcher-branch-placeholder = { $name } 的 worktree 分支 (例如 fix/login)
+launcher-branch-create = 用此分支创建 worktree
+launcher-none = PATH 中没有智能体 ({ $known })。请安装一个,或在用户配置的 [agents.launchers] 中添加。
+launcher-teach-title = 先教会智能体?
+launcher-teach-detail = 本项目的 AGENTS.md/CLAUDE.md 还没有本 IDE 的说明(或是旧版本)。没有它们,{ $name } 无法使用界面面板,也无法请求终端。
+launcher-teach-write = 写入并启动
+launcher-teach-open = 仅启动
+launcher-teach-skip = 本项目不再询问
+launcher-teach-done = 说明已写入 { $files }。
+launcher-teach-failed = 无法写入说明: { $error }
+welcome-launch-agent = 启动智能体

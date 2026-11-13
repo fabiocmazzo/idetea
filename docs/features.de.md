@@ -110,6 +110,12 @@ Alles davon sind schlichte Dateien im Ordner `.idetea/` des Projekts, also kann 
 - **Zulassungsliste:** `[agents] allow = ["npm run dev", "claude *"]` in Ihrer Benutzerkonfiguration führt diese Befehle ohne
   Nachfrage aus: der genaue Befehl oder ein Präfix, dem nur schlichte Argumente folgen (kein `;`, `&`, `|`, `$`, keine Backticks,
   keine Umleitungen …). In einer Projektkonfiguration wird sie ignoriert, mit einer Warnung.
+- **Einen Agenten starten** (`Ctrl+Shift+A`, auch auf dem Startbildschirm): die Coding-Agenten im PATH (Claude
+  Code, Codex, Gemini CLI, OpenCode, Aider, Cursor Agent) und deine eigenen `[agents.launchers]`, in einem
+  Terminal-Tab im Projektordner oder in einem neuen Worktree (`.idetea/worktrees/launch-<Branch>`, wird beim
+  Schließen des Tabs entfernt, wenn er sauber ist; der Branch bleibt). `[agents] default` steht oben. Launcher
+  zählen nur in deiner Benutzerkonfiguration. Fehlen in `AGENTS.md`/`CLAUDE.md` die Anweisungen dieser IDE, fragt
+  sie vorher: schreiben, nur öffnen oder in diesem Projekt nicht mehr fragen.
 - **Helfer im eigenen Worktree:** `"worktree": "<Branch>"` führt den Befehl in `.idetea/worktrees/<Name>` auf diesem
   Branch aus. Jeder Befehl bekommt `IDETEA_ANSWER`, eine Datei im Hauptprojekt für die Antwort. Das Löschen der Anfrage
   entfernt den Worktree, wenn er keine uncommitteten Änderungen hat; der Branch bleibt immer.

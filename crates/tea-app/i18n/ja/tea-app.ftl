@@ -720,3 +720,19 @@ welcome-recent-projects = 最近使ったプロジェクト
 welcome-hint-palette = すべてのコマンド
 welcome-hint-search = プロジェクトを検索
 welcome-hint-terminal = ターミナル
+
+## Lançador de agentes (RFC 0016)
+cmd-agents-launch = エージェント: 起動…
+launcher-placeholder = エージェントを起動…
+launcher-worktree = { $name } · 新しい worktree で…
+launcher-branch-placeholder = { $name } の worktree のブランチ (例: fix/login)
+launcher-branch-create = このブランチで worktree を作成
+launcher-none = PATH にエージェントがありません ({ $known })。インストールするか、ユーザー設定の [agents.launchers] に追加してください。
+launcher-teach-title = 先にエージェントに教えますか？
+launcher-teach-detail = このプロジェクトの AGENTS.md/CLAUDE.md には、この IDE の手順がまだありません (または古い版です)。手順がないと、{ $name } はインターフェースパネルを使えず、ターミナルも頼めません。
+launcher-teach-write = 書いて起動
+launcher-teach-open = 起動だけ
+launcher-teach-skip = このプロジェクトでは聞かない
+launcher-teach-done = 手順を { $files } に書きました。
+launcher-teach-failed = 手順を書けませんでした: { $error }
+welcome-launch-agent = エージェントを起動

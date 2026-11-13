@@ -53,6 +53,7 @@ pub fn view<'a>(root: &'a Path, recents: &'a Recents, keymap: &'a Keymap) -> Ele
     let start = column![
         heading(fl!("welcome-start")),
         action(Icon::NewFile, fl!("welcome-new-file"), "file.new"),
+        action(Icon::Terminal, fl!("welcome-launch-agent"), "agents.launch"),
         action(Icon::GoToFile, fl!("welcome-quick-open"), "file.quick_open"),
         action(Icon::File, fl!("welcome-open-file"), "file.open"),
         action(Icon::FolderOpened, fl!("welcome-open-folder"), "file.open_folder"),

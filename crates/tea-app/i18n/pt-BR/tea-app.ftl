@@ -739,3 +739,19 @@ welcome-recent-projects = Projetos recentes
 welcome-hint-palette = todos os comandos
 welcome-hint-search = buscar no projeto
 welcome-hint-terminal = terminal
+
+## Lançador de agentes (RFC 0016)
+cmd-agents-launch = Agentes: iniciar…
+launcher-placeholder = Iniciar agente…
+launcher-worktree = { $name } · numa worktree nova…
+launcher-branch-placeholder = Branch da worktree para { $name } (ex.: fix/login)
+launcher-branch-create = Criar worktree com o branch
+launcher-none = Nenhum agente no PATH ({ $known }). Instale um, ou acrescente o seu em [agents.launchers] no config do usuário.
+launcher-teach-title = Ensinar os agentes antes?
+launcher-teach-detail = O AGENTS.md/CLAUDE.md deste projeto ainda não tem as instruções desta IDE (ou tem uma versão antiga). Sem elas, { $name } não sabe usar o painel Interfaces nem pedir terminais.
+launcher-teach-write = Gravar e abrir
+launcher-teach-open = Só abrir
+launcher-teach-skip = Não perguntar neste projeto
+launcher-teach-done = Instruções gravadas em { $files }.
+launcher-teach-failed = Não deu para gravar as instruções: { $error }
+welcome-launch-agent = Iniciar um agente

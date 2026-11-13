@@ -128,6 +128,12 @@ et `CLAUDE.md`.
   exécute ces commandes sans demander : la commande exacte, ou un préfixe suivi seulement d'arguments simples (pas de
   `;`, `&`, `|`, `$`, accents graves, redirections…). Dans une configuration de projet, elle est ignorée, avec un
   avertissement.
+- **Lancer un agent** (`Ctrl+Shift+A`, aussi sur l'écran d'accueil) : les agents de code trouvés dans le PATH
+  (Claude Code, Codex, Gemini CLI, OpenCode, Aider, Cursor Agent) et vos propres `[agents.launchers]`, dans un onglet
+  de terminal, dans le dossier du projet ou dans un nouveau worktree (`.idetea/worktrees/launch-<branche>`, retiré à
+  la fermeture de l'onglet s'il est propre ; la branche reste). `[agents] default` vient en premier. Les lanceurs ne
+  comptent que dans votre config utilisateur. Si `AGENTS.md`/`CLAUDE.md` n'a pas les instructions de cet IDE, il
+  demande d'abord : les écrire, juste ouvrir, ou ne plus demander dans ce projet.
 - **Assistants dans leur propre worktree :** `"worktree": "<branch>"` exécute la commande dans
   `.idetea/worktrees/<name>` sur cette branche. Chaque commande reçoit `IDETEA_ANSWER`, un fichier du projet principal
   pour la réponse. Supprimer la demande retire le worktree s'il n'a rien de non validé ; la branche reste toujours.

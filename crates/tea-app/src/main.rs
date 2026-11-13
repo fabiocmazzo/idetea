@@ -22,6 +22,7 @@ mod dialog;
 mod editorconfig;
 mod divider;
 mod help;
+mod launcher;
 mod ide_state;
 mod mascot;
 mod overlay;
@@ -421,6 +422,7 @@ const CORE_COMMANDS: &[(&str, &str)] = &[
     ("tasks.run", "cmd-tasks-run"),
     ("tasks.rerun", "cmd-tasks-rerun"),
     ("tasks.test_here", "cmd-tasks-test-here"),
+    ("agents.launch", "cmd-agents-launch"),
     ("mascot.toggle", "cmd-mascot-toggle"),
     ("app.restart", "cmd-app-restart"),
     ("app.quit", "cmd-app-quit"),
@@ -445,6 +447,11 @@ enum CoreDialog {
     /// Cópias de alterações deixadas por uma janela que travou: abrir de volta ou apagar.
     Recover,
     DiscardRecovery,
+    /// "Agentes: iniciar…" com as instruções dos agentes desatualizadas: gravar e abrir, só abrir, ou abrir e não
+    /// perguntar mais neste projeto.
+    TeachAndLaunch(launcher::Choice),
+    Launch(launcher::Choice),
+    SkipTeachAndLaunch(launcher::Choice),
 }
 
 /// Itens dos menus de contexto do próprio app (abas).
@@ -1040,7 +1047,9 @@ impl App {
     fn broadcast(&mut self, event: CoreEvent) -> Task<Message> {
         match &event {
             CoreEvent::Activity { source, text } => self.mascot.set_lsp_activity(source, text.as_deref()),
-            CoreEvent::RunTask { name, .. } => self.mascot.notify_task_started(name),
+            CoreEvent::RunTask { name, .. } | CoreEvent::LaunchAgent { title: name, .. } => {
+                self.mascot.notify_task_started(name)
+            }
             CoreEvent::FileSaved(path) => {
                 if let Some(name) = path.file_name().map(|n| n.to_string_lossy().into_owned()) {
                     self.mascot.notify_saved(&name);
@@ -2917,6 +2926,7 @@ impl App {
                 self.request_quit()
             }
             "tasks.run" => self.open_tasks(),
+            "agents.launch" => self.open_launcher(),
             "tasks.rerun" => match self.last_task.clone() {
                 Some(task) => self.run_task(task),
                 None => self.open_tasks(),
@@ -3561,6 +3571,20 @@ impl App {
                 }
                 Task::none()
             }
+            CoreDialog::TeachAndLaunch(choice) => {
+                let note = self.teach_agents();
+                Task::batch([note, self.launch_agent(choice)])
+            }
+            CoreDialog::Launch(choice) => self.launch_agent(choice),
+            CoreDialog::SkipTeachAndLaunch(choice) => {
+                let marker = launcher::skip_teach_path(&self.root);
+                let _ = std::fs::create_dir_all(marker.parent().unwrap_or(&self.root));
+                let note = match std::fs::write(&marker, "") {
+                    Ok(()) => Task::none(),
+                    Err(e) => self.notify(format!("{}: {e}", marker.display())),
+                };
+                Task::batch([note, self.launch_agent(choice)])
+            }
             CoreDialog::CloseMany { ids, save } => {
                 let mut tasks = Vec::new();
                 let mut ids = ids;
@@ -3662,10 +3686,15 @@ impl App {
         self.close_palette();
         match owner {
             Some(owner) => self.call_ext(owner, |e, ctx| e.update(chosen, ctx)),
-            None => match chosen.downcast_ref::<tasks::TaskDef>() {
-                Some(task) => self.run_task(task.clone()),
-                None => Task::none(),
-            },
+            None => {
+                if let Some(choice) = chosen.downcast_ref::<launcher::Choice>() {
+                    return self.choose_agent(choice.clone());
+                }
+                match chosen.downcast_ref::<tasks::TaskDef>() {
+                    Some(task) => self.run_task(task.clone()),
+                    None => Task::none(),
+                }
+            }
         }
     }
 
@@ -3698,6 +3727,101 @@ impl App {
         self.last_task = Some(task.clone());
         let done = fl!("tasks-done", name = task.name.clone(), code = "{code}");
         self.broadcast(CoreEvent::RunTask { name: task.name, command: task.command, cwd: task.cwd, done })
+    }
+
+    /// `Ctrl+Shift+A`: os agentes para abrir (RFC 0016). Cada um aparece duas vezes: aqui e numa worktree nova.
+    fn open_launcher(&mut self) -> Task<Message> {
+        let agents = &self.config.agents;
+        let list = launcher::list(&agents.launchers, agents.default.as_deref(), launcher::in_path);
+        if list.is_empty() {
+            let known: Vec<&str> = launcher::KNOWN.iter().map(|(bin, _)| *bin).collect();
+            return self.notify(fl!("launcher-none", known = known.join(", ")));
+        }
+        let mut pick = tea_core::pick::Pick::new(fl!("launcher-placeholder"));
+        for l in &list {
+            pick = pick.item(Some(tea_core::icons::Icon::Terminal), l.name.clone(), l.command.clone(), launcher::Choice::Here(l.clone()));
+        }
+        for l in list {
+            let label = fl!("launcher-worktree", name = l.name.clone());
+            pick = pick.item(Some(tea_core::icons::Icon::SourceControl), label, l.command.clone(), launcher::Choice::AskBranch(l));
+        }
+        self.editor_mut().lose_focus();
+        self.open_palette(Palette::pick(None, pick))
+    }
+
+    /// Escolhido na lista: o branch da worktree (se faltar), a pergunta das instruções (se preciso) e o terminal.
+    fn choose_agent(&mut self, choice: launcher::Choice) -> Task<Message> {
+        if let launcher::Choice::AskBranch(l) = choice {
+            let make = l.clone();
+            let pick = tea_core::pick::Pick::new(fl!("launcher-branch-placeholder", name = l.name.clone()))
+                .create(fl!("launcher-branch-create"), move |branch| launcher::Choice::Worktree(make.clone(), branch.trim().to_string()));
+            return self.open_palette(Palette::pick(None, pick));
+        }
+        if self.agents_need_teaching() {
+            let name = choice.launcher().name.clone();
+            let dialog = Dialog::new(fl!("launcher-teach-title"), fl!("launcher-teach-detail", name = name))
+                .button(fl!("launcher-teach-write"), ButtonKind::Primary, CoreDialog::TeachAndLaunch(choice.clone()))
+                .button(fl!("launcher-teach-open"), ButtonKind::Secondary, CoreDialog::Launch(choice.clone()))
+                .button(fl!("launcher-teach-skip"), ButtonKind::Secondary, CoreDialog::SkipTeachAndLaunch(choice))
+                .cancel(fl!("cancel"));
+            return self.open_dialog(dialog, dialog::Owner::Core);
+        }
+        self.launch_agent(choice)
+    }
+
+    /// As instruções do painel Interfaces faltam ou estão atrasadas no `AGENTS.md`/`CLAUDE.md`, e ninguém pediu
+    /// para não perguntar neste projeto. Um bloco de uma IDE mais nova não conta: gravar voltaria atrás.
+    #[cfg(feature = "ext-ui")]
+    fn agents_need_teaching(&self) -> bool {
+        if launcher::skip_teach_path(&self.root).exists() {
+            return false;
+        }
+        use tea_ext_ui::teach;
+        teach::plan(&self.root, teach::INSTRUCTIONS).is_ok_and(|plan| !plan.is_empty() && plan.iter().all(|c| c.newer.is_none()))
+    }
+
+    /// Sem a extensão Interfaces, não há instruções do painel para ensinar.
+    #[cfg(not(feature = "ext-ui"))]
+    fn agents_need_teaching(&self) -> bool {
+        false
+    }
+
+    #[cfg(not(feature = "ext-ui"))]
+    fn teach_agents(&mut self) -> Task<Message> {
+        Task::none()
+    }
+
+    /// Grava as instruções dos agentes (o mesmo do "Interfaces: ensinar os agentes deste projeto").
+    #[cfg(feature = "ext-ui")]
+    fn teach_agents(&mut self) -> Task<Message> {
+        use tea_ext_ui::teach;
+        let result = teach::plan(&self.root, teach::INSTRUCTIONS).and_then(|plan| teach::apply(&plan).map(|()| plan));
+        match result {
+            Ok(plan) => {
+                let mut tasks: Vec<Task<Message>> = plan.iter().map(|c| self.reload_from_disk(&c.path)).collect();
+                let names: Vec<&str> = plan.iter().map(|c| c.name.as_str()).collect();
+                tasks.push(self.notify(fl!("launcher-teach-done", files = names.join(", "))));
+                Task::batch(tasks)
+            }
+            Err(e) => self.notify(fl!("launcher-teach-failed", error = e.to_string())),
+        }
+    }
+
+    /// Manda o agente para a extensão do terminal.
+    fn launch_agent(&mut self, choice: launcher::Choice) -> Task<Message> {
+        if !self.extensions.iter().any(|e| e.id() == "terminal") {
+            return self.notify(fl!("tasks-no-terminal"));
+        }
+        let (l, worktree) = match choice {
+            launcher::Choice::Here(l) => (l, None),
+            launcher::Choice::Worktree(l, branch) => (l, Some(branch)),
+            launcher::Choice::AskBranch(l) => return self.choose_agent(launcher::Choice::AskBranch(l)),
+        };
+        let title = match &worktree {
+            Some(branch) => format!("{} · {branch}", l.name),
+            None => l.name.clone(),
+        };
+        self.broadcast(CoreEvent::LaunchAgent { title, command: l.command, worktree })
     }
 
     /// Rust: roda o teste em volta do cursor.

@@ -170,6 +170,12 @@ pub struct TerminalExtension {
     allow_list: fn() -> Vec<String>,
 }
 
+/// A pasta da worktree de um agente aberto pelo lançador: o branch, com `/` trocado por `-` (`fix/login` →
+/// `fix-login`). O prefixo separa das worktrees pedidas por agentes, que usam o nome do pedido.
+fn worktree_name(branch: &str) -> String {
+    format!("launch-{}", branch.replace('/', "-"))
+}
+
 /// O tamanho da área do terminal antes de o widget medir (um painel de baixo comum); o widget corrige depois.
 const SIZE_GUESS: iced::Size = iced::Size::new(900.0, 260.0);
 
@@ -313,6 +319,65 @@ impl TerminalExtension {
         }
     }
 
+    /// Abre um agente escolhido pela pessoa no "Agentes: iniciar…" (RFC 0016): uma aba de agente sem pedido por
+    /// trás (ninguém precisa confirmar, foi a própria pessoa). Com worktree, roda na cópia do repositório, e a
+    /// worktree sai ao fechar a aba, se estiver limpa.
+    fn launch_agent(&mut self, title: &str, command: &str, branch: Option<&str>, ctx: &mut Context) -> Task<Message> {
+        self.next_id += 1;
+        let (name, cwd) = match branch {
+            None => (format!("launch-{}", self.next_id), self.root.clone()),
+            Some(branch) => {
+                let name = worktree_name(branch);
+                match worktree::ensure(&self.root, &name, branch) {
+                    Ok(dir) => (name, dir),
+                    Err(e) => {
+                        ctx.notify(fl!("terminal-task-error", error = e));
+                        return Task::none();
+                    }
+                }
+            }
+        };
+        let done = fl!("agent-done", code = "{code}");
+        let (before, after) = done.split_once("{code}").unwrap_or((&done, ""));
+        #[cfg(unix)]
+        let settings = {
+            let args = ["-c", TASK_SCRIPT, "sh", command, before, after].map(str::to_string).to_vec();
+            self.settings("/bin/sh".into(), args, &cwd)
+        };
+        #[cfg(windows)]
+        let settings = {
+            let ps = tea_core::os::find_in_path("pwsh.exe")
+                .or_else(|| tea_core::os::find_in_path("powershell.exe"))
+                .map(|p| p.to_string_lossy().into_owned())
+                .unwrap_or_else(|| "powershell.exe".into());
+            let args = ["-NoLogo", "-NoProfile", "-Command", WINDOWS_TASK_SCRIPT].map(str::to_string).to_vec();
+            let mut s = self.settings(ps, args, &cwd);
+            s.backend.env.insert("IDETEA_CMD".into(), command.to_string());
+            s.backend.env.insert("IDETEA_BEFORE".into(), before.to_string());
+            s.backend.env.insert("IDETEA_AFTER".into(), after.to_string());
+            s
+        };
+        match self.new_terminal(settings) {
+            Ok(term) => {
+                self.agents.push(AgentTerm {
+                    term,
+                    name,
+                    title: title.to_string(),
+                    ended: false,
+                    detached: true,
+                    worktree_on_close: branch.is_some(),
+                });
+                self.shown = Shown::Agent(self.agents.len() - 1);
+                ctx.show_panel(PANEL);
+                self.focus_current()
+            }
+            Err(e) => {
+                ctx.notify(fl!("terminal-task-error", error = e.to_string()));
+                Task::none()
+            }
+        }
+    }
+
     /// O terminal na tela agora.
     fn current(&self) -> Option<&Terminal> {
         match self.shown {
@@ -376,13 +441,18 @@ impl TerminalExtension {
                 if !agent.detached && agents::read_status(&self.root, &agent.name).is_some_and(|d| d.state == "running") {
                     let _ = agents::write_status(&self.root, &agent.name, &agents::State::Closed);
                 }
-                if agent.worktree_on_close && let Err(e) = worktree::remove(&self.root, &agent.name) {
-                    ctx.notify(fl!("agent-worktree-kept", path = worktree::path(&self.root, &agent.name).display().to_string(), error = e));
-                }
+                self.drop_worktree(&agent, ctx);
             }
             Shown::Shell(_) | Shown::Agent(_) | Shown::Request => {}
         }
         self.after_removal(ctx)
+    }
+
+    /// A aba saiu: o worktree dela sai junto, se estiver limpo (o branch fica). Com algo por commitar, avisa.
+    fn drop_worktree(&self, agent: &AgentTerm, ctx: &mut Context) {
+        if agent.worktree_on_close && let Err(e) = worktree::remove(&self.root, &agent.name) {
+            ctx.notify(fl!("agent-worktree-kept", path = worktree::path(&self.root, &agent.name).display().to_string(), error = e));
+        }
     }
 
     /// Os pedidos mudaram na pasta: os que sumiram encerram o terminal (ou deixam de esperar); os novos aparecem.
@@ -695,6 +765,9 @@ impl TerminalExtension {
         if let CoreEvent::RunTask { name, command, cwd, done } = event {
             return self.run_task(name, command, cwd, done, ctx);
         }
+        if let CoreEvent::LaunchAgent { title, command, worktree } = event {
+            return self.launch_agent(title, command, worktree.as_deref(), ctx);
+        }
         if let CoreEvent::Appearance { theme, font_size, code_font } = event {
             self.theme = theme.clone();
             self.font_size = *font_size;
@@ -784,7 +857,8 @@ impl TerminalExtension {
                 if let Some(i) = self.agents.iter().position(|a| a.term.id == id) {
                     // Terminou e o Enter fechou (o script já gravou o código no status).
                     if self.agents[i].term.handle(iced_term::Command::ProxyToBackend(cmd)) == Action::Shutdown {
-                        self.agents.remove(i);
+                        let agent = self.agents.remove(i);
+                        self.drop_worktree(&agent, ctx);
                         if let Shown::Agent(s) = self.shown
                             && s > i
                         {

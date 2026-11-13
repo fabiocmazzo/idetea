@@ -108,6 +108,11 @@
 - **許可リスト:** 利用者の設定の `[agents] allow = ["npm run dev", "claude *"]` は、確認なしでそれらのコマンドを実行します。
   正確なコマンド、またはプレーンな引数だけが続く接頭辞です (`;`、`&`、`|`、`$`、バッククォート、
   リダイレクトなどは不可)。プロジェクトの設定では無視し、警告を出します。
+- **エージェントを起動** (`Ctrl+Shift+A`、ようこそ画面からも): PATH にあるコーディング エージェント (Claude Code、
+  Codex、Gemini CLI、OpenCode、Aider、Cursor Agent) と自分の `[agents.launchers]` を、ターミナル タブで、プロジェクト
+  フォルダーか新しい worktree (`.idetea/worktrees/launch-<branch>`。タブを閉じたとき、変更がなければ削除され、ブランチは
+  残ります) で起動します。`[agents] default` が先頭に来ます。ランチャーはユーザー設定でのみ有効です。`AGENTS.md`/
+  `CLAUDE.md` にこの IDE の指示がなければ、先に確認します: 書き込む、開くだけ、このプロジェクトでは確認しない。
 - **専用 worktree のヘルパー:** `"worktree": "<branch>"` は、そのブランチの `.idetea/worktrees/<name>` でコマンドを実行します。
   すべてのコマンドは `IDETEA_ANSWER` を受け取ります。メイン プロジェクトにある、回答用のファイルです。要求を削除すると、
   未コミットのものがなければ worktree を削除します。ブランチは常に残ります。

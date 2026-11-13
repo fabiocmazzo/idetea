@@ -97,6 +97,10 @@ pub enum CoreEvent {
     /// Rodar uma tarefa no terminal (quem cuida é a extensão do terminal): `name` para mostrar, `command`
     /// para o shell, na pasta `cwd`. `done` é o texto do fim, com `{code}` no lugar do código de saída.
     RunTask { name: String, command: String, cwd: PathBuf, done: String },
+    /// Abrir um agente numa aba de terminal, pelo "Agentes: iniciar…" (RFC 0016; quem cuida é a extensão do
+    /// terminal). `title` é o nome da aba. Com `worktree`, roda numa cópia do repositório com esse branch, como os
+    /// terminais pedidos por agentes; o worktree sai ao fechar a aba, se não tiver nada por commitar.
+    LaunchAgent { title: String, command: String, worktree: Option<String> },
 }
 
 /// O que uma lista de lugares ([`CoreEvent::Locations`]) mostra.

@@ -114,6 +114,12 @@ interfaces = { enabled = true, slot = "right" }
 [agents]
 allow = []
 # allow = ["npm run dev", "claude *"]
+# "Agentes: iniciar…" (Ctrl+Shift+A) mostra os agentes conhecidos que estão no PATH (claude, codex, gemini,
+# opencode, aider, cursor-agent) e os lançadores abaixo. `default` é o que vem primeiro.
+# default = "claude"
+
+[agents.launchers]
+# "Claude (Opus)" = "claude --model opus"
 
 # Mascote reativo no canto da IDE (RFC 0012): acompanha perguntas no painel, terminais de agentes,
 # salvar, o build do depurador e `idetea mascot`. Não rouba o foco: o balão some sozinho e o card
@@ -184,6 +190,7 @@ enabled = true
 "ctrl+shift+]" = "editor.toggle_fold"
 "ctrl+shift+b" = "tasks.run"
 "ctrl+shift+r" = "tasks.rerun"
+"ctrl+shift+a" = "agents.launch"
 "ctrl+shift+g" = "git.focus"
 "ctrl+," = "settings.open"
 "ctrl+q" = "app.quit"
@@ -309,6 +316,11 @@ impl Default for EditorConfig {
 pub struct AgentsConfig {
     /// Comandos que rodam sem confirmar: o comando exato, ou `"começo *"`.
     pub allow: Vec<String>,
+    /// O agente que vem primeiro no "Agentes: iniciar…" (o binário de um conhecido, como `claude`, ou o nome de um
+    /// lançador).
+    pub default: Option<String>,
+    /// Lançadores a mais no "Agentes: iniciar…": nome mostrado → comando (RFC 0016).
+    pub launchers: std::collections::BTreeMap<String, String>,
 }
 
 /// Quanto o mascote fala além do que o estado pede (`[mascot] chatty`).
