@@ -42,11 +42,12 @@
   <ol>
     <li><a href="#before">始める前</a></li>
     <li><a href="#teach">プロジェクトのエージェントに教える</a></li>
-    <li><a href="#run">IDE の中でエージェントを実行</a></li>
+    <li><a href="#run">IDE からエージェントを起動</a></li>
     <li><a href="#answer">質問に答える</a></li>
     <li><a href="#approve">ターミナルを承認</a></li>
     <li><a href="#allow">信頼するコマンドは確認を省く</a></li>
     <li><a href="#helpers">ヘルパー エージェントへ作業を渡す</a></li>
+    <li><a href="#memory">プロジェクトのメモリーを残す</a></li>
     <li><a href="#commands"><code>idetea</code> コマンド</a></li>
     <li><a href="#new">エージェント付きで新しいプロジェクトを始める</a></li>
     <li><a href="#files">仕組み</a></li>
@@ -77,11 +78,23 @@
 </section>
 
 <section id="run">
-  <h2>3. IDE の中でエージェントを実行</h2>
-  <p>ターミナルを開きます (<kbd>Ctrl</kbd>+<kbd>'</kbd> または <kbd>Ctrl</kbd>+<kbd>&#96;</kbd>。<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>T</kbd> は、最後に閉じたタブを開き直します)。他の場所と同じように、そこでエージェントを開始します。</p>
-<pre><code>claude        # または codex、選んだエージェント</code></pre>
-  <p>いつものように、欲しいものを頼みます。エージェントが決定を必要とするときは、チャットの代わりにパネルを使います。
-    はっきり言うこともできます。<em>「IDE のパネルで尋ねて」</em>。</p>
+  <h2>3. IDE からエージェントを起動</h2>
+  <p><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>A</kbd> を押します (ようこそ画面の <strong>エージェントを起動</strong> でも可)。一覧には、<code>PATH</code> にある
+    コーディング エージェント (Claude Code、Codex、Gemini CLI、OpenCode、Aider、Cursor Agent) と、設定にある自分の
+    ランチャーが出ます。1 つ選ぶと、ターミナル タブで、プロジェクト フォルダーか、指定したブランチの<strong>新しい
+    worktree</strong> で開きます。プロジェクトのエージェントがまだ手順 2 を教わっていなければ、先にそれを提案します。</p>
+<pre><code>[agents]
+default = "claude"            # 一覧の先頭に来る
+
+[agents.launchers]            # ユーザー設定のみ
+"Claude (Opus)" = "claude --model opus"</code></pre>
+  <p>いつもどおり頼みたいことを伝えます。決定が必要なとき、エージェントはチャットではなくパネルを使います。
+    <em>「IDE のパネルで聞いて」</em>とはっきり言うこともできます。</p>
+  <p><strong>コードを指す:</strong> エディターで <kbd>Ctrl</kbd>+<kbd>L</kbd> を押すと、カーソルの場所 (または選択部分とそのテキスト) とその行の問題が、
+    エージェントの入力欄に貼り付けられます。送信はしません。問題パネルの項目を右クリックすると、問題をひとつ送れます。
+    エージェントが開いていなければ、先にランチャーが出ます。</p>
+  <p>ターミナル (<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>T</kbd>) で自分で起動することも、スクリプトから
+    <code>idetea agent codex</code> で起動することもできます。</p>
 </section>
 
 <section id="answer">
@@ -155,8 +168,25 @@ allow = ["npm run dev", "cargo test", "claude *"]</code></pre>
   </ol>
 </section>
 
+<section id="memory">
+  <h2>8. プロジェクトのメモリーを残す</h2>
+  <p>手順 2 の指示は、git で管理するプレーン ファイルの共有メモリーもエージェントに教えます。どのエージェントでも、
+    前のエージェントが覚えたことを次のエージェントが知っています。</p>
+<pre><code>docs/memory/README.md        インデックス (事実ごとに 1 行)
+docs/memory/tests-offline.md 1 ファイルに 1 つの事実
+docs/decisions/0001-use-sqlite.md   アーキテクチャの決定 (ADR)</code></pre>
+  <ul>
+    <li>エージェントはタスクの最初にインデックスを読み、自明でないことを覚えたら事実を書き、重複させずに更新し、
+      間違いとわかったら削除します。秘密情報は書きません。</li>
+    <li><strong>プロジェクトのメモリー</strong> パネル (本のアイコン) は、事実と決定を検索付きで一覧にし、開いたり
+      削除したりでき、古い事実、なくなったパス、認証情報らしきものを警告します。</li>
+    <li>インターフェースの履歴では、<strong>決定として記録</strong> で回答済みの質問を、見直し用の ADR にできます。</li>
+  </ul>
+  <p>決まりごとは <a href="https://github.com/fabiocmazzo/idetea/blob/main/docs/project-memory.md">docs/project-memory.md</a> (英語) にあります。</p>
+</section>
+
 <section id="commands">
-  <h2>8. <code>idetea</code> コマンド</h2>
+  <h2>9. <code>idetea</code> コマンド</h2>
   <p><code>idetea</code> が <code>PATH</code> にあるとき、エージェントはこれらを使います。それぞれが、往復全体を 1 回の呼び出しで行います。
     IDE のターミナルで試せます。</p>
   <div class="table-scroll"><table>
@@ -166,6 +196,9 @@ allow = ["npm run dev", "cargo test", "claude *"]</code></pre>
         <code>--confirm</code>、<code>--input "Name"</code>。または JSON ファイルの完全なフォーム。回答を表示します。</td></tr>
     <tr><td><code>idetea run --title "Tests" -- cargo test</code></td>
       <td>ターミナルを要求し、終了を待ち、ヘルパーの回答を表示し、コマンドのコードで終了します (拒否したときは 5)。</td></tr>
+    <tr><td><code>idetea agent codex --worktree fix/login</code></td>
+      <td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>A</kbd> と同じように、コーディング エージェントのターミナル タブを要求します。
+        承認も同じです (<code>--list</code> でエージェントを一覧)。</td></tr>
     <tr><td><code>idetea status</code></td>
       <td>開いているもの。カーソルがあるアクティブなファイル、開いているファイル、未保存の変更があるもの
         (<code>--json</code> も)。</td></tr>
@@ -183,7 +216,7 @@ allow = ["npm run dev", "cargo test", "claude *"]</code></pre>
 </section>
 
 <section id="new">
-  <h2>9. エージェント付きで新しいプロジェクトを始める</h2>
+  <h2>10. エージェント付きで新しいプロジェクトを始める</h2>
   <p>パレットの <strong>プロジェクト: 新規…</strong> (または <code>idetea new</code>) は、フォルダーを作り、
     <code>git init</code> を実行し、テンプレートのエージェント スキルをインストールし (空、Rust、Web サイト、Python、FastAPI)、
     最初の依頼を <code>AGENTS.md</code> に書き、承認のための IDE ターミナルでエージェントを開けます。</p>
@@ -191,7 +224,7 @@ allow = ["npm run dev", "cargo test", "claude *"]</code></pre>
 </section>
 
 <section id="files">
-  <h2>10. 仕組み</h2>
+  <h2>11. 仕組み</h2>
   <p>すべては、プロジェクトの <code>.idetea/</code> フォルダーのプレーンなファイルです。これらは git の外に残ります。</p>
   <ul>
     <li><code>.idetea/ui/&lt;name&gt;.json</code>: 質問。回答は <code>.idetea/ui/responses/</code> に着きます。</li>

@@ -42,11 +42,12 @@
   <ol>
     <li><a href="#before">Prima di iniziare</a></li>
     <li><a href="#teach">Insegna agli agenti del progetto</a></li>
-    <li><a href="#run">Esegui l'agente dentro l'IDE</a></li>
+    <li><a href="#run">Avvia il tuo agente dall'IDE</a></li>
     <li><a href="#answer">Rispondi a una domanda</a></li>
     <li><a href="#approve">Approva un terminale</a></li>
     <li><a href="#allow">Salta la domanda per i comandi di cui ti fidi</a></li>
     <li><a href="#helpers">Passa il lavoro a un agente aiutante</a></li>
+    <li><a href="#memory">Tieni una memoria del progetto</a></li>
     <li><a href="#commands">I comandi <code>idetea</code></a></li>
     <li><a href="#new">Inizia un progetto nuovo con un agente</a></li>
     <li><a href="#files">Dietro le quinte</a></li>
@@ -77,12 +78,24 @@
 </section>
 
 <section id="run">
-  <h2>3. Esegui l'agente dentro l'IDE</h2>
-  <p>Apri il terminale (<kbd>Ctrl</kbd>+<kbd>'</kbd> o <kbd>Ctrl</kbd>+<kbd>&#96;</kbd>) e avvia lì l'agente, come faresti in qualsiasi altro
-    posto:</p>
-<pre><code>claude        # oppure codex, o l'agente che usi</code></pre>
-  <p>Chiedi quello che vuoi, come al solito. Quando l'agente ha bisogno di una decisione, usa il pannello invece della chat. Puoi
-    anche dirglielo chiaro: <em>«chiedimelo nel pannello dell'IDE»</em>.</p>
+  <h2>3. Avvia il tuo agente dall'IDE</h2>
+  <p>Premi <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>A</kbd> (o <strong>Avvia un agente</strong> nella schermata iniziale). L'elenco mostra gli agenti di codice nel
+    tuo <code>PATH</code> (Claude Code, Codex, Gemini CLI, OpenCode, Aider, Cursor Agent) e i tuoi lanciatori della
+    config. Scegline uno per aprirlo in una scheda di terminale, nella cartella del progetto o <strong>in un nuovo
+    worktree</strong>, sul ramo che indichi. Se gli agenti del progetto non hanno ancora ricevuto il passo 2, propone
+    di farlo prima.</p>
+<pre><code>[agents]
+default = "claude"            # viene per primo nell'elenco
+
+[agents.launchers]            # solo nella config utente
+"Claude (Opus)" = "claude --model opus"</code></pre>
+  <p>Chiedi quello che vuoi, come sempre. Quando l'agente ha bisogno di una decisione, usa il pannello invece della
+    chat. Puoi anche dirlo apertamente: <em>"chiedimelo nel pannello dell'IDE"</em>.</p>
+  <p><strong>Indica il codice:</strong> nell'editor, <kbd>Ctrl</kbd>+<kbd>L</kbd> incolla nel campo dell'agente la posizione del cursore (o la
+    selezione, con il testo) e i problemi di quelle righe, senza inviarlo. Un clic destro su una voce del pannello dei
+    problemi fa lo stesso con un problema. Senza un agente aperto, prima arriva il lanciatore.</p>
+  <p>Puoi sempre avviare un agente da solo nel terminale (<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>T</kbd>), o da uno
+    script con <code>idetea agent codex</code>.</p>
 </section>
 
 <section id="answer">
@@ -158,8 +171,26 @@ allow = ["npm run dev", "cargo test", "claude *"]</code></pre>
   </ol>
 </section>
 
+<section id="memory">
+  <h2>8. Tieni una memoria del progetto</h2>
+  <p>Le istruzioni del passo 2 insegnano agli agenti anche una memoria condivisa, in file semplici sotto git: quello
+    che impara un agente lo sa il successivo, qualunque esso sia:</p>
+<pre><code>docs/memory/README.md        l'indice, una riga per fatto
+docs/memory/tests-offline.md un fatto per file
+docs/decisions/0001-use-sqlite.md   decisioni di architettura (ADR)</code></pre>
+  <ul>
+    <li>Gli agenti leggono l'indice all'inizio di un compito, scrivono un fatto quando imparano qualcosa di non ovvio,
+      lo aggiornano invece di duplicarlo e lo eliminano quando si rivela sbagliato. Mai segreti.</li>
+    <li>Il pannello <strong>Memoria del progetto</strong> (l'icona del libro) elenca fatti e decisioni con la ricerca,
+      li apre e li elimina, e avvisa di fatti vecchi, percorsi spariti e possibili credenziali.</li>
+    <li>Nella cronologia delle Interfacce, <strong>Registra come decisione</strong> trasforma una domanda con risposta
+      in un ADR da rivedere.</li>
+  </ul>
+  <p>La convenzione è in <a href="https://github.com/fabiocmazzo/idetea/blob/main/docs/project-memory.md">docs/project-memory.md</a> (in inglese).</p>
+</section>
+
 <section id="commands">
-  <h2>8. I comandi <code>idetea</code></h2>
+  <h2>9. I comandi <code>idetea</code></h2>
   <p>Gli agenti usano questi quando <code>idetea</code> è nel <code>PATH</code>. Ognuno fa tutto il giro in una chiamata.
     Puoi provarli tu nel terminale dell'IDE.</p>
   <div class="table-scroll"><table>
@@ -170,6 +201,9 @@ allow = ["npm run dev", "cargo test", "claude *"]</code></pre>
     <tr><td><code>idetea run --title "Tests" -- cargo test</code></td>
       <td>Chiede un terminale, aspetta la fine, stampa la risposta dell'aiutante ed esce con il codice del comando (5 se
         hai rifiutato).</td></tr>
+    <tr><td><code>idetea agent codex --worktree fix/login</code></td>
+      <td>Chiede una scheda di terminale con un agente di codice, come <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>A</kbd>, con
+        la stessa approvazione (<code>--list</code> mostra gli agenti).</td></tr>
     <tr><td><code>idetea status</code></td>
       <td>Che cosa hai aperto: il file attivo con il cursore, i file aperti, e quali hanno modifiche non salvate
         (anche <code>--json</code>).</td></tr>
@@ -187,7 +221,7 @@ allow = ["npm run dev", "cargo test", "claude *"]</code></pre>
 </section>
 
 <section id="new">
-  <h2>9. Inizia un progetto nuovo con un agente</h2>
+  <h2>10. Inizia un progetto nuovo con un agente</h2>
   <p><strong>Progetto: nuovo…</strong> nel riquadro comandi (o <code>idetea new</code>) crea la cartella, esegue
     <code>git init</code>, installa le skill di agente di un modello (vuoto, Rust, sito, Python, FastAPI), scrive
     una richiesta iniziale in <code>AGENTS.md</code>, e può aprire il tuo agente in un terminale dell'IDE perché tu lo approvi:</p>
@@ -195,7 +229,7 @@ allow = ["npm run dev", "cargo test", "claude *"]</code></pre>
 </section>
 
 <section id="files">
-  <h2>10. Dietro le quinte</h2>
+  <h2>11. Dietro le quinte</h2>
   <p>Tutto sono file in chiaro nella cartella <code>.idetea/</code> del progetto. Questi restano fuori da git:</p>
   <ul>
     <li><code>.idetea/ui/&lt;name&gt;.json</code>: una domanda; la tua risposta arriva in <code>.idetea/ui/responses/</code>.</li>

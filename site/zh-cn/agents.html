@@ -41,11 +41,12 @@
   <ol>
     <li><a href="#before">开始之前</a></li>
     <li><a href="#teach">教会这个项目的智能体</a></li>
-    <li><a href="#run">在IDE里运行你的智能体</a></li>
+    <li><a href="#run">从IDE启动你的智能体</a></li>
     <li><a href="#answer">回答一个问题</a></li>
     <li><a href="#approve">批准一个终端</a></li>
     <li><a href="#allow">你信任的命令，不必再问</a></li>
     <li><a href="#helpers">把工作交给助手智能体</a></li>
+    <li><a href="#memory">保留一份项目记录</a></li>
     <li><a href="#commands"><code>idetea</code>命令</a></li>
     <li><a href="#new">用智能体开始一个新项目</a></li>
     <li><a href="#files">底下是怎么做的</a></li>
@@ -72,10 +73,16 @@
 </section>
 
 <section id="run">
-  <h2>3. 在IDE里运行你的智能体</h2>
-  <p>打开终端（<kbd>Ctrl</kbd>+<kbd>'</kbd>或<kbd>Ctrl</kbd>+<kbd>&#96;</kbd>），像在别的地方一样启动你的智能体：</p>
-<pre><code>claude        # 或codex，或你选的智能体</code></pre>
-  <p>照常说出你要什么。智能体需要你做决定时，它用面板，不用聊天。你也可以直接说：<em>“在IDE的面板里问我”</em>。</p>
+  <h2>3. 从IDE启动你的智能体</h2>
+  <p>按<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>A</kbd>（或欢迎页上的<strong>启动智能体</strong>）。列表里有你<code>PATH</code>上的编程智能体（Claude Code、Codex、Gemini CLI、OpenCode、Aider、Cursor Agent），以及配置里你自己的启动器。选一个，就会在终端标签页里打开它，位置可以是项目文件夹，也可以是你指定分支上的<strong>新工作树</strong>。如果项目的智能体还没学过第2步，它会先提出来。</p>
+<pre><code>[agents]
+default = "claude"            # 排在列表最前
+
+[agents.launchers]            # 只在用户配置里
+"Claude (Opus)" = "claude --model opus"</code></pre>
+  <p>像平常一样提出你要做的事。智能体需要做决定时，会用面板而不是聊天。你也可以直接说：<em>“在IDE面板里问我”</em>。</p>
+  <p><strong>指着代码说：</strong>在编辑器里按<kbd>Ctrl</kbd>+<kbd>L</kbd>，会把光标的位置（或选中内容和文本）以及这些行上的问题粘贴到智能体的输入框里，不会直接发送。在问题面板里右键一条，就能发送单个问题。没有打开的智能体时，会先出现启动器。</p>
+  <p>你仍然可以自己在终端里启动智能体（<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>T</kbd>），或者在脚本里用<code>idetea agent codex</code>。</p>
 </section>
 
 <section id="answer">
@@ -138,8 +145,22 @@ allow = ["npm run dev", "cargo test", "claude *"]</code></pre>
   </ol>
 </section>
 
+<section id="memory">
+  <h2>8. 保留一份项目记录</h2>
+  <p>第2步的说明还会教智能体一种放在git里的纯文件共享记录：一个智能体学到的东西，下一个也知道，不管是哪个智能体：</p>
+<pre><code>docs/memory/README.md        索引，每条事实一行
+docs/memory/tests-offline.md 每个文件一条事实
+docs/decisions/0001-use-sqlite.md   架构决定（ADR）</code></pre>
+  <ul>
+    <li>智能体在任务开始时读索引，学到不明显的事情时写一条事实，更新而不是重复，发现错了就删掉。从不写入秘密。</li>
+    <li><strong>项目记录</strong>面板（书本图标）列出事实和决定，可以搜索、打开和删除，并提醒过时的事实、已经不存在的路径和看起来像凭据的内容。</li>
+    <li>在界面面板的历史里，<strong>记录为决定</strong>会把回答过的问题变成一份待你检查的ADR。</li>
+  </ul>
+  <p>约定写在<a href="https://github.com/fabiocmazzo/idetea/blob/main/docs/project-memory.md">docs/project-memory.md</a>（英文）。</p>
+</section>
+
 <section id="commands">
-  <h2>8. <code>idetea</code>命令</h2>
+  <h2>9. <code>idetea</code>命令</h2>
   <p><code>idetea</code>在<code>PATH</code>上时，智能体用这些命令。每一条都用一次调用走完整个来回。你也可以在IDE终端里自己试。</p>
   <div class="table-scroll"><table>
     <tr><th>命令</th><th>它做什么</th></tr>
@@ -147,6 +168,8 @@ allow = ["npm run dev", "cargo test", "claude *"]</code></pre>
       <td>在面板里显示一个问题并等待（默认10分钟）。短形式：<code>--options "a|b|c"</code>、<code>--confirm</code>、<code>--input "Name"</code>；或从一份JSON文件给出完整表单。打印回答。</td></tr>
     <tr><td><code>idetea run --title "Tests" -- cargo test</code></td>
       <td>要一个终端，等到结束，打印助手的回答，并以命令的退出码退出（你拒绝时是5）。</td></tr>
+    <tr><td><code>idetea agent codex --worktree fix/login</code></td>
+      <td>像<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>A</kbd>一样，请求一个带编程智能体的终端标签页，批准方式相同（<code>--list</code>列出智能体）。</td></tr>
     <tr><td><code>idetea status</code></td>
       <td>你打开了什么：带光标的当前文件、打开的文件，以及哪些有未保存的更改（也可以<code>--json</code>）。</td></tr>
     <tr><td><code>idetea open src/main.rs:42</code></td>
@@ -160,13 +183,13 @@ allow = ["npm run dev", "cargo test", "claude *"]</code></pre>
 </section>
 
 <section id="new">
-  <h2>9. 用智能体开始一个新项目</h2>
+  <h2>10. 用智能体开始一个新项目</h2>
   <p>命令面板里的<strong>项目: 新建…</strong>（或<code>idetea new</code>）会创建文件夹、运行<code>git init</code>、安装模板的智能体技能（空项目、Rust、网站、Python、FastAPI）、把初始请求写进<code>AGENTS.md</code>，并可以在IDE终端里打开你的智能体，等你批准：</p>
 <pre><code>idetea new my-app --modelo rust --descricao "a unit converter" --agente claude</code></pre>
 </section>
 
 <section id="files">
-  <h2>10. 底下是怎么做的</h2>
+  <h2>11. 底下是怎么做的</h2>
   <p>全部都是项目<code>.idetea/</code>文件夹里的普通文件。下面这些不进git：</p>
   <ul>
     <li><code>.idetea/ui/&lt;name&gt;.json</code>：一个问题；你的回答落到<code>.idetea/ui/responses/</code>。</li>
