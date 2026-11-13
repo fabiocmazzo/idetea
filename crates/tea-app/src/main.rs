@@ -1237,6 +1237,9 @@ impl App {
                 // A aba antiga sai (e avisa o LSP); a nova entra no lugar, com o mesmo id.
                 self.tabs[i].editor = editor;
                 let lsp = self.ensure_lsp(i);
+                // O servidor já ligado reabre o arquivo, mas só checa de novo num save (o `cargo check` do
+                // rust-analyzer): sem isso, os erros que o agente corrigiu continuam sublinhados.
+                self.tabs[i].editor.lsp_saved_elsewhere();
                 let refresh = if i == self.active { self.set_active(i) } else { Task::none() };
                 Task::batch([lsp, refresh])
             }

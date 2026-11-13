@@ -924,6 +924,14 @@ impl Editor {
         self.lsp = Some(LspLink { client, language_id: language_id.to_string(), completions: HashMap::new() });
     }
 
+    /// O arquivo no disco é o texto desta aba, gravado por outro programa (um agente, o git): avisa o servidor como
+    /// um save. Sem isso, o rust-analyzer não roda o `cargo check` de novo e continua mostrando os erros de antes.
+    pub fn lsp_saved_elsewhere(&mut self) {
+        if self.lsp.is_some() {
+            self.inner.lsp_did_save();
+        }
+    }
+
     pub fn detach_lsp(&mut self) {
         if self.lsp.take().is_some() {
             self.inner.detach_lsp();
