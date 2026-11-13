@@ -12,11 +12,22 @@
 </p>
 
 <p align="center">
+  <a href="https://github.com/fabiocmazzo/idetea/actions/workflows/ci.yml"><img src="https://github.com/fabiocmazzo/idetea/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI"></a>
+  <a href="https://github.com/fabiocmazzo/idetea/releases"><img src="https://img.shields.io/github/v/release/fabiocmazzo/idetea?include_prereleases&amp;label=release" alt="Release"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache%202.0-blue" alt="License: Apache 2.0"></a>
+  <a href="https://www.rust-lang.org/"><img src="https://img.shields.io/badge/Rust-2024-orange?logo=rust" alt="Rust 2024"></a>
+  <a href="https://github.com/iced-rs/iced"><img src="https://img.shields.io/badge/GUI-iced%200.14-3645ff" alt="GUI: iced 0.14"></a>
+  <img src="https://img.shields.io/badge/platform-Linux%20%7C%20macOS%20%7C%20Windows-lightgrey" alt="Platforms: Linux, macOS, Windows">
+  <a href="https://codeberg.org/fabiocmazzo/idetea"><img src="https://img.shields.io/badge/Codeberg-mirror-2185D0?logo=codeberg&amp;logoColor=white" alt="Codeberg mirror"></a>
+</p>
+
+<p align="center">
   <a href="README.md">English</a> · <a href="README.pt-BR.md">Português</a> · <b>Español</b> ·
   <a href="README.fr.md">Français</a> · <a href="README.de.md">Deutsch</a> · <a href="README.it.md">Italiano</a> ·
   <a href="README.ja.md">日本語</a> · <a href="README.zh-CN.md">中文（简体）</a><br>
   <a href="https://idetea.belabs.cloud/es/"><b>Sitio y guías</b></a>
   · <a href="https://github.com/fabiocmazzo/idetea">GitHub</a>
+  · <a href="https://codeberg.org/fabiocmazzo/idetea">Codeberg</a> (espejo)
 </p>
 
 <p align="center">
