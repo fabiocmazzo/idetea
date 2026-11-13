@@ -1,0 +1,55 @@
+# Espelhos fora do GitHub, que continua sendo o principal.
+# - Codeberg: a cada push (branches e tags, inclusive as apagadas), ou pela aba Actions. Precisa da variável
+#   CODEBERG_REPO (ex.: "usuario/idetea") e do segredo CODEBERG_SSH_KEY (chave privada cuja pública é uma chave de
+#   implantação com escrita no repositório do Codeberg). Sem eles, o job só avisa e passa.
+# - Software Heritage: a cada tag nova, pede o arquivamento ("Save code now"); não precisa de conta.
+name: Mirrors
+
+on:
+  push:
+    branches: ["**"]
+    tags: ["**"]
+  delete:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  codeberg:
+    runs-on: ubuntu-latest
+    concurrency:
+      group: mirror-codeberg
+      cancel-in-progress: false
+    steps:
+      - name: Push to Codeberg
+        env:
+          CODEBERG_REPO: ${{ vars.CODEBERG_REPO }}
+          CODEBERG_SSH_KEY: ${{ secrets.CODEBERG_SSH_KEY }}
+          SOURCE: https://github.com/${{ github.repository }}.git
+        run: |
+          if [ -z "$CODEBERG_REPO" ] || [ -z "$CODEBERG_SSH_KEY" ]; then
+            echo "::notice::CODEBERG_REPO or CODEBERG_SSH_KEY not set; skipping the mirror."
+            exit 0
+          fi
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "$CODEBERG_SSH_KEY" > ~/.ssh/codeberg && chmod 600 ~/.ssh/codeberg
+          ssh-keyscan -t ed25519 codeberg.org >> ~/.ssh/known_hosts 2>/dev/null
+          export GIT_SSH_COMMAND="ssh -i ~/.ssh/codeberg -o IdentitiesOnly=yes"
+          # Só branches e tags: os refs/pull/* do GitHub não interessam lá.
+          git clone --bare --quiet "$SOURCE" repo.git
+          cd repo.git
+          git push --prune "git@codeberg.org:$CODEBERG_REPO.git" '+refs/heads/*:refs/heads/*' '+refs/tags/*:refs/tags/*'
+
+  software-heritage:
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ask Software Heritage to archive
+        env:
+          ORIGIN: https://github.com/${{ github.repository }}/
+        # Um pedido recusado (limite de taxa, serviço fora) não deve falhar a versão: só avisa.
+        run: |
+          curl -fsS -X POST "https://archive.softwareheritage.org/api/1/origin/save/git/url/$ORIGIN" \
+            | jq '{save_request_status, save_task_status, request_url}' \
+            || echo "::warning::Software Heritage did not accept the request; try again later."
