@@ -181,5 +181,5 @@ jobs:
         with:
           files: dist/*
           generate_release_notes: true
-          # Antes da 1.0, toda versão sai como pré-lançamento.
-          prerelease: ${{ startsWith(github.ref_name, 'v0.') }}
+          # Só tag com hífen (v0.9.0-rc1) sai como pré-lançamento; as outras viram a "latest".
+          prerelease: ${{ contains(github.ref_name, '-') }}
