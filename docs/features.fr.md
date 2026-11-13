@@ -139,6 +139,10 @@ et `CLAUDE.md`.
   utilisé, sans être envoyés. Sans onglet d'agent, le lanceur s'ouvre d'abord. Un clic droit dans le panneau des
   problèmes envoie un problème. `idetea agent [nom] [--worktree <branche>]` demande un onglet d'agent depuis un
   terminal (`--list` les affiche).
+- **Mémoire du projet :** les instructions enseignent aussi une mémoire partagée en fichiers simples sous git : des
+  faits dans `docs/memory/` (un par fichier, avec un index que les agents lisent d'abord) et les décisions
+  d'architecture en ADR dans `docs/decisions/`. Tout agent qui lit `AGENTS.md`/`CLAUDE.md` s'en sert. Voir
+  [project-memory.md](project-memory.md) (en anglais).
 - **Assistants dans leur propre worktree :** `"worktree": "<branch>"` exécute la commande dans
   `.idetea/worktrees/<name>` sur cette branche. Chaque commande reçoit `IDETEA_ANSWER`, un fichier du projet principal
   pour la réponse. Supprimer la demande retire le worktree s'il n'a rien de non validé ; la branche reste toujours.

@@ -118,6 +118,9 @@ All of it is plain files in the project's `.idetea/` folder, so any agent that r
   a code block) and the problems on those lines, pasted into the agent tab on screen or the last one used, not sent.
   With no agent tab, it opens the launcher first. A right click in the Problems panel sends one problem.
   `idetea agent [name] [--worktree <branch>]` asks for an agent tab from a terminal (`--list` shows them).
+- **Project memory:** the instructions also teach a shared memory in plain files under git: facts in `docs/memory/`
+  (one per file, with an index the agents read first) and architecture decisions as ADRs in `docs/decisions/`. Any
+  agent that reads `AGENTS.md`/`CLAUDE.md` uses it. See [project-memory.md](project-memory.md).
 - **Helpers in their own worktree:** `"worktree": "<branch>"` runs the command in `.idetea/worktrees/<name>` on that
   branch. Every command gets `IDETEA_ANSWER`, a file in the main project for the answer. Deleting the request
   removes the worktree if it has nothing uncommitted; the branch always stays.

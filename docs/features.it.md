@@ -121,6 +121,10 @@ Tutto sono file in chiaro nella cartella `.idetea/` del progetto, così qualsias
   nell'ultima usata, senza inviarli. Senza scheda di agente, si apre prima il lanciatore. Un clic destro nel pannello
   dei problemi invia un problema. `idetea agent [nome] [--worktree <branch>]` chiede una scheda di agente da un
   terminale (`--list` li mostra).
+- **Memoria del progetto:** le istruzioni insegnano anche una memoria condivisa in file semplici sotto git: fatti in
+  `docs/memory/` (uno per file, con un indice che gli agenti leggono per primo) e decisioni di architettura come ADR
+  in `docs/decisions/`. Qualsiasi agente che legge `AGENTS.md`/`CLAUDE.md` la usa. Vedi
+  [project-memory.md](project-memory.md) (in inglese).
 - **Aiutanti nel proprio worktree (albero di lavoro):** `"worktree": "<branch>"` esegue il comando in `.idetea/worktrees/<name>` su quel
   ramo. Ogni comando riceve `IDETEA_ANSWER`, un file nel progetto principale per la risposta. Cancellare la richiesta
   toglie il worktree se non ha niente di non committato; il ramo resta sempre.

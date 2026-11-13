@@ -205,3 +205,8 @@ Cada etapa com teste manual pelo painel antes do commit, como nas RFCs anteriore
   problemas: "Mandar ao agente" (`Context::send_to_agent`). `idetea agent [nome] [--worktree <branch>]` e `--list`
   pedem a aba pelo pedido de terminal (a IDE pergunta, salvo `[agents] allow`). O fork do `iced-code-editor` ganhou
   `selection_range` e `selected_text` públicos.
+- **Etapa 3 (2026-11-13, aprovada no teste manual):** seção "Project memory" no bloco do "ensinar os agentes" (versão `531ea1d7` das
+  instruções): ler `docs/memory/README.md` no começo, um fato por arquivo com `name`, `description`, `type`
+  (`constraint`, `convention`, `gotcha`, `reference`) e `updated`, atualizar em vez de duplicar, apagar o que ficou
+  errado, decisões como ADR (MADR) em `docs/decisions/` sem reescrever as aceitas, nada de segredo. A lista de
+  comandos ganhou `idetea agent`. Documentação em `docs/project-memory.md` (inglês, é para quem usa a IDE).

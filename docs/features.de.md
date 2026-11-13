@@ -121,6 +121,10 @@ Alles davon sind schlichte Dateien im Ordner `.idetea/` des Projekts, also kann 
   benutzten, nicht abgeschickt. Ohne Agenten-Tab öffnet sich zuerst der Starter. Ein Rechtsklick im Problem-Panel
   sendet ein Problem. `idetea agent [Name] [--worktree <Branch>]` fordert einen Agenten-Tab aus einem Terminal an
   (`--list` zeigt sie).
+- **Projektgedächtnis:** Die Anweisungen lehren auch ein gemeinsames Gedächtnis in einfachen Dateien unter git:
+  Fakten in `docs/memory/` (eine pro Datei, mit einem Index, den die Agenten zuerst lesen) und
+  Architekturentscheidungen als ADRs in `docs/decisions/`. Jeder Agent, der `AGENTS.md`/`CLAUDE.md` liest, nutzt
+  es. Siehe [project-memory.md](project-memory.md) (Englisch).
 - **Helfer im eigenen Worktree:** `"worktree": "<Branch>"` führt den Befehl in `.idetea/worktrees/<Name>` auf diesem
   Branch aus. Jeder Befehl bekommt `IDETEA_ANSWER`, eine Datei im Hauptprojekt für die Antwort. Das Löschen der Anfrage
   entfernt den Worktree, wenn er keine uncommitteten Änderungen hat; der Branch bleibt immer.
