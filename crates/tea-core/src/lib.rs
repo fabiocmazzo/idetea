@@ -20,6 +20,7 @@ macro_rules! fl {
 }
 
 pub mod calls;
+pub mod coding_agents;
 pub mod config;
 pub mod config_edit;
 pub mod debug;
@@ -101,6 +102,9 @@ pub enum CoreEvent {
     /// terminal). `title` é o nome da aba. Com `worktree`, roda numa cópia do repositório com esse branch, como os
     /// terminais pedidos por agentes; o worktree sai ao fechar a aba, se não tiver nada por commitar.
     LaunchAgent { title: String, command: String, worktree: Option<String> },
+    /// Colar texto na aba de agente (`Ctrl+L`, RFC 0016): a que está na tela, senão a mais recente. Sem nenhuma,
+    /// a extensão do terminal abre o lançador e cola na aba que ele abrir.
+    SendToAgent { text: String },
 }
 
 /// O que uma lista de lugares ([`CoreEvent::Locations`]) mostra.
@@ -201,6 +205,8 @@ pub enum Request {
     RegisterCommand { id: String, title: String },
     RunCommand(String),
     Notify(String),
+    /// Mandar texto à aba de agente (RFC 0016): o app repassa como [`CoreEvent::SendToAgent`].
+    SendToAgent(String),
     /// Muda a visibilidade de um painel desta extensão. `None` alterna.
     PanelVisibility { id: PanelId, visible: Option<bool> },
     /// A extensão renomeou um arquivo ou pasta no disco: o app atualiza as abas.
@@ -368,6 +374,11 @@ impl<'a> Context<'a> {
 
     pub fn notify(&mut self, text: impl Into<String>) {
         self.requests.push(Request::Notify(text.into()));
+    }
+
+    /// Manda texto (um lugar, um diagnóstico...) à aba de agente, como o `Ctrl+L` do editor.
+    pub fn send_to_agent(&mut self, text: impl Into<String>) {
+        self.requests.push(Request::SendToAgent(text.into()));
     }
 
     pub fn toggle_panel(&mut self, id: PanelId) {

@@ -116,6 +116,11 @@ Alles davon sind schlichte Dateien im Ordner `.idetea/` des Projekts, also kann 
   Schließen des Tabs entfernt, wenn er sauber ist; der Branch bleibt). `[agents] default` steht oben. Launcher
   zählen nur in deiner Benutzerkonfiguration. Fehlen in `AGENTS.md`/`CLAUDE.md` die Anweisungen dieser IDE, fragt
   sie vorher: schreiben, nur öffnen oder in diesem Projekt nicht mehr fragen.
+- **Kontext an den Agenten senden** (`Ctrl+L` im Editor): der Ort des Cursors (oder die Auswahl, mit dem Text in
+  einem Codeblock) und die Probleme dieser Zeilen, eingefügt in den Agenten-Tab auf dem Bildschirm oder den zuletzt
+  benutzten, nicht abgeschickt. Ohne Agenten-Tab öffnet sich zuerst der Starter. Ein Rechtsklick im Problem-Panel
+  sendet ein Problem. `idetea agent [Name] [--worktree <Branch>]` fordert einen Agenten-Tab aus einem Terminal an
+  (`--list` zeigt sie).
 - **Helfer im eigenen Worktree:** `"worktree": "<Branch>"` führt den Befehl in `.idetea/worktrees/<Name>` auf diesem
   Branch aus. Jeder Befehl bekommt `IDETEA_ANSWER`, eine Datei im Hauptprojekt für die Antwort. Das Löschen der Anfrage
   entfernt den Worktree, wenn er keine uncommitteten Änderungen hat; der Branch bleibt immer.

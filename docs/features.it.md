@@ -116,6 +116,11 @@ Tutto sono file in chiaro nella cartella `.idetea/` del progetto, così qualsias
   chiusura della scheda se è pulito; il ramo resta). `[agents] default` viene per primo. I lanciatori valgono solo
   nella tua config utente. Se `AGENTS.md`/`CLAUDE.md` non ha le istruzioni di questo IDE, chiede prima: scriverle,
   solo aprire, o non chiedere più in questo progetto.
+- **Inviare il contesto all'agente** (`Ctrl+L` nell'editor): la posizione del cursore (o la selezione, con il testo
+  in un blocco di codice) e i problemi di quelle righe, incollati nella scheda dell'agente sullo schermo o
+  nell'ultima usata, senza inviarli. Senza scheda di agente, si apre prima il lanciatore. Un clic destro nel pannello
+  dei problemi invia un problema. `idetea agent [nome] [--worktree <branch>]` chiede una scheda di agente da un
+  terminale (`--list` li mostra).
 - **Aiutanti nel proprio worktree (albero di lavoro):** `"worktree": "<branch>"` esegue il comando in `.idetea/worktrees/<name>` su quel
   ramo. Ogni comando riceve `IDETEA_ANSWER`, un file nel progetto principale per la risposta. Cancellare la richiesta
   toglie il worktree se non ha niente di non committato; il ramo resta sempre.

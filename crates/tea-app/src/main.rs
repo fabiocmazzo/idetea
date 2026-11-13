@@ -143,6 +143,10 @@ fn main() -> iced::Result {
                 std::process::exit(2);
             }
         }
+        cli::Cli::Agent(args) => {
+            cli_language(&cwd);
+            std::process::exit(launcher::run_cli(&args, &cwd));
+        }
         cli::Cli::History(args) => {
             cli_language(&cwd);
             #[cfg(feature = "ext-ui")]
@@ -423,6 +427,7 @@ const CORE_COMMANDS: &[(&str, &str)] = &[
     ("tasks.rerun", "cmd-tasks-rerun"),
     ("tasks.test_here", "cmd-tasks-test-here"),
     ("agents.launch", "cmd-agents-launch"),
+    ("agents.send_context", "cmd-agents-send-context"),
     ("mascot.toggle", "cmd-mascot-toggle"),
     ("app.restart", "cmd-app-restart"),
     ("app.quit", "cmd-app-quit"),
@@ -981,6 +986,7 @@ impl App {
                 Request::RegisterCommand { id, title } => self.commands.push(CommandInfo { id, title }),
                 Request::RunCommand(id) => tasks.push(self.run_command(&id)),
                 Request::Notify(msg) => tasks.push(self.notify(msg)),
+                Request::SendToAgent(text) => tasks.push(self.send_to_agent(text)),
                 Request::PanelVisibility { id, visible } => {
                     if let Some(i) = self.panels.iter().position(|p| p.ext == ext && p.id == id) {
                         self.set_panel_visible(i, visible);
@@ -2927,6 +2933,7 @@ impl App {
             }
             "tasks.run" => self.open_tasks(),
             "agents.launch" => self.open_launcher(),
+            "agents.send_context" => self.send_context(),
             "tasks.rerun" => match self.last_task.clone() {
                 Some(task) => self.run_task(task),
                 None => self.open_tasks(),
@@ -3822,6 +3829,47 @@ impl App {
             None => l.name.clone(),
         };
         self.broadcast(CoreEvent::LaunchAgent { title, command: l.command, worktree })
+    }
+
+    /// `Ctrl+L`: o lugar do cursor (ou da seleção, com o trecho) e os diagnósticos dessas linhas, para a aba de
+    /// agente.
+    fn send_context(&mut self) -> Task<Message> {
+        let editor = self.editor();
+        if editor.is_image() {
+            return self.notify(fl!("agents-send-nothing"));
+        }
+        let path = editor.path().map(|p| p.strip_prefix(&self.root).unwrap_or(p).to_string_lossy().replace('\\', "/"));
+        let selection = editor.selection();
+        if path.is_none() && selection.is_none() {
+            return self.notify(fl!("agents-send-nothing"));
+        }
+        let (line, _) = editor.cursor();
+        let (first, last) = selection.as_ref().map_or((line, line), |(f, l, _)| (*f, *l));
+        let diagnostics = editor.diagnostics_on(first, last);
+        let problems: Vec<launcher::Problem> = diagnostics
+            .iter()
+            .map(|d| launcher::Problem {
+                line: d.range.start.line as usize + 1,
+                column: d.range.start.character as usize + 1,
+                severity: severity_word(d.severity),
+                message: &d.message,
+                source: d.source.as_deref(),
+            })
+            .collect();
+        let big = selection.as_ref().is_some_and(|(_, _, t)| t.len() > launcher::MAX_SNIPPET);
+        let text = launcher::context_text(path.as_deref(), line, selection.as_ref().map(|(f, l, t)| (*f, *l, t.as_str())), &problems);
+        let sent = self.send_to_agent(text);
+        if big {
+            return Task::batch([sent, self.notify(fl!("agents-send-too-big"))]);
+        }
+        sent
+    }
+
+    fn send_to_agent(&mut self, text: String) -> Task<Message> {
+        if !self.extensions.iter().any(|e| e.id() == "terminal") {
+            return self.notify(fl!("tasks-no-terminal"));
+        }
+        self.broadcast(CoreEvent::SendToAgent { text })
     }
 
     /// Rust: roda o teste em volta do cursor.
@@ -4833,6 +4881,16 @@ fn display_rel(path: &Path, root: &Path) -> String {
     path.strip_prefix(root).unwrap_or(path).display().to_string()
 }
 
+/// A gravidade como os compiladores escrevem (`error`, `warning`...), para o texto mandado ao agente.
+fn severity_word(s: tea_lsp::Severity) -> &'static str {
+    match s {
+        tea_lsp::Severity::Error => "error",
+        tea_lsp::Severity::Warning => "warning",
+        tea_lsp::Severity::Info => "info",
+        tea_lsp::Severity::Hint => "hint",
+    }
+}
+
 #[cfg(test)]
 mod tests {
     #[test]
@@ -5064,3 +5122,4 @@ mod tests {
         assert_eq!(command(".", ctrl), None);
     }
 }
+

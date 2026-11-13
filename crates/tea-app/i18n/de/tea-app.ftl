@@ -322,6 +322,7 @@ cli-usage =
       ui fix [--apply]  zeigt (und repariert mit --apply), was in .idetea/ui/ liegen blieb
       ask …          fragt im Bereich Interfaces und wartet auf die Antwort (idetea ask allein: Aufruf)
       run … -- <Befehl>  bittet die IDE um ein Terminal und wartet auf das Ende (idetea run allein: Aufruf)
+      agent [Name] [--worktree <Branch>]  öffnet einen Agenten in einem Terminal-Tab der IDE (--list: die vorhandenen)
       status [--json]  was die in diesem Projekt geöffnete IDE zeigt (Registerkarten, Änderungen, Cursor)
       open <Datei[:Zeile[:Spalte]]>  die geöffnete IDE zeigt die Datei, mit dem Cursor an der Stelle
       history [--json]  was Sie im Bereich Interfaces geantwortet haben (--name, --since, --last N, --all)
@@ -741,6 +742,21 @@ welcome-hint-terminal = Terminal
 
 ## Lançador de agentes (RFC 0016)
 cmd-agents-launch = Agenten: starten…
+agent-usage =
+    Aufruf: idetea agent [Name] [--worktree <Branch>]
+    
+      Name           der Agent: claude, codex... oder ein Name aus [agents.launchers] (ohne Name: [agents] default,
+                     sonst der erste gefundene)
+      --worktree <Branch>  führt ihn in einem neuen Worktree auf diesem Branch aus
+      --list         zeigt die vorhandenen Agenten (Schlüssel, Name und Befehl)
+    
+    Läuft als Terminal-Anfrage: Die IDE zeigt den Befehl und fragt, außer er steht in [agents] allow.
+    Gibt den Namen der Anfrage aus (idetea run --wait <Name> wartet auf das Ende).
+agent-not-found = Kein Agent mit diesem Namen: { $name } (idetea agent --list zeigt die vorhandenen)
+agent-bad-arg = ungültiges Argument: { $arg }
+cmd-agents-send-context = Agenten: Ort und Auswahl senden
+agents-send-nothing = Nichts zu senden: Öffne eine Datei oder wähle Text aus.
+agents-send-too-big = Die Auswahl ist zu groß: Nur der Ort wurde gesendet, ohne den Text.
 launcher-placeholder = Agent starten…
 launcher-worktree = { $name } · in einem neuen Worktree…
 launcher-branch-placeholder = Branch des Worktrees für { $name } (z. B. fix/login)

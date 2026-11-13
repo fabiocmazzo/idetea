@@ -114,6 +114,10 @@ All of it is plain files in the project's `.idetea/` folder, so any agent that r
   clean; the branch stays). `[agents] default` comes first. Launchers only count in your user config. If
   `AGENTS.md`/`CLAUDE.md` lacks this IDE's instructions, it asks first: write them, just open, or don't ask again
   in this project.
+- **Send context to the agent** (`Ctrl+L` in the editor): the cursor location (or the selection, with the text in
+  a code block) and the problems on those lines, pasted into the agent tab on screen or the last one used, not sent.
+  With no agent tab, it opens the launcher first. A right click in the Problems panel sends one problem.
+  `idetea agent [name] [--worktree <branch>]` asks for an agent tab from a terminal (`--list` shows them).
 - **Helpers in their own worktree:** `"worktree": "<branch>"` runs the command in `.idetea/worktrees/<name>` on that
   branch. Every command gets `IDETEA_ANSWER`, a file in the main project for the answer. Deleting the request
   removes the worktree if it has nothing uncommitted; the branch always stays.

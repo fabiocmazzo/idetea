@@ -197,3 +197,11 @@ Cada etapa com teste manual pelo painel antes do commit, como nas RFCs anteriore
   `.idetea/launcher-skip-teach`). O teste achou dois defeitos, corrigidos: o editor engolia `Ctrl+Shift+A` como
   "selecionar tudo" (agora passa para a IDE, como `Ctrl+Shift+V`), e fechar a aba com Enter depois do fim não tirava
   a worktree (agora sai pelos dois caminhos).
+- **Etapa 2 (2026-11-13, aprovada no teste manual):** `Ctrl+L` (`agents.send_context`) manda o lugar do cursor ou da
+  seleção (com o trecho num bloco de código, até 32 KB) e os diagnósticos dessas linhas no formato dos compiladores.
+  Vai para a aba de agente na tela, senão a usada por último; sem nenhuma, abre o lançador e cola na aba nova quando
+  a saída do agente para por 1,2 s (no máximo 20 s). Agentes conhecidos (`tea_core::coding_agents`) recebem
+  *bracketed paste*; os outros, o texto puro, como o `Ctrl+Shift+V` do terminal. Clique direito no painel de
+  problemas: "Mandar ao agente" (`Context::send_to_agent`). `idetea agent [nome] [--worktree <branch>]` e `--list`
+  pedem a aba pelo pedido de terminal (a IDE pergunta, salvo `[agents] allow`). O fork do `iced-code-editor` ganhou
+  `selection_range` e `selected_text` públicos.

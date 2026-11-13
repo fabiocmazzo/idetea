@@ -1,5 +1,6 @@
 //! Painel "Problemas": erros e avisos de todas as fontes (LSP hoje, outras no futuro).
-//! Clique leva à linha. `problems.next` pula para o próximo.
+//! Clique leva à linha. `problems.next` pula para o próximo. Clique direito: mandar o problema à aba de agente
+//! (RFC 0016), como o `Ctrl+L` do editor.
 
 tea_core::i18n_loader!();
 macro_rules! fl {
@@ -12,6 +13,7 @@ use std::path::{Path, PathBuf};
 use iced::widget::{button, column, row, space, text};
 use iced::{Element, Fill, Task, Theme};
 use tea_core::icons::Icon;
+use tea_core::menu::{Menu, context_area};
 use tea_core::{Context, CoreEvent, Diagnostic, Extension, PanelId, Severity, Slot};
 
 const PANEL: PanelId = PanelId("problems");
@@ -19,6 +21,9 @@ const PANEL: PanelId = PanelId("problems");
 #[derive(Debug, Clone)]
 pub enum Message {
     Open { path: PathBuf, line: usize, column: usize },
+    /// Clique direito num problema: o menu, com o texto que ele mandaria ao agente.
+    Menu { text: String, at: iced::Point },
+    SendToAgent(String),
 }
 
 #[derive(Default)]
@@ -58,6 +63,24 @@ impl ProblemsExtension {
 
     fn rel<'a>(&self, path: &'a Path) -> std::borrow::Cow<'a, str> {
         path.strip_prefix(&self.root).unwrap_or(path).to_string_lossy()
+    }
+
+    /// O problema como os compiladores escrevem (`caminho:linha:coluna: error: mensagem (fonte)`), para o agente.
+    fn agent_text(&self, path: &Path, d: &Diagnostic) -> String {
+        let severity = match d.severity {
+            Severity::Error => "error",
+            Severity::Warning => "warning",
+            Severity::Info => "info",
+            Severity::Hint => "hint",
+        };
+        let source = match (&d.source, &d.code) {
+            (Some(s), Some(c)) => format!(" ({s} {c})"),
+            (Some(s), None) => format!(" ({s})"),
+            (None, Some(c)) => format!(" ({c})"),
+            (None, None) => String::new(),
+        };
+        let path = self.rel(path).replace('\\', "/");
+        format!("{path}:{}:{}: {severity}: {}{source}\n", d.line, d.column, first_line(&d.message))
     }
 }
 
@@ -110,8 +133,13 @@ impl Extension for ProblemsExtension {
     }
 
     fn update(&mut self, message: Message, ctx: &mut Context) -> Task<Message> {
-        let Message::Open { path, line, column } = message;
-        ctx.open_file_at(path, line, column);
+        match message {
+            Message::Open { path, line, column } => ctx.open_file_at(path, line, column),
+            Message::Menu { text, at } => {
+                ctx.show_menu(Menu::new(at).item(Some(Icon::Terminal), fl!("problems-send-to-agent"), Message::SendToAgent(text)))
+            }
+            Message::SendToAgent(text) => ctx.send_to_agent(text),
+        }
         Task::none()
     }
 
@@ -155,13 +183,15 @@ impl Extension for ProblemsExtension {
                 text(format!("{}:{}", d.line, d.column)).size(11).style(text::secondary),
             ]
             .spacing(8);
-            list = list.push(
+            let send = self.agent_text(path, d);
+            list = list.push(context_area(
                 button(line)
                     .on_press(Message::Open { path: path.to_path_buf(), line: d.line, column: d.column })
                     .style(|t: &Theme, st| tea_core::style::list_item(t, st, false))
                     .padding([1, 4])
                     .width(Fill),
-            );
+                move |at| Message::Menu { text: send.clone(), at },
+            ));
         }
         tea_core::style::scrollable(list).height(Fill).into()
     }
@@ -199,6 +229,25 @@ mod tests {
         // Lista vazia apaga só aquela fonte daquele arquivo.
         let _ = ext.on_event(&ev("/p/a.rs", "ra", vec![]), &mut ctx);
         assert_eq!(ext.ordered().len(), 2);
+    }
+
+    #[test]
+    fn a_problem_goes_to_the_agent_like_a_compiler_line() {
+        let mut ext = ProblemsExtension::new();
+        ext.root = PathBuf::from("/p");
+        let d = Diagnostic {
+            line: 4,
+            column: 9,
+            severity: Severity::Warning,
+            message: "unused variable: `x`\nhelp".into(),
+            source: Some("rustc".into()),
+            code: Some("unused_variables".into()),
+        };
+        assert_eq!(ext.agent_text(Path::new("/p/src/a.rs"), &d), "src/a.rs:4:9: warning: unused variable: `x` (rustc unused_variables)\n");
+        let root = ext.root.clone();
+        let mut ctx = Context::new(&root, None);
+        let _ = ext.update(Message::SendToAgent("x".into()), &mut ctx);
+        assert!(matches!(ctx.into_requests().as_slice(), [Request::SendToAgent(t)] if t == "x"));
     }
 
     #[test]

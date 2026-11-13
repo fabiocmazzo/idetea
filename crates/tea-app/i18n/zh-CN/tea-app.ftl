@@ -321,6 +321,7 @@ cli-usage =
       ui fix [--apply]  列出（加上--apply则修好）.idetea/ui/里留下的东西
       ask …          在界面面板里提问并等待回答（单独的idetea ask：用法）
       run … -- <command>  向IDE要一个终端并等到结束（单独的idetea run：用法）
+      agent [名称] [--worktree <branch>]  在IDE的终端标签页里打开智能体（--list：可用的智能体）
       status [--json]  本项目里打开的IDE正在显示什么（选项卡、更改、光标）
       open <file[:line[:column]]>  已打开的IDE显示该文件，并把光标放到位
       history [--json]  你在界面面板里回答过的内容（--name、--since、--last N、--all）
@@ -737,6 +738,21 @@ welcome-hint-terminal = 终端
 
 ## Lançador de agentes (RFC 0016)
 cmd-agents-launch = 智能体: 启动…
+agent-usage =
+    用法：idetea agent [名称] [--worktree <branch>]
+    
+      名称           智能体：claude、codex……或[agents.launchers]里的名称（不写：[agents] default，
+                     否则用找到的第一个）
+      --worktree <branch>  在这个分支的新工作树里运行
+      --list         显示可用的智能体（键、名称和命令）
+    
+    它作为终端请求发出：除非命令在[agents] allow里，IDE会显示命令并询问。
+    输出请求的名称（idetea run --wait <名称>会等到结束）。
+agent-not-found = 没有这个名称的智能体：{ $name }（idetea agent --list会显示可用的）
+agent-bad-arg = 无效的参数：{ $arg }
+cmd-agents-send-context = 智能体: 发送位置和选中内容
+agents-send-nothing = 没有可发送的内容：请打开文件或选中一段文本。
+agents-send-too-big = 选中内容太大：只发送了位置，没有发送文本。
 launcher-placeholder = 启动智能体…
 launcher-worktree = { $name } · 在新的 worktree 中…
 launcher-branch-placeholder = { $name } 的 worktree 分支 (例如 fix/login)

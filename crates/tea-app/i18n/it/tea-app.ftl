@@ -322,6 +322,7 @@ cli-usage =
       ui fix [--apply]  mostra (e, con --apply, corregge) che cosa è rimasto in .idetea/ui/
       ask …          chiede nel pannello Interfacce e attende la risposta (idetea ask da solo: uso)
       run … -- <command>  chiede un terminale all'IDE e attende la fine (idetea run da solo: uso)
+      agent [nome] [--worktree <branch>]  apre un agente in una scheda di terminale dell'IDE (--list: quelli disponibili)
       status [--json]  che cosa mostra l'IDE aperto in questo progetto (schede, modifiche, cursore)
       open <file[:line[:column]]>  l'IDE aperto mostra il file, con il cursore al suo posto
       history [--json]  che cosa hai risposto nel pannello Interfacce (--name, --since, --last N, --all)
@@ -742,6 +743,21 @@ welcome-hint-terminal = terminale
 
 ## Lançador de agentes (RFC 0016)
 cmd-agents-launch = Agenti: avvia…
+agent-usage =
+    Uso: idetea agent [nome] [--worktree <branch>]
+    
+      nome           l'agente: claude, codex... o un nome di [agents.launchers] (senza nome: [agents] default,
+                     altrimenti il primo trovato)
+      --worktree <branch>  lo esegue in un nuovo worktree su quel ramo
+      --list         mostra gli agenti disponibili (chiave, nome e comando)
+    
+    Passa come richiesta di terminale: l'IDE mostra il comando e chiede, a meno che sia in [agents] allow.
+    Stampa il nome della richiesta (idetea run --wait <nome> attende la fine).
+agent-not-found = Nessun agente con questo nome: { $name } (idetea agent --list mostra quelli disponibili)
+agent-bad-arg = argomento non valido: { $arg }
+cmd-agents-send-context = Agenti: invia la posizione e la selezione
+agents-send-nothing = Niente da inviare: apri un file o seleziona del testo.
+agents-send-too-big = La selezione è troppo grande: ho inviato solo la posizione, senza il testo.
 launcher-placeholder = Avvia agente…
 launcher-worktree = { $name } · in un nuovo worktree…
 launcher-branch-placeholder = Branch del worktree per { $name } (es.: fix/login)

@@ -450,6 +450,28 @@ impl Editor {
         (l + 1, c + 1)
     }
 
+    /// A seleção do cursor principal: a primeira e a última linha (começando em 1) e o texto. Uma seleção que
+    /// termina no começo de uma linha não conta essa linha. Sem seleção: `None`.
+    pub fn selection(&self) -> Option<(usize, usize, String)> {
+        let ((l0, _), (l1, c1)) = self.inner.selection_range()?;
+        let text = self.inner.selected_text()?;
+        let last = if c1 == 0 && l1 > l0 { l1 - 1 } else { l1 };
+        Some((l0 + 1, last + 1, text))
+    }
+
+    /// Os diagnósticos (de todos os servidores) que tocam as linhas `first..=last` (começando em 1), na ordem das
+    /// linhas.
+    pub fn diagnostics_on(&self, first: usize, last: usize) -> Vec<&tea_lsp::Diagnostic> {
+        let mut found: Vec<&tea_lsp::Diagnostic> = self
+            .diagnostics
+            .values()
+            .flatten()
+            .filter(|d| (d.range.start.line as usize + 1) <= last && (d.range.end.line as usize + 1) >= first)
+            .collect();
+        found.sort_by_key(|d| (d.range.start.line, d.range.start.character));
+        found
+    }
+
     pub fn language(&self) -> String {
         if self.image.is_some() {
             return fl!("language-image");

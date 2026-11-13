@@ -134,6 +134,11 @@ et `CLAUDE.md`.
   la fermeture de l'onglet s'il est propre ; la branche reste). `[agents] default` vient en premier. Les lanceurs ne
   comptent que dans votre config utilisateur. Si `AGENTS.md`/`CLAUDE.md` n'a pas les instructions de cet IDE, il
   demande d'abord : les écrire, juste ouvrir, ou ne plus demander dans ce projet.
+- **Envoyer le contexte à l'agent** (`Ctrl+L` dans l'éditeur) : l'emplacement du curseur (ou la sélection, avec le
+  texte dans un bloc de code) et les problèmes de ces lignes, collés dans l'onglet d'agent à l'écran ou le dernier
+  utilisé, sans être envoyés. Sans onglet d'agent, le lanceur s'ouvre d'abord. Un clic droit dans le panneau des
+  problèmes envoie un problème. `idetea agent [nom] [--worktree <branche>]` demande un onglet d'agent depuis un
+  terminal (`--list` les affiche).
 - **Assistants dans leur propre worktree :** `"worktree": "<branch>"` exécute la commande dans
   `.idetea/worktrees/<name>` sur cette branche. Chaque commande reçoit `IDETEA_ANSWER`, un fichier du projet principal
   pour la réponse. Supprimer la demande retire le worktree s'il n'a rien de non validé ; la branche reste toujours.

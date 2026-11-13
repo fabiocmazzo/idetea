@@ -21,7 +21,7 @@ mod worktree;
 
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use iced::futures::channel::mpsc;
 use iced::widget::{button, column, container, keyed_column, row, space, text};
@@ -112,6 +112,8 @@ pub enum Message {
     /// O usuário permitiu este pedido (a cópia que estava na tela).
     Allow(Box<agents::Request>),
     Refuse(String),
+    /// Hora de ver se a aba de agente que acabou de abrir já pode receber a colagem do `Ctrl+L`.
+    PasteTick,
 }
 
 struct TaskTerm {
@@ -136,6 +138,78 @@ struct AgentTerm {
     detached: bool,
     /// Worktree a remover quando o usuário fechar a aba (o pedido já sumiu).
     worktree_on_close: bool,
+    /// O comando (para saber se é um agente conhecido, que aceita colagem entre marcadores).
+    command: String,
+    /// Aberta pelo lançador: recebe o `Ctrl+L` mesmo que o comando não seja de um agente conhecido.
+    launched: bool,
+    /// Quando foi para a tela por último (maior = mais recente), para o `Ctrl+L` achar a aba de agente mais recente.
+    used: u64,
+    /// A última saída do processo: a colagem que espera o agente subir vai quando a tela para de mudar.
+    last_output: Option<Instant>,
+    /// Texto do `Ctrl+L` esperando o agente subir, e desde quando.
+    paste: Option<(String, Instant)>,
+}
+
+impl AgentTerm {
+    fn new(term: Terminal, name: String, title: String, command: String, launched: bool, used: u64) -> Self {
+        Self {
+            term,
+            name,
+            title,
+            ended: false,
+            detached: launched,
+            worktree_on_close: false,
+            command,
+            launched,
+            used,
+            last_output: None,
+            paste: None,
+        }
+    }
+
+    /// Recebe o `Ctrl+L`: aberta pelo lançador ou rodando um agente conhecido.
+    fn takes_context(&self) -> bool {
+        !self.ended && (self.launched || tea_core::coding_agents::is_known(&self.command))
+    }
+
+    /// Cola o texto. Num agente conhecido, entre os marcadores de colagem: ele vê texto colado, não teclas, e não
+    /// envia sozinho. Nos outros, como o `Ctrl+Shift+V` do terminal.
+    fn paste_now(&mut self, text: &str) {
+        let clean: String = text.chars().filter(|c| *c != '\u{1b}').collect();
+        let bytes = if tea_core::coding_agents::is_known(&self.command) {
+            format!("\u{1b}[200~{clean}\u{1b}[201~").into_bytes()
+        } else {
+            clean.into_bytes()
+        };
+        self.term.handle(iced_term::Command::ProxyToBackend(iced_term::BackendCommand::Write(bytes)));
+    }
+
+    /// A colagem que esperava o agente subir pode ir: a saída parou por um instante, ou já esperou demais.
+    fn paste_due(&self, now: Instant) -> bool {
+        let Some((_, since)) = &self.paste else { return false };
+        now.duration_since(*since) >= PASTE_MAX_WAIT
+            || self.last_output.is_some_and(|t| now.duration_since(t) >= PASTE_QUIET && now.duration_since(*since) >= PASTE_QUIET)
+    }
+}
+
+/// A colagem do `Ctrl+L` numa aba recém-aberta vai quando o agente fica este tempo sem mudar a tela...
+const PASTE_QUIET: Duration = Duration::from_millis(1200);
+/// ...ou depois disto, o que vier primeiro.
+const PASTE_MAX_WAIT: Duration = Duration::from_secs(20);
+/// Um `Ctrl+L` sem aba de agente espera o lançador abrir uma até este tempo.
+const PASTE_KEEP: Duration = Duration::from_secs(120);
+
+/// Uma mensagem depois de um tempo (sem runtime de async: uma thread dorme e avisa).
+fn later(delay: Duration, message: Message) -> Task<Message> {
+    Task::future(async move {
+        let (tx, rx) = iced::futures::channel::oneshot::channel();
+        std::thread::spawn(move || {
+            std::thread::sleep(delay);
+            let _ = tx.send(());
+        });
+        let _ = rx.await;
+        message
+    })
 }
 
 /// O que está na tela.
@@ -168,6 +242,10 @@ pub struct TerminalExtension {
     code_font: tea_core::fonts::CodeFont,
     /// De onde vem a lista de comandos que rodam sem confirmar (`[agents] allow`, só do config do usuário).
     allow_list: fn() -> Vec<String>,
+    /// Um `Ctrl+L` sem aba de agente: o texto vai para a próxima que o lançador abrir.
+    waiting_paste: Option<(String, Instant)>,
+    /// Contador para [`AgentTerm::used`].
+    clock: u64,
 }
 
 /// A pasta da worktree de um agente aberto pelo lançador: o branch, com `/` trocado por `-` (`fix/login` →
@@ -209,6 +287,8 @@ impl Default for TerminalExtension {
             font_size: 14.0,
             code_font: tea_core::fonts::CodeFont::default(),
             allow_list: user_allow_list,
+            waiting_paste: None,
+            clock: 0,
         }
     }
 }
@@ -359,23 +439,55 @@ impl TerminalExtension {
         };
         match self.new_terminal(settings) {
             Ok(term) => {
-                self.agents.push(AgentTerm {
-                    term,
-                    name,
-                    title: title.to_string(),
-                    ended: false,
-                    detached: true,
-                    worktree_on_close: branch.is_some(),
-                });
+                self.clock += 1;
+                let mut agent = AgentTerm::new(term, name, title.to_string(), command.to_string(), true, self.clock);
+                agent.worktree_on_close = branch.is_some();
+                let tick = match self.waiting_paste.take().filter(|(_, at)| at.elapsed() < PASTE_KEEP) {
+                    Some((text, _)) => {
+                        agent.paste = Some((text, Instant::now()));
+                        later(PASTE_QUIET, Message::PasteTick)
+                    }
+                    None => Task::none(),
+                };
+                self.agents.push(agent);
                 self.shown = Shown::Agent(self.agents.len() - 1);
                 ctx.show_panel(PANEL);
-                self.focus_current()
+                Task::batch([self.focus_current(), tick])
             }
             Err(e) => {
                 ctx.notify(fl!("terminal-task-error", error = e.to_string()));
                 Task::none()
             }
         }
+    }
+
+    /// `Ctrl+L`: cola na aba de agente que está na tela, senão na usada por último. Sem nenhuma, abre o lançador e
+    /// o texto espera a aba que ele abrir.
+    fn send_to_agent(&mut self, text: &str, ctx: &mut Context) -> Task<Message> {
+        let on_screen = match self.shown {
+            Shown::Agent(i) => self.agents.get(i).filter(|a| a.takes_context()).map(|_| i),
+            _ => None,
+        };
+        let target = on_screen.or_else(|| {
+            self.agents.iter().enumerate().filter(|(_, a)| a.takes_context()).max_by_key(|(_, a)| a.used).map(|(i, _)| i)
+        });
+        let Some(i) = target else {
+            self.waiting_paste = Some((text.to_string(), Instant::now()));
+            ctx.run_command("agents.launch");
+            return Task::none();
+        };
+        let agent = &mut self.agents[i];
+        // Ainda subindo, com outra colagem esperando: junta as duas.
+        if let Some((waiting, _)) = &mut agent.paste {
+            waiting.push_str(text);
+        } else {
+            agent.paste_now(text);
+        }
+        self.clock += 1;
+        agent.used = self.clock;
+        self.shown = Shown::Agent(i);
+        ctx.show_panel(PANEL);
+        self.focus_current()
     }
 
     /// O terminal na tela agora.
@@ -636,7 +748,8 @@ impl TerminalExtension {
         settings.backend.env.insert("IDETEA_ANSWER".into(), answer);
         match self.new_terminal(settings) {
             Ok(term) => {
-                self.agents.push(AgentTerm { term, name: request.name, title: request.title, ended: false, detached: false, worktree_on_close: false });
+                self.clock += 1;
+                self.agents.push(AgentTerm::new(term, request.name, request.title, request.command, false, self.clock));
                 self.shown = Shown::Agent(self.agents.len() - 1);
                 ctx.show_panel(PANEL);
                 self.focus_current()
@@ -768,6 +881,9 @@ impl TerminalExtension {
         if let CoreEvent::LaunchAgent { title, command, worktree } = event {
             return self.launch_agent(title, command, worktree.as_deref(), ctx);
         }
+        if let CoreEvent::SendToAgent { text } = event {
+            return self.send_to_agent(text, ctx);
+        }
         if let CoreEvent::Appearance { theme, font_size, code_font } = event {
             self.theme = theme.clone();
             self.font_size = *font_size;
@@ -832,8 +948,23 @@ impl TerminalExtension {
             Message::ShowAgent(i) => {
                 if i < self.agents.len() {
                     self.shown = Shown::Agent(i);
+                    self.clock += 1;
+                    self.agents[i].used = self.clock;
                 }
                 return self.focus_current();
+            }
+            Message::PasteTick => {
+                let now = Instant::now();
+                for agent in &mut self.agents {
+                    if agent.paste_due(now)
+                        && let Some((text, _)) = agent.paste.take()
+                    {
+                        agent.paste_now(&text);
+                    }
+                }
+                if self.agents.iter().any(|a| a.paste.is_some()) {
+                    return later(Duration::from_millis(250), Message::PasteTick);
+                }
             }
             Message::ShowRequest => {
                 if !self.pending.is_empty() {
@@ -855,6 +986,9 @@ impl TerminalExtension {
                     return Task::none();
                 }
                 if let Some(i) = self.agents.iter().position(|a| a.term.id == id) {
+                    if matches!(cmd, iced_term::BackendCommand::ProcessAlacrittyEvent(_)) {
+                        self.agents[i].last_output = Some(Instant::now());
+                    }
                     // Terminou e o Enter fechou (o script já gravou o código no status).
                     if self.agents[i].term.handle(iced_term::Command::ProxyToBackend(cmd)) == Action::Shutdown {
                         let agent = self.agents.remove(i);

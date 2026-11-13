@@ -322,6 +322,7 @@ cli-usage =
       ui fix [--apply]  montre (et, avec --apply, corrige) ce qui est resté dans .idetea/ui/
       ask …          pose une question dans le panneau Interfaces et attend la réponse (idetea ask seul : usage)
       run … -- <command>  demande un terminal à l'IDE et attend la fin (idetea run seul : usage)
+      agent [nom] [--worktree <branche>]  ouvre un agent dans un onglet de terminal de l'IDE (--list : ceux disponibles)
       status [--json]  ce que l'IDE ouvert dans ce projet affiche (onglets, modifications, curseur)
       open <file[:line[:column]]>  l'IDE ouvert affiche le fichier, curseur en place
       history [--json]  ce que vous avez répondu dans le panneau Interfaces (--name, --since, --last N, --all)
@@ -742,6 +743,21 @@ welcome-hint-terminal = terminal
 
 ## Lançador de agentes (RFC 0016)
 cmd-agents-launch = Agents : lancer…
+agent-usage =
+    Usage : idetea agent [nom] [--worktree <branche>]
+    
+      nom            l'agent : claude, codex... ou un nom de [agents.launchers] (sans nom : [agents] default,
+                     sinon le premier trouvé)
+      --worktree <branche>  l'exécute dans un nouveau worktree sur cette branche
+      --list         affiche les agents disponibles (clé, nom et commande)
+    
+    Passe par une demande de terminal : l'IDE affiche la commande et demande, sauf si elle est dans [agents] allow.
+    Affiche le nom de la demande (idetea run --wait <nom> attend la fin).
+agent-not-found = Aucun agent de ce nom : { $name } (idetea agent --list affiche ceux disponibles)
+agent-bad-arg = argument invalide : { $arg }
+cmd-agents-send-context = Agents : envoyer l'emplacement et la sélection
+agents-send-nothing = Rien à envoyer : ouvrez un fichier ou sélectionnez un passage.
+agents-send-too-big = La sélection est trop grande : seul l'emplacement a été envoyé, sans le texte.
 launcher-placeholder = Lancer un agent…
 launcher-worktree = { $name } · dans un nouveau worktree…
 launcher-branch-placeholder = Branche du worktree pour { $name } (ex. : fix/login)

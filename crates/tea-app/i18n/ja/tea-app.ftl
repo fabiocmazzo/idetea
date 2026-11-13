@@ -318,6 +318,7 @@ cli-usage =
       ui fix [--apply]  .idetea/ui/ に残ったものを表示 (--apply で修正)
       ask …          インターフェース パネルで質問し、回答を待つ (idetea ask だけだと使い方)
       run … -- <command>  IDE にターミナルを要求し、終了を待つ (idetea run だけだと使い方)
+      agent [名前] [--worktree <branch>]  IDE のターミナル タブでエージェントを開く (--list: 使えるもの)
       status [--json]  このプロジェクトで開いている IDE の表示 (タブ、変更、カーソル)
       open <file[:line[:column]]>  開いている IDE がファイルを表示し、カーソルを置く
       history [--json]  インターフェース パネルでの回答 (--name、--since、--last N、--all)
@@ -723,6 +724,21 @@ welcome-hint-terminal = ターミナル
 
 ## Lançador de agentes (RFC 0016)
 cmd-agents-launch = エージェント: 起動…
+agent-usage =
+    使い方: idetea agent [名前] [--worktree <branch>]
+    
+      名前           エージェント: claude、codex... または [agents.launchers] の名前 (なし: [agents] default、
+                     なければ最初に見つかったもの)
+      --worktree <branch>  そのブランチの新しい worktree で実行する
+      --list         使えるエージェントを表示する (キー、名前、コマンド)
+    
+    ターミナル要求として送られます。[agents] allow にない限り、IDE はコマンドを見せて確認します。
+    要求の名前を表示します (idetea run --wait <名前> で終了を待てます)。
+agent-not-found = その名前のエージェントはありません: { $name } (idetea agent --list で使えるものを表示)
+agent-bad-arg = 無効な引数: { $arg }
+cmd-agents-send-context = エージェント: 場所と選択部分を送る
+agents-send-nothing = 送るものがありません。ファイルを開くか、テキストを選択してください。
+agents-send-too-big = 選択部分が大きすぎます。テキストなしで場所だけを送りました。
 launcher-placeholder = エージェントを起動…
 launcher-worktree = { $name } · 新しい worktree で…
 launcher-branch-placeholder = { $name } の worktree のブランチ (例: fix/login)

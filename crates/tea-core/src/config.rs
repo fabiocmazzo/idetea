@@ -115,7 +115,8 @@ interfaces = { enabled = true, slot = "right" }
 allow = []
 # allow = ["npm run dev", "claude *"]
 # "Agentes: iniciar…" (Ctrl+Shift+A) mostra os agentes conhecidos que estão no PATH (claude, codex, gemini,
-# opencode, aider, cursor-agent) e os lançadores abaixo. `default` é o que vem primeiro.
+# opencode, aider, cursor-agent) e os lançadores abaixo. `default` é o que vem primeiro. `Ctrl+L` no editor manda
+# o lugar do cursor (ou a seleção, com o trecho) e os problemas dessas linhas para a aba do agente.
 # default = "claude"
 
 [agents.launchers]
@@ -191,6 +192,7 @@ enabled = true
 "ctrl+shift+b" = "tasks.run"
 "ctrl+shift+r" = "tasks.rerun"
 "ctrl+shift+a" = "agents.launch"
+"ctrl+l" = "agents.send_context"
 "ctrl+shift+g" = "git.focus"
 "ctrl+," = "settings.open"
 "ctrl+q" = "app.quit"
