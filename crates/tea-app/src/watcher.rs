@@ -211,6 +211,37 @@ mod tests {
         false
     }
 
+    /// Pasta ignorada criada com a IDE aberta (o primeiro `cargo build`, um `npm install`): ela aparece, mas o que
+    /// muda dentro dela não.
+    #[test]
+    fn a_new_ignored_dir_is_seen_but_not_watched() {
+        let root = std::env::temp_dir().join(format!("idetea-watch-new-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        std::fs::create_dir_all(root.join(".git")).unwrap();
+        std::fs::write(root.join(".gitignore"), "node_modules/\n").unwrap();
+        let root = root.canonicalize().unwrap();
+        let mut rx = watch(&root);
+        std::thread::sleep(Duration::from_millis(500));
+        while rx.try_recv().is_ok() {}
+
+        std::fs::create_dir(root.join("node_modules")).unwrap();
+        assert!(wait_for(&mut rx, &root.join("node_modules")));
+        quiet(&mut rx, Duration::from_millis(500));
+        std::fs::write(root.join("node_modules/x.js"), "").unwrap();
+        std::fs::write(root.join("a.rs"), "").unwrap();
+        assert!(wait_for(&mut rx, &root.join("a.rs")));
+        std::thread::sleep(Duration::from_millis(300));
+        let mut leaked = Vec::new();
+        while let Ok(change) = rx.try_recv() {
+            if let Change::Paths(paths) = change {
+                leaked.extend(paths.into_iter().filter(|p| p.starts_with(root.join("node_modules/"))));
+            }
+        }
+        assert!(leaked.iter().all(|p| p == &root.join("node_modules")), "não observa dentro de node_modules: {leaked:?}");
+        drop(rx);
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
     #[test]
     fn sees_files_new_dirs_and_skips_ignored() {
         let root = std::env::temp_dir().join(format!("idetea-watch-{}", std::process::id()));
