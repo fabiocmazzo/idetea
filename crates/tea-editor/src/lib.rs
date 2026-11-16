@@ -50,8 +50,6 @@ enum Msg {
     OpenHunk(usize),
     CloseHunk,
     RevertHunk(usize),
-    /// Botão do mouse apertado com Shift: o próximo clique estende a seleção.
-    ShiftPress,
 }
 
 impl EditorMessage {
@@ -217,47 +215,8 @@ pub struct Editor {
     /// Modo leve: o arquivo tem uma linha gigante (ver [`LONG_LINE`]). Guarda o nome da linguagem (o
     /// widget passa a achar que é texto puro).
     light: Option<String>,
-    /// O próximo clique veio com Shift (ver [`Msg::ShiftPress`]).
-    shift_press: bool,
-    /// Onde começa a seleção feita com o mouse: o último clique sem Shift. Shift+clique estende a
-    /// partir daqui; teclas que mexem o cursor ou o texto esquecem (aí vale o cursor).
-    click_anchor: Option<(usize, usize)>,
     /// Fonte do código (`[editor] font`...). Começa com a do widget, que [`Self::set_code_font`] troca.
     code_font: tea_core::fonts::CodeFont,
-}
-
-/// Mensagens que mexem no cursor ou no texto sem o mouse: depois delas, Shift+clique estende a
-/// partir do cursor, não do último clique.
-fn forgets_click_anchor(msg: &Inner) -> bool {
-    matches!(
-        msg,
-        Inner::CharacterInput(_)
-            | Inner::VimKey(_)
-            | Inner::Backspace
-            | Inner::Delete
-            | Inner::DeleteWordBack
-            | Inner::DeleteWordForward
-            | Inner::Enter
-            | Inner::Tab
-            | Inner::Backtab
-            | Inner::Paste(_)
-            | Inner::Cut
-            | Inner::DeleteSelection
-            | Inner::ArrowKey(..)
-            | Inner::WordLeft(_)
-            | Inner::WordRight(_)
-            | Inner::Home(_)
-            | Inner::End(_)
-            | Inner::PageUp(_)
-            | Inner::PageDown(_)
-            | Inner::DoubleClick(_)
-            | Inner::TripleClick(_)
-            | Inner::AltClick(_)
-            | Inner::JumpClick(_)
-            | Inner::SelectAll
-            | Inner::Undo
-            | Inner::Redo
-    )
 }
 
 /// Linha maior que isto (em bytes) liga o modo leve: sem ela, um JSON ou JS minificado trava a tela (o
@@ -351,8 +310,6 @@ impl Editor {
             diff_hash: 0,
             hunk_open: None,
             light: None,
-            shift_press: false,
-            click_anchor: None,
             code_font: tea_core::fonts::CodeFont { font: iced::Font::MONOSPACE, line_height: 20.0 / 14.0 },
         };
         if has_long_line(&text) {
@@ -665,14 +622,7 @@ impl Editor {
     }
 
     pub fn update(&mut self, message: EditorMessage) -> Task<EditorMessage> {
-        if let Msg::ShiftPress = message.0 {
-            self.shift_press = true;
-            return Task::none();
-        }
-        // Vale só para a mensagem que vem logo depois (o clique do mesmo evento).
-        let shift_click = std::mem::take(&mut self.shift_press);
         match message.0 {
-            Msg::ShiftPress => Task::none(),
             Msg::Pdf(m) => {
                 let Some(pdf) = &mut self.pdf else { return Task::none() };
                 pdf.update(m).map(|m| EditorMessage(Msg::Pdf(m)))
@@ -708,15 +658,6 @@ impl Editor {
                         }
                     }
                 }
-                if let Inner::MouseClick(point) = msg
-                    && shift_click
-                {
-                    return self.extend_selection(point);
-                }
-                if forgets_click_anchor(&msg) {
-                    self.click_anchor = None;
-                }
-                let plain_click = matches!(msg, Inner::MouseClick(_));
                 // Dica de parâmetros: abre ao digitar `(` ou `,` (o que o servidor disser); aberta, acompanha o cursor.
                 let typed = match &msg {
                     Inner::CharacterInput(c) => Some(*c),
@@ -727,9 +668,6 @@ impl Editor {
                 let before = (!self.breakpoints.is_empty())
                     .then(|| (self.inner.cursor_position().0, marks::last_line(&self.inner)));
                 let task = self.widget(msg);
-                if plain_click {
-                    self.click_anchor = Some(self.inner.cursor_position());
-                }
                 if let Some((cursor_before, lines_before)) = before {
                     let delta = marks::last_line(&self.inner) as isize - lines_before as isize;
                     let at = cursor_before.min(self.inner.cursor_position().0);
@@ -786,21 +724,6 @@ impl Editor {
                 Task::none()
             }
         }
-    }
-
-    /// Shift+clique: seleciona da âncora (o último clique, ou o cursor) até o ponto clicado.
-    ///
-    /// O widget não faz isso sozinho. Aqui ele vira um arraste: o cursor vai para a âncora, um
-    /// clique na margem (x < 0, onde o cursor não se mexe) começa a seleção ali, e o arraste até o
-    /// ponto clicado a estende. Segurando o botão e movendo, a seleção continua acompanhando.
-    fn extend_selection(&mut self, point: iced::Point) -> Task<EditorMessage> {
-        let anchor = self.click_anchor.unwrap_or_else(|| self.inner.cursor_position());
-        self.click_anchor = Some(anchor);
-        // Sem rolar até a âncora: a tela fica onde a pessoa clicou.
-        let _ = self.inner.set_cursor(anchor.0, anchor.1);
-        let press = self.widget(Inner::MouseClick(iced::Point::new(-1.0, point.y)));
-        let drag = self.widget(Inner::MouseDrag(point));
-        Task::batch([press, drag])
     }
 
     // ---- Debug ---------------------------------------------------------------
@@ -869,7 +792,6 @@ impl Editor {
         let completion = self.overlay.completion_visible;
         let hunk = self.hunk_open.is_some();
         KeyGate::new(content)
-            .on_shift_press(EditorMessage(Msg::ShiftPress))
             .intercept(completion || self.signature.is_some() || hunk, move |key| {
                 if !completion {
                     let close = if hunk { Msg::CloseHunk } else { Msg::CloseSignature };
