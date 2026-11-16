@@ -178,3 +178,12 @@ criar branch pela paleta (`231b860`, *Git: trocar de branch*) e o blame da linha
 1. **Opção A, com as três etapas** (2026-11-16, pelo painel).
 2. As condições de saída ficam como estão acima.
 3. O comparativo e o `features.md` foram corrigidos quanto às marcas do git, à troca de branch e ao blame.
+
+## Andamento
+
+- **Etapa 1 (feita em 2026-11-16):** fork rebaseado sobre o upstream 0.7 (branch `idetea-0.7`, `5b5c788`); a IDE
+  usa o 0.7 desde a 0.9.0 e o Shift+clique saiu da fachada.
+- **Etapa 3 (aberta em 2026-11-16):** proposta da API de decorações no upstream,
+  [issue #41](https://github.com/LuDog71FR/iced-code-editor/issues/41). O prazo de 4 semanas das condições de saída
+  conta a partir daqui.
+- **Etapa 2:** os PRs dos 4 commits do fork ainda não foram abertos.
