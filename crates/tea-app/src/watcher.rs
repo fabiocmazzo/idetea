@@ -80,6 +80,20 @@ impl Dirs {
     }
 }
 
+/// Pasta que o `.gitignore` ignora (ex.: `target/`). [`Dirs::add_tree`] não serve para saber: a busca sempre devolve a
+/// pasta de onde começa, ignorada ou não. Aqui a busca começa na pasta de cima, um nível só, e a pasta é ignorada se
+/// não aparecer nela.
+fn ignored(dir: &Path) -> bool {
+    let Some(parent) = dir.parent() else { return false };
+    !ignore::WalkBuilder::new(parent)
+        .hidden(false)
+        .max_depth(Some(1))
+        .filter_entry(|e| e.file_name() != ".git")
+        .build()
+        .flatten()
+        .any(|e| e.path() == dir)
+}
+
 /// Só o que muda conteúdo ou nomes. Abrir e ler arquivos (a própria IDE faz isso) não conta,
 /// nem mudança só de permissão/data.
 fn relevant(kind: &EventKind) -> bool {
@@ -147,7 +161,9 @@ fn run(root: &Path, tx: &mpsc::UnboundedSender<Change>) {
                         if matches!(event.kind, EventKind::Modify(_)) {
                             continue;
                         }
-                    } else {
+                    } else if !ignored(&path) {
+                        // Ignorada, a pasta aparece (a árvore mostra, esmaecida), mas o que tem dentro não é observado.
+                        // No macOS isso também vale para avisos atrasados de pastas que já existiam (`target/`).
                         dirs.add_tree(&path, tx);
                     }
                 }
@@ -229,14 +245,23 @@ mod tests {
         quiet(&mut rx, Duration::from_millis(500));
         std::fs::write(root.join("node_modules/x.js"), "").unwrap();
         std::fs::write(root.join("a.rs"), "").unwrap();
-        assert!(wait_for(&mut rx, &root.join("a.rs")));
-        std::thread::sleep(Duration::from_millis(300));
-        let mut leaked = Vec::new();
-        while let Ok(change) = rx.try_recv() {
-            if let Change::Paths(paths) = change {
-                leaked.extend(paths.into_iter().filter(|p| p.starts_with(root.join("node_modules/"))));
+        // Guarda tudo o que chegar até `a.rs` aparecer (o `wait_for` jogaria fora o aviso de `x.js`, se viesse junto).
+        let mut seen = Vec::new();
+        let deadline = Instant::now() + Duration::from_secs(5);
+        while !seen.contains(&root.join("a.rs")) && Instant::now() < deadline {
+            match rx.try_recv() {
+                Ok(Change::Paths(paths)) => seen.extend(paths),
+                _ => std::thread::sleep(Duration::from_millis(20)),
             }
         }
+        assert!(seen.contains(&root.join("a.rs")), "a.rs não apareceu: {seen:?}");
+        std::thread::sleep(Duration::from_millis(300));
+        while let Ok(change) = rx.try_recv() {
+            if let Change::Paths(paths) = change {
+                seen.extend(paths);
+            }
+        }
+        let leaked: Vec<_> = seen.into_iter().filter(|p| p.starts_with(root.join("node_modules"))).collect();
         assert!(leaked.iter().all(|p| p == &root.join("node_modules")), "não observa dentro de node_modules: {leaked:?}");
         drop(rx);
         let _ = std::fs::remove_dir_all(&root);
@@ -326,3 +351,4 @@ mod tests {
         assert!(faltou.is_empty(), "{faltou:?}");
     }
 }
+
