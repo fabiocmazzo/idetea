@@ -143,6 +143,8 @@ jobs:
           Copy-Item crates/tea-core/assets/syntaxes/LICENSE-zig-sublime.txt "$pkg/licenses/sublime-zig-language-LICENSE.txt"
           Compress-Archive -Path "$pkg" -DestinationPath "dist/$name.zip"
           iscc "/DAppVersion=$version" packaging/windows/idetea.iss
+          # O PowerShell não para sozinho quando um programa externo falha: sem isto, a versão saía sem o instalador.
+          if ($LASTEXITCODE -ne 0) { throw "iscc falhou ($LASTEXITCODE)" }
           Remove-Item -Recurse -Force "$pkg"
           ./target/dist/idetea.exe --version
       - name: Assinar com SignPath Foundation (opcional, quando SIGNPATH_ORGANIZATION_ID estiver configurado)

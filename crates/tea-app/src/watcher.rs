@@ -102,7 +102,9 @@ fn run(root: &Path, tx: &mpsc::UnboundedSender<Change>) {
         }
     };
     let mut dirs = Dirs { watcher, watched: HashSet::new(), warned: false };
-    dirs.add_tree(root, tx);
+    // Os caminhos dos eventos vêm canônicos no macOS (`/private/var/...`): as pastas observadas também.
+    let root = root.canonicalize().unwrap_or_else(|_| root.to_path_buf());
+    dirs.add_tree(&root, tx);
 
     loop {
         // Espera a primeira mudança; de vez em quando confere se a IDE ainda quer os avisos.
@@ -130,6 +132,11 @@ fn run(root: &Path, tx: &mpsc::UnboundedSender<Change>) {
             removed |= matches!(event.kind, EventKind::Remove(_));
             for path in event.paths {
                 if path.components().any(|c| c.as_os_str() == ".git") {
+                    continue;
+                }
+                // O FSEvents (macOS) entrega mudanças das subpastas mesmo observando cada pasta sem recursão, e aí
+                // `target/` e as outras ignoradas passariam. Só conta o que está numa pasta observada (ou é uma).
+                if !dirs.watched.contains(&path) && !path.parent().is_some_and(|d| dirs.watched.contains(d)) {
                     continue;
                 }
                 // Pasta nova (criada ou trazida por renomeação): observar ela e o que tiver dentro.

@@ -39,7 +39,9 @@ Name: "fr"; MessagesFile: "compiler:Languages\French.isl"
 Name: "de"; MessagesFile: "compiler:Languages\German.isl"
 Name: "it"; MessagesFile: "compiler:Languages\Italian.isl"
 Name: "ja"; MessagesFile: "compiler:Languages\Japanese.isl"
-Name: "zh"; MessagesFile: "compiler:Languages\ChineseSimplified.isl"
+; O chinês simplificado não vem com o Inno Setup (é uma tradução não oficial): a cópia fica aqui, tirada do
+; jrsoftware/issrc na tag is-6_7_1 (Files/Languages/Unofficial).
+Name: "zh"; MessagesFile: "ChineseSimplified.isl"
 
 [CustomMessages]
 ptbr.AddToPath=Adicionar ao PATH (permite rodar "idetea ." no terminal)
