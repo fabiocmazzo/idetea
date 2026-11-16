@@ -93,7 +93,7 @@
 
 <section><div class="wrap">
   <h2>なぜ IDE TEA</h2>
-  <p class="note"><a href="https://github.com/fabiocmazzo/idetea/blob/main/docs/comparativo-ides.ja.md">率直な比較</a>から。VS Code、Cursor、Zed、JetBrains、Helix との比較です。あの文書は 0.4.0 前後に書かれています。それ以降のリリースでは、macOS (Apple Silicon) と Windows (x86_64) も配布しています。</p>
+  <p class="note"><a href="https://github.com/fabiocmazzo/idetea/blob/main/docs/comparativo-ides.ja.md">率直な比較</a>から。VS Code、Cursor、Zed、JetBrains、Helix との比較です。0.8.0 に合わせて更新しています。</p>
   <div class="compare">
     <article class="card">
       <h3>これが要点</h3>
@@ -121,7 +121,7 @@
   <div class="cards">
     <article class="card"><h3>Linux</h3><p>x86_64 と aarch64。<code>.tar.gz</code> または <code>.AppImage</code>。<code>./install.sh</code> が <code>idetea</code> を <code>~/.local/bin</code> とアプリ メニューに置きます。AppImage には <code>chmod +x</code> が必要です。<code>--install-desktop</code> がメニュー項目を追加します。</p></article>
     <article class="card"><h3>macOS</h3><p>Apple Silicon。<code>IDE TEA.app</code> 入りの <code>.tar.gz</code>。<code>idetea --install-desktop</code> が <code>~/Applications/IDE TEA.app</code> を作ります。</p></article>
-    <article class="card"><h3>Windows</h3><p>x86_64。<code>-setup.exe</code> インストーラー、またはポータブルな <code>.zip</code>。無料のコード署名は <a href="https://signpath.io">SignPath.io</a>、証明書は <a href="https://signpath.org">SignPath Foundation</a> です。</p></article>
+    <article class="card"><h3>Windows</h3><p>x86_64。<code>-setup.exe</code> インストーラー、またはポータブルな <code>.zip</code>。まだコード署名はありません。初回実行時に SmartScreen が警告することがあります。</p></article>
   </div>
   <p><strong>ソースから</strong> (<a href="https://rustup.rs">Rust</a> stable が必要):</p>
 <pre><code>cargo install --locked --git https://github.com/fabiocmazzo/idetea tea-app

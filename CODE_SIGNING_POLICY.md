@@ -1,6 +1,6 @@
 # Code Signing & Privacy Policy — IDE TEA
 
-Free code signing on Windows is provided by [SignPath.io](https://signpath.io), certificate by the [SignPath Foundation](https://signpath.org).
+The Windows installer is not code-signed yet, so SmartScreen may warn the first time it runs. When a signing certificate is in place, it will be applied only to binaries built by the pipeline below.
 
 ---
 

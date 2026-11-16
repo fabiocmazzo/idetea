@@ -61,7 +61,7 @@ cd idetea-*-linux
     <li>如果安装脚本说<code>~/.local/bin</code>不在<code>PATH</code>里，把它加进去（例如写在<code>~/.profile</code>），这样你和你的智能体都能从终端运行<code>idetea</code>。</li>
   </ol>
   <p>在Linux上更想要单个文件？AppImage可以直接运行：<code>chmod +x IDE_TEA-*.AppImage</code>然后打开；<code>--install-desktop</code>会把它加进菜单。在macOS上，<code>idetea --install-desktop</code>会创建<code>~/Applications/IDE TEA.app</code>。从源码构建只要一条命令：<code>cargo install --locked --git https://github.com/fabiocmazzo/idetea tea-app</code>。</p>
-  <p class="note">Windows上的免费代码签名由<a href="https://signpath.io">SignPath.io</a>提供，证书来自<a href="https://signpath.org">SignPath Foundation</a>（<a href="https://github.com/fabiocmazzo/idetea/blob/main/CODE_SIGNING_POLICY.md">代码签名与隐私政策</a>）。</p>
+  <p class="note">Windows安装程序还没有代码签名，首次运行时SmartScreen可能会发出警告（<a href="https://github.com/fabiocmazzo/idetea/blob/main/CODE_SIGNING_POLICY.md">代码签名与隐私政策</a>）。</p>
   <div class="callout">可选的额外部分：git面板需要<code>git</code>，调试需要<code>gdb</code> 14+（macOS上可用<code>lldb-dap</code>），以及你要用的语言服务器（下一步）。</div>
 </section>
 

@@ -93,7 +93,7 @@
 
 <section><div class="wrap">
   <h2>Por qué IDE TEA</h2>
-  <p class="note">De la <a href="https://github.com/fabiocmazzo/idetea/blob/main/docs/comparativo-ides.md">comparación honesta</a> con VS Code, Cursor, Zed, JetBrains y Helix (en portugués). El texto es de alrededor de la 0.4.0. Las versiones de ahora también salen para macOS (Apple Silicon) y Windows (x86_64).</p>
+  <p class="note">De la <a href="https://github.com/fabiocmazzo/idetea/blob/main/docs/comparativo-ides.md">comparación honesta</a> con VS Code, Cursor, Zed, JetBrains y Helix (en portugués). Actualizada para la 0.8.0.</p>
   <div class="compare">
     <article class="card">
       <h3>De esto se trata</h3>
@@ -121,7 +121,7 @@
   <div class="cards">
     <article class="card"><h3>Linux</h3><p>x86_64 y aarch64, <code>.tar.gz</code> o <code>.AppImage</code>. <code>./install.sh</code> pone <code>idetea</code> en <code>~/.local/bin</code> y en el menú. El AppImage necesita <code>chmod +x</code>; <code>--install-desktop</code> crea la entrada del menú.</p></article>
     <article class="card"><h3>macOS</h3><p>Apple Silicon, un <code>.tar.gz</code> con <code>IDE TEA.app</code>. <code>idetea --install-desktop</code> crea <code>~/Applications/IDE TEA.app</code>.</p></article>
-    <article class="card"><h3>Windows</h3><p>x86_64, el instalador <code>-setup.exe</code> o un <code>.zip</code> portátil. Firma gratuita de <a href="https://signpath.io">SignPath.io</a>, certificado de la <a href="https://signpath.org">SignPath Foundation</a>.</p></article>
+    <article class="card"><h3>Windows</h3><p>x86_64, el instalador <code>-setup.exe</code> o un <code>.zip</code> portátil. Todavía sin firma de código: SmartScreen puede avisar la primera vez.</p></article>
   </div>
   <p><strong>Desde el código</strong> (necesita <a href="https://rustup.rs">Rust</a> estable):</p>
 <pre><code>cargo install --locked --git https://github.com/fabiocmazzo/idetea tea-app

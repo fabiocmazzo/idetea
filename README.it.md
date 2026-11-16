@@ -103,9 +103,9 @@ che usi (rust-analyzer, clangd, pyright, typescript-language-server, gopls, lua-
 
 ## Firma del codice e privacy
 
-La firma gratuita su Windows è fornita da [SignPath.io](https://signpath.io), certificato della
-[SignPath Foundation](https://signpath.org). Questo programma non trasferisce informazioni ad altri sistemi in rete,
-se non su richiesta esplicita di chi lo usa. Vedi [`CODE_SIGNING_POLICY.md`](CODE_SIGNING_POLICY.md).
+L'installer per Windows non ha ancora la firma del codice, quindi SmartScreen può mostrare un avviso al primo avvio.
+Questo programma non trasferisce informazioni ad altri sistemi in rete, se non su richiesta esplicita di chi lo usa.
+Vedi [`CODE_SIGNING_POLICY.md`](CODE_SIGNING_POLICY.md).
 
 ## Per iniziare
 
@@ -122,10 +122,13 @@ Le guide sono sul [sito](https://idetea.belabs.cloud/it/).
 ## Perché IDE TEA, e quando no
 
 [`docs/comparativo-ides.it.md`](docs/comparativo-ides.it.md) è un confronto onesto con VS Code, Cursor, Zed, JetBrains
-e Helix, scritto intorno alla 0.4.0. La parte che è ancora il prodotto:
+e Helix, aggiornato alla 0.8.0. In breve:
 
 - Gli agenti nel terminale hanno un protocollo nativo, fatto di file (moduli, comandi approvati, worktree, la
   mascotte Tea). È la cosa che gli altri editor di quella nota non hanno.
+- Niente autocompletamento fantasma, di proposito. Se vuoi completare con Tab o i diff in linea, quel documento
+  indica Cursor, Windsurf o Zed.
+- Code action, inlay hint e copertura del debugger sono indietro rispetto a VS Code e JetBrains.
 
 ### Tea
 
@@ -134,11 +137,6 @@ compilazione del debugger, e ogni tanto cita una scelta rapida che esiste davver
 `normal` o `chatty`; `[mascot] tips` accende o spegne i suggerimenti. Tutta l'interfaccia, Tea compreso, è in
 portoghese, inglese, spagnolo, francese, tedesco, italiano, giapponese e cinese semplificato (`[ui] language`, oppure
 la lingua del sistema). Non prende il focus.
-- Niente autocompletamento fantasma, di proposito. Se vuoi completare con Tab o i diff in linea, quel documento
-  indica Cursor, Windsurf o Zed.
-- Code action, inlay hint e copertura del debugger sono indietro rispetto a VS Code e JetBrains.
-
-La stessa nota dice ancora «solo Linux». Le versioni successive escono anche per macOS (Apple Silicon) e Windows (x86_64).
 
 ## Metti una stella al repository
 

@@ -104,9 +104,9 @@ langage que vous utilisez (rust-analyzer, clangd, pyright, typescript-language-s
 
 ## Signature du code et confidentialité
 
-La signature gratuite du code sous Windows est fournie par [SignPath.io](https://signpath.io), certificat de la
-[SignPath Foundation](https://signpath.org). Ce programme ne transmet aucune information à d'autres systèmes en réseau
-sauf demande explicite de l'utilisateur. Voir [`CODE_SIGNING_POLICY.md`](CODE_SIGNING_POLICY.md).
+L'installateur Windows n'est pas encore signé, SmartScreen peut donc afficher un avertissement au premier lancement.
+Ce programme ne transmet aucune information à d'autres systèmes en réseau sauf demande explicite de l'utilisateur.
+Voir [`CODE_SIGNING_POLICY.md`](CODE_SIGNING_POLICY.md).
 
 ## Démarrage rapide
 
@@ -123,10 +123,13 @@ raccourcis. Les guides sont sur le [site](https://idetea.belabs.cloud/fr/).
 ## Pourquoi IDE TEA, et quand s'en passer
 
 [`docs/comparativo-ides.fr.md`](docs/comparativo-ides.fr.md) est une comparaison honnête avec VS Code, Cursor, Zed,
-JetBrains et Helix, écrite autour de la 0.4.0. Ce qui reste le produit :
+JetBrains et Helix, mise à jour pour la 0.8.0. En bref :
 
 - Les agents du terminal ont un protocole natif, fait de fichiers (formulaires, commandes approuvées, worktrees, la
   mascotte Tea). C'est ce que les autres éditeurs de cette note n'ont pas.
+- Il n'y a pas d'autocomplétion en texte fantôme, volontairement. Si vous voulez compléter avec Tab ou des diffs dans
+  le texte, ce document indique Cursor, Windsurf ou Zed.
+- Les code actions, les inlay hints et la couverture du débogueur sont en retrait par rapport à VS Code et JetBrains.
 
 ### Tea
 
@@ -135,11 +138,6 @@ l'heure de la journée et la compilation du débogueur, et elle peut citer de te
 `[mascot] chatty` vaut `quiet`, `normal` ou `chatty` ; `[mascot] tips` active ou coupe les astuces. Toute l'interface,
 Tea compris, est en portugais, anglais, espagnol, français, allemand, italien, japonais et chinois simplifié
 (`[ui] language`, ou la langue du système). Elle ne prend pas le focus.
-- Il n'y a pas d'autocomplétion en texte fantôme, volontairement. Si vous voulez compléter avec Tab ou des diffs dans
-  le texte, ce document indique Cursor, Windsurf ou Zed.
-- Les code actions, les inlay hints et la couverture du débogueur sont en retrait par rapport à VS Code et JetBrains.
-
-La même note dit encore « Linux uniquement ». Les versions depuis lors livrent aussi macOS (Apple Silicon) et Windows (x86_64).
 
 ## Mettre une étoile au dépôt
 

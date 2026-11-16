@@ -2,9 +2,7 @@
 
 [Português](comparativo-ides.md) · [Français](comparativo-ides.fr.md) · [Deutsch](comparativo-ides.de.md) · [Italiano](comparativo-ides.it.md) · [日本語](comparativo-ides.ja.md) · **中文（简体）**
 
-> 此后的版本也提供macOS（Apple Silicon）和Windows x86_64。下面表格里“目前只在Linux（Wayland）上测试过”仍是`v0.4.0`当时的记录。
-
-本文档对**IDE TEA**（当前状态，`v0.4.0`）相对市面上主要IDE和编辑器做一次技术上直接、不加修饰的评估：
+本文档对**IDE TEA**（当前状态，`v0.8.0`）相对市面上主要IDE和编辑器做一次技术上直接、不加修饰的评估：
 
 - **VS Code / VSCodium**（基于Electron的通用标准）
 - **Cursor / Windsurf**（专注于AI的VS Code分支）
@@ -28,9 +26,9 @@
 | **行内AI补全（“Ghost text” / Tab）** | **没有（这是取舍）** | 通过Copilot | **优秀（领先）** | 很好（Zeta） | 好 | 通过插件 |
 | **文本编辑器的成熟度** | 基础不错，缺高级功能 | **标杆** | **标杆** | 很高 | **标杆** | **标杆（模态）** |
 | **LSP与重构的深度** | 中等（没有Code Actions和Inlay Hints） | **完整** | **完整** | 高 | **无可比拟（自有AST）** | 高 |
-| **调试（Debug）** | 基础（Rust/C/C++/Zig用GDB 14+；MoonBit原生后端为实验性） | **完整（任何语言）** | **完整** | 基础/中等（DAP较新） | **优秀** | 基础（nvim-dap） |
+| **调试（Debug）** | 基础（Rust/C/C++/Zig用GDB 14+，macOS上用`lldb-dap`；MoonBit原生后端为实验性） | **完整（任何语言）** | **完整** | 基础/中等（DAP较新） | **优秀** | 基础（nvim-dap） |
 | **版本控制（Git）** | 基础/中等（没有装订线差异，也没有三方合并） | **完整** | **完整** | 中等 | **优秀（合并最好）** | 通过LazyGit / Fugitive |
-| **多平台支持** | **目前只在Linux（Wayland）上测试过** | **Linux、macOS、Windows、Web** | **Linux、macOS、Windows** | **macOS、Linux、Windows** | **Linux、macOS、Windows** | **任何操作系统 / SSH** |
+| **多平台支持** | **Linux、macOS（Apple Silicon）、Windows（x86_64）** | **Linux、macOS、Windows、Web** | **Linux、macOS、Windows** | **macOS、Linux、Windows** | **Linux、macOS、Windows** | **任何操作系统 / SSH** |
 
 ---
 
@@ -50,7 +48,7 @@
    - `.idetea/`协议使用原子写入（`.tmp` + `rename`），并有自恢复命令（`idetea fix` / “界面: 修复此项目”）。
 
 ### IDE TEA的稳定性还输给大产品的地方
-1. **只在Linux（Wayland）上测试过：**今天IDE TEA是在Linux上开发和验证的。macOS和Windows在打包、字体、快捷键（`Cmd`对`Ctrl`）、终端PTY（Windows上的`conpty`）和路径上有真实差异，这些还没有经过实战。VS Code、JetBrains和Zed在三个系统上都跑得很成熟。
+1. **用得最多的是Linux：**从0.5.0起有macOS（Apple Silicon）和Windows（x86_64）的正式版本，终端（Windows上的`conpty`）、任务、调试和快捷键（`Cmd`对`Ctrl`）都做了适配，但这两个系统的实际使用还少得多。没有macOS Intel和Windows ARM的版本，Windows安装程序也还没有代码签名（首次运行时SmartScreen会警告）。VS Code、JetBrains和Zed在三个系统上都跑得很成熟。
 2. **`iced` 0.14对复杂应用的限制：**
    - IDE跑在单窗口里（`iced::application`）。不能把终端、预览或编辑器拖到第二台显示器上的另一个操作系统原生窗口。
    - 没有按文件连续保存的本地历史（没有Git时跨越多天的*Local History* / *Timeline*，像JetBrains和VS Code那样）。
@@ -81,11 +79,14 @@ IDE TEA认定**最好的智能体已经在终端里跑**（Claude Code、Codex�
    - IDE原生管理工作树的创建和清理，让子智能体并行工作，又不弄脏主工作树。
 4. **原生的、会反应的吉祥物（Tea）+ `idetea mascot`：**
    - *Masko.ai*这类工具要有一个会回应Claude Code的吉祥物，需要macOS加上云端的MCP服务器。IDE TEA把**Tea**原生嵌进来，实时观察`.idetea/ui/`、`.idetea/agents/`、任务和LSP，也会对鼠标做出反应（`curious` / `annoyed`），并接受`mascot.toml`包。
+5. **智能体启动器（`Ctrl+Shift+A`）和编辑器上下文（`Ctrl+L`）：**
+   - 启动器在终端标签页里打开所选的智能体（Claude Code、Codex、Gemini CLI、OpenCode、Aider、Cursor Agent或你自己的启动器），位置是项目文件夹或一个新的工作树。
+   - 在编辑器里按`Ctrl+L`，会把光标位置（或选区）以及这些行上的LSP问题粘贴到那个标签页里，但不发送；在**问题**面板里右键可以只发送一个问题。
+6. **用文件保存的项目记忆（`docs/memory/`、`docs/decisions/`）：**IDE为智能体写的说明会教它们一种放在git里的Markdown共享记忆（事实和ADR），IDE里有专门的面板。
 
 ### IDE TEA在AI流程上输的地方
 - **零预测补全（“Ghost Text” / Tab）：**如果你靠Cursor/Copilot的`Tab`在手工打字时补上样板代码，IDE TEA没有对应物。
 - **编辑器里没有AI的行内差异：**终端里的智能体改了一个文件之后，文件会在IDE TEA的选项卡里重新加载。要看改了什么，你得去**Git**面板；编辑器里面没有飘着的*“Accept / Reject hunk”*按钮，不像Cursor或Windsurf。
-- **把编辑器上下文交给智能体仍然是手工的：**智能体可以运行`idetea status`来得知当前文件和光标所在行，但IDE里还没有一个快捷键（例如`Ctrl+L`）把选中的片段或一条LSP错误直接送进终端里已打开的智能体提示词。
 
 ---
 
@@ -131,11 +132,11 @@ IDE TEA认定**最好的智能体已经在终端里跑**（Claude Code、Codex�
 ## 6. 调试（Debug）
 
 ### IDE TEA今天做的
-- 与`gdb` 14+原生集成（经由DAP）：在行号上单击设置断点（`F9`），编辑文件时断点跟着文本走；`F5`（在Rust、Zig项目里自动编译并运行，MoonBit为实验性）；逐过程（`F10`）、逐语句（`F11`）、逐出（`Shift+F11`）、暂停和停止。
+- 与`gdb` 14+（macOS上为`lldb-dap`）原生集成（经由DAP）：在行号上单击设置断点（`F9`），编辑文件时断点跟着文本走；`F5`（在Rust、Zig项目里自动编译并运行，MoonBit为实验性）；逐过程（`F10`）、逐语句（`F11`）、逐出（`Shift+F11`）、暂停和停止。
 - 面板里有调用堆栈（单击跳到该帧的那一行）、可检查的局部变量树，以及程序输出。
 
 ### 输给VS Code和JetBrains的地方
-- **绑在GDB 14+上（Rust、C、C++、Zig，以及实验性的MoonBit）：**还不支持Python（`debugpy`）、Go（`delve`）、JavaScript/TypeScript（`js-debug`）的DAP适配器，也不支持`codelldb`（macOS）。Hare在IDE里没有调试器。
+- **绑在GDB 14+（Rust、C、C++、Zig，以及实验性的MoonBit）和macOS上的`lldb-dap`上：**还不支持Python（`debugpy`）、Go（`delve`）、JavaScript/TypeScript（`js-debug`）的DAP适配器，也不支持`codelldb`。Hare在IDE里没有调试器。
 - **缺少的高级调试功能：**没有条件断点（*“只在`i == 42`时停下”*）、logpoint、任意*Watch Expressions*窗口（断点期间的REPL），也没有画在编辑器代码旁边的行内变量值。
 
 ---
@@ -158,14 +159,14 @@ IDE TEA认定**最好的智能体已经在终端里跑**（Claude Code、Codex�
 ## 8. 诚实的小结：今天什么时候选IDE TEA（以及什么时候不选）
 
 ### 下面这些时候，IDE TEA已经更好，或是独一份
-1. **你在Linux上、旁边跑着终端智能体（Claude Code、Codex、Gemini CLI等）写程序**，并且希望智能体提出结构化的问题、展示计划/手工测试、运行命令前明确请求许可、使用隔离的工作树，并有一个会反应的吉祥物（**Tea**），而不依赖云或订阅。
+1. **你在Linux、macOS或Windows上、旁边跑着终端智能体（Claude Code、Codex、Gemini CLI等）写程序**，并且希望智能体提出结构化的问题、展示计划/手工测试、运行命令前明确请求许可、使用隔离的工作树，并有一个会反应的吉祥物（**Tea**），而不依赖云或订阅。
 2. **你把速度、可预测和低感官噪声放在前面：**不到200ms就打开，内存占用低，没有账号，没有遥测，不会自己改UI，并且尊重简单的TOML文件。
 3. **你做的是Rust、Zig、C/C++、Python、Go、Hare、MoonBit或Web项目**，主流程是快速编辑、按LSP的符号/引用导航、在集成终端里跑任务/测试，以及审查提交。
 
 ### 下面这些时候，另一款IDE仍然更好
 1. **你想要每按一个键都有AI预测补全（`Tab` / Ghost Text），或按差异做行内编辑：** **Cursor**、**Windsurf**或**Zed**更适合这种写法。
 2. **你很依赖*Code Actions*（`Ctrl+.`）辅助的重构、*Inlay Hints*，或GUI里的Python/JS/Go调试器：**今天的**VS Code**或**JetBrains**完整得多。
-3. **你在macOS或Windows上工作，或依赖SSH Remote Development / DevContainers：** **VS Code**和**Zed**对这些场景已经有成熟支持。
+3. **你依赖SSH Remote Development / DevContainers，或使用macOS Intel / Windows ARM：** **VS Code**和**Zed**对这些场景已经有成熟支持。
 
 ---
 
@@ -175,6 +176,6 @@ IDE TEA认定**最好的智能体已经在终端里跑**（Claude Code、Codex�
 
 1. **LSP的Code Actions / 快速修复（`Ctrl+.`）：**让人能应用语言服务器已经算得出来的*quick fix*和自动*import*。这是写Rust/TS时最缺的第1项。
 2. **编辑器里的Git标记（装订线差异）+ 在状态栏切换分支：**在编辑器装订线显示添加/修改的行，并允许单击状态栏上的分支名，在命令面板里切换分支。
-3. **“把选区 / 诊断发给智能体”的快捷键（`Ctrl+L`）：**把编辑器/LSP和集成终端里正在跑的智能体接成一个环。
+3. ~~“把选区 / 诊断发给智能体”的快捷键（`Ctrl+L`）~~：**0.8.0已完成**，同时加入了智能体启动器（`Ctrl+Shift+A`）。
 4. **LSP的Inlay Hints（推断类型，以及可选的参数名）：**显示行内类型提示，并有一个快捷键快速开关。
-5. **移植到macOS和Windows + 更多DAP适配器（`lldb-dap`、`debugpy`、`delve`）：**让Linux以外的开发者也能用这个IDE，并支持GDB以外的调试。
+5. **更多DAP适配器（`debugpy`、`delve`、`js-debug`、`codelldb`）：**支持GDB和`lldb-dap`以外的调试。这一项里原本的macOS和Windows移植已在0.5.0发布。

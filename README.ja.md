@@ -92,8 +92,7 @@ idetea --install-desktop   # 任意: アプリ メニューの項目とアイコ
 
 ## コード署名とプライバシー
 
-Windows の無料コード署名は [SignPath.io](https://signpath.io) が提供し、証明書は
-[SignPath Foundation](https://signpath.org) のものです。このプログラムは、利用者が明示的に要求しない限り、情報を他のネットワーク上のシステムへ転送しません。
+Windows インストーラーにはまだコード署名がないため、初回実行時に SmartScreen が警告を出すことがあります。このプログラムは、利用者が明示的に要求しない限り、情報を他のネットワーク上のシステムへ転送しません。
 [`CODE_SIGNING_POLICY.md`](CODE_SIGNING_POLICY.md) を参照してください。
 
 ## クイック スタート
@@ -111,9 +110,11 @@ IDE の中では、`Ctrl+Shift+P` がコマンド パレット、`Ctrl+P` が名
 ## IDE TEA を選ぶとき、選ばないとき
 
 [`docs/comparativo-ides.ja.md`](docs/comparativo-ides.ja.md) は、VS Code、Cursor、Zed、JetBrains、
-Helix との率直な比較で、0.4.0 前後に書かれています。今も製品の核である部分:
+Helix との率直な比較で、0.8.0 に合わせて更新しています。要点:
 
 - ターミナルのエージェントは、ファイルベースのネイティブな手順を得ます (フォーム、承認したコマンド、worktree、マスコット Tea)。あの文書の他のエディターには、これがありません。
+- ゴースト テキストの補完は、意図してありません。Tab 補完やインライン差分が必要なら、あの文書は Cursor、Windsurf、Zed を示します。
+- コード アクション、インレイ ヒント、デバッグの対応範囲は、VS Code と JetBrains より後ろです。
 
 ### Tea
 
@@ -122,10 +123,6 @@ Helix との率直な比較で、0.4.0 前後に書かれています。今も�
 `[mascot] tips` はヒントのオンとオフです。インターフェース全体 (Tea を含む) は、ポルトガル語、英語、
 スペイン語、フランス語、ドイツ語、イタリア語、日本語、簡体字中国語です (`[ui] language`、またはシステムの言語)。
 フォーカスは取りません。
-- ゴースト テキストの補完は、意図してありません。Tab 補完やインライン差分が必要なら、あの文書は Cursor、Windsurf、Zed を示します。
-- コード アクション、インレイ ヒント、デバッグの対応範囲は、VS Code と JetBrains より後ろです。
-
-同じ文書は、まだ「Linux のみ」と書いています。それ以降のリリースでは、macOS (Apple Silicon) と Windows (x86_64) も配布しています。
 
 ## リポジトリにスターを付ける
 

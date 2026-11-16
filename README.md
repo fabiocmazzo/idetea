@@ -101,9 +101,9 @@ you use (rust-analyzer, clangd, pyright, typescript-language-server, gopls, lua-
 
 ## Code signing and privacy
 
-Free code signing on Windows is provided by [SignPath.io](https://signpath.io), certificate by the
-[SignPath Foundation](https://signpath.org). This program will not transfer any information to other networked systems
-unless specifically requested by the user. See [`CODE_SIGNING_POLICY.md`](CODE_SIGNING_POLICY.md).
+The Windows installer is not code-signed yet, so SmartScreen may warn the first time it runs. This program will not
+transfer any information to other networked systems unless specifically requested by the user. See
+[`CODE_SIGNING_POLICY.md`](CODE_SIGNING_POLICY.md).
 
 ## Quick start
 
@@ -120,10 +120,13 @@ The guides are on the [website](https://idetea.belabs.cloud/).
 ## Why IDE TEA, and when not
 
 [`docs/comparativo-ides.md`](docs/comparativo-ides.md) is an honest comparison with VS Code, Cursor, Zed, JetBrains
-and Helix, written around 0.4.0. The part that is still the product:
+and Helix, updated for 0.8.0. In short:
 
 - Terminal agents get a native, file-based protocol (forms, approved commands, worktrees, the Tea mascot). That is
   the thing the other editors in that note do not have.
+- There is no ghost-text autocomplete, on purpose. If you want Tab-to-complete or inline diffs, that document points
+  at Cursor, Windsurf or Zed.
+- Code actions, inlay hints and debugger coverage are behind VS Code and JetBrains.
 
 ### Tea
 
@@ -132,11 +135,6 @@ the debugger's build, and it can mention a real shortcut now and then. `[mascot]
 `chatty`; `[mascot] tips` turns the hints on or off. The whole interface, including Tea, is in Portuguese, English,
 Spanish, French, German, Italian, Japanese and Simplified Chinese (`[ui] language`, or the system language). It
 does not take focus.
-- There is no ghost-text autocomplete, on purpose. If you want Tab-to-complete or inline diffs, that document points
-  at Cursor, Windsurf or Zed.
-- Code actions, inlay hints and debugger coverage are behind VS Code and JetBrains.
-
-The same note still says "Linux only". Releases since then also ship macOS (Apple Silicon) and Windows (x86_64).
 
 ## Star the repository
 

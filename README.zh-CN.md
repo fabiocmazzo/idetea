@@ -84,7 +84,7 @@ idetea --install-desktop   # 可选：应用菜单项和图标
 
 ## 代码签名与隐私
 
-Windows上的免费代码签名由[SignPath.io](https://signpath.io)提供，证书来自[SignPath Foundation](https://signpath.org)。除非用户明确要求，本程序不会向其他联网系统传输任何信息。见[`CODE_SIGNING_POLICY.md`](CODE_SIGNING_POLICY.md)。
+Windows安装程序还没有代码签名，首次运行时SmartScreen可能会发出警告。除非用户明确要求，本程序不会向其他联网系统传输任何信息。见[`CODE_SIGNING_POLICY.md`](CODE_SIGNING_POLICY.md)。
 
 ## 快速开始
 
@@ -99,17 +99,15 @@ idetea new my-app --model rust --agent claude     # 新建项目，智能体可�
 
 ## 什么时候选IDE TEA，什么时候不选
 
-[`docs/comparativo-ides.zh-CN.md`](docs/comparativo-ides.zh-CN.md)是和VS Code、Cursor、Zed、JetBrains、Helix的一份诚实对比，写于0.4.0前后。到现在还站得住的，是这一点：
+[`docs/comparativo-ides.zh-CN.md`](docs/comparativo-ides.zh-CN.md)是和VS Code、Cursor、Zed、JetBrains、Helix的一份诚实对比，已按0.8.0更新。要点：
 
 - 终端里的智能体得到一套原生的、基于文件的协议（表单、经你批准的命令、工作树、Tea吉祥物）。那篇笔记里的其他编辑器没有这个。
+- 故意没有幽灵文本补全。如果你要按Tab补全，或要行内差异，那份文档会指向Cursor、Windsurf或Zed。
+- 代码操作、内联提示和调试器的覆盖面，落后于VS Code和JetBrains。
 
 ### Tea
 
 角落里的茶杯，每种心情有好几句台词。它会注意到一次保存、一段长时间的停顿、一天里的时辰，以及调试器的构建，偶尔也会提起一条真实的快捷键。`[mascot] chatty`可以是`quiet`、`normal`或`chatty`；`[mascot] tips`打开或关掉这些提示。整个界面，包括Tea，有葡萄牙语、英语、西班牙语、法语、德语、意大利语、日语和简体中文（`[ui] language`，或跟随系统语言）。它不抢焦点。
-- 故意没有幽灵文本补全。如果你要按Tab补全，或要行内差异，那份文档会指向Cursor、Windsurf或Zed。
-- 代码操作、内联提示和调试器的覆盖面，落后于VS Code和JetBrains。
-
-那篇笔记里仍然写着“仅Linux”。那之后的版本也提供macOS（Apple Silicon）和Windows（x86_64）。
 
 ## 给仓库点星
 

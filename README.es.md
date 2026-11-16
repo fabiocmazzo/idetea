@@ -104,9 +104,9 @@ zls, `zx lsp`, `hare-lsp` para Hare y `moon lsp` para MoonBit ya vienen configur
 
 ## Firma de código y privacidad
 
-La firma gratuita de código en Windows es proporcionada por [SignPath.io](https://signpath.io), con certificado de la
-[SignPath Foundation](https://signpath.org). Este programa no transfiere ninguna información a redes externas salvo a
-petición explícita del usuario. Consulta [`CODE_SIGNING_POLICY.md`](CODE_SIGNING_POLICY.md).
+El instalador de Windows todavía no tiene firma de código, así que SmartScreen puede avisar la primera vez que se
+ejecuta. Este programa no transfiere ninguna información a redes externas salvo a petición explícita del usuario.
+Consulta [`CODE_SIGNING_POLICY.md`](CODE_SIGNING_POLICY.md).
 
 ## Primeros pasos
 
@@ -123,10 +123,13 @@ los atajos. Las guías están en el [sitio](https://idetea.belabs.cloud/es/).
 ## Por qué IDE TEA, y cuándo no
 
 [`docs/comparativo-ides.md`](docs/comparativo-ides.md) es una comparación honesta con VS Code, Cursor, Zed, JetBrains
-y Helix, escrita alrededor de la 0.4.0 (en portugués). Lo que sigue siendo el producto:
+y Helix, actualizada para la 0.8.0 (en portugués). En resumen:
 
 - El agente de la terminal tiene un protocolo nativo, hecho de archivos (formularios, comandos que tú apruebas,
   worktrees, la mascota Tea). Eso es lo que los otros editores de esa nota no tienen.
+- No hay autocompletado fantasma, a propósito. Si quieres completar con Tab o diffs en línea, ese texto señala a
+  Cursor, Windsurf o Zed.
+- Las code actions, los inlay hints y la cobertura del depurador van por detrás de VS Code y JetBrains.
 
 ### Tea
 
@@ -135,11 +138,6 @@ del día y el build del depurador, y de vez en cuando cita un atajo que de verda
 `quiet`, `normal` o `chatty`; `[mascot] tips` enciende o apaga las pistas. Toda la interfaz, Tea incluido, está en
 portugués, inglés, español, francés, alemán, italiano, japonés y chino simplificado (`[ui] language`, o el idioma
 del sistema). No roba el foco.
-- No hay autocompletado fantasma, a propósito. Si quieres completar con Tab o diffs en línea, ese texto señala a
-  Cursor, Windsurf o Zed.
-- Las code actions, los inlay hints y la cobertura del depurador van por detrás de VS Code y JetBrains.
-
-La misma nota todavía dice "solo Linux". Las versiones de ahora también salen para macOS (Apple Silicon) y Windows (x86_64).
 
 ## Dale una estrella
 

@@ -101,9 +101,9 @@ die Sie nutzen (rust-analyzer, clangd, pyright, typescript-language-server, gopl
 
 ## Codesignatur und Datenschutz
 
-Die kostenlose Codesignatur unter Windows stellt [SignPath.io](https://signpath.io), das Zertifikat die
-[SignPath Foundation](https://signpath.org). Dieses Programm überträgt keine Informationen an andere vernetzte Systeme,
-sofern der Benutzer das nicht ausdrücklich verlangt. Siehe [`CODE_SIGNING_POLICY.md`](CODE_SIGNING_POLICY.md).
+Der Windows-Installer ist noch nicht codesigniert, daher kann SmartScreen beim ersten Start warnen. Dieses Programm
+überträgt keine Informationen an andere vernetzte Systeme, sofern der Benutzer das nicht ausdrücklich verlangt. Siehe
+[`CODE_SIGNING_POLICY.md`](CODE_SIGNING_POLICY.md).
 
 ## Schnellstart
 
@@ -120,10 +120,13 @@ Die Anleitungen stehen auf der [Website](https://idetea.belabs.cloud/de/).
 ## Warum IDE TEA, und wann nicht
 
 [`docs/comparativo-ides.de.md`](docs/comparativo-ides.de.md) ist ein ehrlicher Vergleich mit VS Code, Cursor, Zed, JetBrains
-und Helix, geschrieben um 0.4.0. Der Teil, der weiterhin das Produkt ist:
+und Helix, aktualisiert für 0.8.0. Kurz gesagt:
 
 - Terminal-Agenten bekommen ein natives, dateibasiertes Protokoll (Formulare, genehmigte Befehle, Worktrees, das Maskottchen Tea). Das ist
   das, was die anderen Editoren in dieser Notiz nicht haben.
+- Es gibt keine Ghost-Text-Vervollständigung, mit Absicht. Wenn Sie mit Tab vervollständigen oder Inline-Diffs wollen, zeigt dieses Dokument auf
+  Cursor, Windsurf oder Zed.
+- Code Actions, Inlay Hints und die Abdeckung des Debuggers liegen hinter VS Code und JetBrains.
 
 ### Tea
 
@@ -132,11 +135,6 @@ den Build des Debuggers und nennt ab und zu ein Tastenkürzel, das wirklich bele
 `chatty`; `[mascot] tips` schaltet die Hinweise an oder aus. Die ganze Oberfläche, Tea eingeschlossen, gibt es auf Portugiesisch, Englisch,
 Spanisch, Französisch, Deutsch, Italienisch, Japanisch und vereinfachtem Chinesisch (`[ui] language` oder die Systemsprache). Sie
 nimmt den Fokus nicht.
-- Es gibt keine Ghost-Text-Vervollständigung, mit Absicht. Wenn Sie mit Tab vervollständigen oder Inline-Diffs wollen, zeigt dieses Dokument auf
-  Cursor, Windsurf oder Zed.
-- Code Actions, Inlay Hints und die Abdeckung des Debuggers liegen hinter VS Code und JetBrains.
-
-Dieselbe Notiz sagt noch „nur Linux“. Versionen seither liefern auch macOS (Apple Silicon) und Windows (x86_64).
 
 ## Dem Repository einen Stern geben
 

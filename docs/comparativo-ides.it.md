@@ -2,7 +2,7 @@
 
 <p><a href="comparativo-ides.md">Português</a> · <a href="comparativo-ides.fr.md">Français</a> · <a href="comparativo-ides.de.md">Deutsch</a> · <b>Italiano</b> · <a href="comparativo-ides.ja.md">日本語</a> · <a href="comparativo-ides.zh-CN.md">中文（简体）</a></p>
 
-Questo documento è una valutazione tecnica, diretta e senza infiocchettature di **IDE TEA** (stato di allora, `v0.4.0`) rispetto ai principali IDE ed editor sul mercato:
+Questo documento è una valutazione tecnica, diretta e senza infiocchettature di **IDE TEA** (stato attuale, `v0.8.0`) rispetto ai principali IDE ed editor sul mercato:
 
 - **VS Code / VSCodium** (lo standard universale basato su Electron)
 - **Cursor / Windsurf** (fork di VS Code centrati sull'IA)
@@ -11,8 +11,6 @@ Questo documento è una valutazione tecnica, diretta e senza infiocchettature di
 - **Neovim / Helix / Lapce** (editor modali/nativi snelli)
 
 > **Ambito di questa analisi:** il focus è strettamente tecnico — **stabilità, prestazioni, funzionalità di modifica, LSP, debug, Git, ecosistema e integrazione con gli agenti**. Non tiene conto delle dimensioni del team né di chi mantiene il progetto.
-
-> Le versioni successive a questa fotografia della 0.4.0 escono anche per macOS (Apple Silicon) e Windows (x86_64).
 
 ---
 
@@ -28,9 +26,9 @@ Questo documento è una valutazione tecnica, diretta e senza infiocchettature di
 | **Autocompletamento IA in linea («Ghost text» / Tab)** | **Non c'è (per filosofia)** | Tramite Copilot | **Eccellente (in testa)** | Molto buono (Zeta) | Buono | Tramite plugin |
 | **Maturità dell'editor di testo** | Buona sulle basi, mancano funzioni avanzate | **Riferimento** | **Riferimento** | Molto alta | **Riferimento** | **Riferimento (modale)** |
 | **Profondità di LSP e refactoring** | Media (senza Code Action e Inlay Hint) | **Completa** | **Completa** | Alta | **Impareggiabile (AST proprio)** | Alta |
-| **Debug** | Di base (GDB 14+ per Rust/C/C++/Zig; MoonBit nativo è sperimentale) | **Completo (qualsiasi linguaggio)** | **Completo** | Di base/medio (DAP recente) | **Eccellente** | Di base (nvim-dap) |
+| **Debug** | Di base (GDB 14+ per Rust/C/C++/Zig, `lldb-dap` su macOS; MoonBit nativo è sperimentale) | **Completo (qualsiasi linguaggio)** | **Completo** | Di base/medio (DAP recente) | **Eccellente** | Di base (nvim-dap) |
 | **Controllo di versione (Git)** | Di base/medio (senza gutter diff né merge a 3 vie) | **Completo** | **Completo** | Medio | **Eccellente (merge migliore)** | Tramite LazyGit / Fugitive |
-| **Supporto multipiattaforma** | **Solo Linux (Wayland), testato oggi** | **Linux, macOS, Windows, Web** | **Linux, macOS, Windows** | **macOS, Linux, Windows** | **Linux, macOS, Windows** | **Qualsiasi SO / SSH** |
+| **Supporto multipiattaforma** | **Linux, macOS (Apple Silicon), Windows (x86_64)** | **Linux, macOS, Windows, Web** | **Linux, macOS, Windows** | **macOS, Linux, Windows** | **Linux, macOS, Windows** | **Qualsiasi SO / SSH** |
 
 ---
 
@@ -50,7 +48,7 @@ Questo documento è una valutazione tecnica, diretta e senza infiocchettature di
    - Il protocollo `.idetea/` usa una scrittura atomica (`.tmp` + `rename`) e ha un comando di autoripristino (`idetea fix` / *«Interfacce: correggi questo progetto»*).
 
 ### Dove la stabilità di IDE TEA è ancora indietro rispetto alle grandi
-1. **Provata solo su Linux (Wayland):** oggi IDE TEA è sviluppato e validato su Linux. Su macOS e Windows ci sono differenze reali di pacchettizzazione, tipi di carattere, scelte rapide (`Cmd` contro `Ctrl`), PTY del terminale (`conpty` su Windows) e percorsi che non hanno ancora passato la prova del fuoco. VS Code, JetBrains e Zed girano in modo maturo su tutti e tre i sistemi.
+1. **È su Linux che ha più ore d'uso:** dalla 0.5.0 ci sono versioni ufficiali per macOS (Apple Silicon) e Windows (x86_64), con terminale (`conpty` su Windows), attività, debug e scelte rapide (`Cmd` contro `Ctrl`) adattati, ma questi due sistemi hanno ancora molto meno uso reale. Non c'è una versione per macOS Intel né per Windows ARM, e l'installer per Windows non ha ancora la firma del codice (SmartScreen avvisa al primo avvio). VS Code, JetBrains e Zed girano in modo maturo su tutti e tre i sistemi.
 2. **Limiti dell'ecosistema `iced` 0.14 per applicazioni complesse:**
    - L'IDE lavora in una finestra sola (`iced::application`). Non si può staccare un terminale, un'anteprima o un editor su un secondo monitor, in un'altra finestra nativa del sistema.
    - Non c'è una cronologia locale continua per file (*Local History* / *Timeline* lungo i giorni, senza Git, come in JetBrains e VS Code).
@@ -81,11 +79,14 @@ IDE TEA parte dal fatto che **i migliori agenti girano già nel terminale** (Cla
    - L'IDE gestisce in modo nativo la creazione e la pulizia dei worktree, così i subagenti lavorano in parallelo senza sporcare l'albero principale.
 4. **Mascotte reattiva nativa (Tea) + `idetea mascot`:**
    - Mentre strumenti come *Masko.ai* chiedono macOS più un server MCP nel cloud per avere una mascotte che reagisce a Claude Code, IDE TEA ha **Tea** integrato in modo nativo, che osserva `.idetea/ui/`, `.idetea/agents/`, le attività e l'LSP in tempo reale, reagisce al mouse (`curious` / `annoyed`) e accetta pacchetti `mascot.toml`.
+5. **Avvio degli agenti (`Ctrl+Shift+A`) e contesto dall'editor (`Ctrl+L`):**
+   - L'avvio apre l'agente scelto (Claude Code, Codex, Gemini CLI, OpenCode, Aider, Cursor Agent o un tuo lanciatore) in una scheda di terminale, nella cartella del progetto o in un worktree nuovo.
+   - `Ctrl+L` nell'editor incolla in quella scheda la posizione del cursore (o la selezione) e i problemi dell'LSP su quelle righe, senza inviare; un clic destro nel pannello **Problemi** manda un solo problema.
+6. **Memoria del progetto in file (`docs/memory/`, `docs/decisions/`):** le istruzioni che l'IDE scrive per gli agenti insegnano una memoria condivisa in Markdown sotto git (fatti e ADR), con un pannello apposito nell'IDE.
 
 ### Dove IDE TEA perde nel flusso di IA
 - **Zero autocompletamento predittivo («Ghost text» / Tab):** per chi dipende dal `Tab` di Cursor/Copilot per completare il boilerplate mentre scrive a mano, IDE TEA non ha un equivalente.
 - **Niente diff inline dell'IA nell'editor:** quando un agente nel terminale modifica un file, il file si ricarica nella scheda di IDE TEA. Per vedere che cosa è cambiato vai al pannello **Git**; non ci sono pulsanti *«Accept / Reject hunk»* che galleggiano dentro l'editor, come in Cursor o Windsurf.
-- **Passare il contesto dall'editor all'agente è ancora manuale:** l'agente può eseguire `idetea status` per scoprire il file attivo e la riga del cursore, ma non c'è ancora una scelta rapida nell'IDE (per esempio `Ctrl+L`) che mandi un brano selezionato o un errore dell'LSP dritto nel prompt dell'agente aperto nel terminale.
 
 ---
 
@@ -131,11 +132,11 @@ IDE TEA parte dal fatto che **i migliori agenti girano già nel terminale** (Cla
 ## 6. Debug
 
 ### Che cosa fa IDE TEA oggi
-- Integrazione nativa con `gdb` 14+ (via DAP): punti di interruzione cliccando sul numero di riga (`F9`) che seguono il testo se modifichi il file, `F5` (compila ed esegue in automatico nei progetti Rust, Zig e, in modo sperimentale, MoonBit), Esegui istruzione (`F10`), Entra (`F11`), Esci (`Shift+F11`), Sospendi e Interrompi.
+- Integrazione nativa con `gdb` 14+ (o `lldb-dap` su macOS), via DAP: punti di interruzione cliccando sul numero di riga (`F9`) che seguono il testo se modifichi il file, `F5` (compila ed esegue in automatico nei progetti Rust, Zig e, in modo sperimentale, MoonBit), Esegui istruzione (`F10`), Entra (`F11`), Esci (`Shift+F11`), Sospendi e Interrompi.
 - Pannello con lo stack di chiamate (il clic porta alla riga del frame), albero delle variabili locali ispezionabile e output del programma.
 
 ### Dove perde rispetto a VS Code e JetBrains
-- **Legato a GDB 14+ (Rust, C, C++, Zig e, in modo sperimentale, MoonBit):** non supporta ancora adattatori DAP per Python (`debugpy`), Go (`delve`), JavaScript/TypeScript (`js-debug`) o `codelldb` (macOS). Hare non ha un debugger nell'IDE.
+- **Legato a GDB 14+ (Rust, C, C++, Zig e, in modo sperimentale, MoonBit) e a `lldb-dap` su macOS:** non supporta ancora adattatori DAP per Python (`debugpy`), Go (`delve`), JavaScript/TypeScript (`js-debug`) o `codelldb`. Hare non ha un debugger nell'IDE.
 - **Funzioni avanzate di debug assenti:** niente punti di interruzione condizionali (*«fermati solo quando `i == 42`»*), logpoint, finestra di *Watch Expressions* arbitrarie (REPL durante il punto di interruzione) né valori delle variabili disegnati in linea accanto al codice nell'editor.
 
 ---
@@ -158,14 +159,14 @@ IDE TEA parte dal fatto che **i migliori agenti girano già nel terminale** (Cla
 ## 8. Riassunto onesto: quando scegliere IDE TEA oggi (e quando no)
 
 ### IDE TEA è già migliore, o unica, quando:
-1. **Programmi su Linux accanto ad agenti di terminale (Claude Code, Codex, Gemini CLI, ecc.)** e vuoi che l'agente faccia domande strutturate, mostri piani e test manuali, chieda un permesso esplicito per eseguire comandi, usi worktree isolati e abbia una mascotte reattiva (**Tea**) senza dipendere da cloud o abbonamento.
+1. **Programmi accanto ad agenti di terminale (Claude Code, Codex, Gemini CLI, ecc.), su Linux, macOS o Windows,** e vuoi che l'agente faccia domande strutturate, mostri piani e test manuali, chieda un permesso esplicito per eseguire comandi, usi worktree isolati e abbia una mascotte reattiva (**Tea**) senza dipendere da cloud o abbonamento.
 2. **Dai priorità a velocità, prevedibilità e poco rumore sensoriale:** si apre in meno di 200 ms, consuma poca memoria, non ha account, non ha telemetria, non cambia l'interfaccia da sola e rispetta file TOML semplici.
 3. **Lavori su progetti in Rust, Zig, C/C++, Python, Go, Hare, MoonBit o Web** dove il flusso principale è modificare in fretta, navigare simboli e riferimenti dell'LSP, eseguire attività e test nel terminale integrato e rivedere i commit.
 
 ### Un altro IDE è ancora meglio quando:
 1. **Vuoi l'autocompletamento predittivo di IA a ogni tasto (`Tab` / Ghost text) o la modifica in linea per diff:** **Cursor**, **Windsurf** o **Zed** seguono meglio questo stile.
 2. **Dipendi molto dai refactoring assistiti dalle *Code Action* (`Ctrl+.`), dagli *Inlay Hint* o dai debugger di Python/JS/Go nell'interfaccia:** **VS Code** o **JetBrains** sono molto più completi oggi.
-3. **Lavori su macOS o Windows, o dipendi da SSH Remote Development / DevContainers:** **VS Code** e **Zed** hanno già un supporto maturo per questi scenari.
+3. **Dipendi da SSH Remote Development / DevContainers, o usi macOS Intel / Windows ARM:** **VS Code** e **Zed** hanno già un supporto maturo per questi scenari.
 
 ---
 
@@ -175,6 +176,6 @@ Se l'obiettivo è ridurre la distanza funzionale da VS Code e Zed tenendo il bin
 
 1. **Code Action / Quick Fix dell'LSP (`Ctrl+.`):** poter applicare i *quick fix* e gli *import* automatici che il server LSP sa già calcolare. È la voce n. 1 che manca di più quando si programma in Rust/TS.
 2. **Segni Git nell'editor (Gutter Diff) + cambio di ramo dalla barra di stato:** mostrare nel margine dell'editor le righe aggiunte o modificate, e permettere di cliccare il nome del ramo nella barra di stato per cambiare ramo nel riquadro comandi.
-3. **Scelta rapida «Invia selezione / diagnostico all'agente» (`Ctrl+L`):** chiudere il cerchio fra l'editor/LSP e l'agente che gira nel terminale integrato.
+3. ~~Scelta rapida «Invia selezione / diagnostico all'agente» (`Ctrl+L`)~~ — **fatto nella 0.8.0**, insieme all'avvio degli agenti (`Ctrl+Shift+A`).
 4. **Inlay Hint dell'LSP (tipi inferiti e nomi dei parametri, facoltativi):** mostrare i suggerimenti di tipo in linea, con una scelta rapida per accenderli e spegnerli.
-5. **Portabilità su macOS e Windows + altri adattatori DAP (`lldb-dap`, `debugpy`, `delve`):** aprire l'IDE a chi sviluppa fuori da Linux e supportare il debug oltre GDB.
+5. **Altri adattatori DAP (`debugpy`, `delve`, `js-debug`, `codelldb`):** supportare il debug oltre GDB e `lldb-dap`. La portabilità su macOS e Windows, che faceva parte anche di questo punto, è uscita nella 0.5.0.
