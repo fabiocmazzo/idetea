@@ -28,7 +28,7 @@ principaux IDE et éditeurs du marché :
 | **Maturité de l'éditeur de texte** | Bonne sur l'essentiel, il manque des fonctions avancées | **Référence** | **Référence** | Très haute | **Référence** | **Référence (modale)** |
 | **Profondeur du LSP et de la refactorisation** | Moyenne (sans Code Actions ni Inlay Hints) | **Complète** | **Complète** | Haute | **Inégalée (AST propre)** | Haute |
 | **Débogage (Debug)** | Basique (GDB 14+ pour Rust/C/C++/Zig, `lldb-dap` sous macOS ; le natif MoonBit est expérimental) | **Complet (n'importe quel langage)** | **Complet** | Basique/moyen (DAP récent) | **Excellent** | Basique (nvim-dap) |
-| **Contrôle de version (Git)** | Basique/moyen (sans diff de marge ni fusion à 3 voies) | **Complet** | **Complet** | Moyen | **Excellent (meilleure fusion)** | Via LazyGit / Fugitive |
+| **Contrôle de version (Git)** | Moyen (marques dans la marge et blame ; sans fusion à 3 voies ni stash) | **Complet** | **Complet** | Moyen | **Excellent (meilleure fusion)** | Via LazyGit / Fugitive |
 | **Prise en charge multiplateforme** | **Linux, macOS (Apple Silicon), Windows (x86_64)** | **Linux, macOS, Windows, Web** | **Linux, macOS, Windows** | **macOS, Linux, Windows** | **Linux, macOS, Windows** | **N'importe quel OS / SSH** |
 
 ---
@@ -148,12 +148,14 @@ IDE TEA part du principe que **les meilleurs agents tournent déjà dans le term
 - Barre d'état avec la branche actuelle, les commits en avance/en retard (`ahead`/`behind`) et le total de fichiers modifiés.
 - Panneau Git avec indexer/désindexer par fichier ou globalement, visualisation de diff coloré, zone de message de validation, abandon des modifications avec confirmation, et boutons de `push`, `pull` et `fetch` qui utilisent le `git` et les identifiants/SSH du système.
 - Couleurs d'état Git dans l'arborescence.
+- Marques dans la marge de l'éditeur sur les lignes ajoutées, modifiées et supprimées depuis le dernier commit ; un clic sur la marque montre l'ancien extrait et permet de l'annuler.
+- Auteur et commit de la ligne du curseur (blame) dans la barre d'état, avec les détails et la copie du hash.
+- Changer et créer une branche depuis la palette.
 
 ### Là où il perd face à VS Code, Zed et JetBrains
-1. **Pas de marques Git dans la marge de l'éditeur (Gutter Diff) :** pendant que vous éditez un fichier, il n'y a pas ces petites barres vertes/bleues/rouges à côté des numéros de ligne montrant quelles lignes ont été ajoutées ou changées depuis le dernier commit.
-2. **Pas de Git Blame dans le texte :** ne montre pas qui a changé la ligne actuelle, ni dans quel commit.
-3. **Pas de résolveur visuel de conflits de fusion (3-way merge) :** en cas de conflit, vous le résolvez en éditant les marqueurs `<<<<<<<` dans le texte, ou par le terminal.
-4. **Pas de changement/création de branches ni de Stash par l'interface :** pour changer de branche, créer une branche ou faire un `git stash`, vous utilisez le terminal intégré.
+1. **Pas de résolveur visuel de conflits de fusion (3-way merge) :** en cas de conflit, vous le résolvez en éditant les marqueurs `<<<<<<<` dans le texte, ou par le terminal.
+2. **Pas de Stash par l'interface :** pour `git stash`, vous utilisez le terminal intégré.
+3. **Blame seulement pour la ligne du curseur :** il est dans la barre d'état ; il n'y a pas d'annotation à côté de chaque ligne ni de vue blame du fichier entier.
 
 ---
 
@@ -176,7 +178,7 @@ IDE TEA part du principe que **les meilleurs agents tournent déjà dans le term
 Si le but est de réduire la distance fonctionnelle avec VS Code et Zed tout en gardant le binaire léger et la philosophie du manifeste :
 
 1. **Code Actions / Quick Fixes du LSP (`Ctrl+.`) :** permettre d'appliquer les *quick fixes* et les *imports* automatiques que le serveur LSP sait déjà calculer. C'est le point n° 1 qui manque le plus en programmant en Rust/TS.
-2. **Marques Git dans l'éditeur (Gutter Diff) + changement de branche dans la barre d'état :** montrer les lignes ajoutées/modifiées dans la marge de l'éditeur et permettre de cliquer sur le nom de la branche dans la barre d'état pour changer de branche dans la palette.
+2. ~~Marques Git dans l'éditeur (Gutter Diff) + changement de branche~~ — **déjà fait :** marques dans la marge et changement/création de branche depuis la palette.
 3. ~~Raccourci « Envoyer la sélection / le diagnostic à l'agent » (`Ctrl+L`)~~ — **fait dans la 0.8.0**, avec le lanceur d'agents (`Ctrl+Shift+A`).
 4. **Inlay Hints du LSP (types inférés et noms de paramètres facultatifs) :** afficher des indications de type dans le texte, avec un raccourci rapide pour les activer ou les couper.
 5. **Davantage d'adaptateurs DAP (`debugpy`, `delve`, `js-debug`, `codelldb`) :** prendre en charge le débogage au-delà de GDB et de `lldb-dap`. La portabilité vers macOS et Windows, qui faisait aussi partie de ce point, est sortie dans la 0.5.0.

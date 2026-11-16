@@ -94,6 +94,11 @@ La liste complète, pour le lecteur technique. Pour la version courte, voir le [
   confirmation).
 - Pousser, tirer et récupérer. L'IDE n'attend jamais un mot de passe : il utilise votre agent ssh ou votre assistant
   d'identifiants git.
+- Marques dans la marge de l'éditeur sur les lignes ajoutées, modifiées ou supprimées depuis le dernier commit ; un
+  clic sur une marque montre les anciennes lignes et peut les annuler.
+- Auteur et commit de la ligne du curseur (blame) dans la barre d'état, avec les détails et un bouton pour copier le
+  hash.
+- Changer ou créer une branche depuis la palette (*Git : changer de branche*).
 - Utilise le `git` installé, donc votre configuration, vos hooks et vos identifiants s'appliquent.
 
 ## Débogage
@@ -106,7 +111,7 @@ La liste complète, pour le lecteur technique. Pour la version courte, voir le [
 - Pas à pas principal, détaillé et sortant (`F10`, `F11`, `Shift+F11`), suspendre et arrêter, avec la ligne courante
   marquée dans l'éditeur.
 - Panneau avec la pile des appels (un clic va au cadre), les variables en arbre, et la sortie du programme.
-- Utilise `gdb` 14 ou plus récent (Rust, C, C++, Zig et, à titre expérimental, MoonBit).
+- Utilise `gdb` 14 ou plus récent (Rust, C, C++, Zig et, à titre expérimental, MoonBit), ou `lldb-dap` sous macOS.
 
 ## Travailler avec les agents
 
@@ -243,6 +248,6 @@ un terminal, `idetea .` ouvre l'IDE et rend l'invite ; `idetea -f .` reste attac
   projet avec des compétences.
 - [ ] Extensions tierces en WASM, sans recompiler l'IDE (un prototype existe derrière la fonctionnalité `plugins`).
 - [ ] Davantage d'adaptateurs de débogage (codelldb, debugpy, delve…).
-- [ ] Marques git dans l'éditeur ; encodages autres que l'UTF-8.
+- [ ] Encodages autres que l'UTF-8 ; une vue de fusion à 3 voies ; le stash depuis l'interface.
 
 Le plan détaillé, phase par phase, est dans [SPEC.md](../SPEC.md) (en portugais).

@@ -55,6 +55,9 @@
 - 状态栏显示分支、领先/落后的提交数，以及更改数量。
 - 面板里可以按文件或全部暂存/取消暂存，有带颜色的差异、提交，以及放弃更改（会确认）。
 - 推送、拉取和获取。IDE从不等待密码：它用你的ssh agent或git credential helper。
+- 编辑器装订线上标出自上次提交以来添加、修改或删除的行；单击标记会显示旧的行，并可以撤销。
+- 状态栏显示光标所在行的作者和提交（blame），可看详情，也有复制哈希的按钮。
+- 在命令面板里切换或创建分支（*Git: 切换分支*）。
 - 使用已安装的`git`，所以你的配置、钩子和凭据都生效。
 
 ## 调试
@@ -63,7 +66,7 @@
 - `F5`构建并运行：Rust项目用`cargo build`并找到可执行文件；Zig项目用`zig build`，可执行文件在`zig-out/bin`；MoonBit模块用`moon build --target native -g`（实验性，见[languages.zh-CN.md](languages.zh-CN.md#moonbit)）；其他情况由配置里的`[debug]`段给出程序、参数和构建命令。
 - 逐过程、逐语句、逐出（`F10`、`F11`、`Shift+F11`），暂停和停止，当前行在编辑器里标出。
 - 面板里有调用堆栈（单击跳到该帧）、树形的变量，以及程序输出。
-- 使用`gdb` 14或更新版本（Rust、C、C++、Zig，以及实验性的MoonBit）。
+- 使用`gdb` 14或更新版本（Rust、C、C++、Zig，以及实验性的MoonBit），macOS上也可用`lldb-dap`。
 
 ## 和智能体一起工作
 
@@ -138,6 +141,6 @@ cargo build --release      # 可执行文件在target/release/idetea
 - [x] 智能体：界面、智能体终端、允许列表、工作树里的助手、带技能的新建项目。
 - [ ] 第三方WASM插件，不用重新构建IDE（`plugins`特性后面已有一个原型）。
 - [ ] 更多调试适配器（codelldb、debugpy、delve……）。
-- [ ] 编辑器里的git标记；UTF-8以外的编码。
+- [ ] UTF-8以外的编码；三方合并视图；在界面上stash。
 
 分阶段的详细计划在[SPEC.md](../SPEC.md)（葡萄牙语）。

@@ -27,7 +27,7 @@ Questo documento è una valutazione tecnica, diretta e senza infiocchettature di
 | **Maturità dell'editor di testo** | Buona sulle basi, mancano funzioni avanzate | **Riferimento** | **Riferimento** | Molto alta | **Riferimento** | **Riferimento (modale)** |
 | **Profondità di LSP e refactoring** | Media (senza Code Action e Inlay Hint) | **Completa** | **Completa** | Alta | **Impareggiabile (AST proprio)** | Alta |
 | **Debug** | Di base (GDB 14+ per Rust/C/C++/Zig, `lldb-dap` su macOS; MoonBit nativo è sperimentale) | **Completo (qualsiasi linguaggio)** | **Completo** | Di base/medio (DAP recente) | **Eccellente** | Di base (nvim-dap) |
-| **Controllo di versione (Git)** | Di base/medio (senza gutter diff né merge a 3 vie) | **Completo** | **Completo** | Medio | **Eccellente (merge migliore)** | Tramite LazyGit / Fugitive |
+| **Controllo di versione (Git)** | Medio (segni nel margine e blame; senza merge a 3 vie né stash) | **Completo** | **Completo** | Medio | **Eccellente (merge migliore)** | Tramite LazyGit / Fugitive |
 | **Supporto multipiattaforma** | **Linux, macOS (Apple Silicon), Windows (x86_64)** | **Linux, macOS, Windows, Web** | **Linux, macOS, Windows** | **macOS, Linux, Windows** | **Linux, macOS, Windows** | **Qualsiasi SO / SSH** |
 
 ---
@@ -147,12 +147,14 @@ IDE TEA parte dal fatto che **i migliori agenti girano già nel terminale** (Cla
 - Barra di stato con il ramo attuale, commit avanti/indietro (`ahead`/`behind`) e totale dei file modificati.
 - Pannello Git con aggiungi a stage / rimuovi da stage per file o tutto, diff colorato, casella del messaggio di commit, ignora modifiche con conferma, e pulsanti di `push`, `pull` e `fetch` che usano il `git` e le credenziali/SSH di sistema.
 - Colori di stato Git nell'albero dei file.
+- Segni nel margine dell'editor sulle righe aggiunte, cambiate e cancellate dall'ultimo commit; un clic sul segno mostra il brano di prima e permette di annullarlo.
+- Autore e commit della riga del cursore (blame) nella barra di stato, con i dettagli e la copia dell'hash.
+- Cambiare e creare un ramo dal riquadro comandi.
 
 ### Dove perde rispetto a VS Code, Zed e JetBrains
-1. **Senza segni Git nel margine dell'editor (Gutter Diff):** mentre modifichi un file, non ci sono quelle barre verdi/azzurre/rosse accanto ai numeri di riga che mostrano quali righe sono state aggiunte o cambiate dall'ultimo commit.
-2. **Senza Git Blame in linea:** non mostra chi ha cambiato la riga attuale e in quale commit.
-3. **Senza risolutore visuale dei conflitti di merge (merge a 3 vie):** in caso di conflitto si risolve modificando i marcatori `<<<<<<<` nel testo, oppure dal terminale.
-4. **Senza cambio/creazione di rami o Stash dall'interfaccia:** per cambiare ramo, creare un ramo o fare `git stash` si usa il terminale integrato.
+1. **Senza risolutore visuale dei conflitti di merge (merge a 3 vie):** in caso di conflitto si risolve modificando i marcatori `<<<<<<<` nel testo, oppure dal terminale.
+2. **Senza Stash dall'interfaccia:** per `git stash` si usa il terminale integrato.
+3. **Blame solo per la riga del cursore:** sta nella barra di stato; non c'è un'annotazione accanto a ogni riga né una vista blame del file intero.
 
 ---
 
@@ -175,7 +177,7 @@ IDE TEA parte dal fatto che **i migliori agenti girano già nel terminale** (Cla
 Se l'obiettivo è ridurre la distanza funzionale da VS Code e Zed tenendo il binario leggero e la filosofia del manifesto:
 
 1. **Code Action / Quick Fix dell'LSP (`Ctrl+.`):** poter applicare i *quick fix* e gli *import* automatici che il server LSP sa già calcolare. È la voce n. 1 che manca di più quando si programma in Rust/TS.
-2. **Segni Git nell'editor (Gutter Diff) + cambio di ramo dalla barra di stato:** mostrare nel margine dell'editor le righe aggiunte o modificate, e permettere di cliccare il nome del ramo nella barra di stato per cambiare ramo nel riquadro comandi.
+2. ~~Segni Git nell'editor (Gutter Diff) + cambio di ramo~~ — **già fatto:** segni nel margine e cambio/creazione di ramo dal riquadro comandi.
 3. ~~Scelta rapida «Invia selezione / diagnostico all'agente» (`Ctrl+L`)~~ — **fatto nella 0.8.0**, insieme all'avvio degli agenti (`Ctrl+Shift+A`).
 4. **Inlay Hint dell'LSP (tipi inferiti e nomi dei parametri, facoltativi):** mostrare i suggerimenti di tipo in linea, con una scelta rapida per accenderli e spegnerli.
 5. **Altri adattatori DAP (`debugpy`, `delve`, `js-debug`, `codelldb`):** supportare il debug oltre GDB e `lldb-dap`. La portabilità su macOS e Windows, che faceva parte anche di questo punto, è uscita nella 0.5.0.

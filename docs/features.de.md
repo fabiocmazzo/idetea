@@ -81,6 +81,11 @@ Die vollständige Liste, für die technische Leserschaft. Die Kurzfassung steht 
 - Branch, Commits voraus/zurück und die Zahl der Änderungen in der Statusleiste.
 - Bereich mit Stagen und Staging aufheben je Datei oder für alle, farbiger Diff, Commit, Änderungen verwerfen (mit Bestätigung).
 - Pushen, Pullen und Abrufen. Die IDE wartet nie auf ein Passwort: sie nutzt Ihren ssh-Agent oder Ihren git-Credential-Helper.
+- Markierungen am Rand des Editors bei Zeilen, die seit dem letzten Commit hinzugekommen, geändert oder gelöscht
+  sind; ein Klick auf eine Markierung zeigt die alten Zeilen und kann sie rückgängig machen.
+- Autor und Commit der Cursorzeile (Blame) in der Statusleiste, mit Details und einer Schaltfläche zum Kopieren des
+  Hashs.
+- Branch wechseln oder anlegen über die Palette (*Git: Branch wechseln*).
 - Nutzt das installierte `git`, also gelten Ihre Konfiguration, Hooks und Zugangsdaten.
 
 ## Debuggen
@@ -92,7 +97,7 @@ Die vollständige Liste, für die technische Leserschaft. Die Kurzfassung steht 
   in der Konfiguration das Programm, die Argumente und den Build-Befehl.
 - Nächste Zeile, in die Funktion springen und aus der Funktion austreten (`F10`, `F11`, `Shift+F11`), anhalten und beenden, mit der aktuellen Zeile im Editor markiert.
 - Bereich mit der Aufrufliste (Klick springt zum Frame), Variablen als Baum und der Ausgabe des Programms.
-- Nutzt `gdb` 14 oder neuer (Rust, C, C++, Zig und, experimentell, MoonBit).
+- Nutzt `gdb` 14 oder neuer (Rust, C, C++, Zig und, experimentell, MoonBit), oder `lldb-dap` unter macOS.
 
 ## Arbeiten mit Agenten
 
@@ -216,6 +221,6 @@ Terminal öffnet `idetea .` die IDE und gibt die Eingabeaufforderung zurück; `i
 - [x] Agenten: Bereich Interfaces, Agenten-Terminals, Zulassungsliste, Helfer in Worktrees, neues Projekt mit Skills.
 - [ ] Plugins von Dritten in WASM, ohne die IDE neu zu bauen (ein Prototyp existiert hinter dem Feature `plugins`).
 - [ ] Weitere Debug-Adapter (codelldb, debugpy, delve …).
-- [ ] Git-Markierungen im Editor; andere Kodierungen als UTF-8.
+- [ ] Andere Kodierungen als UTF-8; eine 3-Wege-Merge-Ansicht; Stash über die Oberfläche.
 
 Der ausführliche Plan, Phase für Phase, steht in [SPEC.md](../SPEC.md) (auf Portugiesisch).

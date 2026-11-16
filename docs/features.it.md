@@ -81,6 +81,11 @@ L'elenco completo, per chi vuole il dettaglio tecnico. Per la versione breve, ve
 - Ramo, commit avanti/indietro e numero di modifiche sulla barra di stato.
 - Pannello con aggiungi a stage / rimuovi da stage per file o tutti, diff colorato, commit, ignora modifiche (con conferma).
 - Push, pull e recupera. L'IDE non aspetta mai una password: usa il tuo ssh agent o il tuo git credential helper.
+- Segni nel margine dell'editor sulle righe aggiunte, cambiate o cancellate dall'ultimo commit; un clic su un segno
+  mostra le righe di prima e può annullarle.
+- Autore e commit della riga del cursore (blame) nella barra di stato, con i dettagli e un pulsante per copiare
+  l'hash.
+- Cambiare o creare un ramo dal riquadro comandi (*Git: cambia ramo*).
 - Usa il `git` installato, quindi valgono la tua config, gli hook e le credenziali.
 
 ## Debug
@@ -92,7 +97,7 @@ L'elenco completo, per chi vuole il dettaglio tecnico. Per la versione breve, ve
   nella config dice il programma, gli argomenti e il comando di build.
 - Esegui istruzione, entra ed esci (`F10`, `F11`, `Shift+F11`), sospendi e interrompi, con la riga attuale segnata nell'editor.
 - Pannello con lo stack di chiamate (clic per andare al frame), le variabili ad albero, e l'output del programma.
-- Usa `gdb` 14 o più recente (Rust, C, C++, Zig e, in modo sperimentale, MoonBit).
+- Usa `gdb` 14 o più recente (Rust, C, C++, Zig e, in modo sperimentale, MoonBit), o `lldb-dap` su macOS.
 
 ## Lavorare con gli agenti
 
@@ -216,6 +221,6 @@ terminale, `idetea .` apre l'IDE e restituisce il prompt; `idetea -f .` resta at
 - [x] Agenti: pannello Interfacce, terminali di agente, elenco consentiti, aiutanti nei worktree, progetto nuovo con le skill.
 - [ ] Plugin di terze parti in WASM, senza ricompilare l'IDE (esiste un prototipo dietro la feature `plugins`).
 - [ ] Altri adattatori di debug (codelldb, debugpy, delve…).
-- [ ] Segni git dentro l'editor; codifiche diverse da UTF-8.
+- [ ] Codifiche diverse da UTF-8; una vista di merge a 3 vie; lo stash dall'interfaccia.
 
 Il piano dettagliato, fase per fase, è in [SPEC.md](../SPEC.md) (in portoghese).

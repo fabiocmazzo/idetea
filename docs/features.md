@@ -79,6 +79,10 @@ The full list, for the technical reader. For the short version, see the [README]
 - Branch, commits ahead/behind and number of changes on the status bar.
 - Panel with stage/unstage per file or all, colored diff, commit, discard changes (with confirmation).
 - Push, pull and fetch. The IDE never waits for a password: it uses your ssh agent or your git credential helper.
+- Marks in the editor margin on lines added, changed or deleted since the last commit; a click on a mark shows the
+  old lines and can undo them.
+- Author and commit of the cursor line (blame) on the status bar, with details and a button to copy the hash.
+- Switch or create a branch from the palette (*Git: switch branch*).
 - Uses the installed `git`, so your config, hooks and credentials apply.
 
 ## Debug
@@ -90,7 +94,7 @@ The full list, for the technical reader. For the short version, see the [README]
   section in the config says the program, the arguments and the build command.
 - Step over, into and out (`F10`, `F11`, `Shift+F11`), pause and stop, with the current line marked in the editor.
 - Panel with the call stack (click to go to the frame), variables as a tree, and the program's output.
-- Uses `gdb` 14 or newer (Rust, C, C++, Zig and, experimentally, MoonBit).
+- Uses `gdb` 14 or newer (Rust, C, C++, Zig and, experimentally, MoonBit), or `lldb-dap` on macOS.
 
 ## Working with agents
 
@@ -212,6 +216,6 @@ terminal, `idetea .` opens the IDE and gives the prompt back; `idetea -f .` stay
 - [x] Agents: Interfaces panel, agent terminals, allow list, helpers in worktrees, new project with skills.
 - [ ] Third-party plugins in WASM, without rebuilding the IDE (a prototype exists behind the `plugins` feature).
 - [ ] More debug adapters (codelldb, debugpy, delve…).
-- [ ] Git marks inside the editor; encodings other than UTF-8.
+- [ ] Encodings other than UTF-8; a 3-way merge view; stash from the UI.
 
 The detailed plan, phase by phase, is in [SPEC.md](../SPEC.md) (in Portuguese).
