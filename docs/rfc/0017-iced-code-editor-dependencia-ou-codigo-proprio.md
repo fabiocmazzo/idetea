@@ -186,4 +186,7 @@ criar branch pela paleta (`231b860`, *Git: trocar de branch*) e o blame da linha
 - **Etapa 3 (aberta em 2026-11-16):** proposta da API de decorações no upstream,
   [issue #41](https://github.com/LuDog71FR/iced-code-editor/issues/41). O prazo de 4 semanas das condições de saída
   conta a partir daqui.
-- **Etapa 2:** os PRs dos 4 commits do fork ainda não foram abertos.
+- **Etapa 2 (aberta em 2026-11-16):** três PRs independentes, cada um a partir do `upstream/main`:
+  [#42](https://github.com/LuDog71FR/iced-code-editor/pull/42) (sintaxes extras),
+  [#43](https://github.com/LuDog71FR/iced-code-editor/pull/43) (sublinhado de diagnósticos, muda o `Style`) e
+  [#44](https://github.com/LuDog71FR/iced-code-editor/pull/44) (barra em pílula). Quando entrarem, o `[patch]` sai.
