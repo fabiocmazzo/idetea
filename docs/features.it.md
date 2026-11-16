@@ -42,6 +42,9 @@ L'elenco completo, per chi vuole il dettaglio tecnico. Per la versione breve, ve
 
 - Errori e avvisi (sottolineatura ondulata e hover del diagnostico nell'editor, pannello Problemi e un conteggio sulla
   barra di stato), completamento, vai alla definizione, formatta.
+- Azioni di codice (`Ctrl+.`): le correzioni e i refactoring che il server offre per l'errore o la selezione
+  (import mancante, generare una funzione, estrarre una variabile), quella consigliata per prima. Le sottolineature
+  seguono il testo modificato finché il server non manda nuovi diagnostici.
 - Vai all'implementazione (`Ctrl+F12`) e al tipo; con più risultati, l'elenco va nel pannello.
 - Trova i riferimenti (`Shift+F12`, o `Ctrl+click` sulla dichiarazione) raggruppati per file, e indietro/avanti dopo ogni
   salto (`Alt+←` / `Alt+→`, o i pulsanti laterali del mouse).

@@ -123,8 +123,114 @@ impl DocText {
     }
 }
 
+/// A troca que leva `old` a `new`: um trecho de `old` (em caracteres) e o texto que entra no lugar. Compara as linhas
+/// iguais no começo e no fim, e por caractere só o que sobra; várias edições separadas viram um trecho só, que vai da
+/// primeira à última. Serve para os diagnósticos acompanharem o texto (ver [`shift_range`]).
+pub fn diff(old: &str, new: &str) -> (Range, String) {
+    let old: Vec<&str> = old.split('\n').collect();
+    let new: Vec<&str> = new.split('\n').collect();
+    let top = old.iter().zip(&new).take_while(|(a, b)| a == b).count();
+    let room = old.len().min(new.len()) - top;
+    let bottom = old.iter().rev().zip(new.iter().rev()).take(room).take_while(|(a, b)| a == b).count();
+    // Cada linha com o seu `\n`, para uma linha inteira inserida ou apagada aparecer como tal.
+    let window = |lines: &[&str]| -> Vec<char> { lines.iter().flat_map(|l| l.chars().chain(['\n'])).collect() };
+    let a = window(&old[top..old.len() - bottom]);
+    let b = window(&new[top..new.len() - bottom]);
+    let prefix = a.iter().zip(&b).take_while(|(x, y)| x == y).count();
+    let room = a.len().min(b.len()) - prefix;
+    let suffix = a.iter().rev().zip(b.iter().rev()).take(room).take_while(|(x, y)| x == y).count();
+    let from = advance(Position::new(top as u32, 0), &a[..prefix]);
+    let to = advance(from, &a[prefix..a.len() - suffix]);
+    (Range { start: from, end: to }, b[prefix..b.len() - suffix].iter().collect())
+}
+
+/// `p` depois de andar pelos caracteres `chars`.
+fn advance(p: Position, chars: &[char]) -> Position {
+    chars.iter().fold(p, |p, &c| if c == '\n' { Position::new(p.line + 1, 0) } else { Position::new(p.line, p.character + 1) })
+}
+
+/// Onde `r` fica depois de o trecho `change` virar `text` (posições em caracteres). Um diagnóstico acompanha o texto
+/// editado antes de o servidor mandar a lista nova (o `cargo check` do rust-analyzer só roda ao salvar). Texto
+/// inserido logo antes empurra o intervalo; logo depois do fim, não o estica. Um ponto dentro do trecho trocado fica
+/// onde está (limitado ao fim do texto novo): o editor manda linhas inteiras reescritas, e às vezes o documento todo,
+/// e levar o ponto para a borda do trecho esticaria o sublinhado pela linha ou o jogaria no começo do arquivo.
+pub fn shift_range(r: Range, change: Range, text: &str) -> Range {
+    let (cs, ce) = (change.start, change.end);
+    let lines = text.matches('\n').count() as u32;
+    let last = text.rsplit('\n').next().unwrap_or_default().chars().count() as u32;
+    let new_end = if lines == 0 { Position::new(cs.line, cs.character + last) } else { Position::new(cs.line + lines, last) };
+    let after = |p: Position| {
+        if p.line == ce.line {
+            Position::new(new_end.line, new_end.character + (p.character - ce.character))
+        } else {
+            Position::new(p.line - ce.line + new_end.line, p.character)
+        }
+    };
+    let map = |p: Position, is_end: bool| {
+        if p < cs || (is_end && p == cs) {
+            p
+        } else if p >= ce {
+            after(p)
+        } else {
+            p.min(new_end)
+        }
+    };
+    let start = map(r.start, false);
+    let end = map(r.end, true).max(start);
+    Range { start, end }
+}
+
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn diff_finds_the_exact_change() {
+        let r = |a: (u32, u32), b: (u32, u32)| Range { start: Position::new(a.0, a.1), end: Position::new(b.0, b.1) };
+        let src = "fn main() {\n    let t = soma(2, 3);\n}\n";
+        assert_eq!(diff(src, &format!("\n{src}")), (r((0, 0), (0, 0)), "\n".to_string()), "Enter no começo");
+        let with_use = format!("use std::collections::HashMap;\n\n{src}");
+        assert_eq!(diff(src, &with_use), (r((0, 0), (0, 0)), "use std::collections::HashMap;\n\n".to_string()));
+        assert_eq!(diff(src, &src.replace("let t", "let tt")), (r((1, 9), (1, 9)), "t".to_string()), "letra no meio");
+        assert_eq!(diff(src, &src.replace("soma", "")), (r((1, 12), (1, 16)), String::new()), "apagar");
+        assert_eq!(diff(src, &src.replace("    let t = soma(2, 3);\n", "")), (r((1, 0), (2, 0)), String::new()), "linha apagada");
+        let (range, text) = diff(src, src);
+        assert!(range.start == range.end && text.is_empty(), "nada mudou: {range:?} {text:?}");
+        assert_eq!(diff("aa", "aaa"), (r((0, 2), (0, 2)), "a".to_string()), "o começo comum não invade o fim comum");
+        // Duas edições separadas: um trecho só, da primeira à última.
+        assert_eq!(diff("a b c", "x b y"), (r((0, 0), (0, 5)), "x b y".to_string()));
+    }
+
+    #[test]
+    fn diagnostics_follow_edits() {
+        let r = |a: (u32, u32), b: (u32, u32)| Range { start: Position::new(a.0, a.1), end: Position::new(b.0, b.1) };
+        let at = |l, c| r((l, c), (l, c));
+        let soma = r((3, 16), (3, 20));
+        // `use` e uma linha em branco inseridos no topo: desce duas linhas.
+        assert_eq!(shift_range(soma, at(0, 0), "use std::collections::HashMap;\n\n"), r((5, 16), (5, 20)));
+        // Texto antes, na mesma linha: anda para a direita; em outra linha depois: nada muda.
+        assert_eq!(shift_range(soma, at(3, 4), "mut "), r((3, 20), (3, 24)));
+        assert_eq!(shift_range(soma, at(5, 0), "x"), soma);
+        // Digitar logo depois do fim não estica; logo antes do começo empurra.
+        assert_eq!(shift_range(soma, at(3, 20), "x"), soma);
+        assert_eq!(shift_range(soma, at(3, 16), "x"), r((3, 17), (3, 21)));
+        // Linhas apagadas acima sobem; o trecho apagado por dentro encolhe; apagar tudo deixa vazio no lugar.
+        assert_eq!(shift_range(soma, r((1, 0), (3, 0)), ""), r((1, 16), (1, 20)));
+        assert_eq!(shift_range(soma, r((3, 17), (3, 19)), ""), r((3, 16), (3, 18)));
+        assert_eq!(shift_range(soma, r((3, 10), (3, 30)), ""), at(3, 10));
+        // Quebra de linha no meio do intervalo: o fim vai para a linha nova.
+        assert_eq!(shift_range(soma, at(3, 18), "\n    "), r((3, 16), (4, 6)));
+        // Como o editor manda: a linha inteira reescrita com uma letra a mais antes do erro. O sublinhado fica (não
+        // estica pela linha).
+        let linha = "    let total = soma(2, 3);";
+        assert_eq!(shift_range(soma, r((3, 0), (3, 26)), &format!("x{linha}")), soma);
+        // O `use` aplicado pela ação, reescrevendo a primeira linha: as de baixo descem duas.
+        assert_eq!(shift_range(soma, r((0, 0), (0, 11)), "use std::collections::HashMap;\n\nfn main() {"), r((5, 16), (5, 20)));
+        // O documento inteiro trocado: fica onde está, limitado ao texto novo.
+        assert_eq!(shift_range(soma, r((0, 0), (8, 1)), "fn main() {}\n\n\nfn soma() {}\n"), soma);
+        assert_eq!(shift_range(soma, r((0, 0), (8, 1)), "fn main() {}\n"), at(1, 0));
+        // Fim depois do trecho trocado, na mesma linha do fim dele.
+        assert_eq!(shift_range(r((2, 0), (3, 8)), r((3, 0), (3, 4)), "ab\nc"), r((2, 0), (4, 5)));
+    }
+
     use super::*;
 
     fn r(l1: u32, c1: u32, l2: u32, c2: u32) -> Range {

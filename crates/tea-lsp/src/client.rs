@@ -15,7 +15,7 @@ use crate::text::{DocText, Encoding, Position, Range};
 use crate::transport::{read_message, write_message};
 use crate::uri::{path_to_uri, uri_to_path};
 use crate::{
-    Call, CallDirection, CallItem, Diagnostic, DocumentSymbol, Event, FileEdits, Location, Lookup, MessageLevel, ServerConfig, TextEdit,
+    Call, CallDirection, CallItem, CodeAction, Diagnostic, DocumentSymbol, Event, FileEdits, Location, Lookup, MessageLevel, ServerCommand, ServerConfig, TextEdit,
     WorkspaceSymbol,
 };
 
@@ -53,6 +53,11 @@ struct State {
     alive: bool,
     /// Caracteres que abrem ou atualizam a dica de parâmetros (`(`, `,`). Vazio: o servidor não dá dica.
     signature_triggers: Vec<char>,
+    /// Os diagnósticos de cada arquivo como o servidor mandou (com `data`): o pedido de ações devolve os que tocam
+    /// a seleção, e alguns servidores só acham a correção por eles.
+    raw_diagnostics: HashMap<PathBuf, Vec<Value>>,
+    /// O servidor completa uma ação escolhida com `codeAction/resolve` (a lista vem sem as edições).
+    resolves_code_actions: bool,
 }
 
 enum Pending {
@@ -70,6 +75,10 @@ enum Pending {
     Calls { token: u64, direction: CallDirection, from: PathBuf },
     Formatting(PathBuf),
     Rename { new_name: String },
+    CodeActions(PathBuf),
+    /// A ação escolhida, para completar com as edições.
+    ResolveCodeAction { title: String },
+    ExecuteCommand { title: String },
     Shutdown,
 }
 
@@ -108,6 +117,8 @@ impl Client {
                 progress_titles: HashMap::new(),
                 alive: true,
                 signature_triggers: Vec::new(),
+                raw_diagnostics: HashMap::new(),
+                resolves_code_actions: false,
             }),
             child: Mutex::new(Some(child)),
             last_stderr: Mutex::new(Vec::new()),
@@ -195,7 +206,9 @@ impl Client {
                     "workspaceFolders": true,
                     "configuration": true,
                     "symbol": {},
-                    "workspaceEdit": { "documentChanges": true }
+                    "workspaceEdit": { "documentChanges": true },
+                    "applyEdit": true,
+                    "executeCommand": {}
                 },
                 "window": { "workDoneProgress": true },
                 "textDocument": {
@@ -217,6 +230,18 @@ impl Client {
                     "callHierarchy": {},
                     "formatting": {},
                     "rename": { "prepareSupport": false },
+                    "codeAction": {
+                        "codeActionLiteralSupport": {
+                            "codeActionKind": {
+                                "valueSet": ["", "quickfix", "refactor", "refactor.extract", "refactor.inline",
+                                    "refactor.rewrite", "source", "source.organizeImports", "source.fixAll"]
+                            }
+                        },
+                        "isPreferredSupport": true,
+                        "disabledSupport": true,
+                        "dataSupport": true,
+                        "resolveSupport": { "properties": ["edit"] }
+                    },
                     "publishDiagnostics": { "relatedInformation": false }
                 }
             }
@@ -399,6 +424,68 @@ impl Client {
         st.request("textDocument/rename", params, Pending::Rename { new_name: new_name.to_string() });
     }
 
+    /// Ações de código para `range` (em caracteres; vazio = o cursor) em `path`, com os diagnósticos que tocam ali.
+    /// Resposta em [`Event::CodeActions`].
+    pub fn code_actions(&self, path: &Path, range: Range) {
+        let mut st = self.inner.lock();
+        let enc = st.encoding;
+        let Some(doc) = st.docs.get(path) else { return };
+        let r = Range { start: doc.to_server(range.start, enc), end: doc.to_server(range.end, enc) };
+        let diagnostics: Vec<Value> = st
+            .raw_diagnostics
+            .get(path)
+            .into_iter()
+            .flatten()
+            .filter(|d| d.get("range").and_then(protocol::range).is_some_and(|dr| protocol::touches(dr, r)))
+            .cloned()
+            .collect();
+        let params = json!({
+            "textDocument": { "uri": path_to_uri(path) },
+            "range": protocol::range_json(r),
+            "context": { "diagnostics": diagnostics, "triggerKind": 1 }
+        });
+        st.request("textDocument/codeAction", params, Pending::CodeActions(path.to_path_buf()));
+    }
+
+    /// Aplica uma ação de [`Event::CodeActions`]. As edições voltam em [`Event::ApplyEdit`] (agora, ou depois de
+    /// pedir ao servidor que complete a ação); uma ação que é só um comando vai direto para o servidor.
+    pub fn apply_code_action(&self, action: &CodeAction) {
+        let raw = action.raw.as_ref();
+        let event = {
+            let mut st = self.inner.lock();
+            if let Some(edit) = raw.get("edit") {
+                let command = protocol::action_command(raw).map(|c| server_command(&action.title, c));
+                Some(Event::ApplyEdit { label: action.title.clone(), files: st.file_edits(edit), command })
+            } else if raw.get("command").is_some_and(Value::is_string) {
+                // `Command` solto: não há o que completar.
+                drop(st);
+                self.execute_command(&server_command(&action.title, raw.clone()));
+                None
+            } else if st.resolves_code_actions {
+                st.request("codeAction/resolve", raw.clone(), Pending::ResolveCodeAction { title: action.title.clone() });
+                None
+            } else {
+                let command = protocol::action_command(raw).map(|c| server_command(&action.title, c));
+                Some(Event::ApplyEdit { label: action.title.clone(), files: Vec::new(), command })
+            }
+        };
+        if let Some(e) = event {
+            (self.inner.sink)(e);
+        }
+    }
+
+    /// Executa um comando do servidor (`workspace/executeCommand`). Se ele mudar arquivos, as edições chegam em
+    /// [`Event::ApplyEdit`]; se falhar, em [`Event::Message`].
+    pub fn execute_command(&self, command: &ServerCommand) {
+        let raw = command.raw.as_ref();
+        let Some(name) = raw.get("command").and_then(Value::as_str) else { return };
+        let mut params = json!({ "command": name });
+        if let Some(args) = raw.get("arguments") {
+            params["arguments"] = args.clone();
+        }
+        self.inner.lock().request("workspace/executeCommand", params, Pending::ExecuteCommand { title: command.title.clone() });
+    }
+
     fn position_request(&self, method: &str, path: &Path, position: Position, pending: Pending) {
         let mut st = self.inner.lock();
         let enc = st.encoding;
@@ -501,6 +588,22 @@ impl State {
         })
     }
 
+    /// `WorkspaceEdit` → edições por arquivo, em caracteres (texto da aba aberta, ou o do disco).
+    fn file_edits(&self, edit: &Value) -> Vec<FileEdits> {
+        let mut disk = HashMap::new();
+        protocol::workspace_edit(edit)
+            .into_iter()
+            .filter_map(|(uri, edits)| {
+                let path = uri_to_path(&uri)?;
+                let edits = edits
+                    .into_iter()
+                    .map(|(r, new_text)| TextEdit { range: self.to_chars(&path, r, &mut disk), new_text })
+                    .collect();
+                Some(FileEdits { path, edits })
+            })
+            .collect()
+    }
+
     fn to_chars(&self, path: &Path, r: Range, disk: &mut HashMap<PathBuf, Option<DocText>>) -> Range {
         if self.encoding == Encoding::Utf32 {
             return r;
@@ -526,10 +629,7 @@ impl Inner {
             let mut st = self.lock();
             let method = msg.get("method").and_then(Value::as_str).map(str::to_string);
             match (method, msg.get("id").cloned()) {
-                (Some(method), Some(id)) => {
-                    self.reply_to_server(&mut st, &method, id, msg.get("params"));
-                    Vec::new()
-                }
+                (Some(method), Some(id)) => self.reply_to_server(&mut st, &method, id, msg.get("params")),
                 (Some(method), None) => self.notification(&mut st, &method, msg.get("params").unwrap_or(&Value::Null)),
                 (None, Some(id)) => self.response(&mut st, &id, &msg),
                 (None, None) => Vec::new(),
@@ -541,7 +641,8 @@ impl Inner {
     }
 
     /// Pedidos que o servidor faz para o cliente.
-    fn reply_to_server(&self, st: &mut State, method: &str, id: Value, params: Option<&Value>) {
+    fn reply_to_server(&self, st: &mut State, method: &str, id: Value, params: Option<&Value>) -> Vec<Event> {
+        let mut events = Vec::new();
         let result = match method {
             // Um `null` por item pedido: "use seus padrões".
             "workspace/configuration" => {
@@ -550,12 +651,24 @@ impl Inner {
             }
             "window/workDoneProgress/create" | "client/registerCapability" | "client/unregisterCapability" => Value::Null,
             "workspace/workspaceFolders" => Value::Null,
+            // Edições que o servidor quer aplicar (ao executar um comando, por exemplo). A IDE aplica nas abas; a
+            // resposta não espera por isso.
+            "workspace/applyEdit" => {
+                let edit = params.and_then(|p| p.get("edit")).unwrap_or(&Value::Null);
+                let label = params.and_then(|p| p.get("label")).and_then(Value::as_str).unwrap_or_default().to_string();
+                let files = st.file_edits(edit);
+                if !files.is_empty() {
+                    events.push(Event::ApplyEdit { label, files, command: None });
+                }
+                json!({ "applied": true })
+            }
             _ => {
                 st.write(json!({ "jsonrpc": "2.0", "id": id, "error": { "code": -32601, "message": "método não suportado" } }));
-                return;
+                return events;
             }
         };
         st.write(json!({ "jsonrpc": "2.0", "id": id, "result": result }));
+        events
     }
 
     fn notification(&self, st: &mut State, method: &str, params: &Value) -> Vec<Event> {
@@ -564,6 +677,8 @@ impl Inner {
             "textDocument/publishDiagnostics" => {
                 let Some((uri, raw)) = protocol::diagnostics(params) else { return Vec::new() };
                 let Some(path) = uri_to_path(&uri) else { return Vec::new() };
+                let originals = params.get("diagnostics").and_then(Value::as_array).cloned().unwrap_or_default();
+                st.raw_diagnostics.insert(path.clone(), originals);
                 let mut disk = HashMap::new();
                 let diagnostics = raw
                     .into_iter()
@@ -630,7 +745,12 @@ impl Inner {
                 // o servidor ainda está carregando o projeto ou o texto mudou no meio.
                 if matches!(
                     pending,
-                    Pending::Definition { .. } | Pending::Locations { .. } | Pending::CallRoots { .. } | Pending::Rename { .. }
+                    Pending::Definition { .. }
+                        | Pending::Locations { .. }
+                        | Pending::CallRoots { .. }
+                        | Pending::Rename { .. }
+                        | Pending::CodeActions(_)
+                        | Pending::ResolveCodeAction { .. }
                 ) {
                     let text = "ainda carregando o projeto, tente de novo em instantes".to_string();
                     return vec![Event::Message { server, level: MessageLevel::Info, text }];
@@ -662,6 +782,16 @@ impl Inner {
                 }
                 // Ex.: "não dá para renomear isto" (palavra-chave, símbolo da biblioteca padrão).
                 Pending::Rename { .. } => return vec![Event::RenameFailed { message: text }],
+                // A ação ou o comando não deu certo: quem escolheu precisa saber.
+                Pending::ResolveCodeAction { title } | Pending::ExecuteCommand { title } => {
+                    return vec![Event::Message { server, level: MessageLevel::Warning, text: format!("{title}: {text}") }];
+                }
+                Pending::CodeActions(path) => {
+                    return vec![
+                        Event::Log { server, text: format!("erro na resposta: {text}") },
+                        Event::CodeActions { path, actions: Vec::new() },
+                    ];
+                }
                 // Erro na dica (ex.: ainda carregando): só some, sem registro.
                 Pending::SignatureHelp(path) => return vec![Event::SignatureHelp { path, help: None }],
                 _ => {}
@@ -685,6 +815,11 @@ impl Inner {
                 };
                 st.incremental = change != Some(1);
                 st.signature_triggers = protocol::signature_triggers(caps);
+                st.resolves_code_actions = caps
+                    .get("codeActionProvider")
+                    .and_then(|c| c.get("resolveProvider"))
+                    .and_then(Value::as_bool)
+                    .unwrap_or(false);
                 st.ready = true;
                 st.write(notification("initialized", json!({})));
                 for queued in std::mem::take(&mut st.outbox) {
@@ -778,25 +913,37 @@ impl Inner {
                     .collect();
                 vec![Event::Formatting { path, edits }]
             }
-            Pending::Rename { new_name } => {
-                let mut disk = HashMap::new();
-                let files = protocol::workspace_edit(result)
+            Pending::Rename { new_name } => vec![Event::Rename { new_name, files: st.file_edits(result) }],
+            Pending::CodeActions(path) => {
+                let actions = protocol::code_actions(result)
                     .into_iter()
-                    .filter_map(|(uri, edits)| {
-                        let path = uri_to_path(&uri)?;
-                        let edits = edits
-                            .into_iter()
-                            .map(|(r, new_text)| TextEdit { range: st.to_chars(&path, r, &mut disk), new_text })
-                            .collect();
-                        Some(FileEdits { path, edits })
+                    .map(|a| CodeAction {
+                        title: a.title,
+                        kind: a.kind,
+                        preferred: a.preferred,
+                        disabled: a.disabled,
+                        raw: Arc::new(a.raw),
                     })
                     .collect();
-                vec![Event::Rename { new_name, files }]
+                vec![Event::CodeActions { path, actions }]
             }
+            Pending::ResolveCodeAction { title } => {
+                let files = result.get("edit").map(|e| st.file_edits(e)).unwrap_or_default();
+                let command = protocol::action_command(result).map(|c| server_command(&title, c));
+                if files.is_empty() && command.is_none() {
+                    return vec![Event::Message { server, level: MessageLevel::Info, text: format!("{title}: nada a mudar") }];
+                }
+                vec![Event::ApplyEdit { label: title, files, command }]
+            }
+            Pending::ExecuteCommand { .. } => Vec::new(),
             Pending::Shutdown => {
                 st.write(notification("exit", Value::Null));
                 Vec::new()
             }
         }
     }
+}
+
+fn server_command(title: &str, raw: Value) -> ServerCommand {
+    ServerCommand { title: title.to_string(), raw: Arc::new(raw) }
 }

@@ -42,6 +42,9 @@ Die vollständige Liste, für die technische Leserschaft. Die Kurzfassung steht 
 
 - Fehler und Warnungen (Wellenunterstreichung und Hover mit der Diagnose im Editor, Bereich Probleme und ein Zähler in der Statusleiste),
   Vervollständigung, Gehe zu Definition, Formatieren.
+- Code-Aktionen (`Ctrl+.`): die Korrekturen und Refactorings, die der Server für den Fehler oder die Auswahl
+  anbietet (fehlender Import, Funktion erzeugen, Variable extrahieren), die empfohlene zuerst. Die Unterstreichungen
+  folgen dem bearbeiteten Text, bis der Server neue Diagnosen schickt.
 - Gehe zu Implementierung (`Ctrl+F12`) und zum Typ; bei mehreren Ergebnissen geht die Liste in den Bereich.
 - Verweise suchen (`Shift+F12` oder `Ctrl+Klick` auf die Deklaration), nach Datei gruppiert, und zurück/vorwärts nach jedem
   Sprung (`Alt+←` / `Alt+→` oder die Seitentasten der Maus).

@@ -376,6 +376,52 @@ pub fn workspace_edit(result: &Value) -> Vec<(String, Vec<(Range, String)>)> {
     out
 }
 
+/// Uma ação da resposta de `textDocument/codeAction`: um `CodeAction` ou um `Command` solto (servidores antigos).
+pub struct RawCodeAction {
+    pub title: String,
+    pub kind: String,
+    pub preferred: bool,
+    pub disabled: Option<String>,
+    pub raw: Value,
+}
+
+/// Resposta de `textDocument/codeAction`, com as preferidas primeiro (na ordem do servidor entre si).
+pub fn code_actions(result: &Value) -> Vec<RawCodeAction> {
+    let mut out: Vec<RawCodeAction> = result
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter_map(|a| {
+            let title = a.get("title")?.as_str()?.to_string();
+            Some(RawCodeAction {
+                title,
+                kind: a.get("kind").and_then(Value::as_str).unwrap_or_default().to_string(),
+                preferred: a.get("isPreferred").and_then(Value::as_bool).unwrap_or(false),
+                disabled: a
+                    .get("disabled")
+                    .map(|d| d.get("reason").and_then(Value::as_str).unwrap_or_default().to_string()),
+                raw: a.clone(),
+            })
+        })
+        .collect();
+    out.sort_by_key(|a| !a.preferred);
+    out
+}
+
+/// O comando de uma ação: o próprio item, se for um `Command` solto (`command` é o nome), ou o campo `command`.
+pub fn action_command(action: &Value) -> Option<Value> {
+    match action.get("command")? {
+        Value::String(_) => Some(action.clone()),
+        c @ Value::Object(_) => Some(c.clone()),
+        _ => None,
+    }
+}
+
+/// `a` e `b` se tocam (encostar conta: o cursor no fim de um erro pede as correções dele).
+pub fn touches(a: Range, b: Range) -> bool {
+    a.start <= b.end && b.start <= a.end
+}
+
 pub struct RawDiagnostic {
     pub range: Range,
     pub severity: Severity,
@@ -415,6 +461,44 @@ pub fn diagnostics(params: &Value) -> Option<(String, Vec<RawDiagnostic>)> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn code_actions_preferred_first_and_both_shapes() {
+        use serde_json::json;
+        let r = json!([
+            { "title": "Extrair variável", "kind": "refactor.extract" },
+            { "title": "Rodar teste", "command": "rust-analyzer.runSingle", "arguments": [1] },
+            { "title": "Importar HashMap", "kind": "quickfix", "isPreferred": true,
+              "edit": { "changes": {} } },
+            { "title": "Inline", "kind": "refactor.inline", "disabled": { "reason": "nada para inline" } },
+            { "kind": "quickfix" }
+        ]);
+        let got = code_actions(&r);
+        let titles: Vec<&str> = got.iter().map(|a| a.title.as_str()).collect();
+        assert_eq!(titles, ["Importar HashMap", "Extrair variável", "Rodar teste", "Inline"], "sem título fica de fora");
+        assert_eq!(got[0].kind, "quickfix");
+        assert_eq!(got[2].kind, "", "Command solto não tem tipo");
+        assert_eq!(got[3].disabled.as_deref(), Some("nada para inline"));
+        assert!(code_actions(&Value::Null).is_empty());
+
+        // Comando: o item inteiro (Command solto) ou o campo `command` (CodeAction).
+        assert_eq!(action_command(&got[2].raw).unwrap()["command"], "rust-analyzer.runSingle");
+        let with = json!({ "title": "x", "command": { "title": "y", "command": "fix" } });
+        assert_eq!(action_command(&with).unwrap()["command"], "fix");
+        assert!(action_command(&got[0].raw).is_none());
+    }
+
+    #[test]
+    fn ranges_touch() {
+        let r = |a: (u32, u32), b: (u32, u32)| Range { start: Position::new(a.0, a.1), end: Position::new(b.0, b.1) };
+        let error = r((3, 4), (3, 10));
+        assert!(touches(error, r((3, 6), (3, 6))), "cursor dentro");
+        assert!(touches(error, r((3, 10), (3, 10))), "cursor no fim");
+        assert!(touches(error, r((3, 4), (3, 4))), "cursor no começo");
+        assert!(!touches(error, r((3, 11), (3, 11))));
+        assert!(!touches(error, r((2, 0), (2, 80))));
+        assert!(touches(error, r((1, 0), (5, 0))), "seleção que cobre");
+    }
 
     #[test]
     fn signature_help_shapes() {

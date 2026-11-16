@@ -192,6 +192,8 @@ pub struct Editor {
     hover: Option<PendingHover>,
     /// Diagnósticos por servidor: uma resposta vazia limpa só quem a enviou.
     diagnostics: BTreeMap<String, Vec<tea_lsp::Diagnostic>>,
+    /// O texto ao qual os diagnósticos guardados se referem, e a revisão dele (ver `follow_edits`).
+    diagnostics_text: Option<(u64, String)>,
     /// Linhas com breakpoint (começando em 0). Andam junto com o texto ao editar.
     breakpoints: BTreeSet<usize>,
     /// Linha onde o programa parou no debug (começando em 0).
@@ -295,6 +297,7 @@ impl Editor {
             theme: Theme::TokyoNight,
             lsp: None,
             revision: Default::default(),
+            diagnostics_text: None,
             overlay: LspOverlayState::new(),
             hover: None,
             diagnostics: BTreeMap::new(),
@@ -399,6 +402,7 @@ impl Editor {
         }
         let range = iced_code_editor::LspRange { start: lsp_position(&old, prefix), end: lsp_position(&old, old_end) };
         self.inner.apply_lsp_text_edits(&[LspTextChange { range, text: new[prefix..new_end].to_string() }]);
+        self.follow_edits();
     }
 
     /// Linha e coluna do cursor, começando em 1.
@@ -622,6 +626,12 @@ impl Editor {
     }
 
     pub fn update(&mut self, message: EditorMessage) -> Task<EditorMessage> {
+        let task = self.update_inner(message);
+        self.follow_edits();
+        task
+    }
+
+    fn update_inner(&mut self, message: EditorMessage) -> Task<EditorMessage> {
         match message.0 {
             Msg::Pdf(m) => {
                 let Some(pdf) = &mut self.pdf else { return Task::none() };
@@ -813,12 +823,35 @@ impl Editor {
 
     /// Substitui os diagnósticos de um servidor e redesenha os sublinhados de todos.
     pub fn set_diagnostics(&mut self, source: &str, diagnostics: &[tea_lsp::Diagnostic]) {
-        use iced_code_editor::{Diagnostic as Mark, DiagnosticSeverity};
+        // As edições de antes valem para os outros servidores; a lista nova já é do texto atual.
+        self.follow_edits();
         if diagnostics.is_empty() {
             self.diagnostics.remove(source);
         } else {
             self.diagnostics.insert(source.to_string(), diagnostics.to_vec());
         }
+        self.diagnostics_text = (!self.diagnostics.is_empty()).then(|| (self.text_revision(), self.text()));
+        self.push_diagnostics();
+    }
+
+    /// Leva os diagnósticos guardados para onde o texto editado os deixou, sem esperar o servidor (o `cargo check`
+    /// do rust-analyzer só roda ao salvar). Chamado depois de cada mensagem e de cada edição feita pela IDE.
+    /// Compara o texto de agora com o dos diagnósticos (e não usa os trechos que o widget manda ao servidor: são
+    /// linhas inteiras reescritas, às vezes o documento todo com o fim desencontrado).
+    fn follow_edits(&mut self) {
+        let revision = self.text_revision();
+        let Some((_, old)) = self.diagnostics_text.take_if(|(seen, _)| *seen != revision) else { return };
+        let new = self.text();
+        let (range, text) = tea_lsp::diff(&old, &new);
+        for d in self.diagnostics.values_mut().flatten() {
+            d.range = tea_lsp::shift_range(d.range, range, &text);
+        }
+        self.diagnostics_text = Some((revision, new));
+        self.push_diagnostics();
+    }
+
+    fn push_diagnostics(&mut self) {
+        use iced_code_editor::{Diagnostic as Mark, DiagnosticSeverity};
         let all = self
             .diagnostics
             .values()
@@ -859,6 +892,7 @@ impl Editor {
             self.inner.detach_lsp();
         }
         self.diagnostics.clear();
+        self.diagnostics_text = None;
         self.inner.set_diagnostics(Vec::new());
         self.overlay.clear_hover();
         self.overlay.clear_completions();
@@ -1184,6 +1218,30 @@ impl Editor {
         true
     }
 
+    /// Pede as ações de código para a seleção, ou para o cursor sem seleção. Resposta em
+    /// `tea_lsp::Event::CodeActions`.
+    pub fn request_code_actions(&mut self) -> bool {
+        let (Some(link), Some(path)) = (&self.lsp, &self.path) else { return false };
+        self.inner.lsp_flush_pending_changes();
+        let pos = |(l, c): (usize, usize)| tea_lsp::Position::new(l as u32, c as u32);
+        let range = match self.inner.selection_range() {
+            Some((start, end)) => tea_lsp::Range { start: pos(start), end: pos(end) },
+            None => {
+                let at = pos(self.inner.cursor_position());
+                tea_lsp::Range { start: at, end: at }
+            }
+        };
+        link.client.code_actions(path, range);
+        true
+    }
+
+    /// Manda já ao servidor as mudanças que esperavam a pausa na digitação (antes de executar um comando dele).
+    pub fn flush_lsp_changes(&mut self) {
+        if self.lsp.is_some() {
+            self.inner.lsp_flush_pending_changes();
+        }
+    }
+
     pub fn request_formatting(&mut self) -> bool {
         self.lsp.is_some() && self.inner.lsp_request_formatting()
     }
@@ -1194,6 +1252,7 @@ impl Editor {
             .map(|e| LspTextChange { range: lsp::to_widget_range(e.range), text: e.new_text.clone() })
             .collect();
         self.inner.apply_lsp_text_edits(&changes);
+        self.follow_edits();
     }
 
     pub fn show_completions(&mut self, items: Vec<tea_lsp::CompletionItem>) {
@@ -1247,6 +1306,7 @@ impl Editor {
             end: tea_lsp::Position::new(line as u32, column as u32),
         };
         self.inner.apply_lsp_text_edits(&[LspTextChange { range: lsp::to_widget_range(range), text: insert }]);
+        self.follow_edits();
         self.focus();
     }
 }
@@ -1511,6 +1571,48 @@ mod tests {
         click(&mut editor, at(1, 3), Modifiers::empty());
         let _ = editor.update(EditorMessage(Msg::Widget(Inner::CharacterInput('X'))));
         assert_eq!(editor.text(), "abcdefgh\nijkXlmnop\nqrstuvwx\n");
+    }
+
+    /// O sublinhado acompanha o texto editado antes de o servidor mandar a lista nova (o `cargo check` do
+    /// rust-analyzer só roda ao salvar): Enter acima do erro e um `use` aplicado no topo descem ele junto.
+    #[test]
+    fn diagnostics_follow_the_text_until_the_server_answers() {
+        use tea_lsp::{Diagnostic, Position, Range, Severity};
+        let mut editor = Editor::from_text(&tmp("segue.rs"), "fn main() {\n    let t = soma(2, 3);\n}\n");
+        // Um servidor que sai logo (o próprio binário de teste): a ponte anota as edições mesmo assim.
+        let server = tea_lsp::ServerConfig {
+            name: "falso".into(),
+            command: std::env::current_exe().unwrap().to_string_lossy().into_owned(),
+            args: vec!["--list".into()],
+            languages: vec![("rs".into(), "rust".into())],
+        };
+        let client = tea_lsp::Client::start(&server, &std::env::temp_dir(), std::sync::Arc::new(|_| {})).unwrap();
+        editor.attach_lsp(client.clone(), "rust");
+        let soma = Range { start: Position::new(1, 12), end: Position::new(1, 16) };
+        let d = Diagnostic { range: soma, severity: Severity::Error, message: "soma?".into(), source: None, code: None };
+        editor.set_diagnostics("rustc", &[d]);
+        let lines = |editor: &Editor| {
+            let w = editor.inner.diagnostics().iter().map(|d| (d.range.start.line, d.range.start.character)).collect::<Vec<_>>();
+            (w, editor.diagnostics_on(1, 99).iter().map(|d| d.range.start.line).collect::<Vec<_>>())
+        };
+
+        // Enter no começo do arquivo (o cursor começa lá).
+        editor.focus();
+        let _ = editor.update(EditorMessage(Msg::Widget(Inner::Enter)));
+        assert_eq!(lines(&editor), (vec![(2, 12)], vec![2]));
+
+        // Uma ação de código que põe o `use` no topo.
+        let use_line = tea_lsp::TextEdit {
+            range: Range { start: Position::new(0, 0), end: Position::new(0, 0) },
+            new_text: "use std::collections::HashMap;\n\n".into(),
+        };
+        editor.apply_formatting(&[use_line]);
+        assert_eq!(lines(&editor), (vec![(4, 12)], vec![4]));
+
+        // A lista nova do servidor substitui (já é do texto atual).
+        editor.set_diagnostics("rustc", &[]);
+        assert!(lines(&editor).0.is_empty());
+        client.kill_now();
     }
 
     #[test]

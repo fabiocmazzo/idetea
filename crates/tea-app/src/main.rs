@@ -417,6 +417,7 @@ const CORE_COMMANDS: &[(&str, &str)] = &[
     ("lsp.hover", "cmd-lsp-hover"),
     ("lsp.format", "cmd-lsp-format"),
     ("lsp.rename", "cmd-lsp-rename"),
+    ("lsp.code_actions", "cmd-lsp-code-actions"),
     ("lsp.restart", "cmd-lsp-restart"),
     ("theme.toggle", "cmd-theme-toggle"),
     ("config.open", "cmd-config-open"),
@@ -434,6 +435,20 @@ const CORE_COMMANDS: &[(&str, &str)] = &[
     ("app.restart", "cmd-app-restart"),
     ("app.quit", "cmd-app-quit"),
 ];
+
+/// Item escolhido na lista de ações de código (índice em `code_actions`).
+#[derive(Debug, Clone, Copy)]
+struct CodeActionChoice(usize);
+
+/// O tipo da ação, para mostrar ao lado do título.
+fn code_action_kind(kind: &str) -> String {
+    match kind.split('.').next().unwrap_or_default() {
+        "quickfix" => fl!("code-action-kind-quickfix"),
+        "refactor" => fl!("code-action-kind-refactor"),
+        "source" => fl!("code-action-kind-source"),
+        _ => String::new(),
+    }
+}
 
 const DARK_THEME: Theme = Theme::TokyoNight;
 const LIGHT_THEME: Theme = Theme::Light;
@@ -647,6 +662,8 @@ struct App {
     /// edições esperando a confirmação na prévia.
     rename_target: Option<(u64, usize, usize, String)>,
     rename_edits: Option<(String, Vec<tea_lsp::FileEdits>)>,
+    /// As ações de código mostradas na paleta, e o arquivo delas (o comando de uma ação vai para o servidor dele).
+    code_actions: Option<(PathBuf, Vec<tea_lsp::CodeAction>)>,
     /// O que foi gravado em `.idetea/state.json` (para `idetea status`), quando, e se há mudança esperando o
     /// intervalo mínimo.
     ide_state: Option<ide_state::State>,
@@ -825,6 +842,7 @@ impl App {
             pending_recovery: Vec::new(),
             rename_target: None,
             rename_edits: None,
+            code_actions: None,
             ide_state: None,
             ide_state_at: None,
             ide_state_due: false,
@@ -1678,6 +1696,14 @@ impl App {
     /// Abre os arquivos que faltam e aplica as edições como alterações não salvas (uma por arquivo no desfazer).
     fn apply_rename(&mut self) -> Task<Message> {
         let Some((_, files)) = self.rename_edits.take() else { return Task::none() };
+        let (mut tasks, done) = self.apply_file_edits(files);
+        tasks.push(self.notify(fl!("renamed", count = done)));
+        Task::batch(tasks)
+    }
+
+    /// Abre os arquivos que faltam e aplica as edições como alterações não salvas (uma por arquivo no desfazer), sem
+    /// tirar o foco da aba ativa. Devolve as tarefas e em quantos arquivos mexeu.
+    fn apply_file_edits(&mut self, files: Vec<tea_lsp::FileEdits>) -> (Vec<Task<Message>>, usize) {
         let active = self.tabs.get(self.active).map(|t| t.id);
         let mut tasks = Vec::new();
         let mut done = 0;
@@ -1694,7 +1720,80 @@ impl App {
             tasks.push(self.set_active(i));
         }
         tasks.push(self.text_later());
-        tasks.push(self.notify(fl!("renamed", count = done)));
+        (tasks, done)
+    }
+
+    // ---- Ações de código (Ctrl+.) ------------------------------------------
+
+    fn start_code_actions(&mut self) -> Task<Message> {
+        if self.editor().lsp_server().is_none() {
+            return self.no_lsp_note();
+        }
+        if self.editor_mut().request_code_actions() { Task::none() } else { self.no_lsp_note() }
+    }
+
+    /// Resposta do servidor: a lista na paleta (só se ainda for o arquivo ativo).
+    fn show_code_actions(&mut self, path: PathBuf, actions: Vec<tea_lsp::CodeAction>) -> Task<Message> {
+        if self.active_path() != Some(path.as_path()) {
+            return Task::none();
+        }
+        if actions.is_empty() {
+            return self.notify(fl!("code-actions-none"));
+        }
+        let mut pick = tea_core::pick::Pick::new(fl!("code-actions-placeholder"));
+        for (i, a) in actions.iter().enumerate() {
+            let detail = match &a.disabled {
+                Some(reason) if reason.is_empty() => fl!("code-action-unavailable"),
+                Some(reason) => reason.clone(),
+                None => code_action_kind(&a.kind),
+            };
+            let icon = if a.disabled.is_some() {
+                None
+            } else if a.preferred {
+                Some(tea_core::icons::Icon::Check)
+            } else {
+                None
+            };
+            pick = pick.item(icon, a.title.clone(), detail, CodeActionChoice(i));
+        }
+        self.code_actions = Some((path, actions));
+        self.open_palette(Palette::pick(None, pick))
+    }
+
+    fn choose_code_action(&mut self, i: usize) -> Task<Message> {
+        let Some((path, action)) = self.code_actions.take().and_then(|(p, a)| a.into_iter().nth(i).map(|a| (p, a))) else {
+            return Task::none();
+        };
+        if let Some(reason) = &action.disabled {
+            return self.notify(if reason.is_empty() { fl!("code-action-unavailable") } else { reason.clone() });
+        }
+        match self.lsp.client_for(&path) {
+            Ok(Some((client, _))) => {
+                self.code_actions = Some((path, Vec::new()));
+                client.apply_code_action(&action);
+                Task::none()
+            }
+            _ => self.no_lsp_note(),
+        }
+    }
+
+    /// Edições de uma ação de código, ou pedidas pelo servidor. Aplica nas abas e depois manda o comando da ação,
+    /// com o texto novo já no servidor.
+    fn apply_edit(&mut self, label: String, files: Vec<tea_lsp::FileEdits>, command: Option<tea_lsp::ServerCommand>) -> Task<Message> {
+        let paths: Vec<PathBuf> = files.iter().map(|f| f.path.clone()).collect();
+        let (mut tasks, done) = if files.is_empty() { (Vec::new(), 0) } else { self.apply_file_edits(files) };
+        if let Some(command) = command {
+            for t in self.tabs.iter_mut().filter(|t| t.editor.path().is_some_and(|p| paths.iter().any(|q| q == p))) {
+                t.editor.flush_lsp_changes();
+            }
+            let path = self.code_actions.take().map(|(p, _)| p).or_else(|| self.active_path().map(Path::to_path_buf));
+            if let Some(Ok(Some((client, _)))) = path.map(|p| self.lsp.client_for(&p)) {
+                client.execute_command(&command);
+            }
+        }
+        if done > 0 && !label.is_empty() {
+            tasks.push(self.notify(fl!("code-action-applied", title = label, files = done)));
+        }
         Task::batch(tasks)
     }
 
@@ -2267,6 +2366,8 @@ impl App {
             },
             E::Rename { new_name, files } => self.preview_rename(new_name, files),
             E::RenameFailed { message } => self.notify(fl!("rename-failed", message = message)),
+            E::CodeActions { path, actions } => self.show_code_actions(path, actions),
+            E::ApplyEdit { label, files, command } => self.apply_edit(label, files, command),
             E::Formatting { path, edits } => {
                 // Formatou para salvar (Ctrl+S): grava em seguida, sem o aviso de "formatado".
                 if let Some(i) = self.format_save.and_then(|id| self.tab_index(id))
@@ -2907,6 +3008,7 @@ impl App {
                 Task::none()
             }
             "lsp.rename" => self.start_rename(),
+            "lsp.code_actions" => self.start_code_actions(),
             "lsp.format" => {
                 if self.editor_mut().request_formatting() {
                     Task::none()
@@ -3701,6 +3803,9 @@ impl App {
             None => {
                 if let Some(choice) = chosen.downcast_ref::<launcher::Choice>() {
                     return self.choose_agent(choice.clone());
+                }
+                if let Some(CodeActionChoice(i)) = chosen.downcast_ref::<CodeActionChoice>() {
+                    return self.choose_code_action(*i);
                 }
                 match chosen.downcast_ref::<tasks::TaskDef>() {
                     Some(task) => self.run_task(task.clone()),
@@ -5124,7 +5229,8 @@ mod tests {
         assert_eq!(command("`", ctrl).as_deref(), Some("terminal.focus"));
         assert_eq!(command("j", ctrl).as_deref(), Some("view.toggle_bottom"));
         assert_eq!(command("k", ctrl_shift), None);
-        assert_eq!(command(".", ctrl), None);
+        // Reservado na RFC 0009 (o widget dobrava o bloco) para as ações de código, como no VS Code.
+        assert_eq!(command(".", ctrl).as_deref(), Some("lsp.code_actions"));
     }
 }
 

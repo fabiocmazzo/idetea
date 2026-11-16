@@ -40,6 +40,9 @@ The full list, for the technical reader. For the short version, see the [README]
 
 - Errors and warnings (wavy underlines and diagnostic hover in the editor, problems panel and a count on the status
   bar), completion, go to definition, format.
+- Code actions (`Ctrl+.`): the quick fixes and refactorings the server offers for the error or the selection (a
+  missing import, generate a function, extract a variable), the recommended one first. Underlines follow the text
+  you edit until the server sends new diagnostics.
 - Go to implementation (`Ctrl+F12`) and to type; with several results, the list goes to the panel.
 - Find references (`Shift+F12`, or `Ctrl+click` on the declaration) grouped by file, and back/forward after each
   jump (`Alt+←` / `Alt+→`, or the mouse side buttons).

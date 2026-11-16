@@ -184,6 +184,7 @@ enabled = true
 "shift+f11" = "debug.step_out"
 "ctrl+shift+i" = "lsp.format"
 "f2" = "lsp.rename"
+"ctrl+." = "lsp.code_actions"
 "ctrl+'" = "terminal.focus"
 "ctrl+`" = "terminal.focus"
 "ctrl+shift+t" = "tab.reopen"

@@ -771,3 +771,17 @@ launcher-teach-skip = Don't ask in this project
 launcher-teach-done = Instructions written to { $files }.
 launcher-teach-failed = Couldn't write the instructions: { $error }
 welcome-launch-agent = Launch an agent
+
+cmd-lsp-code-actions = LSP: code actions (quick fixes, refactorings)…
+code-actions-none = No code actions here
+code-actions-placeholder = Code action…
+code-action-unavailable = Not available now
+code-action-applied =
+    { $files ->
+        [one] Applied: { $title }
+       *[other] Applied: { $title } ({ $files } files, not saved yet)
+    }
+code-action-kind-quickfix = quick fix
+code-action-kind-refactor = refactor
+code-action-kind-source = file
+guide-lsp-11 = Code actions: { $lsp-code_actions } with the cursor on an error or warning (or with some code selected) lists the quick fixes and refactorings the server offers, such as a missing import; the recommended one comes first, with ✓. The changes stay in the tabs, unsaved (Ctrl+Z undoes them).

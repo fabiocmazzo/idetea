@@ -25,7 +25,7 @@ Este documento faz uma avaliação técnica, direta e sem maquiagem da **IDE TEA
 | **Protocolo estruturado p/ agentes (UI declarativa, aprovação de comandos, mascote)** | **Única na categoria (nativo em arquivos)** | Não tem (depende de extensões de chat) | Focado em chat/diff proprietário | Focado em chat/inline assist | Focado em chat/inline | Não tem (só terminal) |
 | **Autocomplete de IA inline ("Ghost text" / Tab)** | **Não tem (por filosofia)** | Via Copilot | **Excelente (líder)** | Muito bom (Zeta) | Bom | Via plugins |
 | **Maturidade do Editor de texto** | Boa no básico, faltam recursos avançados | **Referência** | **Referência** | Muito alta | **Referência** | **Referência (modal)** |
-| **Profundidade de LSP e Refatoração** | Média (sem Code Actions e Inlay Hints) | **Completa** | **Completa** | Alta | **Insuperável (AST próprio)** | Alta |
+| **Profundidade de LSP e Refatoração** | Média (sem Inlay Hints) | **Completa** | **Completa** | Alta | **Insuperável (AST próprio)** | Alta |
 | **Depuração (Debug)** | Básica (GDB 14+ para Rust/C/C++/Zig, `lldb-dap` no macOS; MoonBit nativo é experimental) | **Completa (qualquer linguagem)** | **Completa** | Básica/Média (DAP recente) | **Excelente** | Básica (nvim-dap) |
 | **Controle de Versão (Git)** | Média (marcas na margem e blame; sem merge 3-vias nem stash) | **Completa** | **Completa** | Média | **Excelente (melhor merge)** | Via LazyGit / Fugitive |
 | **Suporte Multiplataforma** | **Linux, macOS (Apple Silicon), Windows (x86_64)** | **Linux, macOS, Windows, Web** | **Linux, macOS, Windows** | **macOS, Linux, Windows** | **Linux, macOS, Windows** | **Qualquer SO / SSH** |
@@ -120,8 +120,7 @@ A IDE TEA assume que **os melhores agentes já rodam no terminal** (Claude Code,
 - Formatação ao salvar e respeito a `.editorconfig`.
 
 ### Lacunas importantes de LSP frente a VS Code, Zed e JetBrains
-1. **Sem Code Actions / Quick Fixes (`Ctrl+.` / lâmpada do LSP):**
-   - Esta é hoje a **maior falta prática no dia a dia com Rust/TypeScript/Go**: quando o `rust-analyzer` sugere *"Import `std::collections::HashMap`"*, *"Add missing match arms"* ou *"Fill struct fields"*, na IDE TEA você vê a mensagem de diagnóstico, mas não consegue aplicar o *Quick Fix* (`textDocument/codeAction`) com um atalho.
+1. ~~Sem Code Actions / Quick Fixes (`Ctrl+.` / lâmpada do LSP)~~ — **feito:** `Ctrl+.` lista as correções e refatorações do servidor para o erro ou a seleção (import que falta, gerar função, extrair variável).
 2. **Sem Inlay Hints:**
    - Não exibe os tipos inferidos inline (`let x: Vec<String> = ...`) nem nomes de parâmetros em chamadas de função, recurso muito usado em Rust e TypeScript no VS Code, Zed e RustRover.
 3. **Sem Semantic Tokens do LSP:**
@@ -167,7 +166,7 @@ A IDE TEA assume que **os melhores agentes já rodam no terminal** (Claude Code,
 
 ### Outra IDE ainda é melhor quando você:
 1. **Quer autocomplete preditivo de IA a cada tecla (`Tab` / Ghost Text) ou edição inline por diff:** **Cursor**, **Windsurf** ou **Zed** atendem melhor esse estilo.
-2. **Depende fortemente de refatorações assistidas por *Code Actions* (`Ctrl+.`), *Inlay Hints* ou depuradores de Python/JS/Go na GUI:** **VS Code** ou **JetBrains** são muito mais completos hoje.
+2. **Depende fortemente de *Inlay Hints* ou depuradores de Python/JS/Go na GUI:** **VS Code** ou **JetBrains** são muito mais completos hoje.
 3. **Depende de SSH Remote Development / DevContainers, ou usa macOS Intel / Windows ARM:** **VS Code** e **Zed** já têm suporte maduro para esses cenários.
 
 ---
@@ -176,7 +175,7 @@ A IDE TEA assume que **os melhores agentes já rodam no terminal** (Claude Code,
 
 Se o objetivo for reduzir a distância funcional para VS Code e Zed mantendo o binário leve e a filosofia do manifesto:
 
-1. **Code Actions / Quick Fixes do LSP (`Ctrl+.`):** permitir aplicar os *quick fixes* e *imports* automáticos que o servidor LSP já sabe calcular. É o item nº 1 que mais faz falta ao programar em Rust/TS.
+1. ~~Code Actions / Quick Fixes do LSP (`Ctrl+.`)~~ — **feito:** a lista abre na paleta, a recomendada primeiro, e as mudanças ficam nas abas sem salvar.
 2. ~~Marcações de Git no Editor (Gutter Diff) + Troca de Branch~~ — **já feito:** marcas na margem e troca/criação de branch pela paleta.
 3. ~~Atalho "Enviar Seleção / Diagnóstico para o Agente" (`Ctrl+L`)~~ — **feito na 0.8.0**, junto com o lançador de agentes (`Ctrl+Shift+A`).
 4. **Inlay Hints do LSP (tipos inferidos e nomes de parâmetros opcionais):** exibir dicas de tipo inline com um atalho rápido para ligar/desligar.

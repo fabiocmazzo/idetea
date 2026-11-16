@@ -766,3 +766,17 @@ launcher-teach-skip = 本项目不再询问
 launcher-teach-done = 说明已写入 { $files }。
 launcher-teach-failed = 无法写入说明: { $error }
 welcome-launch-agent = 启动智能体
+
+cmd-lsp-code-actions = LSP：代码操作（快速修复、重构）…
+code-actions-none = 这里没有代码操作
+code-actions-placeholder = 代码操作…
+code-action-unavailable = 现在不可用
+code-action-applied =
+    { $files ->
+        [one] 已应用：{ $title }
+       *[other] 已应用：{ $title }（{ $files } 个文件，尚未保存）
+    }
+code-action-kind-quickfix = 快速修复
+code-action-kind-refactor = 重构
+code-action-kind-source = 文件
+guide-lsp-11 = 代码操作：把光标放在错误或警告上（或选中一段代码），按 { $lsp-code_actions } 列出服务器提供的修复和重构，例如缺少的 import；推荐的一项排在最前，带 ✓。更改留在标签页中，尚未保存（Ctrl+Z 可撤销）。

@@ -11,9 +11,10 @@ pub mod transport;
 pub mod uri;
 
 use std::path::PathBuf;
+use std::sync::Arc;
 
 pub use client::{Client, EventSink};
-pub use text::{Position, Range};
+pub use text::{Position, Range, diff, shift_range};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Severity {
@@ -154,6 +155,28 @@ pub enum MessageLevel {
     Info,
 }
 
+/// Uma ação de código oferecida pelo servidor (correção rápida, refatoração, organizar imports). Quem escolhe uma
+/// passa para [`Client::apply_code_action`]: as edições voltam em [`Event::ApplyEdit`].
+#[derive(Debug, Clone)]
+pub struct CodeAction {
+    pub title: String,
+    /// `quickfix`, `refactor.extract`, `source.organizeImports`... Vazio se o servidor não diz.
+    pub kind: String,
+    /// A ação que o servidor recomenda para o problema (ex.: o import que falta).
+    pub preferred: bool,
+    /// Por que não dá para aplicar agora. A ação aparece na lista, mas não faz nada.
+    pub disabled: Option<String>,
+    /// O que o servidor mandou (`CodeAction` ou `Command`), para resolver e executar depois.
+    pub(crate) raw: Arc<serde_json::Value>,
+}
+
+/// Um comando do servidor (`workspace/executeCommand`), a executar depois das edições de uma ação.
+#[derive(Debug, Clone)]
+pub struct ServerCommand {
+    pub title: String,
+    pub(crate) raw: Arc<serde_json::Value>,
+}
+
 /// Algo que veio do servidor. Posições já em caracteres.
 #[derive(Debug, Clone)]
 pub enum Event {
@@ -177,6 +200,11 @@ pub enum Event {
     Rename { new_name: String, files: Vec<FileEdits> },
     /// O servidor recusou renomear (a mensagem dele explica).
     RenameFailed { message: String },
+    /// Ações de código para a seleção (ou o cursor) em `path`, a preferida primeiro. Vazia: nenhuma ali.
+    CodeActions { path: PathBuf, actions: Vec<CodeAction> },
+    /// Edições a aplicar agora: de uma ação escolhida, ou pedidas pelo servidor (`workspace/applyEdit`, ex.: ao
+    /// executar um comando). Depois de aplicar, `command` (se houver) vai para [`Client::execute_command`].
+    ApplyEdit { label: String, files: Vec<FileEdits>, command: Option<ServerCommand> },
     /// Símbolos do projeto que combinam com `query` (vazia se o servidor não souber responder).
     WorkspaceSymbols { query: String, symbols: Vec<WorkspaceSymbol> },
     /// A função em `path`/`position`, para começar a árvore de chamadas (vazia se o cursor não

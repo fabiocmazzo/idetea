@@ -752,3 +752,17 @@ launcher-teach-skip = このプロジェクトでは聞かない
 launcher-teach-done = 手順を { $files } に書きました。
 launcher-teach-failed = 手順を書けませんでした: { $error }
 welcome-launch-agent = エージェントを起動
+
+cmd-lsp-code-actions = LSP: コード アクション (クイック修正、リファクタリング)…
+code-actions-none = ここにはコード アクションがありません
+code-actions-placeholder = コード アクション…
+code-action-unavailable = 今は使えません
+code-action-applied =
+    { $files ->
+        [one] 適用しました: { $title }
+       *[other] 適用しました: { $title } ({ $files } 個のファイル、未保存)
+    }
+code-action-kind-quickfix = クイック修正
+code-action-kind-refactor = リファクタリング
+code-action-kind-source = ファイル
+guide-lsp-11 = コード アクション: エラーや警告の上にカーソルを置いて (またはコードを選択して) { $lsp-code_actions } を押すと、足りない import など、サーバーが提案する修正とリファクタリングが一覧になります。おすすめは ✓ 付きで先頭に出ます。変更はタブ内で未保存のままです (Ctrl+Z で元に戻せます)。

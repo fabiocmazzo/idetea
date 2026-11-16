@@ -7,7 +7,7 @@ and Simplified Chinese still draw when the machine has no CJK font. It covers th
 characters in every ja and zh-CN Fluent file, plus the language names and common
 CJK punctuation. A file name outside this set still needs a system font.
 
-The full face is about 3.9 MB. This subset is 175984 bytes (about 172 KB),
+The full face is about 3.9 MB. This subset is 176904 bytes (about 173 KB),
 generated with fontTools (`tools/fonts/subset_cjk.py`).
 
 Licensed under the Apache License, Version 2.0. You may obtain a copy at

@@ -509,7 +509,12 @@ pub trait Extension: 'static {
 pub struct ExtMessage(Arc<dyn Any + Send + Sync>);
 
 impl ExtMessage {
+    /// Um `ExtMessage` passado de novo fica como está: embrulhado duas vezes, o `downcast_ref` de quem recebe falharia
+    /// sem aviso.
     pub fn new<T: Any + Send + Sync>(value: T) -> Self {
+        if let Some(already) = (&value as &dyn Any).downcast_ref::<ExtMessage>() {
+            return already.clone();
+        }
         Self(Arc::new(value))
     }
 
@@ -566,5 +571,22 @@ impl<E: Extension> AnyExtension for E {
 
     fn subscription(&self) -> Subscription<ExtMessage> {
         Extension::subscription(self).map(ExtMessage::new)
+    }
+}
+
+#[cfg(test)]
+mod ext_message_tests {
+    use super::ExtMessage;
+
+    #[test]
+    fn wrapping_twice_still_downcasts() {
+        #[derive(Debug, PartialEq)]
+        struct Choice(usize);
+        let once = ExtMessage::new(Choice(3));
+        assert_eq!(once.downcast_ref::<Choice>(), Some(&Choice(3)));
+        let twice = ExtMessage::new(ExtMessage::new(Choice(4)));
+        assert_eq!(twice.downcast_ref::<Choice>(), Some(&Choice(4)));
+        let pick = crate::pick::Pick::new("x").item(None, "a", "", ExtMessage::new(Choice(5)));
+        assert_eq!(pick.items[0].action.downcast_ref::<Choice>(), Some(&Choice(5)));
     }
 }

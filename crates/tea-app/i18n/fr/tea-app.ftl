@@ -771,3 +771,17 @@ launcher-teach-skip = Ne plus demander pour ce projet
 launcher-teach-done = Instructions écrites dans { $files }.
 launcher-teach-failed = Impossible d’écrire les instructions : { $error }
 welcome-launch-agent = Lancer un agent
+
+cmd-lsp-code-actions = LSP : actions de code (corrections, refactorisations)…
+code-actions-none = Aucune action de code ici
+code-actions-placeholder = Action de code…
+code-action-unavailable = Indisponible pour l'instant
+code-action-applied =
+    { $files ->
+        [one] Appliqué : { $title }
+       *[other] Appliqué : { $title } ({ $files } fichiers, pas encore enregistrés)
+    }
+code-action-kind-quickfix = correction
+code-action-kind-refactor = refactorisation
+code-action-kind-source = fichier
+guide-lsp-11 = Actions de code : { $lsp-code_actions } avec le curseur sur une erreur ou un avertissement (ou avec du code sélectionné) liste les corrections et refactorisations proposées par le serveur, comme l'import manquant ; celle qui est recommandée vient en premier, avec ✓. Les modifications restent dans les onglets, non enregistrées (Ctrl+Z les annule).
