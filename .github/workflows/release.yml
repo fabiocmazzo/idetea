@@ -177,6 +177,19 @@ jobs:
         with:
           path: dist
           merge-multiple: true
+      - name: Confere os pacotes
+        # Um pacote que não saiu para a release em vez de ela sair sem ele (o -setup.exe faltou na 0.8.0 e na 0.9.0
+        # sem ninguém notar). A tag é a versão do Cargo.toml (o build confere).
+        run: |
+          v="${GITHUB_REF_NAME#v}"
+          missing=0
+          for f in "idetea-$v-x86_64-linux.tar.gz" "idetea-$v-aarch64-linux.tar.gz" \
+                   "IDE_TEA-$v-x86_64.AppImage" "IDE_TEA-$v-aarch64.AppImage" \
+                   "idetea-$v-aarch64-macos.tar.gz" \
+                   "idetea-$v-x86_64-windows.zip" "IDE_TEA-$v-x86_64-setup.exe"; do
+            if [ -s "dist/$f" ]; then echo "ok    $f"; else echo "::error::falta $f"; missing=1; fi
+          done
+          exit $missing
       - name: SHA256SUMS
         run: cd dist && sha256sum -- * > SHA256SUMS && cat SHA256SUMS
       - uses: softprops/action-gh-release@v3
