@@ -28,3 +28,13 @@ hunk-deleted =
 hunk-added-note = 不在上次提交里。
 hunk-revert = 还原更改
 image-saved = 保存于 { $time }
+
+## 表格视图 (RFC 0020)
+table-show-text = 文本
+table-filter = 筛选
+table-rows = { $count } 行
+table-rows-filtered = { $count } 行中的 { $shown } 行
+table-sorted = 按 { $column } 排序 { $arrow }
+table-invalid-json = 不是 JSON：{ $error }
+table-broken-row = 这一行无法读取，请在文本中编辑。
+table-out-of-range = 这个单元格不存在。

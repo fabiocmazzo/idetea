@@ -31,6 +31,40 @@ impl Default for MediaLimits {
     }
 }
 
+/// Tamanho máximo do arquivo de uma `table`.
+const MAX_TABLE_BYTES: u64 = 16 * 1024 * 1024;
+/// Linhas de uma `table` que o painel desenha; o resto fica para a aba.
+pub const MAX_TABLE_ROWS: usize = 1000;
+
+/// Uma tabela lida (`table` com `path`): os nomes das colunas e o texto de cada célula (a primeira linha dele).
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct Sheet {
+    pub columns: Vec<String>,
+    /// Até [`MAX_TABLE_ROWS`] linhas. Uma célula que falta é `None`.
+    pub rows: Vec<Vec<Option<String>>>,
+    /// As linhas do arquivo (pode ser mais que `rows`).
+    pub total: usize,
+    /// Linhas do JSONL que não puderam ser lidas.
+    pub broken: usize,
+}
+
+impl Sheet {
+    /// Uma tabela dada no documento.
+    pub fn inline(columns: &[String], rows: &[Vec<String>]) -> Self {
+        let width = rows.iter().map(Vec::len).max().unwrap_or(0).max(columns.len());
+        let mut names = columns.to_vec();
+        for c in names.len()..width {
+            names.push(format!("{}", c + 1));
+        }
+        Self {
+            columns: names,
+            rows: rows.iter().take(MAX_TABLE_ROWS).map(|r| r.iter().map(|v| Some(v.clone())).collect()).collect(),
+            total: rows.len(),
+            broken: 0,
+        }
+    }
+}
+
 /// Uma imagem lida.
 #[derive(Debug, Clone)]
 pub struct Picture {
@@ -69,6 +103,7 @@ pub const WAVE_HEIGHT: u32 = 36;
 pub struct Media {
     pictures: HashMap<String, Result<Picture, String>>,
     sounds: HashMap<String, Result<Sound, String>>,
+    tables: HashMap<String, Result<Sheet, String>>,
     /// Tamanho e data de cada arquivo quando foi lido (a versão na tela).
     files: HashMap<String, (u64, Option<SystemTime>)>,
     /// Pelo id do componente: dois `sprite` da mesma folha podem recortar diferente.
@@ -89,7 +124,7 @@ impl Media {
     pub fn load(root: &Path, doc: &Document, limits: &MediaLimits) -> Media {
         let mut media = Media::default();
         let mut pixels = 0u64;
-        for path in doc.image_paths().into_iter().chain(doc.audio_paths()) {
+        for path in doc.image_paths().into_iter().chain(doc.audio_paths()).chain(doc.table_paths()) {
             // Antes de ler: se o arquivo mudar no meio, a data mais velha faz a próxima leitura acontecer.
             if let Ok(m) = std::fs::symlink_metadata(root.join(path)) {
                 media.files.insert(path.to_string(), (m.len(), m.modified().ok()));
@@ -127,6 +162,9 @@ impl Media {
         for path in doc.audio_paths() {
             media.sounds.insert(path.to_string(), sound(&root.join(path)));
         }
+        for path in doc.table_paths() {
+            media.tables.insert(path.to_string(), sheet(&root.join(path)));
+        }
         for c in &doc.components {
             let (paths, look): (Vec<&str>, Look) = match &c.kind {
                 crate::Kind::Image { path, look, .. } => (vec![path.as_str()], *look),
@@ -163,6 +201,7 @@ impl Media {
         let mut out: Vec<(String, String)> = Vec::new();
         out.extend(self.pictures.iter().filter_map(|(p, r)| r.as_ref().err().map(|e| (p.clone(), e.clone()))));
         out.extend(self.sprites.iter().filter_map(|(id, r)| r.as_ref().err().map(|e| (format!("#{id}"), e.clone()))));
+        out.extend(self.tables.iter().filter_map(|(p, r)| r.as_ref().err().map(|e| (p.clone(), e.clone()))));
         for (p, r) in &self.sounds {
             match r {
                 Err(e) => out.push((p.clone(), e.clone())),
@@ -187,6 +226,11 @@ impl Media {
 
     pub fn sound(&self, path: &str) -> Option<&Result<Sound, String>> {
         self.sounds.get(path)
+    }
+
+    /// A tabela lida deste arquivo.
+    pub fn table(&self, path: &str) -> Option<&Result<Sheet, String>> {
+        self.tables.get(path)
     }
 
     pub fn checker(&self, size: (u32, u32)) -> Option<&Handle> {
@@ -218,6 +262,7 @@ pub fn stamps(root: &Path, doc: &Document) -> Vec<(PathBuf, u64, Option<SystemTi
     doc.image_paths()
         .into_iter()
         .chain(doc.audio_paths())
+        .chain(doc.table_paths())
         .map(|p| {
             let path = root.join(p);
             let meta = std::fs::metadata(&path).ok();
@@ -225,6 +270,35 @@ pub fn stamps(root: &Path, doc: &Document) -> Vec<(PathBuf, u64, Option<SystemTi
             (path, len, modified)
         })
         .collect()
+}
+
+/// Lê um CSV, TSV ou JSONL do projeto para uma `table`. Symlink não é seguido, como nas imagens.
+fn sheet(path: &Path) -> Result<Sheet, String> {
+    let meta = std::fs::symlink_metadata(path).map_err(|e| fl!("ui-table-error", error = e.to_string()))?;
+    if meta.file_type().is_symlink() || !meta.is_file() {
+        return Err(fl!("ui-image-not-file"));
+    }
+    if meta.len() > MAX_TABLE_BYTES {
+        return Err(fl!("ui-table-too-big", max = (MAX_TABLE_BYTES / (1024 * 1024))));
+    }
+    let bytes = std::fs::read(path).map_err(|e| fl!("ui-table-error", error = e.to_string()))?;
+    let text = String::from_utf8(bytes).map_err(|e| fl!("ui-table-error", error = e.to_string()))?;
+    let format = tea_table::Format::detect(path, &text)
+        .ok_or_else(|| fl!("ui-table-error", error = path.display().to_string()))?;
+    let table = tea_table::Table::parse(&text, format, true);
+    let rows = (0..table.rows.len().min(MAX_TABLE_ROWS))
+        .map(|r| {
+            (0..table.columns.len())
+                .map(|c| {
+                    table
+                        .value(&text, tea_table::RowRef::Row(r), c)
+                        .map(|v| v.split('\n').next().unwrap_or_default().to_string())
+                })
+                .collect()
+        })
+        .collect();
+    let broken = table.rows.iter().filter(|r| r.error.is_some()).count();
+    Ok(Sheet { columns: table.columns.clone(), rows, total: table.rows.len(), broken })
 }
 
 fn read(path: &Path, limits: &MediaLimits) -> Result<Picture, String> {

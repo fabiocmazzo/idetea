@@ -17,6 +17,7 @@
 - Markdown和SVG预览开在编辑器旁边（`Ctrl+Shift+V`，或选项卡栏上的按钮），随输入更新。
 - 图像（png、jpg、gif、webp、bmp、ico……）在选项卡里打开，可以用滚轮缩放，可以拖动。
 - PDF在选项卡里打开（由纯Rust的`hayro`渲染），可缩放，可适应宽度。
+- CSV、TSV和JSONL以表格打开（选项卡栏的按钮或`table.toggle`回到文本）：排序和筛选不改动文件；编辑一个单元格，文本里只改这个字段（保留引号，`Ctrl+Z`可撤销）。JSONL的单元格接受JSON，无效的值会被拒绝。
 - 保留CRLF。不是UTF-8的文件不会打开（并给出警告），而不是被写坏。
 - 大文件：50MB的文件在0.1秒内打开。只有一行超长行的文件（压缩过的JSON或JS）以轻量模式打开，没有颜色，并且自动换行，这样窗口不会卡死。
 - 保存时可选：去掉行尾空白、补上文件末尾换行、用语言服务器格式化。项目里的`.editorconfig`优先。
@@ -78,7 +79,7 @@
 
 全部都是项目`.idetea/`文件夹里的普通文件，所以任何能读写文件的智能体都能用。“界面: 教会本项目的智能体”会把说明写进`AGENTS.md`和`CLAUDE.md`。
 
-- **界面**（`.idetea/ui/<name>.json`）：智能体写一份文档，IDE把它显示成表单（文本、Markdown、选择、复选框、输入、按钮、手工测试的步骤、要编辑的文件、图像、图库、动画精灵、带波形和峰值的声音），并把你的回答写到`.idetea/ui/responses/`。面板会显示智能体是否还在等。格式见[interfaces/formato.md](interfaces/formato.md)（葡萄牙语）。
+- **界面**（`.idetea/ui/<name>.json`）：智能体写一份文档，IDE把它显示成表单（文本、Markdown、选择、复选框、输入、按钮、手工测试的步骤、要编辑的文件、图像、图库、动画精灵、带波形和峰值的声音、可选择行的表格），并把你的回答写到`.idetea/ui/responses/`。面板会显示智能体是否还在等。格式见[interfaces/formato.md](interfaces/formato.md)（葡萄牙语）。
 - **智能体终端**（`.idetea/agents/<name>.json`）：智能体带一条命令来要终端；IDE在“终端请求”选项卡里显示完整请求，只有你允许之后才运行。进度写到`<name>.status.json`（`pending`、`running`、带退出码的`exited`、`refused`、`closed`、`invalid`、`lost`）；删掉请求就会停掉终端（如果命令已经结束，选项卡会留到你关掉它）。
 - **允许列表：**用户配置里的`[agents] allow = ["npm run dev", "claude *"]`会直接运行这些命令，不再询问：要么是整条命令，要么是一个前缀，后面只能跟普通参数（不能有`;`、`&`、`|`、`$`、反引号、重定向……）。写在项目配置里会被忽略，并给出警告。
 - **启动智能体**（`Ctrl+Shift+A`，欢迎页上也有）：PATH里找到的编程智能体（Claude Code、Codex、Gemini CLI、OpenCode、Aider、Cursor Agent），加上你自己的`[agents.launchers]`，在终端标签页里启动，位置可以是项目文件夹，也可以是新的工作树（`.idetea/worktrees/launch-<branch>`，关闭标签页时如果没有改动就会移除；分支保留）。`[agents] default`排在最前。启动器只在用户配置里生效。如果`AGENTS.md`/`CLAUDE.md`里没有这个IDE的说明，会先问：写入、只打开，或在这个项目里不再询问。

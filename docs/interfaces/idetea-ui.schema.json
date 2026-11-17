@@ -136,6 +136,22 @@
           }
         },
         {
+          "if": { "properties": { "component": { "const": "table" } } },
+          "then": {
+            "oneOf": [{ "required": ["path"] }, { "required": ["columns", "rows"] }],
+            "properties": {
+              "path": { "type": "string", "minLength": 1, "maxLength": 16384, "pattern": "\\.([Cc][Ss][Vv]|[Tt][Ss][Vv]|[Tt][Aa][Bb]|[Jj][Ss][Oo][Nn][Ll]|[Nn][Dd][Jj][Ss][Oo][Nn])$", "not": { "pattern": "(^[/\\\\])|(^.:)|(^|[/\\\\])\\.\\.([/\\\\]|$)" } },
+              "columns": { "type": "array", "maxItems": 200, "items": { "$ref": "#/$defs/text" } },
+              "rows": { "type": "array", "maxItems": 5000, "items": { "type": "array", "maxItems": 200 } },
+              "label": { "$ref": "#/$defs/text" },
+              "select": { "enum": ["none", "one", "many"] },
+              "value": { "$ref": "#/$defs/binding" },
+              "key": { "$ref": "#/$defs/text" },
+              "height": { "type": "integer", "minimum": 80, "maximum": 1024 }
+            }
+          }
+        },
+        {
           "if": { "properties": { "component": { "const": "gallery" } } },
           "then": {
             "required": ["items"],

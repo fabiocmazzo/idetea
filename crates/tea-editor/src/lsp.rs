@@ -12,6 +12,17 @@ use tea_lsp::{Client, Position, Range};
 /// Tempo parado com o mouse até pedir o hover.
 pub const HOVER_DELAY: Duration = Duration::from_millis(450);
 
+/// Sem servidor: só conta as edições, para quem acompanha o texto (a vista de tabela) saber que ele mudou.
+pub struct Counter {
+    pub revision: std::sync::Arc<std::sync::atomic::AtomicU64>,
+}
+
+impl LspClient for Counter {
+    fn did_change(&mut self, _document: &LspDocument, _changes: &[LspTextChange]) {
+        self.revision.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    }
+}
+
 /// Implementa a trait do widget repassando para o nosso cliente.
 pub struct Bridge {
     pub client: Client,

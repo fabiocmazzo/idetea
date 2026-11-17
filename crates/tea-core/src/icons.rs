@@ -66,6 +66,8 @@ pub enum Icon {
     CallIncoming,
     CallOutgoing,
     Preview,
+    /// Vista de tabela de um CSV, TSV ou JSONL.
+    Table,
     CommentDiscussion,
     History,
     Book,
@@ -136,6 +138,7 @@ impl Icon {
             Icon::CallIncoming => 0xEB92,
             Icon::CallOutgoing => 0xEB93,
             Icon::Preview => 0xEB2F,
+            Icon::Table => 0xEBB7,
             Icon::CommentDiscussion => 0xEAC7,
             Icon::History => 0xEA82,
             Icon::Book => 0xEAA4,

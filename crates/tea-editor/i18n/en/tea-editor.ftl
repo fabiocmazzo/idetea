@@ -31,3 +31,16 @@ hunk-deleted =
 hunk-added-note = Not in the last commit.
 hunk-revert = Revert change
 image-saved = saved at { $time }
+
+## Table view (RFC 0020)
+table-show-text = Text
+table-filter = Filter
+table-rows = { $count ->
+    [one] 1 row
+   *[other] { $count } rows
+}
+table-rows-filtered = { $shown } of { $count } rows
+table-sorted = sorted by { $column } { $arrow }
+table-invalid-json = Not JSON: { $error }
+table-broken-row = This line could not be read; edit it in the text.
+table-out-of-range = This cell does not exist.

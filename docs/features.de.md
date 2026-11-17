@@ -20,6 +20,9 @@ Die vollständige Liste, für die technische Leserschaft. Die Kurzfassung steht 
 - Markdown- und SVG-Vorschau neben dem Editor (`Ctrl+Shift+V` oder die Schaltfläche in der Registerkartenleiste), aktualisiert sich beim Tippen.
 - Bilder (png, jpg, gif, webp, bmp, ico …) öffnen in einer Registerkarte, mit Zoom per Mausrad und Ziehen.
 - PDF öffnet in einer Registerkarte (gerendert von `hayro`, reines Rust), mit Zoom und an die Breite anpassen.
+- CSV, TSV und JSONL öffnen als Tabelle (der Knopf in der Tab-Leiste oder `table.toggle` wechselt zum Text): sortieren
+  und filtern, ohne die Datei zu ändern; eine Zelle bearbeiten ändert nur dieses Feld im Text (Anführungszeichen
+  bleiben, `Strg+Z` macht es rückgängig). In JSONL nimmt eine Zelle JSON an; ein ungültiger Wert wird abgelehnt.
 - CRLF bleibt erhalten. Eine Datei, die nicht UTF-8 ist, wird nicht geöffnet (mit einer Warnung), statt beschädigt zu werden.
 - Große Dateien: eine Datei von 50 MB öffnet in unter 0,1 s. Eine Datei mit einer riesigen Zeile (minifiziertes JSON oder JS) öffnet in einem Leichtmodus,
   ohne Farben und mit Umbruch, damit das Fenster nicht einfriert.
@@ -115,7 +118,7 @@ Alles davon sind schlichte Dateien im Ordner `.idetea/` des Projekts, also kann 
 
 - **Bereich Interfaces** (`.idetea/ui/<Name>.json`): der Agent schreibt ein Dokument, die IDE zeigt es als Formular (Text,
   Markdown, `select`, `checkbox`, `input`, Schaltflächen, Schritte für manuelle Tests, Dateien zum Bearbeiten, Bilder, Galerien, animierte
-  Sprites, Klänge mit Wellenform und Spitzenpegel) und schreibt Ihre Antwort nach `.idetea/ui/responses/`. Der Bereich zeigt,
+  Sprites, Klänge mit Wellenform und Spitzenpegel, Tabellen zum Auswählen von Zeilen) und schreibt Ihre Antwort nach `.idetea/ui/responses/`. Der Bereich zeigt,
   ob der Agent noch wartet. Format: [docs/interfaces/formato.md](interfaces/formato.md) (vorerst auf Portugiesisch).
 - **Agenten-Terminals** (`.idetea/agents/<Name>.json`): der Agent bittet um ein Terminal mit einem Befehl; die IDE zeigt
   die ganze Anfrage in einer Registerkarte „Terminalanfrage“ und führt sie erst aus, nachdem Sie sie zulassen. Der Fortschritt geht nach

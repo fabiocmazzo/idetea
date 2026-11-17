@@ -14,6 +14,11 @@ pub const FORMAT: &str = "idetea-ui";
 pub const VERSION: u64 = 1;
 
 /// Limites de um documento: nada além disso é desenhado.
+/// Extensões que a `table` lê (o resto do projeto não é tabela).
+pub const TABLE_EXTENSIONS: &[&str] = &["csv", "tsv", "tab", "jsonl", "ndjson"];
+/// Tabelas por documento: cada uma lê um arquivo inteiro.
+const MAX_TABLES: usize = 8;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Limits {
     /// Tamanho do arquivo, em bytes.
@@ -108,8 +113,21 @@ pub enum Kind {
     /// Um som do projeto: Tocar/Parar pelo tocador do sistema; de WAV, também duração, taxa, pico e forma de onda
     /// (já lidos em [`crate::Media`]). `looped`: toca de novo quando termina.
     Audio { path: String, label: Option<String>, looped: bool },
+    /// Uma tabela (RFC 0020): de um CSV, TSV ou JSONL do projeto (`path`) ou dada no documento. Com `pick` `One` ou
+    /// `Many`, o usuário escolhe linhas; `value` recebe a chave de cada uma (a coluna `key`, ou o número da linha,
+    /// começando em 1). Quem desenha recebe o arquivo já lido ([`crate::Media`]).
+    Table { source: TableSource, label: Option<String>, pick: Pick, value: Option<String>, key: Option<String>, height: Option<u32> },
     /// Componente que esta versão não conhece: um aviso aparece no lugar dele.
     Unknown { component: String },
+}
+
+/// De onde vêm as linhas de uma `table`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum TableSource {
+    /// Um CSV, TSV ou JSONL do projeto (relativo à raiz).
+    File(String),
+    /// Colunas e linhas dadas no documento.
+    Inline { columns: Vec<String>, rows: Vec<Vec<String>> },
 }
 
 impl Kind {
@@ -120,7 +138,7 @@ impl Kind {
             | Kind::Select { value, .. }
             | Kind::Input { value, .. }
             | Kind::Steps { value, .. } => Some(value),
-            Kind::Gallery { value, .. } => value.as_deref(),
+            Kind::Gallery { value, .. } | Kind::Table { value, .. } => value.as_deref(),
             _ => None,
         }
     }
@@ -177,6 +195,19 @@ impl Document {
         let mut out: Vec<&str> = Vec::new();
         for c in &self.components {
             if let Kind::Audio { path, .. } = &c.kind
+                && !out.contains(&path.as_str())
+            {
+                out.push(path);
+            }
+        }
+        out
+    }
+
+    /// Os caminhos dos arquivos das tabelas (`table` com `path`), na ordem, sem repetir.
+    pub fn table_paths(&self) -> Vec<&str> {
+        let mut out: Vec<&str> = Vec::new();
+        for c in &self.components {
+            if let Kind::Table { source: TableSource::File(path), .. } = &c.kind
                 && !out.contains(&path.as_str())
             {
                 out.push(path);
@@ -313,6 +344,10 @@ pub fn parse(bytes: &[u8], limits: &Limits) -> Result<Document, String> {
         .sum();
     if images > limits.max_images {
         return Err(fl!("ui-too-many-images", max = limits.max_images));
+    }
+    let tables = components.iter().filter(|c| matches!(c.kind, Kind::Table { .. })).count();
+    if tables > MAX_TABLES {
+        return Err(fl!("ui-too-many-tables", max = MAX_TABLES));
     }
     let sounds = components.iter().filter(|c| matches!(c.kind, Kind::Audio { .. })).count();
     if sounds > limits.max_images {
@@ -526,15 +561,7 @@ impl Reader {
                 },
             ),
             "gallery" => {
-                let pick = match self.string(obj, "select", field)?.as_deref() {
-                    None | Some("none") => Pick::None,
-                    Some("one") => Pick::One,
-                    Some("many") => Pick::Many,
-                    Some(other) => {
-                        self.warnings.push(fl!("ui-unknown-value", field = at(field, "select"), value = other));
-                        Pick::None
-                    }
-                };
+                let pick = self.pick(obj, field)?;
                 let value = match pick {
                     Pick::None => None,
                     _ => Some(self.path(obj, "value", field)?),
@@ -542,6 +569,36 @@ impl Reader {
                 (
                     &["items", "select", "value", "pixelated", "background", "height"],
                     Kind::Gallery { items: self.gallery(obj, field)?, pick, value, look: self.look(obj, field)? },
+                )
+            }
+            "table" => {
+                let pick = self.pick(obj, field)?;
+                let value = match pick {
+                    Pick::None => None,
+                    _ => Some(self.path(obj, "value", field)?),
+                };
+                let source = match (obj.contains_key("path"), obj.contains_key("columns") || obj.contains_key("rows")) {
+                    (true, false) => {
+                        let path = self.file_path(obj, field)?;
+                        let ext = path.rsplit('.').next().unwrap_or_default().to_lowercase();
+                        if !TABLE_EXTENSIONS.contains(&ext.as_str()) {
+                            return Err(fl!("ui-table-extension", field = at(field, "path"), path = path));
+                        }
+                        TableSource::File(path)
+                    }
+                    (false, true) => self.inline_table(obj, field)?,
+                    _ => return Err(fl!("ui-table-source", field = field)),
+                };
+                (
+                    &["path", "columns", "rows", "label", "select", "value", "key", "height"],
+                    Kind::Table {
+                        source,
+                        label: self.string(obj, "label", field)?,
+                        pick,
+                        value,
+                        key: self.string(obj, "key", field)?,
+                        height: self.number(obj, "height", field)?.map(|h| h.clamp(80, 1024) as u32),
+                    },
                 )
             }
             "steps" => (&["items", "value"], Kind::Steps { items: self.steps(obj, field)?, value: self.path(obj, "value", field)? }),
@@ -625,6 +682,51 @@ impl Reader {
             Some(_) => return Err(fl!("ui-wrong-type", field = at(&field, "context"), expected = "array")),
         };
         Ok(Action { name, context })
+    }
+
+    /// `select` de uma `gallery` ou `table`: `none` (padrão), `one` ou `many`.
+    fn pick(&mut self, obj: &Map<String, Value>, field: &str) -> Result<Pick, String> {
+        Ok(match self.string(obj, "select", field)?.as_deref() {
+            None | Some("none") => Pick::None,
+            Some("one") => Pick::One,
+            Some("many") => Pick::Many,
+            Some(other) => {
+                self.warnings.push(fl!("ui-unknown-value", field = at(field, "select"), value = other));
+                Pick::None
+            }
+        })
+    }
+
+    /// `columns` (textos) e `rows` (listas de valores; número, `true`, `null`... viram texto) de uma `table`.
+    fn inline_table(&self, obj: &Map<String, Value>, field: &str) -> Result<TableSource, String> {
+        let columns: Vec<String> = match obj.get("columns") {
+            Some(Value::Array(list)) => list
+                .iter()
+                .map(|v| v.as_str().map(str::to_string))
+                .collect::<Option<_>>()
+                .ok_or_else(|| fl!("ui-wrong-type", field = at(field, "columns"), expected = "[string]"))?,
+            _ => return Err(fl!("ui-missing", field = at(field, "columns"))),
+        };
+        let rows = match obj.get("rows") {
+            Some(Value::Array(list)) => list
+                .iter()
+                .map(|r| {
+                    r.as_array().map(|cells| {
+                        cells
+                            .iter()
+                            .map(|v| match v {
+                                Value::String(s) => s.clone(),
+                                Value::Null => String::new(),
+                                other => other.to_string(),
+                            })
+                            .collect()
+                    })
+                })
+                .collect::<Option<Vec<Vec<String>>>>()
+                .ok_or_else(|| fl!("ui-wrong-type", field = at(field, "rows"), expected = "[[value]]"))?,
+            _ => return Err(fl!("ui-missing", field = at(field, "rows"))),
+        };
+        Ok(TableSource::Inline { columns, rows })
     }
 
     fn look(&mut self, obj: &Map<String, Value>, field: &str) -> Result<Look, String> {
@@ -775,16 +877,31 @@ mod tests {
     }
 
     #[test]
+    fn table_from_a_file_or_inline() {
+        let doc = |c: Value| json!({"format": FORMAT, "version": VERSION, "revision": 1, "title": "T", "components": [c]}).to_string().into_bytes();
+        let d = parse(&doc(json!({"id": "t", "component": "table", "path": "dados/a.csv", "select": "many", "value": "/x", "key": "nome"})), &Limits::default()).unwrap();
+        assert_eq!(d.table_paths(), ["dados/a.csv"]);
+        assert_eq!(d.components[0].kind.binding(), Some("/x"));
+        let d = parse(&doc(json!({"id": "t", "component": "table", "columns": ["a"], "rows": [[1, null, "x"]]})), &Limits::default()).unwrap();
+        let Kind::Table { source: TableSource::Inline { rows, .. }, pick: Pick::None, .. } = &d.components[0].kind else { panic!() };
+        assert_eq!(rows[0], ["1", "", "x"]);
+        assert!(parse(&doc(json!({"id": "t", "component": "table", "path": "a.png"})), &Limits::default()).is_err(), "não é tabela");
+        assert!(parse(&doc(json!({"id": "t", "component": "table", "path": "../a.csv"})), &Limits::default()).is_err(), "fora da raiz");
+        assert!(parse(&doc(json!({"id": "t", "component": "table", "path": "a.csv", "rows": []})), &Limits::default()).is_err(), "os dois");
+        assert!(parse(&doc(json!({"id": "t", "component": "table"})), &Limits::default()).is_err(), "nenhum");
+    }
+
+    #[test]
     fn unknown_things_are_warnings() {
         let mut v = sample();
         v["cor"] = json!("azul");
         v["components"][0]["negrito"] = json!(true);
         v["components"][1]["style"] = json!("piscando");
-        v["components"].as_array_mut().unwrap().push(json!({ "id": "t", "component": "table", "rows": [] }));
+        v["components"].as_array_mut().unwrap().push(json!({ "id": "t", "component": "chart", "rows": [] }));
         let d = doc(v).unwrap();
         assert_eq!(d.warnings.len(), 3, "{:?}", d.warnings);
         assert!(d.warnings.iter().any(|w| w.contains("components[0].negrito")), "{:?}", d.warnings);
-        assert_eq!(d.components.last().unwrap().kind, Kind::Unknown { component: "table".into() });
+        assert_eq!(d.components.last().unwrap().kind, Kind::Unknown { component: "chart".into() });
     }
 
     #[test]

@@ -11,6 +11,7 @@ macro_rules! fl {
 mod image_file;
 mod key_gate;
 mod pdf_file;
+mod table_view;
 pub mod syntaxes;
 mod lsp;
 mod marks;
@@ -44,6 +45,8 @@ enum Msg {
     ToggleBreakpoint(usize),
     /// Aba de PDF (zoom, páginas desenhadas...).
     Pdf(pdf_file::Msg),
+    /// Vista de tabela de um CSV, TSV ou JSONL.
+    Table(table_view::Msg),
     /// Esc com a dica de parâmetros aberta.
     CloseSignature,
     /// Clique na marca do git (índice do trecho), fechar a caixa, desfazer o trecho.
@@ -218,6 +221,8 @@ pub struct Editor {
     image: Option<image_file::ImageFile>,
     /// Aba de PDF: como a de imagem, só mostra.
     pdf: Option<pdf_file::PdfFile>,
+    /// CSV, TSV ou JSONL: a vista de tabela (RFC 0020), outra vista deste texto.
+    table: Option<table_view::TableView>,
     /// Abas de imagem e PDF: tamanho e data do arquivo quando foi lido (para perceber que mudou no disco).
     file_stamp: Option<(u64, Option<std::time::SystemTime>)>,
     /// Dica de parâmetros: `signature_open` = pedida (o cursor está numa chamada); `signature` = a que aparece.
@@ -236,6 +241,9 @@ pub struct Editor {
     /// Fonte do código (`[editor] font`...). Começa com a do widget, que [`Self::set_code_font`] troca.
     code_font: tea_core::fonts::CodeFont,
 }
+
+/// Arquivo maior que isto (em bytes) não abre como tabela (RFC 0020): fica só o texto.
+const TABLE_MAX_BYTES: usize = 50 * 1024 * 1024;
 
 /// Linha maior que isto (em bytes) liga o modo leve: sem ela, um JSON ou JS minificado trava a tela (o
 /// desenho do texto cresce com o quadrado do tamanho da linha sem quebra, e o destaque refaz a linha inteira a
@@ -279,7 +287,17 @@ impl Editor {
 
     /// Cria o editor a partir de um texto já lido (útil para medir sem I/O).
     pub fn from_text(path: &Path, text: &str) -> Self {
-        Self::build(Some(path), text, false)
+        let mut editor = Self::build(Some(path), text, false);
+        // CSV, TSV e JSONL abrem como tabela (RFC 0020), até um tamanho: acima dele, só o texto.
+        if text.len() <= TABLE_MAX_BYTES
+            && editor.light.is_none()
+            && let Some(format) = tea_table::Format::detect(path, text)
+        {
+            let content = editor.inner.content();
+            editor.table = Some(table_view::TableView::new(format, &content, editor.text_revision()));
+            editor.count_edits();
+        }
+        editor
     }
 
     fn build(path: Option<&Path>, text: &str, is_new: bool) -> Self {
@@ -332,6 +350,7 @@ impl Editor {
             exec_line: None,
             image: None,
             pdf: None,
+            table: None,
             file_stamp: None,
             signature_open: false,
             signature: None,
@@ -430,6 +449,7 @@ impl Editor {
         let range = iced_code_editor::LspRange { start: lsp_position(&old, prefix), end: lsp_position(&old, old_end) };
         self.inner.apply_lsp_text_edits(&[LspTextChange { range, text: new[prefix..new_end].to_string() }]);
         self.follow_edits();
+        self.sync_table();
     }
 
     /// Linha e coluna do cursor, começando em 1.
@@ -658,11 +678,89 @@ impl Editor {
     pub fn update(&mut self, message: EditorMessage) -> Task<EditorMessage> {
         let task = self.update_inner(message);
         self.follow_edits();
+        self.sync_table();
         task
+    }
+
+    /// Relê a tabela se o texto mudou desde a última leitura (só com a tabela na tela: no texto, digitar não custa
+    /// uma leitura por tecla).
+    fn sync_table(&mut self) {
+        let revision = self.text_revision();
+        if self.table.as_ref().is_some_and(|t| t.showing && t.revision() != revision) {
+            let text = self.inner.content();
+            if let Some(t) = &mut self.table {
+                t.reload(&text, revision);
+            }
+        }
+    }
+
+    /// O arquivo pode ser visto como tabela (CSV, TSV, JSONL).
+    pub fn has_table(&self) -> bool {
+        self.table.is_some()
+    }
+
+    /// A aba mostra a tabela.
+    pub fn showing_table(&self) -> bool {
+        self.table.as_ref().is_some_and(|t| t.showing)
+    }
+
+    /// Alterna entre o texto e a tabela (`table.toggle`). Do texto para a tabela, a tabela é relida; da tabela para o
+    /// texto, o cursor vai para a célula escolhida.
+    pub fn toggle_table(&mut self) -> Task<EditorMessage> {
+        if self.showing_table() {
+            return self.update(EditorMessage(Msg::Table(table_view::Msg::ShowText)));
+        }
+        let Some(t) = &mut self.table else { return Task::none() };
+        t.showing = true;
+        self.sync_table();
+        Task::none()
+    }
+
+    fn update_table(&mut self, msg: table_view::Msg) -> Task<EditorMessage> {
+        let size = self.inner.font_size();
+        let Some(t) = &mut self.table else { return Task::none() };
+        t.font_size = size;
+        let wrap = |task: Task<table_view::Msg>| task.map(|m| EditorMessage(Msg::Table(m)));
+        match t.update(msg) {
+            table_view::Action::None => Task::none(),
+            table_view::Action::Task(task) => wrap(task),
+            table_view::Action::Focus(task) => {
+                self.focus();
+                wrap(task)
+            }
+            table_view::Action::Edit(edit) => {
+                // A troca é sobre o texto lido pela tabela, que é o de agora (`sync_table` roda depois de cada
+                // mensagem); se não for, a edição é descartada e a tabela relida.
+                let text = self.inner.content();
+                if t.revision() != self.text_revision() {
+                    return Task::none();
+                }
+                let range = iced_code_editor::LspRange {
+                    start: lsp_position(&text, edit.range.start),
+                    end: lsp_position(&text, edit.range.end),
+                };
+                self.inner.apply_lsp_text_edits(&[LspTextChange { range, text: edit.text }]);
+                self.focus();
+                Task::none()
+            }
+            table_view::Action::ShowText(at) => {
+                t.showing = false;
+                let text = self.inner.content();
+                self.focus();
+                match at {
+                    Some(byte) if byte <= text.len() => {
+                        let p = lsp_position(&text, byte);
+                        self.goto(p.line as usize + 1, p.character as usize + 1)
+                    }
+                    _ => Task::none(),
+                }
+            }
+        }
     }
 
     fn update_inner(&mut self, message: EditorMessage) -> Task<EditorMessage> {
         match message.0 {
+            Msg::Table(m) => self.update_table(m),
             Msg::Pdf(m) => {
                 let Some(pdf) = &mut self.pdf else { return Task::none() };
                 pdf.update(m).map(|m| EditorMessage(Msg::Pdf(m)))
@@ -795,6 +893,21 @@ impl Editor {
     pub fn view(&self) -> Element<'_, EditorMessage> {
         if let Some(img) = &self.image {
             return img.view();
+        }
+        if let Some(table) = self.table.as_ref().filter(|t| t.showing) {
+            let focused = self.is_focused();
+            let view = table
+                .view(self.code_font.font, self.inner.font_size(), &self.theme)
+                .map(|m| EditorMessage(Msg::Table(m)));
+            return KeyGate::new(view)
+                .intercept(focused, move |key| table.wants(key).then_some(EditorMessage(Msg::Table(table_view::Msg::Key(key)))))
+                .ctrl(focused, |c, shift| match (c, shift) {
+                    ("c", false) => Some(EditorMessage(Msg::Table(table_view::Msg::Copy))),
+                    ("z", false) => Some(EditorMessage(Msg::Widget(Inner::Undo))),
+                    ("y", false) | ("z", true) => Some(EditorMessage(Msg::Widget(Inner::Redo))),
+                    _ => None,
+                })
+                .into();
         }
         if let Some(pdf) = &self.pdf {
             return pdf.view().map(|m| EditorMessage(Msg::Pdf(m)));
@@ -1066,6 +1179,18 @@ impl Editor {
         self.inner.set_range_styles("semantic-tokens", styles);
     }
 
+    /// Sem servidor, a revisão do texto não andaria: a tabela liga um cliente que só conta as edições. Um servidor de
+    /// verdade toma o lugar dele (e conta igual).
+    fn count_edits(&mut self) {
+        if self.table.is_none() || self.lsp.is_some() {
+            return;
+        }
+        let Some(path) = self.path.clone().filter(|_| self.light.is_none()) else { return };
+        let uri = tea_lsp::uri::path_to_uri(&path);
+        let counter = lsp::Counter { revision: self.revision.clone() };
+        self.inner.attach_lsp(Box::new(counter), LspDocument::new(uri, "plaintext"));
+    }
+
     /// Liga o editor a um servidor LSP. Precisa de caminho.
     pub fn attach_lsp(&mut self, client: tea_lsp::Client, language_id: &str) {
         let Some(path) = self.path.clone().filter(|_| self.light.is_none()) else { return };
@@ -1087,6 +1212,7 @@ impl Editor {
     pub fn detach_lsp(&mut self) {
         if self.lsp.take().is_some() {
             self.inner.detach_lsp();
+            self.count_edits();
         }
         self.diagnostics.clear();
         self.diagnostics_text = None;
@@ -1477,6 +1603,7 @@ impl Editor {
             .collect();
         self.inner.apply_lsp_text_edits(&changes);
         self.follow_edits();
+        self.sync_table();
     }
 
     pub fn show_completions(&mut self, items: Vec<tea_lsp::CompletionItem>) {
@@ -1670,6 +1797,25 @@ mod tests {
         assert_eq!(syntax_for(Some(Path::new("docs/README.mbt.md"))), "mbt.md");
         assert_eq!(syntax_for(Some(Path::new("notes.md"))), "md");
     }
+
+    /// Sem servidor LSP (um CSV não tem), a célula editada aparece na tabela e no texto.
+    #[test]
+    fn table_follows_its_own_edit_without_a_server() {
+        use table_view::Msg as T;
+        let mut ed = Editor::from_text(Path::new("/p/a.csv"), "nome,cidade\nana,Recife\n");
+        assert!(ed.showing_table());
+        for m in [
+            T::StartEdit(tea_table::RowRef::Row(0), 1),
+            T::EditInput("Rio, RJ".into()),
+            T::CommitEdit,
+        ] {
+            let _ = ed.update(EditorMessage(Msg::Table(m)));
+        }
+        assert_eq!(ed.text(), "nome,cidade\nana,\"Rio, RJ\"\n");
+        let t = ed.table.as_ref().unwrap();
+        assert_eq!(t.value(tea_table::RowRef::Row(0), 1).as_deref(), Some("Rio, RJ"), "a tabela releu o texto");
+    }
+
 
     /// Arquivos comuns que não eram coloridos (config, `.env`, TypeScript…) acham a sintaxe certa.
     #[test]

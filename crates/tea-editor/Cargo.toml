@@ -5,6 +5,7 @@ edition.workspace = true
 license.workspace = true
 
 [dependencies]
+tea-table.workspace = true
 iced = { workspace = true, features = ["advanced", "image"] }
 # Mesma versão do iced: só para ler as dimensões das imagens.
 image = "0.25"

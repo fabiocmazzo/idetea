@@ -1,0 +1,9 @@
+[package]
+name = "tea-table"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "CSV, TSV e JSONL como tabela: leitura com a posição de cada célula no texto e a troca mínima de uma célula (RFC 0020)."
+
+[dependencies]
+serde_json.workspace = true

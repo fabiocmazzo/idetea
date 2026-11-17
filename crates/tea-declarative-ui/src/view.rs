@@ -10,8 +10,8 @@ use std::time::Duration;
 use iced::{Element, Fill, Theme};
 use serde_json::Value;
 
-use crate::document::{ButtonStyle, Choice, Component, Document, Kind, Look, Pick, TextStyle};
-use crate::media::{Media, WAVE_HEIGHT, WAVE_WIDTH, display_size, fit};
+use crate::document::{ButtonStyle, Choice, Component, Document, Kind, Look, Pick, TableSource, TextStyle};
+use crate::media::{Media, Sheet, WAVE_HEIGHT, WAVE_WIDTH, display_size, fit};
 use crate::state::State;
 
 #[derive(Debug, Clone, PartialEq)]
@@ -296,6 +296,125 @@ fn labeled<'a>(label: Option<&'a str>, field: impl Into<Element<'a, UiMessage>>)
 }
 
 /// Uma imagem do documento: clique abre na aba de imagem. Sem a imagem lida, o motivo no lugar.
+/// Uma `table`: o cabeçalho, as linhas (até [`crate::MAX_TABLE_ROWS`]) e, com `pick`, uma caixa de marcar em cada
+/// uma. A escolha grava a chave de cada linha em `value` (a coluna `key`, ou o número da linha, começando em 1).
+#[allow(clippy::too_many_arguments)]
+fn table_view<'a>(
+    media: &'a Media,
+    state: &'a State,
+    doc: &'a Document,
+    source: &'a TableSource,
+    label: Option<&'a str>,
+    pick: Pick,
+    value: Option<&'a str>,
+    key: Option<&'a str>,
+    height: Option<u32>,
+) -> Element<'a, UiMessage> {
+    let owned;
+    let sheet: &Sheet = match source {
+        TableSource::File(path) => match media.table(path) {
+            Some(Ok(s)) => s,
+            Some(Err(e)) => return text(format!("{path}: {e}")).size(12).style(text::warning).into(),
+            None => return text(fl!("ui-image-loading", path = path.clone())).size(12).style(text::secondary).into(),
+        },
+        TableSource::Inline { columns, rows } => {
+            owned = Sheet::inline(columns, rows);
+            &owned
+        }
+    };
+    let key_col = key.and_then(|k| sheet.columns.iter().position(|c| c == k));
+    let key_of = |i: usize| match key_col {
+        Some(c) => sheet.rows[i].get(c).cloned().flatten().unwrap_or_default(),
+        None => (i + 1).to_string(),
+    };
+    let chosen: Vec<String> = match (pick, value) {
+        (Pick::One, Some(v)) => state.value(doc, v).and_then(Value::as_str).map(|s| vec![s.to_string()]).unwrap_or_default(),
+        (Pick::Many, Some(v)) => state.checked(doc, v).into_iter().map(str::to_string).collect(),
+        _ => Vec::new(),
+    };
+    const CHAR: f32 = 7.2;
+    let widths: Vec<f32> = (0..sheet.columns.len())
+        .map(|c| {
+            let longest = sheet.rows.iter().take(200).filter_map(|r| r.get(c).cloned().flatten()).map(|v| v.chars().count()).max().unwrap_or(0);
+            longest.max(sheet.columns[c].chars().count()).clamp(3, 30) as f32 * CHAR + 14.0
+        })
+        .collect();
+    let picking = pick != Pick::None && value.is_some();
+    let check_w = if picking { 28.0 } else { 0.0 };
+    let total_w = check_w + widths.iter().sum::<f32>();
+    let cell = |content: String, w: f32, bold: bool| -> Element<'a, UiMessage> {
+        let mut t = text(content).size(12).wrapping(text::Wrapping::None);
+        if bold {
+            t = t.font(iced::Font { weight: iced::font::Weight::Bold, ..iced::Font::DEFAULT });
+        }
+        container(t).width(w).padding([3, 6]).clip(true).into()
+    };
+    let mut header = row![].width(total_w);
+    if picking {
+        header = header.push(container(text("")).width(check_w));
+    }
+    for (c, name) in sheet.columns.iter().enumerate() {
+        header = header.push(cell(name.clone(), widths[c], true));
+    }
+    let mut lines = column![header].width(total_w);
+    for (i, r) in sheet.rows.iter().enumerate() {
+        let k = key_of(i);
+        let on = chosen.contains(&k);
+        let mut line = row![].width(total_w).align_y(iced::Alignment::Center);
+        if let (true, Some(path)) = (picking, value) {
+            let next = match pick {
+                Pick::One => {
+                    if on { Value::Null } else { Value::String(k.clone()) }
+                }
+                _ => {
+                    // A lista inteira, na ordem das linhas.
+                    let list: Vec<Value> = (0..sheet.rows.len())
+                        .map(key_of)
+                        .filter(|other| if *other == k { !on } else { chosen.contains(other) })
+                        .map(Value::String)
+                        .collect();
+                    Value::Array(list)
+                }
+            };
+            let msg = UiMessage::Set { path: path.to_string(), value: next };
+            line = line.push(container(checkbox(on).size(14).on_toggle(move |_| msg.clone())).width(check_w));
+        }
+        for (c, w) in widths.iter().enumerate() {
+            line = line.push(cell(r.get(c).cloned().flatten().unwrap_or_default(), *w, false));
+        }
+        lines = lines.push(line);
+    }
+    let shown_h = (sheet.rows.len() as f32 + 1.0) * 22.0 + 14.0;
+    let body = tea_core::style::scrollable(lines)
+        .direction(iced::widget::scrollable::Direction::Both {
+            vertical: tea_core::style::scrollbar(),
+            horizontal: tea_core::style::scrollbar(),
+        })
+        .height(shown_h.min(height.unwrap_or(260) as f32))
+        .width(Fill);
+    let mut foot = row![text(fl!("ui-table-rows", count = sheet.total)).size(12).style(text::secondary)].spacing(10);
+    if sheet.total > sheet.rows.len() {
+        foot = foot.push(text(fl!("ui-table-more", count = (sheet.total - sheet.rows.len()))).size(12).style(text::secondary));
+    }
+    if let TableSource::File(path) = source {
+        foot = foot.push(
+            button(text(fl!("ui-table-open")).size(12))
+                .style(button::text)
+                .padding(0)
+                .on_press(UiMessage::Open { path: path.clone(), line: 0, column: 0 }),
+        );
+    }
+    let mut out = column![].spacing(6).width(Fill);
+    if let Some(l) = label {
+        out = out.push(text(l.to_string()).size(13));
+    }
+    out = out.push(container(body).style(container::bordered_box)).push(foot);
+    match source {
+        TableSource::File(path) => watched(out, path, doc.revision),
+        TableSource::Inline { .. } => out.into(),
+    }
+}
+
 fn picture_view<'a>(media: &'a Media, path: &'a str, look: Look) -> Element<'a, UiMessage> {
     let p = match media.picture(path) {
         Some(Ok(p)) => p,
@@ -553,6 +672,9 @@ fn component_view<'a>(
                 line.into()
             });
             column(list).spacing(6).width(Fill).into()
+        }
+        Kind::Table { source, label, pick, value, key, height } => {
+            table_view(media, state, doc, source, label.as_deref(), *pick, value.as_deref(), key.as_deref(), *height)
         }
         Kind::Unknown { component } => {
             text(fl!("ui-unknown-component", component = component.clone())).size(13).style(text::warning).into()

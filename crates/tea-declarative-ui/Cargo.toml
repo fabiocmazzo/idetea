@@ -13,6 +13,7 @@ image = "0.25"
 serde.workspace = true
 serde_json.workspace = true
 tea-core.workspace = true
+tea-table.workspace = true
 
 [dev-dependencies]
 iced_test = "0.14"

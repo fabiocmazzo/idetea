@@ -23,6 +23,9 @@ La liste complète, pour le lecteur technique. Pour la version courte, voir le [
   la frappe.
 - Les images (png, jpg, gif, webp, bmp, ico…) s'ouvrent dans un onglet, avec zoom à la molette et déplacement.
 - Le PDF s'ouvre dans un onglet (rendu par `hayro`, Rust pur), avec zoom et ajustement à la largeur.
+- CSV, TSV et JSONL s'ouvrent en tableau (le bouton de la barre d'onglets ou `table.toggle` revient au texte) : trier
+  et filtrer sans toucher au fichier ; modifier une cellule ne change que ce champ dans le texte (guillemets gardés,
+  `Ctrl+Z` l'annule). En JSONL, une cellule prend du JSON, et une valeur invalide est refusée.
 - Conserve les CRLF. Un fichier qui n'est pas en UTF-8 n'est pas ouvert (avec un avertissement), au lieu d'être
   corrompu.
 - Gros fichiers : un fichier de 50 Mo s'ouvre en moins de 0,1 s. Un fichier d'une seule ligne géante (JSON ou JS
@@ -130,7 +133,7 @@ et `CLAUDE.md`.
 
 - **Panneau Interfaces** (`.idetea/ui/<name>.json`) : l'agent écrit un document, l'IDE l'affiche comme un formulaire
   (texte, Markdown, select, case à cocher, champ, boutons, étapes pour les tests manuels, fichiers à éditer, images,
-  galeries, sprites animés, sons avec forme d'onde et niveau de crête) et écrit votre réponse dans
+  galeries, sprites animés, sons avec forme d'onde et niveau de crête, tableaux où choisir des lignes) et écrit votre réponse dans
   `.idetea/ui/responses/`. Le panneau indique si l'agent attend encore. Format :
   [docs/interfaces/formato.md](interfaces/formato.md) (en portugais pour l'instant).
 - **Terminaux d'agent** (`.idetea/agents/<name>.json`) : l'agent demande un terminal avec une commande ; l'IDE montre

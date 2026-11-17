@@ -19,11 +19,23 @@ pub struct KeyGate<'a, Message, Theme, Renderer> {
     content: Element<'a, Message, Theme, Renderer>,
     /// `None` = deixa a tecla passar.
     intercept: Option<Box<dyn Fn(Named) -> Option<Message> + 'a>>,
+    /// Ctrl+letra (sem Alt): a letra em minúscula e se o Shift está apertado.
+    ctrl: Option<CtrlKeys<'a, Message>>,
 }
+
+type CtrlKeys<'a, Message> = Box<dyn Fn(&str, bool) -> Option<Message> + 'a>;
 
 impl<'a, Message, Theme, Renderer> KeyGate<'a, Message, Theme, Renderer> {
     pub fn new(content: impl Into<Element<'a, Message, Theme, Renderer>>) -> Self {
-        Self { content: content.into(), intercept: None }
+        Self { content: content.into(), intercept: None, ctrl: None }
+    }
+
+    /// Intercepta Ctrl+letra (só quando `active`): a vista de tabela usa para copiar e desfazer.
+    pub fn ctrl(mut self, active: bool, f: impl Fn(&str, bool) -> Option<Message> + 'a) -> Self {
+        if active {
+            self.ctrl = Some(Box::new(f));
+        }
+        self
     }
 
     /// Liga a interceptação (só quando `active`).
@@ -123,6 +135,16 @@ where
             && !modifiers.alt()
             && (c.eq_ignore_ascii_case("v") || c.eq_ignore_ascii_case("a"))
         {
+            return;
+        }
+        if let (Some(f), Event::Keyboard(keyboard::Event::KeyPressed { key: keyboard::Key::Character(c), modifiers, .. })) =
+            (&self.ctrl, event)
+            && modifiers.control()
+            && !modifiers.alt()
+            && let Some(message) = f(&c.to_lowercase(), modifiers.shift())
+        {
+            shell.publish(message);
+            shell.capture_event();
             return;
         }
         if let (Some(f), Event::Keyboard(keyboard::Event::KeyPressed { key: keyboard::Key::Named(named), .. })) =

@@ -66,3 +66,16 @@ ui-open-blocked = { $path }: el enlace idetea:open solo abre { $list }.
 ui-open-not-file = { $path } no es un archivo común (falta, es carpeta o enlace simbólico).
 ui-select-text = Seleccionar texto
 ui-select-done = Ver con formato
+
+## table (RFC 0020)
+ui-too-many-tables = El documento tiene más de { $max } tablas.
+ui-table-extension = { $field }: { $path } no es una tabla (aceptados: csv, tsv, jsonl).
+ui-table-source = { $field }: da `path` o `columns` y `rows`, no ambos.
+ui-table-too-big = pasa de { $max } MB
+ui-table-error = no se pudo leer: { $error }
+ui-table-more = …y { $count } filas más; ábrelo en una pestaña para verlas todas.
+ui-table-open = Abrir en una pestaña
+ui-table-rows = { $count ->
+    [one] 1 fila
+   *[other] { $count } filas
+}

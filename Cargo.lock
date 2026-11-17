@@ -5724,6 +5724,7 @@ dependencies = [
  "serde",
  "serde_json",
  "tea-core",
+ "tea-table",
 ]
 
 [[package]]
@@ -5741,6 +5742,7 @@ dependencies = [
  "similar",
  "tea-core",
  "tea-lsp",
+ "tea-table",
 ]
 
 [[package]]
@@ -5893,6 +5895,13 @@ dependencies = [
  "serde",
  "tea-core",
  "toml 1.1.8+spec-1.1.0",
+]
+
+[[package]]
+name = "tea-table"
+version = "0.12.0"
+dependencies = [
+ "serde_json",
 ]
 
 [[package]]

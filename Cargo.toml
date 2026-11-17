@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["crates/tea-core", "crates/tea-declarative-ui", "crates/tea-plugins", "crates/tea-editor", "crates/tea-lsp", "crates/tea-dap", "crates/tea-skills", "crates/tea-app", "crates/ext/*"]
+members = ["crates/tea-core", "crates/tea-declarative-ui", "crates/tea-plugins", "crates/tea-editor", "crates/tea-lsp", "crates/tea-dap", "crates/tea-skills", "crates/tea-table", "crates/tea-app", "crates/ext/*"]
 
 [workspace.package]
 version = "0.12.0"
@@ -32,6 +32,7 @@ tea-declarative-ui = { path = "crates/tea-declarative-ui" }
 tea-plugins = { path = "crates/tea-plugins" }
 tea-ext-ui = { path = "crates/ext/tea-ext-ui" }
 tea-skills = { path = "crates/tea-skills" }
+tea-table = { path = "crates/tea-table" }
 tea-editor = { path = "crates/tea-editor" }
 tea-lsp = { path = "crates/tea-lsp" }
 tea-dap = { path = "crates/tea-dap" }

@@ -766,7 +766,12 @@ code-action-kind-quickfix = クイック修正
 code-action-kind-refactor = リファクタリング
 code-action-kind-source = ファイル
 cmd-lsp-toggle-inlay-hints = LSP: インレイ ヒントの表示を切り替え (型とパラメーター名)
+cmd-table-toggle = 表: テキストと表を切り替える (CSV、TSV、JSONL)
 inlay-hints-on = インレイ ヒント: オン
 inlay-hints-off = インレイ ヒント: オフ
 guide-lsp-11 = コード アクション: エラーや警告の上にカーソルを置いて (またはコードを選択して) { $lsp-code_actions } を押すと、足りない import など、サーバーが提案する修正とリファクタリングが一覧になります。おすすめは ✓ 付きで先頭に出ます。変更はタブ内で未保存のままです (Ctrl+Z で元に戻せます)。
 guide-lsp-12 = インレイ ヒント: サーバーが推論した変数の型と、呼び出しのパラメーター名をコードの中に灰色で表示します。ファイルには含まれません (カーソルはその上を飛ばし、保存もされません)。{ $lsp-toggle_inlay_hints } でオンとオフを切り替え、`[lsp] inlay_hints = false` で常にオフにします。
+
+## Tabela (RFC 0020)
+table-not-a-table = このファイルには表ビューがありません (CSV、TSV、JSONL)。
+table-toggle-tip = 表またはテキスト

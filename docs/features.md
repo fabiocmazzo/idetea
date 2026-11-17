@@ -18,6 +18,9 @@ The full list, for the technical reader. For the short version, see the [README]
 - Markdown and SVG preview next to the editor (`Ctrl+Shift+V` or the button on the tab bar), updated as you type.
 - Images (png, jpg, gif, webp, bmp, ico…) open in a tab, with mouse-wheel zoom and drag.
 - PDF opens in a tab (rendered by `hayro`, pure Rust), with zoom and fit to width.
+- CSV, TSV and JSONL open as a table (the button on the tab bar or `table.toggle` goes back to the text): sort and filter
+  without touching the file; edit a cell and only that field changes in the text (quotes kept, `Ctrl+Z` undoes it). In
+  JSONL a cell takes JSON, and an invalid value is refused.
 - Keeps CRLF. A file that is not UTF-8 is not opened (with a warning) instead of being corrupted.
 - Big files: a 50 MB file opens in under 0.1 s. A file with one giant line (minified JSON or JS) opens in a light
   mode, without colors and with wrapping, so the window does not freeze.
@@ -112,7 +115,7 @@ All of it is plain files in the project's `.idetea/` folder, so any agent that r
 
 - **Interfaces panel** (`.idetea/ui/<name>.json`): the agent writes a document, the IDE shows it as a form (text,
   Markdown, select, checkbox, input, buttons, steps for manual tests, files to edit, images, galleries, animated
-  sprites, sounds with waveform and peak level) and writes your answer to `.idetea/ui/responses/`. The panel shows
+  sprites, sounds with waveform and peak level, tables to pick rows from) and writes your answer to `.idetea/ui/responses/`. The panel shows
   whether the agent is still waiting. Format: [docs/interfaces/formato.md](interfaces/formato.md).
 - **Agent terminals** (`.idetea/agents/<name>.json`): the agent asks for a terminal with a command; the IDE shows
   the whole request in a "terminal request" tab and runs it only after you allow it. Progress goes to

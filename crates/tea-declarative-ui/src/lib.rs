@@ -21,9 +21,9 @@ mod wav;
 
 pub use document::{
     Action, ButtonStyle, Choice, Component, Document, FORMAT, GalleryItem, Kind, Limits, Look, Pick, Submit,
-    TextStyle, VERSION, parse,
+    TABLE_EXTENSIONS, TableSource, TextStyle, VERSION, parse,
 };
-pub use media::{AUDIO_EXTENSIONS, Frames, Media, MediaLimits, Picture, Sound, display_size, fit, stamps as media_stamps};
+pub use media::{AUDIO_EXTENSIONS, Frames, MAX_TABLE_ROWS, Media, MediaLimits, Picture, Sheet, Sound, display_size, fit, stamps as media_stamps};
 pub use links::{Link, copy, follow, link, open_file};
 pub use response::{Ide, RESPONSE_FORMAT, Response, Seen, file_name, timestamp};
 pub use state::{State, Waiting};

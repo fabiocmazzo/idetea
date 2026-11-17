@@ -112,6 +112,7 @@ Todo componente tem `id` (`[A-Za-z0-9_-]`, até 64, único no documento) e `comp
 | `gallery` | `items`, `select`, `value`, `pixelated`, `background`, `height` | Imagens lado a lado, para comparar ou escolher. Ver [Imagens](#imagens). |
 | `sprite` | `path`, `frames`, `fps`, `frame_width`, `frame_height`, `label`, `pixelated`, `background`, `height` | Os quadros de um spritesheet, animados. Ver [Sprites](#sprites). |
 | `audio` | `path`, `label`, `loop` | Um som do projeto: Tocar/Parar; de WAV, também formato, pico e forma de onda. Ver [Sons](#sons). |
+| `table` | `path` ou `columns` e `rows`, `label`, `select`, `value`, `key`, `height` | Uma tabela de um CSV, TSV ou JSONL do projeto, ou dada no documento; com `select`, o usuário escolhe linhas. Ver [Tabelas](#tabelas). |
 | `steps` | `items`, `value` | Passos numerados que o usuário marca. `items`: até 500, cada um `{"id": "x", "text": "…", "optional": true}` (`text` em Markdown de uma linha; `optional` não conta para o `requires`). Valor: a lista dos ids marcados, na ordem dos passos. |
 
 `value` é o lugar do valor em `data`: um ponteiro JSON (RFC 6901) como `"/usuario/nome"`, ou
@@ -141,13 +142,13 @@ ajustar num `input`:
  "action": {"name": "enviar", "context": ["/escolha", "/ajuste"]}}
 ```
 
-Preenchido quer dizer: uma escolha feita (não `null`), texto com algo além de espaços, `checkbox` marcada, lista
+Preenchido quer dizer: uma escolha feita (não `null`; numa `table`, uma linha marcada), texto com algo além de espaços, `checkbox` marcada, lista
 não vazia. Embaixo dos botões o painel diz o que falta ("Falta preencher: …", pelo `label` do campo, ou pelo `id`).
 Um caminho que não é o `value` de nenhum componente vira aviso e é ignorado.
 
 ### Limites
 
-256 KB por arquivo, 200 componentes, 16 KB por texto, 500 opções, 32 imagens, 32 sons, 64 KB e 16 níveis em `data`. Acima disso o
+256 KB por arquivo, 200 componentes, 16 KB por texto, 500 opções, 32 imagens, 32 sons, 8 tabelas, 64 KB e 16 níveis em `data`. Acima disso o
 documento é recusado e o erro aparece no painel com o campo (ex.: `components[3].value`).
 
 ## Arquivos
@@ -256,6 +257,27 @@ quando o arquivo muda no disco: dá para regerar e olhar de novo.
   só toca.
 - **O som é relido quando o arquivo muda:** regere e os dados e a forma de onda são atualizados.
 - Nos painéis de plugins o som não toca (só o aviso).
+
+## Tabelas
+
+```json
+{"id": "falhas", "component": "table", "path": ".idetea/ui/rascunhos/falhas.csv",
+ "label": "Testes que falharam", "select": "many", "value": "/consertar", "key": "nome"}
+```
+
+- **Fonte:** `path` para um `.csv`, `.tsv` (ou `.tab`), `.jsonl` (ou `.ndjson`) do projeto, como no `file`:
+  relativo à raiz, sem `..`, sem seguir symlink, até 16 MB. A primeira linha do CSV e do TSV é o cabeçalho; o
+  separador do CSV (`,`, `;` ou `|`) é detectado. No JSONL, as colunas são as chaves, na ordem em que aparecem, e um
+  valor que não é texto aparece como JSON. Para tabelas pequenas, sem arquivo: `"columns": ["nome", "tempo"]` e
+  `"rows": [["parse", 12], ["render", null]]` (número, `true` e `null` viram texto; `null` fica vazio).
+- **Na tela:** só para ler, com cabeçalho e rolagem nas duas direções, até 1000 linhas (o resto: "…e mais N linhas")
+  e altura máxima `height` (padrão 260 px). Embaixo, o número de linhas e, com `path`, **Abrir na aba**: o arquivo
+  abre na aba, na vista de tabela, onde dá para ordenar, filtrar e editar as células.
+- **Escolher linhas:** `select` `one` ou `many` põe uma caixa de marcar em cada linha. O valor em `value` é a chave
+  da linha: a célula da coluna `key`, ou o número da linha (começando em 1, sem o cabeçalho) quando não há `key`.
+  Com `one`, um texto (ou `null`); com `many`, a lista, na ordem das linhas. Funciona com `requires`.
+- **A tabela é relida quando o arquivo muda:** reescreva o CSV e o painel mostra o novo.
+- Na resposta, em `media` pelo `path`: `rows` (as linhas do arquivo) e `shown`, como uma imagem.
 
 ## Markdown
 
@@ -426,6 +448,7 @@ idetea ask pergunta.json --name proximo --value /passo     # o documento inteiro
 idetea ask --title "Próximo passo" --text "O que fazer agora?" --options "lacunas|melhorias|outra"
 idetea ask --title "Apagar 3 arquivos?" --confirm          # sai 0 (sim) ou 1 (não)
 idetea ask --input "Nome do branch"
+idetea ask --table falhas.csv --pick many --key nome     # as chaves escolhidas, uma por linha
 ```
 
 - Escolhe o nome (`ask-…`, ou `--name`) e a revisão (maior que qualquer uma já usada com o nome: a do documento,
@@ -434,6 +457,8 @@ idetea ask --input "Nome do branch"
   `.wait`.
 - Só conta a resposta da revisão que publicou (um clique numa tela velha é apagado). Avisa no stderr o `comment` e
   um `ide.outdated`.
+- `idetea ask --table dados.csv --pick many --key nome` mostra a tabela e imprime as chaves das linhas escolhidas,
+  uma por linha (`--pick one`: uma só; sem `--key`, o número da linha). Sem `--pick`, só mostra, com um botão OK.
 - Imprime: nas formas curtas, o valor escolhido (`--confirm`: `yes`/`no`); com `--value /ponteiro`, esse valor; com
   `--json` (ou um documento sem `--value`), a resposta inteira.
 - Espera 10 minutos (`--timeout` muda). Sem resposta, sai **4** e a pergunta fica no painel; `idetea ask --resume

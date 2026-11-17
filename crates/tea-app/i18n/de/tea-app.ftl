@@ -784,7 +784,12 @@ code-action-kind-quickfix = Korrektur
 code-action-kind-refactor = Refactoring
 code-action-kind-source = Datei
 cmd-lsp-toggle-inlay-hints = LSP: Inlay Hints ein/aus (Typen und Parameternamen im Code)
+cmd-table-toggle = Tabelle: zwischen Text und Tabelle wechseln (CSV, TSV, JSONL)
 inlay-hints-on = Inlay Hints an
 inlay-hints-off = Inlay Hints aus
 guide-lsp-11 = Code-Aktionen: { $lsp-code_actions } mit dem Cursor auf einem Fehler oder einer Warnung (oder mit markiertem Code) listet die Korrekturen und Refactorings, die der Server anbietet, etwa den fehlenden Import; die empfohlene steht oben, mit ✓. Die Änderungen bleiben ungespeichert in den Tabs (Strg+Z macht sie rückgängig).
 guide-lsp-12 = Inlay Hints: Der Server zeigt grau im Code den abgeleiteten Typ von Variablen und die Parameternamen in Aufrufen. Sie gehören nicht zur Datei: Der Cursor springt darüber, und nichts davon wird gespeichert. { $lsp-toggle_inlay_hints } schaltet sie ein und aus; `[lsp] inlay_hints = false` schaltet sie dauerhaft aus.
+
+## Tabela (RFC 0020)
+table-not-a-table = Diese Datei hat keine Tabellenansicht (CSV, TSV oder JSONL).
+table-toggle-tip = Tabelle oder Text

@@ -28,6 +28,8 @@ enum Short {
     Options(Vec<String>),
     Confirm,
     Input(String),
+    /// `--table`: um CSV, TSV ou JSONL (como foi dado; vira relativo à raiz antes de publicar), `--pick` e `--key`.
+    Table { path: String, pick: Option<String>, key: Option<String> },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -78,6 +80,25 @@ fn parse(args: &[String]) -> Result<Args, String> {
             }
             "--confirm" => a.short = Short::Confirm,
             "--input" => a.short = Short::Input(next(arg)?),
+            "--table" => {
+                let path = next(arg)?;
+                match &mut a.short {
+                    Short::Table { path: p, .. } => *p = path,
+                    _ => a.short = Short::Table { path, pick: None, key: None },
+                }
+            }
+            "--pick" | "--key" => {
+                let v = next(arg)?;
+                if arg == "--pick" && !matches!(v.as_str(), "one" | "many" | "none") {
+                    return Err(format!("{arg} {v}"));
+                }
+                if !matches!(a.short, Short::Table { .. }) {
+                    a.short = Short::Table { path: String::new(), pick: None, key: None };
+                }
+                if let Short::Table { pick, key, .. } = &mut a.short {
+                    if arg == "--pick" { *pick = Some(v) } else { *key = Some(v) }
+                }
+            }
             "--value" => a.value = Some(next(arg)?),
             "--json" => a.json = true,
             "--keep" => a.keep = true,
@@ -91,6 +112,9 @@ fn parse(args: &[String]) -> Result<Args, String> {
             other if a.doc.is_none() => a.doc = Some(other.to_string()),
             other => return Err(other.to_string()),
         }
+    }
+    if matches!(&a.short, Short::Table { path, .. } if path.is_empty()) {
+        return Err("--table".into());
     }
     let has_short = a.short != Short::None || a.text.is_some();
     let modes = [a.doc.is_some(), has_short, a.resume.is_some(), a.close.is_some()].iter().filter(|m| **m).count();
@@ -136,6 +160,25 @@ fn short_doc(a: &Args) -> Value {
             components.push(json!({"id": "resposta", "component": "input", "label": label, "value": "/resposta"}));
             components.push(json!({"id": "ok", "component": "button", "label": fl!("ask-ok"), "requires": "/resposta",
                                    "action": {"name": "ok", "context": ["/resposta"]}}));
+        }
+        Short::Table { path, pick, key } => {
+            let mut table = json!({"id": "tabela", "component": "table", "path": path});
+            let picking = matches!(pick.as_deref(), Some("one" | "many"));
+            if picking {
+                table["select"] = json!(pick);
+                table["value"] = json!("/linhas");
+                data = json!({"linhas": if pick.as_deref() == Some("many") { json!([]) } else { Value::Null }});
+            }
+            if let Some(k) = key {
+                table["key"] = json!(k);
+            }
+            components.push(table);
+            components.push(if picking {
+                json!({"id": "ok", "component": "button", "label": fl!("ask-ok"), "requires": "/linhas",
+                       "action": {"name": "ok", "context": ["/linhas"]}})
+            } else {
+                json!({"id": "ok", "component": "button", "label": fl!("ask-ok"), "action": {"name": "ok"}})
+            });
         }
         // Só texto: um aviso com "Ok" (o agente sabe que foi lido).
         Short::None => {
@@ -271,6 +314,18 @@ pub fn run(args: &[String], cwd: &Path) -> i32 {
         }
     };
     let root = project_root(cwd);
+    let mut a = a;
+    // O arquivo da `--table` é dado a partir da pasta atual; o documento quer o caminho a partir da raiz.
+    if let Short::Table { path, .. } = &mut a.short {
+        let full = cwd.join(&*path);
+        match full.strip_prefix(&root) {
+            Ok(rel) if !rel.as_os_str().is_empty() => *path = rel.to_string_lossy().replace('\\', "/"),
+            _ => {
+                eprintln!("{}", fl!("ask-table-outside", path = path.clone()));
+                return EXIT_INVALID;
+            }
+        }
+    }
     if let Some(name) = &a.close {
         close(&root, name);
         return EXIT_OK;
@@ -336,6 +391,13 @@ pub fn run(args: &[String], cwd: &Path) -> i32 {
         match &a.short {
             Short::Options(_) => println!("{}", show(&values["/escolha"])),
             Short::Input(_) => println!("{}", show(&values["/resposta"])),
+            // Uma chave por linha (com `many`, a lista; com `one`, a escolhida); só mostrar: a ação.
+            Short::Table { pick: Some(p), .. } if p != "none" => match &values["/linhas"] {
+                Value::Array(list) => list.iter().for_each(|v| println!("{}", show(v))),
+                Value::Null => {}
+                v => println!("{}", show(v)),
+            },
+            Short::Table { .. } => println!("{action}"),
             Short::Confirm => println!("{}", if action == "sim" { "yes" } else { "no" }),
             Short::None if a.doc.is_none() && a.resume.is_none() => println!("{action}"),
             Short::None => println!("{}", serde_json::to_string_pretty(&response).unwrap_or_default()),
@@ -353,6 +415,18 @@ mod tests {
 
     fn s(v: &[&str]) -> Vec<String> {
         v.iter().map(|x| x.to_string()).collect()
+    }
+
+    #[test]
+    fn table_asks_with_rows_to_pick() {
+        let a = parse(&s(&["--table", "dados.csv", "--pick", "many", "--key", "nome"])).unwrap();
+        assert_eq!(a.short, Short::Table { path: "dados.csv".into(), pick: Some("many".into()), key: Some("nome".into()) });
+        let doc = short_doc(&a);
+        let t = &doc["components"][0];
+        assert_eq!((t["component"].as_str(), t["select"].as_str(), t["key"].as_str()), (Some("table"), Some("many"), Some("nome")));
+        assert_eq!(doc["components"][1]["requires"], "/linhas");
+        assert!(parse(&s(&["--pick", "many"])).is_err(), "--pick sem --table");
+        assert!(parse(&s(&["--table", "a.csv", "--pick", "duas"])).is_err());
     }
 
     #[test]

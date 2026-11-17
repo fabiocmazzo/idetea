@@ -62,3 +62,13 @@ ui-open-blocked = { $path }: idetea:open のリンクが開けるのは { $list 
 ui-open-not-file = { $path } は通常のファイルではありません (ない、フォルダー、またはシンボリック リンク)。
 ui-select-text = テキストを選択
 ui-select-done = 整形して表示
+
+## table (RFC 0020)
+ui-too-many-tables = 文書の表が { $max } 個を超えています。
+ui-table-extension = { $field }: { $path } は表ではありません (使えるのは csv、tsv、jsonl)。
+ui-table-source = { $field }: `path` か `columns` と `rows` のどちらかを指定してください。
+ui-table-too-big = { $max } MB を超えています
+ui-table-error = 読めませんでした: { $error }
+ui-table-more = …ほかに { $count } 行あります。すべて見るにはタブで開いてください。
+ui-table-open = タブで開く
+ui-table-rows = { $count } 行

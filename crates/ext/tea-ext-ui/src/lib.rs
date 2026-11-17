@@ -450,7 +450,7 @@ impl UiExtension {
     /// O `media` da resposta: cada imagem e som do documento, com a versão lida para a tela e as contagens.
     fn media_seen(&self, f: &SurfaceFile, doc: &Document) -> BTreeMap<String, Seen> {
         let counts = self.seen.get(&f.name).filter(|(r, _)| *r == doc.revision).map(|(_, c)| c);
-        let media: Vec<&str> = doc.image_paths().into_iter().chain(doc.audio_paths()).collect();
+        let media: Vec<&str> = doc.image_paths().into_iter().chain(doc.audio_paths()).chain(doc.table_paths()).collect();
         let mut out: BTreeMap<String, Seen> = media
             .iter()
             .map(|&path| {
@@ -466,6 +466,9 @@ impl UiExtension {
                     // `+ 0.0` tira o `-0.0` (pico no máximo arredondado).
                     seen.peak_db = info.peak_db().map(|db| (f64::from(db) * 10.0).round() / 10.0 + 0.0);
                     seen.clips = info.clips();
+                }
+                if let Some(Ok(sheet)) = f.media.table(path) {
+                    seen.rows = Some(sheet.total as u64);
                 }
                 (path.to_string(), seen)
             })

@@ -19,3 +19,13 @@ hunk-deleted = 削除 { $count } 行:
 hunk-added-note = 前回のコミットにはありません。
 hunk-revert = 変更を元に戻す
 image-saved = { $time } に保存
+
+## 表ビュー (RFC 0020)
+table-show-text = テキスト
+table-filter = 絞り込み
+table-rows = { $count } 行
+table-rows-filtered = { $count } 行中 { $shown } 行
+table-sorted = { $column } で並べ替え { $arrow }
+table-invalid-json = JSON ではありません: { $error }
+table-broken-row = この行は読めませんでした。テキストで編集してください。
+table-out-of-range = このセルはありません。

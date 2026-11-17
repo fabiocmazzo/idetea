@@ -20,6 +20,9 @@ L'elenco completo, per chi vuole il dettaglio tecnico. Per la versione breve, ve
 - Anteprima di Markdown e SVG accanto all'editor (`Ctrl+Shift+V` o il pulsante sulla barra delle schede), aggiornata mentre scrivi.
 - Le immagini (png, jpg, gif, webp, bmp, ico…) si aprono in una scheda, con zoom della rotellina e trascinamento.
 - Il PDF si apre in una scheda (renderizzato da `hayro`, Rust puro), con zoom e adatta alla larghezza.
+- CSV, TSV e JSONL si aprono come tabella (il pulsante nella barra delle schede o `table.toggle` torna al testo):
+  ordinare e filtrare senza toccare il file; modificare una cella cambia solo quel campo nel testo (virgolette
+  mantenute, `Ctrl+Z` la annulla). In JSONL una cella accetta JSON, e un valore non valido viene rifiutato.
 - Conserva i CRLF. Un file che non è UTF-8 non viene aperto (con un avviso), invece di essere corrotto.
 - File grandi: un file da 50 MB si apre in meno di 0,1 s. Un file con una riga enorme (JSON o JS minificato) si apre in una
   modalità leggera, senza colori e con a capo automatico, così la finestra non si blocca.
@@ -115,7 +118,7 @@ Tutto sono file in chiaro nella cartella `.idetea/` del progetto, così qualsias
 
 - **Pannello Interfacce** (`.idetea/ui/<name>.json`): l'agente scrive un documento, l'IDE lo mostra come un modulo (testo,
   Markdown, select, casella, input, pulsanti, passi per i test manuali, file da modificare, immagini, gallerie, sprite
-  animati, suoni con forma d'onda e livello di picco) e scrive la tua risposta in `.idetea/ui/responses/`. Il pannello mostra
+  animati, suoni con forma d'onda e livello di picco, tabelle da cui scegliere righe) e scrive la tua risposta in `.idetea/ui/responses/`. Il pannello mostra
   se l'agente sta ancora aspettando. Formato: [docs/interfaces/formato.md](interfaces/formato.md) (per ora in portoghese).
 - **Terminali di agente** (`.idetea/agents/<name>.json`): l'agente chiede un terminale con un comando; l'IDE mostra
   la richiesta intera in una scheda «Richiesta di terminale» e la esegue solo dopo che tu la consenti. L'avanzamento va in

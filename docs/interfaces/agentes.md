@@ -114,6 +114,11 @@ files as below.
      (`wav`, `ogg`, `oga`, `opus`, `flac`, `mp3`). I get Play/Stop (one sound at a time, through the system
      player); for WAV the panel also shows duration, rate, channels, bits, peak in dBFS (with a warning at 0 dBFS)
      and the waveform, and rereads them when the file changes.
+   - A table, to show data or let me pick rows: `{"id": "r", "component": "table", "path": "out/failures.csv",
+     "select": "many", "value": "/pick", "key": "name"}` (`csv`, `tsv`, `jsonl`; or inline `"columns": [...]` and
+     `"rows": [[...]]`). The value is the `key` cell of each row I pick (or the row number); `requires` works with
+     it. From the shell: `idetea ask --table out/failures.csv --pick many --key name` prints one key per line.
+     A `.csv`, `.tsv` or `.jsonl` opened in the IDE shows as a table where I can edit cells.
    - Other media: a `file` (or a `markdown` link) to a PDF opens a PDF tab; SVG opens as text with a preview.
      Audio, video and other binary files do not open in a tab.
    - Links in `markdown` open the web (`https://…`), project files (`src/main.rs:42`), the IDE config

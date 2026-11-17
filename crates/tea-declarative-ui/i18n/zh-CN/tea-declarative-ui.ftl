@@ -63,3 +63,13 @@ ui-open-blocked = { $path }：idetea:open链接只能打开 { $list }。
 ui-open-not-file = { $path } 不是普通文件（不存在、是文件夹或符号链接）。
 ui-select-text = 选择文本
 ui-select-done = 显示格式化结果
+
+## table (RFC 0020)
+ui-too-many-tables = 文档的表格超过 { $max } 个。
+ui-table-extension = { $field }：{ $path } 不是表格（可用：csv、tsv、jsonl）。
+ui-table-source = { $field }：请给出 `path`，或给出 `columns` 和 `rows`，不能同时给。
+ui-table-too-big = 超过 { $max } MB
+ui-table-error = 无法读取：{ $error }
+ui-table-more = …还有 { $count } 行；在标签页中打开可查看全部。
+ui-table-open = 在标签页中打开
+ui-table-rows = { $count } 行

@@ -419,6 +419,7 @@ const CORE_COMMANDS: &[(&str, &str)] = &[
     ("lsp.rename", "cmd-lsp-rename"),
     ("lsp.code_actions", "cmd-lsp-code-actions"),
     ("lsp.toggle_inlay_hints", "cmd-lsp-toggle-inlay-hints"),
+    ("table.toggle", "cmd-table-toggle"),
     ("lsp.restart", "cmd-lsp-restart"),
     ("theme.toggle", "cmd-theme-toggle"),
     ("config.open", "cmd-config-open"),
@@ -3053,6 +3054,13 @@ impl App {
             }
             "lsp.rename" => self.start_rename(),
             "lsp.code_actions" => self.start_code_actions(),
+            "table.toggle" => {
+                if !self.editor().has_table() {
+                    return self.notify(fl!("table-not-a-table"));
+                }
+                let tab_id = self.tabs[self.active].id;
+                self.editor_mut().toggle_table().map(move |m| Message::Editor(tab_id, m))
+            }
             "lsp.toggle_inlay_hints" => {
                 let on = !self.config.lsp.inlay_hints;
                 self.config.lsp.inlay_hints = on;
@@ -4906,9 +4914,19 @@ impl App {
     /// Painéis visíveis de um slot, um embaixo do outro (ou lado a lado na barra de status).
     /// Botões das extensões para o tipo do arquivo ativo (ex.: prévia de Markdown), no fim da barra de abas.
     fn file_action_buttons(&self) -> Vec<Element<'_, Message>> {
+        // CSV, TSV e JSONL: alternar entre o texto e a tabela (RFC 0020).
+        let mut own = Vec::new();
+        if self.tabs.get(self.active).is_some_and(|t| t.editor.has_table()) {
+            let tip = match self.keymap.chord_for("table.toggle") {
+                Some(chord) => format!("{} ({chord})", fl!("table-toggle-tip")),
+                None => fl!("table-toggle-tip"),
+            };
+            let on = self.editor().showing_table();
+            own.push(tea_core::icons::toggle_button(tea_core::icons::Icon::Table, tip, on, Message::RunCommand("table.toggle".into())));
+        }
         let ext = self.active_path().and_then(|p| p.extension()).map(|e| e.to_string_lossy().to_lowercase());
-        let Some(ext) = ext else { return Vec::new() };
-        self.file_actions
+        let Some(ext) = ext else { return own };
+        own.into_iter().chain(self.file_actions
             .iter()
             .filter(|(_, a)| a.extensions.contains(&ext))
             .map(|(owner, a)| {
@@ -4919,6 +4937,7 @@ impl App {
                 };
                 tea_core::icons::toggle_button(a.icon, tip, on, Message::RunCommand(a.command.clone()))
             })
+            .collect::<Vec<_>>())
             .collect()
     }
 

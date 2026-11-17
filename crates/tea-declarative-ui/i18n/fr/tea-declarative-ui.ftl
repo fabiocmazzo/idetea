@@ -66,3 +66,16 @@ ui-open-blocked = { $path } : les liens idetea:open n'ouvrent que { $list }.
 ui-open-not-file = { $path } n'est pas un fichier ordinaire (absent, un dossier ou un lien symbolique).
 ui-select-text = Sélectionner le texte
 ui-select-done = Afficher mis en forme
+
+## table (RFC 0020)
+ui-too-many-tables = Le document a plus de { $max } tableaux.
+ui-table-extension = { $field } : { $path } n’est pas un tableau (acceptés : csv, tsv, jsonl).
+ui-table-source = { $field } : donnez `path` ou `columns` et `rows`, pas les deux.
+ui-table-too-big = dépasse { $max } Mo
+ui-table-error = lecture impossible : { $error }
+ui-table-more = …et { $count } lignes de plus ; ouvrez-le dans un onglet pour tout voir.
+ui-table-open = Ouvrir dans un onglet
+ui-table-rows = { $count ->
+    [one] 1 ligne
+   *[other] { $count } lignes
+}
