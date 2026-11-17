@@ -751,9 +751,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1aa79e62e7697b8e29b513a68abacf485adcd1fe8284a4316c5ae868e6633327"
 dependencies = [
  "iana-time-zone",
- "js-sys",
  "num-traits",
- "wasm-bindgen",
  "windows-link",
 ]
 
@@ -2359,7 +2357,7 @@ dependencies = [
 [[package]]
 name = "iced-code-editor"
 version = "0.7.0"
-source = "git+https://github.com/fabiocmazzo/iced-code-editor?rev=e281d4542bda86b05b8f8c68550be917b1601d48#e281d4542bda86b05b8f8c68550be917b1601d48"
+source = "git+https://github.com/fabiocmazzo/iced-code-editor?rev=e8a355dc5bc0cd2d29e4b5ccb5bcde6b0b83d714#e8a355dc5bc0cd2d29e4b5ccb5bcde6b0b83d714"
 dependencies = [
  "iced",
  "iced_aw",
@@ -2380,12 +2378,9 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "59b7f923642b024c415150b70ef84ee5c11626e3b0af73b954d817d573bcd0a4"
 dependencies = [
  "cfg-if",
- "chrono",
  "iced_core",
  "iced_fonts",
  "iced_widget",
- "num-format",
- "num-traits",
  "web-time",
 ]
 
@@ -3611,16 +3606,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.119",
-]
-
-[[package]]
-name = "num-format"
-version = "0.4.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a652d9771a63711fd3c3deb670acfbe5c30a4072e664d7a3bf5a9e1056ac72c3"
-dependencies = [
- "arrayvec",
- "itoa",
 ]
 
 [[package]]

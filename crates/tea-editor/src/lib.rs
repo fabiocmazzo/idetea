@@ -190,6 +190,8 @@ pub struct Editor {
     revision: std::sync::Arc<std::sync::atomic::AtomicU64>,
     overlay: LspOverlayState,
     hover: Option<PendingHover>,
+    /// Os diagnósticos mostrados no hover aberto, para o texto do servidor ir embaixo deles.
+    hover_diagnostics: Option<String>,
     /// Diagnósticos por servidor: uma resposta vazia limpa só quem a enviou.
     diagnostics: BTreeMap<String, Vec<tea_lsp::Diagnostic>>,
     /// O texto ao qual os diagnósticos guardados se referem, e a revisão dele (ver `follow_edits`).
@@ -313,6 +315,7 @@ impl Editor {
             inlay_enabled: true,
             overlay: LspOverlayState::new(),
             hover: None,
+            hover_diagnostics: None,
             diagnostics: BTreeMap::new(),
             breakpoints: BTreeSet::new(),
             exec_line: None,
@@ -1192,10 +1195,12 @@ impl Editor {
         self.hover.is_some()
     }
 
-    fn diagnostic_at(&self, point: iced::Point) -> Option<&tea_lsp::Diagnostic> {
-        let p = self.inner.lsp_position_at_point(point)?;
+    /// Os diagnósticos sob `point`, o mais grave primeiro.
+    fn diagnostics_at(&self, point: iced::Point) -> Vec<&tea_lsp::Diagnostic> {
+        let Some(p) = self.inner.lsp_position_at_point(point) else { return Vec::new() };
         let position = (p.line, p.character);
-        self.diagnostics
+        let mut found: Vec<_> = self
+            .diagnostics
             .values()
             .flatten()
             .filter(|d| {
@@ -1207,7 +1212,21 @@ impl Editor {
                     start <= position && position < end
                 }
             })
-            .min_by_key(|d| d.severity)
+            .collect();
+        found.sort_by_key(|d| d.severity);
+        found
+    }
+
+    /// O texto do hover para diagnósticos: a mensagem de cada um, com a origem (`rustc`, `clippy`) quando houver.
+    fn diagnostics_hover(diagnostics: &[&tea_lsp::Diagnostic]) -> String {
+        diagnostics
+            .iter()
+            .map(|d| match &d.source {
+                Some(source) => format!("{} *({source})*", d.message),
+                None => d.message.clone(),
+            })
+            .collect::<Vec<_>>()
+            .join("\n\n")
     }
 
     pub fn tick(&mut self, now: Instant) {
@@ -1217,28 +1236,33 @@ impl Editor {
         }
         let point = h.point;
         self.hover = None;
-        if let Some(message) = self.diagnostic_at(point).map(|d| d.message.clone()) {
-            if let Some((_, anchor)) = self.inner.lsp_hover_anchor_at_point(point) {
-                self.overlay.set_hover_position(anchor);
-                self.overlay.show_hover(message);
-            }
-            return;
-        }
-        if let Some((_, anchor)) = self.inner.lsp_hover_anchor_at_point(point)
-            && self.inner.lsp_request_hover_at(point)
-        {
+        let Some((_, anchor)) = self.inner.lsp_hover_anchor_at_point(point) else { return };
+        let diagnostics = self.diagnostics_at(point);
+        // Os diagnósticos aparecem já; o hover do servidor (o tipo, a documentação) vem embaixo quando chegar.
+        self.hover_diagnostics = (!diagnostics.is_empty()).then(|| Self::diagnostics_hover(&diagnostics));
+        let requested = self.lsp.is_some() && self.inner.lsp_request_hover_at(point);
+        if let Some(text) = self.hover_diagnostics.clone() {
+            self.overlay.set_hover_position(anchor);
+            self.overlay.show_hover(text);
+        } else if requested {
             self.overlay.set_hover_position(anchor);
         }
     }
 
+    /// A resposta do servidor ao hover. Com diagnósticos no ponto, ela vai embaixo deles.
     pub fn show_hover(&mut self, text: String) {
-        if self.overlay.hover_position.is_some() {
-            self.overlay.show_hover(text);
+        if self.overlay.hover_position.is_none() {
+            return;
+        }
+        match &self.hover_diagnostics {
+            Some(diagnostics) => self.overlay.show_hover(format!("{diagnostics}\n\n---\n\n{text}")),
+            None => self.overlay.show_hover(text),
         }
     }
 
     /// Hover no cursor (comando, sem mouse).
     pub fn request_hover(&mut self) {
+        self.hover_diagnostics = None;
         if self.lsp.is_some()
             && let Some(p) = self.inner.cursor_screen_position()
         {
@@ -1779,7 +1803,7 @@ mod tests {
         };
         let mut ed = Editor::scratch("let answer = 42;\n");
         ed.set_diagnostics("rust-analyzer", &[diagnostic(Severity::Error, "erro")]);
-        ed.set_diagnostics("clippy", &[diagnostic(Severity::Warning, "aviso")]);
+        ed.set_diagnostics("clippy", &[Diagnostic { source: Some("clippy".into()), ..diagnostic(Severity::Warning, "aviso") }]);
         assert_eq!(ed.inner.diagnostics().len(), 2);
         assert!(
             ed.inner
@@ -1791,11 +1815,23 @@ mod tests {
             marks::GUTTER_WIDTH + 5.0 + ed.inner.char_width() * 5.5,
             ed.inner.line_height() * 0.5,
         );
-        assert_eq!(ed.diagnostic_at(point).map(|d| d.message.as_str()), Some("erro"));
-        assert!(
-            ed.diagnostic_at(iced::Point::new(marks::GUTTER_WIDTH + 5.0, 1.0))
-                .is_none()
-        );
+        // Os dois no mesmo ponto, o mais grave primeiro, com a origem quando o servidor diz.
+        let found = ed.diagnostics_at(point);
+        assert_eq!(found.iter().map(|d| d.message.as_str()).collect::<Vec<_>>(), ["erro", "aviso"]);
+        let text = Editor::diagnostics_hover(&found);
+        assert_eq!(text, "erro\n\naviso *(clippy)*");
+        assert!(ed.diagnostics_at(iced::Point::new(marks::GUTTER_WIDTH + 5.0, 1.0)).is_empty());
+
+        // O hover do servidor vai embaixo deles.
+        ed.overlay.set_hover_position(point);
+        ed.hover_diagnostics = Some(text);
+        ed.show_hover("`answer: i32`".into());
+        assert_eq!(ed.overlay.hover_text.as_deref(), Some("erro\n\naviso *(clippy)*\n\n---\n\n`answer: i32`"));
+        // Pedido pelo comando (sem mouse): só o do servidor.
+        ed.request_hover();
+        ed.overlay.set_hover_position(point);
+        ed.show_hover("`answer: i32`".into());
+        assert_eq!(ed.overlay.hover_text.as_deref(), Some("`answer: i32`"));
 
         ed.set_diagnostics("rust-analyzer", &[]);
         assert_eq!(

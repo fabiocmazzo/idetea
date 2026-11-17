@@ -59,4 +59,4 @@ strip = true
 # Fork do iced-code-editor (branch `idetea-main`): o upstream mais o texto virtual dos inlay hints (RFC 0018), que vai
 # como PR para o upstream. O patch sai quando entrar (RFC 0017, ADR 0001).
 [patch.crates-io]
-iced-code-editor = { git = "https://github.com/fabiocmazzo/iced-code-editor", rev = "e281d4542bda86b05b8f8c68550be917b1601d48" }
+iced-code-editor = { git = "https://github.com/fabiocmazzo/iced-code-editor", rev = "e8a355dc5bc0cd2d29e4b5ccb5bcde6b0b83d714" }
