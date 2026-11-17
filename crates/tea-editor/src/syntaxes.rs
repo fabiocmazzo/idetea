@@ -39,15 +39,5 @@ pub fn problems() -> &'static [(String, String)] {
     PROBLEMS.get().map(Vec::as_slice).unwrap_or_default()
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn builtin_language_pack_syntaxes_parse() {
-        let (packs, errors) = tea_core::languages::builtins();
-        assert!(errors.is_empty(), "{errors:?}");
-        let sources = packs.into_iter().flat_map(|p| p.syntaxes).collect();
-        assert!(register_valid(sources).is_empty());
-    }
-}
+// As sintaxes embutidas (ZX e as dos language packs) são testadas em `tests/syntaxes.rs`, num processo à parte: aqui,
+// outro teste que abre um `.rs` monta o conjunto antes e o registro volta `AlreadyBuilt`.

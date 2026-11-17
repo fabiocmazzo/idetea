@@ -11,7 +11,7 @@ const SRC: &str = "int main(void) {\n    int x = 1\n    return x;\n}\n";
 
 #[test]
 fn clangd_quick_fix_for_missing_semicolon() {
-    if std::process::Command::new("clangd").arg("--version").output().is_err() {
+    if !runs("clangd") {
         eprintln!("sem clangd: teste pulado");
         return;
     }
@@ -81,7 +81,7 @@ fn clangd_quick_fix_for_missing_semicolon() {
 /// rust-analyzer manda a lista sem as edições: elas vêm com `codeAction/resolve` depois da escolha. Pula sem ele.
 #[test]
 fn rust_analyzer_resolves_the_chosen_action() {
-    if std::process::Command::new("rust-analyzer").arg("--version").output().is_err() {
+    if !runs("rust-analyzer") {
         eprintln!("sem rust-analyzer: teste pulado");
         return;
     }
@@ -137,4 +137,9 @@ fn rust_analyzer_resolves_the_chosen_action() {
     assert_eq!(files.len(), 1, "{files:?}");
     assert!(files[0].edits.iter().any(|e| e.new_text.contains("use std::collections::HashMap;")), "{files:?}");
     let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// O servidor existe e responde (o `rust-analyzer` do rustup existe sem o componente instalado e falha).
+fn runs(command: &str) -> bool {
+    std::process::Command::new(command).arg("--version").output().is_ok_and(|o| o.status.success())
 }
