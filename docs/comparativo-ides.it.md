@@ -25,7 +25,7 @@ Questo documento è una valutazione tecnica, diretta e senza infiocchettature di
 | **Protocollo strutturato per gli agenti (UI dichiarativa, approvazione dei comandi, mascotte)** | **Unico nella categoria (nativo, su file)** | Non c'è (dipende da estensioni di chat) | Centrato su chat/diff proprietari | Centrato su chat/assistenza in linea | Centrato su chat/in linea | Non c'è (solo terminale) |
 | **Autocompletamento IA in linea («Ghost text» / Tab)** | **Non c'è (per filosofia)** | Tramite Copilot | **Eccellente (in testa)** | Molto buono (Zeta) | Buono | Tramite plugin |
 | **Maturità dell'editor di testo** | Buona sulle basi, mancano funzioni avanzate | **Riferimento** | **Riferimento** | Molto alta | **Riferimento** | **Riferimento (modale)** |
-| **Profondità di LSP e refactoring** | Alta (senza Semantic Token) | **Completa** | **Completa** | Alta | **Impareggiabile (AST proprio)** | Alta |
+| **Profondità di LSP e refactoring** | Alta | **Completa** | **Completa** | Alta | **Impareggiabile (AST proprio)** | Alta |
 | **Debug** | Di base (GDB 14+ per Rust/C/C++/Zig, `lldb-dap` su macOS; MoonBit nativo è sperimentale) | **Completo (qualsiasi linguaggio)** | **Completo** | Di base/medio (DAP recente) | **Eccellente** | Di base (nvim-dap) |
 | **Controllo di versione (Git)** | Medio (segni nel margine e blame; senza merge a 3 vie né stash) | **Completo** | **Completo** | Medio | **Eccellente (merge migliore)** | Tramite LazyGit / Fugitive |
 | **Supporto multipiattaforma** | **Linux, macOS (Apple Silicon), Windows (x86_64)** | **Linux, macOS, Windows, Web** | **Linux, macOS, Windows** | **macOS, Linux, Windows** | **Linux, macOS, Windows** | **Qualsiasi SO / SSH** |
@@ -122,8 +122,7 @@ IDE TEA parte dal fatto che **i migliori agenti girano già nel terminale** (Cla
 ### Lacune importanti di LSP rispetto a VS Code, Zed e JetBrains
 1. ~~Senza Code Action / Quick Fix (`Ctrl+.` / lampadina dell'LSP)~~ — **fatto:** `Ctrl+.` elenca le correzioni e i refactoring del server per l'errore o la selezione (import mancante, generare una funzione, estrarre una variabile).
 2. ~~Senza Inlay Hint~~ — **fatto:** il tipo dedotto delle variabili e il nome dei parametri compaiono in grigio nel codice; `Ctrl+Alt+I` li attiva e li disattiva.
-3. **Senza Semantic Token dell'LSP:**
-   - I colori della sintassi vengono solo dalla grammatica `.sublime-syntax` (`syntect`), senza arricchimento semantico dell'LSP (per esempio distinguere dal colore del server di linguaggio una variabile mutabile da una immutabile, o una macro da una funzione).
+3. ~~Senza Semantic Token dell'LSP~~ — **fatto:** parametri, campi e chiamate di funzione prendono il colore del tema sopra la grammatica, attivo per impostazione predefinita (`[lsp] semantic_tokens`). Con il tema predefinito la differenza sulle chiamate è sottile, e una variabile mutabile cambia colore solo in un tema che ne abbia uno proprio.
 
 ---
 

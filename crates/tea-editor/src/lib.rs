@@ -204,6 +204,12 @@ pub struct Editor {
     inlay_token: u64,
     inlay_request_text: Option<(u64, String)>,
     inlay_enabled: bool,
+    /// Semantic tokens do servidor (RFC 0019), andando com o texto como os inlay hints.
+    semantic_tokens: Vec<tea_lsp::SemanticToken>,
+    semantic_text: Option<(u64, String)>,
+    semantic_token: u64,
+    semantic_request_text: Option<(u64, String)>,
+    semantic_enabled: bool,
     /// Linhas com breakpoint (começando em 0). Andam junto com o texto ao editar.
     breakpoints: BTreeSet<usize>,
     /// Linha onde o programa parou no debug (começando em 0).
@@ -313,6 +319,11 @@ impl Editor {
             inlay_token: 0,
             inlay_request_text: None,
             inlay_enabled: true,
+            semantic_tokens: Vec::new(),
+            semantic_text: None,
+            semantic_token: 0,
+            semantic_request_text: None,
+            semantic_enabled: true,
             overlay: LspOverlayState::new(),
             hover: None,
             hover_diagnostics: None,
@@ -576,6 +587,8 @@ impl Editor {
         self.inner.set_theme(style);
         self.theme = theme.clone();
         self.push_inlay_hints();
+        // As cores dos tokens vêm do tema do widget.
+        self.push_semantic_tokens();
     }
 
     pub fn set_font_size(&mut self, size: f32) {
@@ -858,7 +871,7 @@ impl Editor {
     fn follow_edits(&mut self) {
         let revision = self.text_revision();
         let stale = |t: &Option<(u64, String)>| t.as_ref().is_some_and(|(seen, _)| *seen != revision);
-        if !stale(&self.diagnostics_text) && !stale(&self.inlay_text) {
+        if !stale(&self.diagnostics_text) && !stale(&self.inlay_text) && !stale(&self.semantic_text) {
             return;
         }
         let new = self.text();
@@ -875,8 +888,16 @@ impl Editor {
             for h in &mut self.inlay_hints {
                 h.position = tea_lsp::shift_range(tea_lsp::Range { start: h.position, end: h.position }, range, &text).start;
             }
-            self.inlay_text = Some((revision, new));
+            self.inlay_text = Some((revision, new.clone()));
             self.push_inlay_hints();
+        }
+        if let Some((_, old)) = self.semantic_text.take_if(|(seen, _)| *seen != revision) {
+            let (range, text) = tea_lsp::diff(&old, &new);
+            for t in &mut self.semantic_tokens {
+                t.range = tea_lsp::shift_range(t.range, range, &text);
+            }
+            self.semantic_text = Some((revision, new));
+            self.push_semantic_tokens();
         }
     }
 
@@ -971,6 +992,80 @@ impl Editor {
         self.inner.set_virtual_text("inlay-hints", items);
     }
 
+    /// Liga ou desliga os semantic tokens (`[lsp] semantic_tokens`). Ligando, pede ao servidor.
+    pub fn set_semantic_tokens_enabled(&mut self, on: bool) {
+        if self.semantic_enabled == on {
+            return;
+        }
+        self.semantic_enabled = on;
+        self.semantic_tokens.clear();
+        self.semantic_text = None;
+        self.semantic_request_text = None;
+        self.push_semantic_tokens();
+        if on {
+            self.request_semantic_tokens();
+        }
+    }
+
+    /// Pede ao servidor os semantic tokens do arquivo. Resposta em `tea_lsp::Event::SemanticTokens`, para
+    /// [`Self::set_semantic_tokens`]. Pedido nos mesmos momentos que os inlay hints.
+    pub fn request_semantic_tokens(&mut self) -> bool {
+        if !self.semantic_enabled {
+            return false;
+        }
+        let (Some(link), Some(path)) = (&self.lsp, &self.path) else { return false };
+        self.inner.lsp_flush_pending_changes();
+        self.semantic_token += 1;
+        link.client.semantic_tokens(path, self.semantic_token);
+        self.semantic_request_text = Some((self.text_revision(), self.text()));
+        true
+    }
+
+    /// A resposta de [`Self::request_semantic_tokens`]. Uma resposta velha é descartada.
+    pub fn set_semantic_tokens(&mut self, token: u64, tokens: Vec<tea_lsp::SemanticToken>) {
+        if token != self.semantic_token || !self.semantic_enabled {
+            return;
+        }
+        let Some(text) = self.semantic_request_text.take() else { return };
+        self.semantic_tokens = tokens;
+        self.semantic_text = Some(text);
+        if self.semantic_text.as_ref().is_some_and(|(seen, _)| *seen != self.text_revision()) {
+            self.follow_edits();
+        } else {
+            self.push_semantic_tokens();
+        }
+    }
+
+    /// Pinta os tokens com a cor que o tema do widget dá ao escopo de cada um (`semantic_scopes`); um token sem
+    /// escopo, ou cujo escopo o tema não pinta, fica com a cor da gramática.
+    fn push_semantic_tokens(&mut self) {
+        let mut colors: HashMap<&'static str, Option<iced::Color>> = HashMap::new();
+        let mutable = self.inner.scope_color(MUTABLE);
+        if mutable == self.inner.scope_color("variable.other.readwrite") {
+            colors.insert(MUTABLE, None);
+        }
+        let mut styles = Vec::new();
+        for t in &self.semantic_tokens {
+            let (start, end) = (t.range.start, t.range.end);
+            // Uma edição pode ter juntado o token a outra linha ou apagado ele: some até a resposta nova.
+            if start.line != end.line || start.character >= end.character {
+                continue;
+            }
+            let color = semantic_scopes(&t.kind, &t.modifiers)
+                .iter()
+                .find_map(|scope| *colors.entry(scope).or_insert_with(|| self.inner.scope_color(scope)));
+            if let Some(color) = color {
+                styles.push(iced_code_editor::RangeStyle {
+                    line: start.line as usize,
+                    start: start.character as usize,
+                    end: end.character as usize,
+                    color,
+                });
+            }
+        }
+        self.inner.set_range_styles("semantic-tokens", styles);
+    }
+
     /// Liga o editor a um servidor LSP. Precisa de caminho.
     pub fn attach_lsp(&mut self, client: tea_lsp::Client, language_id: &str) {
         let Some(path) = self.path.clone().filter(|_| self.light.is_none()) else { return };
@@ -999,6 +1094,9 @@ impl Editor {
         self.inlay_hints.clear();
         self.inlay_text = None;
         self.push_inlay_hints();
+        self.semantic_tokens.clear();
+        self.semantic_text = None;
+        self.push_semantic_tokens();
         self.overlay.clear_hover();
         self.overlay.clear_completions();
         self.hover = None;
@@ -1536,6 +1634,35 @@ fn file_stamp(path: &Path) -> Option<(u64, Option<std::time::SystemTime>)> {
     std::fs::metadata(path).ok().map(|m| (m.len(), m.modified().ok()))
 }
 
+/// O escopo de uma variável mutável. Só vale quando o tema dá a ele uma cor própria, diferente da de uma variável
+/// comum (o `base16-ocean` não dá: pinta todo `variable.*` igual).
+const MUTABLE: &str = "variable.other.mutable";
+
+/// Os escopos TextMate de um semantic token, em ordem de preferência (RFC 0019): o primeiro que o tema pinta
+/// dá a cor. Vazio para o que a gramática já pinta bem (comentários, strings, números, operadores) e para tipos que
+/// não têm um escopo claro.
+fn semantic_scopes(kind: &str, modifiers: &[String]) -> &'static [&'static str] {
+    let mutable = modifiers.iter().any(|m| m == "mutable");
+    match kind {
+        "function" | "method" => &["entity.name.function"],
+        "macro" => &["entity.name.function.macro", "entity.name.function"],
+        "struct" | "class" | "enum" | "interface" | "type" | "typeParameter" | "typeAlias" | "union" => {
+            &["entity.name.type"]
+        }
+        "parameter" if mutable => &[MUTABLE, "variable.parameter"],
+        "parameter" => &["variable.parameter"],
+        // Uma variável comum fica com a cor da gramática: os temas pintam todo `variable.*` da mesma cor, e pintar
+        // todas as variáveis do arquivo é ruído, não informação.
+        "variable" if mutable => &[MUTABLE],
+        "property" => &["variable.other.property"],
+        "enumMember" => &["variable.other.enummember"],
+        "namespace" => &["entity.name.namespace"],
+        "keyword" | "selfKeyword" | "selfTypeKeyword" => &["keyword"],
+        "lifetime" => &["storage.modifier.lifetime"],
+        _ => &[],
+    }
+}
+
 #[cfg(test)]
 mod tests {
     #[test]
@@ -1785,6 +1912,65 @@ mod tests {
         editor.set_inlay_hints_enabled(false);
         assert!(shown(&editor).is_empty());
         assert!(!editor.request_inlay_hints());
+        client.kill_now();
+    }
+
+    #[test]
+    fn semantic_tokens_color_ranges_and_follow_the_text() {
+        use tea_lsp::{Position, Range, SemanticToken};
+        let mut editor = Editor::from_text(&tmp("semantic.rs"), "fn soma(a: i32) -> i32 {\n    let mut t = a;\n    t\n}\n");
+        let server = tea_lsp::ServerConfig {
+            name: "falso".into(),
+            command: std::env::current_exe().unwrap().to_string_lossy().into_owned(),
+            args: vec!["--list".into()],
+            languages: vec![("rs".into(), "rust".into())],
+        };
+        let client = tea_lsp::Client::start(&server, &std::env::temp_dir(), std::sync::Arc::new(|_| {})).unwrap();
+        editor.attach_lsp(client.clone(), "rust");
+        let token = |line, start, end, kind: &str, modifiers: &[&str]| SemanticToken {
+            range: Range { start: Position::new(line, start), end: Position::new(line, end) },
+            kind: kind.into(),
+            modifiers: modifiers.iter().map(|m| m.to_string()).collect(),
+        };
+        let shown = |editor: &Editor| {
+            editor.inner.range_styles("semantic-tokens").iter().map(|s| (s.line, s.start, s.end)).collect::<Vec<_>>()
+        };
+        let parameter = editor.inner.scope_color("variable.parameter").expect("o tema pinta parâmetros");
+
+        assert!(editor.request_semantic_tokens());
+        let req = editor.semantic_token;
+        // Enter no começo antes da resposta: ela vem nas posições do texto do pedido.
+        editor.focus();
+        let _ = editor.update(EditorMessage(Msg::Widget(Inner::Enter)));
+        editor.set_semantic_tokens(
+            req,
+            vec![
+                token(0, 8, 9, "parameter", &["declaration"]),
+                token(1, 12, 13, "variable", &["declaration", "mutable"]),
+                // A gramática já pinta: fica de fora.
+                token(0, 0, 2, "comment", &[]),
+            ],
+        );
+        let styles = shown(&editor);
+        assert!(styles.contains(&(1, 8, 9)), "{styles:?}");
+        // O tema padrão não tem uma cor própria para variável mutável: ela fica com a da gramática.
+        assert_eq!(editor.inner.scope_color("variable.other.mutable"), editor.inner.scope_color("variable.other.readwrite"));
+        assert!(!styles.contains(&(2, 12, 13)), "{styles:?}");
+        assert!(!styles.iter().any(|s| s.1 == 0), "sem estilo para o comentário: {styles:?}");
+        assert_eq!(editor.inner.range_styles("semantic-tokens")[0].color, parameter);
+
+        // Outro Enter: andam junto.
+        let _ = editor.update(EditorMessage(Msg::Widget(Inner::Enter)));
+        assert!(shown(&editor).contains(&(2, 8, 9)), "{:?}", shown(&editor));
+
+        // Uma resposta velha não substitui a nova.
+        assert!(editor.request_semantic_tokens());
+        editor.set_semantic_tokens(req, Vec::new());
+        assert!(!shown(&editor).is_empty());
+
+        editor.set_semantic_tokens_enabled(false);
+        assert!(shown(&editor).is_empty());
+        assert!(!editor.request_semantic_tokens());
         client.kill_now();
     }
 

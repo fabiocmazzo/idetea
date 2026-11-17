@@ -1147,6 +1147,7 @@ impl App {
         editor.set_code_font(self.editor_zoom.size(), self.code_font());
         editor.set_options(&self.editor_options(editor));
         editor.set_inlay_hints_enabled(self.config.lsp.inlay_hints);
+        editor.set_semantic_tokens_enabled(self.config.lsp.semantic_tokens);
     }
 
     fn editor_options(&self, editor: &Editor) -> tea_editor::Options {
@@ -2274,11 +2275,12 @@ impl App {
         }
     }
 
-    /// Pede de novo os inlay hints das abas ligadas a `server`.
+    /// Pede de novo os inlay hints e os semantic tokens das abas ligadas a `server`.
     fn request_inlay_hints(&mut self, server: &str) {
         for tab in &mut self.tabs {
             if tab.editor.lsp_server() == Some(server) {
                 tab.editor.request_inlay_hints();
+                tab.editor.request_semantic_tokens();
             }
         }
     }
@@ -2295,6 +2297,7 @@ impl App {
                 self.tabs[i].editor.attach_lsp(client, &language);
                 // Antes do handshake o pedido não sai; o `Ready` pede de novo.
                 self.tabs[i].editor.request_inlay_hints();
+                self.tabs[i].editor.request_semantic_tokens();
                 Task::none()
             }
             Ok(None) => Task::none(),
@@ -2311,6 +2314,7 @@ impl App {
                     self.tabs[i].editor.set_diagnostics(&server, &diagnostics);
                     // O servidor acabou de analisar o arquivo: os tipos podem ter mudado.
                     self.tabs[i].editor.request_inlay_hints();
+                    self.tabs[i].editor.request_semantic_tokens();
                 }
                 let items = diagnostics
                     .into_iter()
@@ -2429,6 +2433,20 @@ impl App {
             E::InlayHints { path, token, hints } => {
                 if let Some(i) = tab_for(self, &path) {
                     self.tabs[i].editor.set_inlay_hints(token, hints);
+                }
+                Task::none()
+            }
+            E::SemanticTokens { path, token, tokens } => {
+                if let Some(i) = tab_for(self, &path) {
+                    self.tabs[i].editor.set_semantic_tokens(token, tokens);
+                }
+                Task::none()
+            }
+            E::SemanticTokensRefresh { server } => {
+                for tab in &mut self.tabs {
+                    if tab.editor.lsp_server() == Some(server.as_str()) {
+                        tab.editor.request_semantic_tokens();
+                    }
                 }
                 Task::none()
             }

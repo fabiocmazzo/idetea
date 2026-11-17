@@ -184,6 +184,17 @@ pub struct InlayHint {
     pub padding_right: bool,
 }
 
+/// Um trecho do código que o servidor classificou (`textDocument/semanticTokens`): o que o nome é para o programa,
+/// não para a gramática. Numa linha só, em caracteres.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SemanticToken {
+    pub range: Range,
+    /// O tipo da legenda do servidor: `function`, `parameter`, `variable`, `macro`...
+    pub kind: String,
+    /// Os modificadores: `mutable`, `declaration`, `readonly`...
+    pub modifiers: Vec<String>,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum InlayHintKind {
     Type,
@@ -231,6 +242,10 @@ pub enum Event {
     InlayHints { path: PathBuf, token: u64, hints: Vec<InlayHint> },
     /// O servidor pede para pedir os inlay hints de novo (ex.: o rust-analyzer, quando termina de analisar).
     InlayHintsRefresh { server: String },
+    /// Semantic tokens de `path` (`token` é o que foi passado em [`Client::semantic_tokens`]), em ordem.
+    SemanticTokens { path: PathBuf, token: u64, tokens: Vec<SemanticToken> },
+    /// O servidor pede para pedir os semantic tokens de novo.
+    SemanticTokensRefresh { server: String },
     /// Símbolos do projeto que combinam com `query` (vazia se o servidor não souber responder).
     WorkspaceSymbols { query: String, symbols: Vec<WorkspaceSymbol> },
     /// A função em `path`/`position`, para começar a árvore de chamadas (vazia se o cursor não

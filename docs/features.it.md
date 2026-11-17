@@ -48,6 +48,9 @@ L'elenco completo, per chi vuole il dettaglio tecnico. Per la versione breve, ve
 - Inlay hint: il tipo dedotto delle variabili e il nome dei parametri nelle chiamate, in grigio nel codice. Il cursore
   ci passa sopra e non vengono mai salvati. Attivi per impostazione predefinita; `Ctrl+Alt+I` li accende e li spegne,
   `[lsp] inlay_hints = false` del tutto.
+- Colori semantici: il server di linguaggio dice che cos'è ogni nome, e parametri, campi e chiamate di funzione
+  prendono i colori del tema per loro, sopra quelli della grammatica (le variabili locali mantengono il colore della
+  grammatica). Attivi per impostazione predefinita; `[lsp] semantic_tokens = false` li disattiva.
 - Vai all'implementazione (`Ctrl+F12`) e al tipo; con più risultati, l'elenco va nel pannello.
 - Trova i riferimenti (`Shift+F12`, o `Ctrl+click` sulla dichiarazione) raggruppati per file, e indietro/avanti dopo ogni
   salto (`Alt+←` / `Alt+→`, o i pulsanti laterali del mouse).

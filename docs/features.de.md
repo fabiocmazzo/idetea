@@ -48,6 +48,9 @@ Die vollständige Liste, für die technische Leserschaft. Die Kurzfassung steht 
 - Inlay Hints: der abgeleitete Typ von Variablen und die Parameternamen in Aufrufen, grau im Code. Der Cursor springt
   darüber, und sie werden nie gespeichert. Standardmäßig an; `Ctrl+Alt+I` schaltet sie ein und aus, `[lsp]
   inlay_hints = false` dauerhaft.
+- Semantische Farben: Der Sprachserver sagt, was jeder Name ist, und Parameter, Felder und Funktionsaufrufe bekommen
+  die Farben des Themes dafür, über denen der Grammatik (lokale Variablen behalten die Farbe der Grammatik).
+  Standardmäßig an; `[lsp] semantic_tokens = false` schaltet sie aus.
 - Gehe zu Implementierung (`Ctrl+F12`) und zum Typ; bei mehreren Ergebnissen geht die Liste in den Bereich.
 - Verweise suchen (`Shift+F12` oder `Ctrl+Klick` auf die Deklaration), nach Datei gruppiert, und zurück/vorwärts nach jedem
   Sprung (`Alt+←` / `Alt+→` oder die Seitentasten der Maus).

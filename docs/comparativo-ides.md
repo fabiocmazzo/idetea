@@ -25,7 +25,7 @@ Este documento faz uma avaliação técnica, direta e sem maquiagem da **IDE TEA
 | **Protocolo estruturado p/ agentes (UI declarativa, aprovação de comandos, mascote)** | **Única na categoria (nativo em arquivos)** | Não tem (depende de extensões de chat) | Focado em chat/diff proprietário | Focado em chat/inline assist | Focado em chat/inline | Não tem (só terminal) |
 | **Autocomplete de IA inline ("Ghost text" / Tab)** | **Não tem (por filosofia)** | Via Copilot | **Excelente (líder)** | Muito bom (Zeta) | Bom | Via plugins |
 | **Maturidade do Editor de texto** | Boa no básico, faltam recursos avançados | **Referência** | **Referência** | Muito alta | **Referência** | **Referência (modal)** |
-| **Profundidade de LSP e Refatoração** | Alta (sem Semantic Tokens) | **Completa** | **Completa** | Alta | **Insuperável (AST próprio)** | Alta |
+| **Profundidade de LSP e Refatoração** | Alta | **Completa** | **Completa** | Alta | **Insuperável (AST próprio)** | Alta |
 | **Depuração (Debug)** | Básica (GDB 14+ para Rust/C/C++/Zig, `lldb-dap` no macOS; MoonBit nativo é experimental) | **Completa (qualquer linguagem)** | **Completa** | Básica/Média (DAP recente) | **Excelente** | Básica (nvim-dap) |
 | **Controle de Versão (Git)** | Média (marcas na margem e blame; sem merge 3-vias nem stash) | **Completa** | **Completa** | Média | **Excelente (melhor merge)** | Via LazyGit / Fugitive |
 | **Suporte Multiplataforma** | **Linux, macOS (Apple Silicon), Windows (x86_64)** | **Linux, macOS, Windows, Web** | **Linux, macOS, Windows** | **macOS, Linux, Windows** | **Linux, macOS, Windows** | **Qualquer SO / SSH** |
@@ -122,8 +122,7 @@ A IDE TEA assume que **os melhores agentes já rodam no terminal** (Claude Code,
 ### Lacunas importantes de LSP frente a VS Code, Zed e JetBrains
 1. ~~Sem Code Actions / Quick Fixes (`Ctrl+.` / lâmpada do LSP)~~ — **feito:** `Ctrl+.` lista as correções e refatorações do servidor para o erro ou a seleção (import que falta, gerar função, extrair variável).
 2. ~~Sem Inlay Hints~~ — **feito:** o tipo inferido das variáveis e o nome dos parâmetros aparecem em cinza dentro do código; `Ctrl+Alt+I` liga e desliga.
-3. **Sem Semantic Tokens do LSP:**
-   - As cores de sintaxe vêm exclusivamente da gramática `.sublime-syntax` (`syntect`), sem enriquecimento semântico do LSP (ex.: diferenciar variável mutável de imutável ou macro de função pela cor do servidor de linguagem).
+3. ~~Sem Semantic Tokens do LSP~~ — **feito:** parâmetros, campos e chamadas de função ganham a cor do tema por cima da gramática, ligado por padrão (`[lsp] semantic_tokens`). Com o tema padrão a diferença nas chamadas é sutil, e a variável mutável só muda de cor num tema que tenha uma cor própria para ela.
 
 ---
 

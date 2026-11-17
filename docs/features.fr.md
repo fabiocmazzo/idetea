@@ -55,6 +55,9 @@ La liste complète, pour le lecteur technique. Pour la version courte, voir le [
 - Inlay hints : le type déduit des variables et le nom des paramètres dans les appels, en gris dans le code. Le curseur
   passe par-dessus et ils ne sont jamais enregistrés. Activés par défaut ; `Ctrl+Alt+I` les active et les désactive,
   `[lsp] inlay_hints = false` pour de bon.
+- Couleurs sémantiques : le serveur de langage dit ce qu'est chaque nom, et les paramètres, les champs et les appels
+  de fonction prennent les couleurs du thème pour eux, par-dessus celles de la grammaire (les variables locales
+  gardent la couleur de la grammaire). Activées par défaut ; `[lsp] semantic_tokens = false` les désactive.
 - Aller à l'implémentation (`Ctrl+F12`) et au type ; avec plusieurs résultats, la liste va dans le panneau.
 - Rechercher les références (`Shift+F12`, ou `Ctrl+clic` sur la déclaration) groupées par fichier, et retour/avancer
   après chaque saut (`Alt+←` / `Alt+→`, ou les boutons latéraux de la souris).

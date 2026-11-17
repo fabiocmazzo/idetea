@@ -79,6 +79,8 @@ line_height = 1.45
 enabled = true
 # Tipos inferidos e nomes de parâmetro dentro do código (Ctrl+Alt+I liga e desliga até reiniciar).
 inlay_hints = true
+# Cores do servidor por cima das da gramática: parâmetro, variável mutável, campo, tipo, macro.
+semantic_tokens = true
 # Exemplos:
 # servers.rust-analyzer = { command = "/caminho/rust-analyzer" }
 # servers.clangd = { enabled = false }
@@ -257,13 +259,15 @@ pub struct LspConfig {
     pub enabled: bool,
     /// Inlay hints do servidor (RFC 0018).
     pub inlay_hints: bool,
+    /// Semantic tokens do servidor (RFC 0019).
+    pub semantic_tokens: bool,
     /// Sobrescreve ou acrescenta servidores, por nome.
     pub servers: BTreeMap<String, LspServerConfig>,
 }
 
 impl Default for LspConfig {
     fn default() -> Self {
-        Self { enabled: true, inlay_hints: true, servers: BTreeMap::new() }
+        Self { enabled: true, inlay_hints: true, semantic_tokens: true, servers: BTreeMap::new() }
     }
 }
 

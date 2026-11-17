@@ -417,6 +417,47 @@ pub fn action_command(action: &Value) -> Option<Value> {
     }
 }
 
+/// A legenda dos semantic tokens nas capacidades do servidor: `(tipos, modificadores)`. `None` se ele não dá tokens
+/// do arquivo inteiro (só `range` não basta: a IDE pede o arquivo todo).
+pub fn semantic_legend(caps: &Value) -> Option<(Vec<String>, Vec<String>)> {
+    let provider = caps.get("semanticTokensProvider")?;
+    let full = provider.get("full")?;
+    if *full == Value::Bool(false) || full.is_null() {
+        return None;
+    }
+    let names = |key: &str| -> Vec<String> {
+        provider
+            .get("legend")
+            .and_then(|l| l.get(key))
+            .and_then(Value::as_array)
+            .map(|a| a.iter().map(|v| v.as_str().unwrap_or_default().to_string()).collect())
+            .unwrap_or_default()
+    };
+    Some((names("tokenTypes"), names("tokenModifiers")))
+}
+
+/// `textDocument/semanticTokens/full` → `(linha, coluna, comprimento, tipo, modificadores)` absolutos, nas unidades
+/// do servidor. Os dados vêm em grupos de 5 inteiros relativos ao token anterior; um grupo incompleto no fim é
+/// ignorado.
+pub fn semantic_tokens(result: &Value) -> Vec<(u32, u32, u32, u32, u32)> {
+    let Some(data) = result.get("data").and_then(Value::as_array) else { return Vec::new() };
+    let nums: Vec<u32> = data.iter().map(|v| v.as_u64().unwrap_or(0) as u32).collect();
+    let (mut line, mut col) = (0u32, 0u32);
+    nums.as_chunks::<5>()
+        .0
+        .iter()
+        .map(|t| {
+            if t[0] > 0 {
+                line += t[0];
+                col = t[1];
+            } else {
+                col += t[1];
+            }
+            (line, col, t[2], t[3], t[4])
+        })
+        .collect()
+}
+
 /// `textDocument/inlayHint` → hints com a posição como o servidor mandou.
 pub fn inlay_hints(result: &Value) -> Vec<InlayHint> {
     let Some(list) = result.as_array() else { return Vec::new() };
@@ -492,6 +533,27 @@ pub fn diagnostics(params: &Value) -> Option<(String, Vec<RawDiagnostic>)> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn semantic_tokens_relative_to_absolute() {
+        // (0,4) len 3; mesma linha +6 → (0,10); duas linhas abaixo, coluna 2 (absoluta) → (2,2). O grupo
+        // incompleto no fim é ignorado.
+        let r = json!({ "data": [0, 4, 3, 1, 0, 0, 6, 5, 2, 3, 2, 2, 4, 0, 1, 9, 9] });
+        assert_eq!(semantic_tokens(&r), vec![(0, 4, 3, 1, 0), (0, 10, 5, 2, 3), (2, 2, 4, 0, 1)]);
+        assert!(semantic_tokens(&json!(null)).is_empty());
+    }
+
+    #[test]
+    fn semantic_legend_needs_full() {
+        let legend = json!({ "tokenTypes": ["function", "variable"], "tokenModifiers": ["mutable"] });
+        let caps = json!({ "semanticTokensProvider": { "legend": legend, "full": { "delta": true } } });
+        assert_eq!(semantic_legend(&caps), Some((vec!["function".into(), "variable".into()], vec!["mutable".into()])));
+        let only_range = json!({ "semanticTokensProvider": { "legend": legend, "range": true } });
+        assert_eq!(semantic_legend(&only_range), None);
+        let no_full = json!({ "semanticTokensProvider": { "legend": legend, "full": false } });
+        assert_eq!(semantic_legend(&no_full), None);
+        assert_eq!(semantic_legend(&json!({})), None);
+    }
 
     #[test]
     fn code_actions_preferred_first_and_both_shapes() {

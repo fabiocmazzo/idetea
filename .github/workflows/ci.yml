@@ -21,9 +21,11 @@ jobs:
           - os: ubuntu-latest
             targets: wasm32-wasip2
             timeout: 15
+          # Com o cache frio (o `Cargo.lock` mudou, ou um job cancelado não salvou o cache), compilar tudo no macOS
+          # chega perto de 15 minutos.
           - os: macos-latest
             targets: ""
-            timeout: 15
+            timeout: 25
           # O runner do Windows é bem mais lento para compilar e para salvar o cache.
           - os: windows-latest
             targets: ""

@@ -15,7 +15,7 @@ use crate::text::{DocText, Encoding, Position, Range};
 use crate::transport::{read_message, write_message};
 use crate::uri::{path_to_uri, uri_to_path};
 use crate::{
-    Call, CallDirection, CallItem, CodeAction, Diagnostic, DocumentSymbol, Event, FileEdits, Location, Lookup, MessageLevel, ServerCommand, ServerConfig, TextEdit,
+    Call, CallDirection, CallItem, CodeAction, Diagnostic, DocumentSymbol, Event, FileEdits, Location, Lookup, MessageLevel, SemanticToken, ServerCommand, ServerConfig, TextEdit,
     WorkspaceSymbol,
 };
 
@@ -60,6 +60,8 @@ struct State {
     resolves_code_actions: bool,
     /// O servidor responde `textDocument/inlayHint`.
     inlay_hints: bool,
+    /// A legenda dos semantic tokens (tipos, modificadores), se o servidor dá os do arquivo inteiro.
+    semantic_legend: Option<(Vec<String>, Vec<String>)>,
 }
 
 enum Pending {
@@ -82,6 +84,7 @@ enum Pending {
     ResolveCodeAction { title: String },
     ExecuteCommand { title: String },
     InlayHints { path: PathBuf, token: u64 },
+    SemanticTokens { path: PathBuf, token: u64 },
     Shutdown,
 }
 
@@ -123,6 +126,7 @@ impl Client {
                 raw_diagnostics: HashMap::new(),
                 resolves_code_actions: false,
                 inlay_hints: false,
+                semantic_legend: None,
             }),
             child: Mutex::new(Some(child)),
             last_stderr: Mutex::new(Vec::new()),
@@ -213,7 +217,8 @@ impl Client {
                     "workspaceEdit": { "documentChanges": true },
                     "applyEdit": true,
                     "executeCommand": {},
-                    "inlayHint": { "refreshSupport": true }
+                    "inlayHint": { "refreshSupport": true },
+                    "semanticTokens": { "refreshSupport": true }
                 },
                 "window": { "workDoneProgress": true },
                 "textDocument": {
@@ -234,6 +239,17 @@ impl Client {
                     "documentSymbol": { "hierarchicalDocumentSymbolSupport": true },
                     "callHierarchy": {},
                     "inlayHint": {},
+                    "semanticTokens": {
+                        "requests": { "full": true },
+                        "tokenTypes": ["namespace", "type", "class", "enum", "interface", "struct", "typeParameter",
+                            "parameter", "variable", "property", "enumMember", "event", "function", "method", "macro",
+                            "keyword", "modifier", "comment", "string", "number", "regexp", "operator", "decorator"],
+                        "tokenModifiers": ["declaration", "definition", "readonly", "static", "deprecated", "abstract",
+                            "async", "modification", "documentation", "defaultLibrary", "mutable"],
+                        "formats": ["relative"],
+                        "overlappingTokenSupport": false,
+                        "multilineTokenSupport": false
+                    },
                     "formatting": {},
                     "rename": { "prepareSupport": false },
                     "codeAction": {
@@ -468,6 +484,17 @@ impl Client {
         st.request("textDocument/inlayHint", params, Pending::InlayHints { path: path.to_path_buf(), token });
     }
 
+    /// Semantic tokens do arquivo todo. A resposta vem em [`Event::SemanticTokens`] com o mesmo `token`. Se o
+    /// servidor não dá tokens do arquivo inteiro, não pede nada.
+    pub fn semantic_tokens(&self, path: &Path, token: u64) {
+        let mut st = self.inner.lock();
+        if st.semantic_legend.is_none() || !st.docs.contains_key(path) {
+            return;
+        }
+        let params = json!({ "textDocument": { "uri": path_to_uri(path) } });
+        st.request("textDocument/semanticTokens/full", params, Pending::SemanticTokens { path: path.to_path_buf(), token });
+    }
+
     /// Aplica uma ação de [`Event::CodeActions`]. As edições voltam em [`Event::ApplyEdit`] (agora, ou depois de
     /// pedir ao servidor que complete a ação); uma ação que é só um comando vai direto para o servidor.
     pub fn apply_code_action(&self, action: &CodeAction) {
@@ -672,6 +699,10 @@ impl Inner {
             }
             "window/workDoneProgress/create" | "client/registerCapability" | "client/unregisterCapability" => Value::Null,
             "workspace/workspaceFolders" => Value::Null,
+            "workspace/semanticTokens/refresh" => {
+                events.push(Event::SemanticTokensRefresh { server: self.name.clone() });
+                Value::Null
+            }
             "workspace/inlayHint/refresh" => {
                 events.push(Event::InlayHintsRefresh { server: self.name.clone() });
                 Value::Null
@@ -819,6 +850,8 @@ impl Inner {
                 }
                 // Ex.: o servidor ainda carregando o projeto. Sem registro: o pedido se repete a cada edição.
                 Pending::InlayHints { path, token } => return vec![Event::InlayHints { path, token, hints: Vec::new() }],
+                // Ex.: o conteúdo mudou enquanto o servidor calculava. O próximo pedido traz os tokens.
+                Pending::SemanticTokens { .. } => return Vec::new(),
                 // Erro na dica (ex.: ainda carregando): só some, sem registro.
                 Pending::SignatureHelp(path) => return vec![Event::SignatureHelp { path, help: None }],
                 _ => {}
@@ -847,6 +880,7 @@ impl Inner {
                     .and_then(|c| c.get("resolveProvider"))
                     .and_then(Value::as_bool)
                     .unwrap_or(false);
+                st.semantic_legend = protocol::semantic_legend(caps);
                 st.inlay_hints = caps.get("inlayHintProvider").is_some_and(|p| *p != Value::Bool(false) && !p.is_null());
                 st.ready = true;
                 st.write(notification("initialized", json!({})));
@@ -942,6 +976,21 @@ impl Inner {
                 vec![Event::Formatting { path, edits }]
             }
             Pending::Rename { new_name } => vec![Event::Rename { new_name, files: st.file_edits(result) }],
+            Pending::SemanticTokens { path, token } => {
+                let Some((types, mods)) = st.semantic_legend.clone() else { return Vec::new() };
+                let mut disk = HashMap::new();
+                let tokens = protocol::semantic_tokens(result)
+                    .into_iter()
+                    .filter_map(|(line, col, len, kind, bits)| {
+                        let kind = types.get(kind as usize)?.clone();
+                        let modifiers =
+                            mods.iter().enumerate().filter(|(i, _)| *i < 32 && bits & (1 << i) != 0).map(|(_, m)| m.clone()).collect();
+                        let server = Range { start: Position::new(line, col), end: Position::new(line, col + len) };
+                        Some(SemanticToken { range: st.to_chars(&path, server, &mut disk), kind, modifiers })
+                    })
+                    .collect();
+                vec![Event::SemanticTokens { path, token, tokens }]
+            }
             Pending::InlayHints { path, token } => {
                 let mut disk = HashMap::new();
                 let hints = protocol::inlay_hints(result)
