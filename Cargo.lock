@@ -5668,7 +5668,7 @@ checksum = "adb6935a6f5c20170eeceb1a3835a49e12e19d792f6dd344ccc76a985ca5a6ca"
 
 [[package]]
 name = "tea-app"
-version = "0.9.2"
+version = "0.10.0"
 dependencies = [
  "globset",
  "iced",
@@ -5703,7 +5703,7 @@ dependencies = [
 
 [[package]]
 name = "tea-core"
-version = "0.9.2"
+version = "0.10.0"
 dependencies = [
  "fluent-syntax",
  "i18n-embed",
@@ -5723,7 +5723,7 @@ dependencies = [
 
 [[package]]
 name = "tea-dap"
-version = "0.9.2"
+version = "0.10.0"
 dependencies = [
  "serde_json",
  "tea-lsp",
@@ -5731,7 +5731,7 @@ dependencies = [
 
 [[package]]
 name = "tea-declarative-ui"
-version = "0.9.2"
+version = "0.10.0"
 dependencies = [
  "iced",
  "iced_test",
@@ -5743,7 +5743,7 @@ dependencies = [
 
 [[package]]
 name = "tea-editor"
-version = "0.9.2"
+version = "0.10.0"
 dependencies = [
  "hayro",
  "iced",
@@ -5760,7 +5760,7 @@ dependencies = [
 
 [[package]]
 name = "tea-ext-calls"
-version = "0.9.2"
+version = "0.10.0"
 dependencies = [
  "iced",
  "tea-core",
@@ -5768,7 +5768,7 @@ dependencies = [
 
 [[package]]
 name = "tea-ext-debug"
-version = "0.9.2"
+version = "0.10.0"
 dependencies = [
  "iced",
  "tea-core",
@@ -5776,7 +5776,7 @@ dependencies = [
 
 [[package]]
 name = "tea-ext-filetree"
-version = "0.9.2"
+version = "0.10.0"
 dependencies = [
  "iced",
  "tea-core",
@@ -5785,7 +5785,7 @@ dependencies = [
 
 [[package]]
 name = "tea-ext-git"
-version = "0.9.2"
+version = "0.10.0"
 dependencies = [
  "iced",
  "libc",
@@ -5795,7 +5795,7 @@ dependencies = [
 
 [[package]]
 name = "tea-ext-memory"
-version = "0.9.2"
+version = "0.10.0"
 dependencies = [
  "iced",
  "tea-core",
@@ -5803,7 +5803,7 @@ dependencies = [
 
 [[package]]
 name = "tea-ext-outline"
-version = "0.9.2"
+version = "0.10.0"
 dependencies = [
  "iced",
  "tea-core",
@@ -5811,7 +5811,7 @@ dependencies = [
 
 [[package]]
 name = "tea-ext-preview"
-version = "0.9.2"
+version = "0.10.0"
 dependencies = [
  "iced",
  "tea-core",
@@ -5820,7 +5820,7 @@ dependencies = [
 
 [[package]]
 name = "tea-ext-problems"
-version = "0.9.2"
+version = "0.10.0"
 dependencies = [
  "iced",
  "tea-core",
@@ -5828,7 +5828,7 @@ dependencies = [
 
 [[package]]
 name = "tea-ext-references"
-version = "0.9.2"
+version = "0.10.0"
 dependencies = [
  "iced",
  "tea-core",
@@ -5836,7 +5836,7 @@ dependencies = [
 
 [[package]]
 name = "tea-ext-search"
-version = "0.9.2"
+version = "0.10.0"
 dependencies = [
  "iced",
  "ignore",
@@ -5846,7 +5846,7 @@ dependencies = [
 
 [[package]]
 name = "tea-ext-statusbar"
-version = "0.9.2"
+version = "0.10.0"
 dependencies = [
  "iced",
  "tea-core",
@@ -5854,7 +5854,7 @@ dependencies = [
 
 [[package]]
 name = "tea-ext-terminal"
-version = "0.9.2"
+version = "0.10.0"
 dependencies = [
  "iced",
  "iced_term",
@@ -5866,7 +5866,7 @@ dependencies = [
 
 [[package]]
 name = "tea-ext-ui"
-version = "0.9.2"
+version = "0.10.0"
 dependencies = [
  "iced",
  "iced_test",
@@ -5880,14 +5880,14 @@ dependencies = [
 
 [[package]]
 name = "tea-lsp"
-version = "0.9.2"
+version = "0.10.0"
 dependencies = [
  "serde_json",
 ]
 
 [[package]]
 name = "tea-plugins"
-version = "0.9.2"
+version = "0.10.0"
 dependencies = [
  "iced",
  "iced_test",
@@ -5903,7 +5903,7 @@ dependencies = [
 
 [[package]]
 name = "tea-skills"
-version = "0.9.2"
+version = "0.10.0"
 dependencies = [
  "serde",
  "tea-core",
