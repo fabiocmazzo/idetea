@@ -190,3 +190,6 @@ criar branch pela paleta (`231b860`, *Git: trocar de branch*) e o blame da linha
   [#42](https://github.com/LuDog71FR/iced-code-editor/pull/42) (sintaxes extras),
   [#43](https://github.com/LuDog71FR/iced-code-editor/pull/43) (sublinhado de diagnósticos, muda o `Style`) e
   [#44](https://github.com/LuDog71FR/iced-code-editor/pull/44) (barra em pílula). Quando entrarem, o `[patch]` sai.
+- **Correção (2026-11-17):** a troca do documento inteiro deixava uma linha vazia a mais na cópia do servidor; o
+  bug é do upstream. Quinto commit no fork (`50c3135`) e PR
+  [#45](https://github.com/LuDog71FR/iced-code-editor/pull/45).

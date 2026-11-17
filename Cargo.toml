@@ -56,8 +56,9 @@ lto = "thin"
 inherits = "release"
 strip = true
 
-# Fork do iced-code-editor (branch `idetea-0.7`, o upstream 0.7 mais 4 commits): sintaxes extras (RFC 0010),
-# sublinhados de diagnósticos (RFC 0011) e barra de rolagem em pílula (RFC 0015). Vão como PR para o upstream e
-# o patch sai quando entrarem (RFC 0017, ADR 0001).
+# Fork do iced-code-editor (branch `idetea-0.7`, o upstream 0.7 mais 5 commits): sintaxes extras (RFC 0010),
+# sublinhados de diagnósticos (RFC 0011), barra de rolagem em pílula (RFC 0015) e a troca do documento inteiro que
+# deixava uma linha vazia a mais no servidor. Vão como PR para o upstream e o patch sai quando entrarem (RFC 0017,
+# ADR 0001).
 [patch.crates-io]
-iced-code-editor = { git = "https://github.com/fabiocmazzo/iced-code-editor", rev = "5b5c788d0b16d9f8647eef78d8e91991fb755d4e" }
+iced-code-editor = { git = "https://github.com/fabiocmazzo/iced-code-editor", rev = "50c3135c88a8c4221c63336cde7619b071fd98de" }

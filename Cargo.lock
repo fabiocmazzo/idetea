@@ -2359,7 +2359,7 @@ dependencies = [
 [[package]]
 name = "iced-code-editor"
 version = "0.7.0"
-source = "git+https://github.com/fabiocmazzo/iced-code-editor?rev=5b5c788d0b16d9f8647eef78d8e91991fb755d4e#5b5c788d0b16d9f8647eef78d8e91991fb755d4e"
+source = "git+https://github.com/fabiocmazzo/iced-code-editor?rev=50c3135c88a8c4221c63336cde7619b071fd98de#50c3135c88a8c4221c63336cde7619b071fd98de"
 dependencies = [
  "iced",
  "iced_aw",
