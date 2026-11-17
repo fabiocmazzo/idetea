@@ -55,7 +55,7 @@ dice, invece di nasconderlo.
 | Errori di sintassi | sì |
 | Errori di tipo e altri controlli semantici | no (non ancora nel server) |
 | Completamento, riferimenti, rinomina, formattazione | no (non ancora nel server) |
-| Inlay hint | il server li ha; l'IDE non mostra ancora gli inlay hint |
+| Inlay hint | sì |
 | Attività | i target del tuo Makefile; un Makefile da solo non vuol dire Hare, quindi l'IDE non aggiunge attività `hare`. Aggiungi le tue in `[tasks]` |
 
 **Problema noto:** il parser di Hare (`hare::parse`, usato da `hare-lsp`) va in crash su qualsiasi istruzione a cui

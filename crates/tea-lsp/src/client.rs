@@ -58,6 +58,8 @@ struct State {
     raw_diagnostics: HashMap<PathBuf, Vec<Value>>,
     /// O servidor completa uma ação escolhida com `codeAction/resolve` (a lista vem sem as edições).
     resolves_code_actions: bool,
+    /// O servidor responde `textDocument/inlayHint`.
+    inlay_hints: bool,
 }
 
 enum Pending {
@@ -79,6 +81,7 @@ enum Pending {
     /// A ação escolhida, para completar com as edições.
     ResolveCodeAction { title: String },
     ExecuteCommand { title: String },
+    InlayHints { path: PathBuf, token: u64 },
     Shutdown,
 }
 
@@ -119,6 +122,7 @@ impl Client {
                 signature_triggers: Vec::new(),
                 raw_diagnostics: HashMap::new(),
                 resolves_code_actions: false,
+                inlay_hints: false,
             }),
             child: Mutex::new(Some(child)),
             last_stderr: Mutex::new(Vec::new()),
@@ -208,7 +212,8 @@ impl Client {
                     "symbol": {},
                     "workspaceEdit": { "documentChanges": true },
                     "applyEdit": true,
-                    "executeCommand": {}
+                    "executeCommand": {},
+                    "inlayHint": { "refreshSupport": true }
                 },
                 "window": { "workDoneProgress": true },
                 "textDocument": {
@@ -228,6 +233,7 @@ impl Client {
                     "typeDefinition": { "linkSupport": true },
                     "documentSymbol": { "hierarchicalDocumentSymbolSupport": true },
                     "callHierarchy": {},
+                    "inlayHint": {},
                     "formatting": {},
                     "rename": { "prepareSupport": false },
                     "codeAction": {
@@ -447,6 +453,21 @@ impl Client {
         st.request("textDocument/codeAction", params, Pending::CodeActions(path.to_path_buf()));
     }
 
+    /// Inlay hints de `path` em `range` (o trecho visível). A resposta vem em [`Event::InlayHints`] com o mesmo
+    /// `token`, para quem pediu descartar uma resposta velha. Se o servidor não dá hints, não pede nada.
+    pub fn inlay_hints(&self, path: &Path, range: Range, token: u64) {
+        let mut st = self.inner.lock();
+        if !st.inlay_hints {
+            return;
+        }
+        let enc = st.encoding;
+        let Some(doc) = st.docs.get(path) else { return };
+        let (start, end) = (doc.clamp(range.start), doc.clamp(range.end));
+        let r = Range { start: doc.to_server(start, enc), end: doc.to_server(end, enc) };
+        let params = json!({ "textDocument": { "uri": path_to_uri(path) }, "range": protocol::range_json(r) });
+        st.request("textDocument/inlayHint", params, Pending::InlayHints { path: path.to_path_buf(), token });
+    }
+
     /// Aplica uma ação de [`Event::CodeActions`]. As edições voltam em [`Event::ApplyEdit`] (agora, ou depois de
     /// pedir ao servidor que complete a ação); uma ação que é só um comando vai direto para o servidor.
     pub fn apply_code_action(&self, action: &CodeAction) {
@@ -651,6 +672,10 @@ impl Inner {
             }
             "window/workDoneProgress/create" | "client/registerCapability" | "client/unregisterCapability" => Value::Null,
             "workspace/workspaceFolders" => Value::Null,
+            "workspace/inlayHint/refresh" => {
+                events.push(Event::InlayHintsRefresh { server: self.name.clone() });
+                Value::Null
+            }
             // Edições que o servidor quer aplicar (ao executar um comando, por exemplo). A IDE aplica nas abas; a
             // resposta não espera por isso.
             "workspace/applyEdit" => {
@@ -792,6 +817,8 @@ impl Inner {
                         Event::CodeActions { path, actions: Vec::new() },
                     ];
                 }
+                // Ex.: o servidor ainda carregando o projeto. Sem registro: o pedido se repete a cada edição.
+                Pending::InlayHints { path, token } => return vec![Event::InlayHints { path, token, hints: Vec::new() }],
                 // Erro na dica (ex.: ainda carregando): só some, sem registro.
                 Pending::SignatureHelp(path) => return vec![Event::SignatureHelp { path, help: None }],
                 _ => {}
@@ -820,6 +847,7 @@ impl Inner {
                     .and_then(|c| c.get("resolveProvider"))
                     .and_then(Value::as_bool)
                     .unwrap_or(false);
+                st.inlay_hints = caps.get("inlayHintProvider").is_some_and(|p| *p != Value::Bool(false) && !p.is_null());
                 st.ready = true;
                 st.write(notification("initialized", json!({})));
                 for queued in std::mem::take(&mut st.outbox) {
@@ -914,6 +942,18 @@ impl Inner {
                 vec![Event::Formatting { path, edits }]
             }
             Pending::Rename { new_name } => vec![Event::Rename { new_name, files: st.file_edits(result) }],
+            Pending::InlayHints { path, token } => {
+                let mut disk = HashMap::new();
+                let hints = protocol::inlay_hints(result)
+                    .into_iter()
+                    .map(|mut h| {
+                        let p = h.position;
+                        h.position = st.to_chars(&path, Range { start: p, end: p }, &mut disk).start;
+                        h
+                    })
+                    .collect();
+                vec![Event::InlayHints { path, token, hints }]
+            }
             Pending::CodeActions(path) => {
                 let actions = protocol::code_actions(result)
                     .into_iter()

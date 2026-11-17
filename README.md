@@ -126,7 +126,7 @@ and Helix, updated for 0.8.0. In short:
   the thing the other editors in that note do not have.
 - There is no ghost-text autocomplete, on purpose. If you want Tab-to-complete or inline diffs, that document points
   at Cursor, Windsurf or Zed.
-- Code actions, inlay hints and debugger coverage are behind VS Code and JetBrains.
+- Debugger coverage is behind VS Code and JetBrains (gdb and lldb-dap only).
 
 ### Tea
 

@@ -55,7 +55,7 @@ es zu verbergen.
 | Syntaxfehler | ja |
 | Typfehler und andere semantische Prüfungen | nein (im Server noch nicht) |
 | Vervollständigung, Verweise, Umbenennen, Formatieren | nein (im Server noch nicht) |
-| Inlay Hints | der Server hat sie; die IDE zeigt Inlay Hints noch nicht |
+| Inlay Hints | ja |
 | Aufgaben | Ihre Makefile-Ziele; ein Makefile allein bedeutet nicht Hare, also fügt die IDE keine `hare`-Aufgaben hinzu. Eigene kommen in `[tasks]` |
 
 **Bekanntes Problem:** Der eigene Parser von Hare (`hare::parse`, von `hare-lsp` genutzt) stürzt bei jeder Anweisung ohne `;` ab,

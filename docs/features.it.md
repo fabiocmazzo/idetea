@@ -45,6 +45,9 @@ L'elenco completo, per chi vuole il dettaglio tecnico. Per la versione breve, ve
 - Azioni di codice (`Ctrl+.`): le correzioni e i refactoring che il server offre per l'errore o la selezione
   (import mancante, generare una funzione, estrarre una variabile), quella consigliata per prima. Le sottolineature
   seguono il testo modificato finché il server non manda nuovi diagnostici.
+- Inlay hint: il tipo dedotto delle variabili e il nome dei parametri nelle chiamate, in grigio nel codice. Il cursore
+  ci passa sopra e non vengono mai salvati. Attivi per impostazione predefinita; `Ctrl+Alt+I` li accende e li spegne,
+  `[lsp] inlay_hints = false` del tutto.
 - Vai all'implementazione (`Ctrl+F12`) e al tipo; con più risultati, l'elenco va nel pannello.
 - Trova i riferimenti (`Shift+F12`, o `Ctrl+click` sulla dichiarazione) raggruppati per file, e indietro/avanti dopo ogni
   salto (`Alt+←` / `Alt+→`, o i pulsanti laterali del mouse).

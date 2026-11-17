@@ -38,6 +38,7 @@ quebre a fachada, ou se precisarmos de tree-sitter ou rope e o upstream não qui
 
 - As correções do upstream (IME, CJK, foco, desempenho) continuam chegando sem custo, e o código que mantemos
   continua em ~3 mil linhas na fachada.
-- Inlay hints, semantic tokens e valores do debug no texto esperam a API de decorações no upstream.
+- Inlay hints, semantic tokens e valores do debug no texto esperam a API de decorações no upstream. (Inlay hints e valores
+  do debug: complementado pela [ADR 0002](0002-texto-virtual-no-fork-antes-do-upstream.md), que os faz no fork.)
 - Code actions, encodings, snippets e seleção por AST são feitos na fachada (com PRs pequenos quando faltar API).
 - Enquanto o `[patch]` existir, toda mudança no widget passa por branch no fork, `rev` no `Cargo.toml` e PR.

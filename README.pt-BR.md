@@ -127,7 +127,7 @@ JetBrains e Helix, atualizado para a 0.8.0. Em resumo:
   worktrees, o mascote Tea). É isso que os outros editores daquele texto não têm.
 - Não tem autocomplete fantasma, de propósito. Se você quer completar com Tab ou diff inline, o texto aponta para
   Cursor, Windsurf ou Zed.
-- Code actions, inlay hints e a cobertura do depurador ficam atrás do VS Code e do JetBrains.
+- A cobertura do depurador fica atrás do VS Code e do JetBrains (só gdb e lldb-dap).
 
 ### Tea
 

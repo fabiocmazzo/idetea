@@ -26,7 +26,7 @@ principaux IDE et éditeurs du marché :
 | **Protocole structuré pour les agents (UI déclarative, approbation des commandes, mascotte)** | **Seul dans la catégorie (natif, en fichiers)** | N'en a pas (dépend d'extensions de conversation) | Centré sur un chat/diff propriétaire | Centré sur le chat et l'aide dans le texte | Centré sur le chat et l'aide dans le texte | N'en a pas (terminal seulement) |
 | **Autocomplétion IA dans le texte (« Ghost text » / Tab)** | **N'en a pas (par philosophie)** | Via Copilot | **Excellente (en tête)** | Très bonne (Zeta) | Bonne | Via des extensions |
 | **Maturité de l'éditeur de texte** | Bonne sur l'essentiel, il manque des fonctions avancées | **Référence** | **Référence** | Très haute | **Référence** | **Référence (modale)** |
-| **Profondeur du LSP et de la refactorisation** | Moyenne (sans Inlay Hints) | **Complète** | **Complète** | Haute | **Inégalée (AST propre)** | Haute |
+| **Profondeur du LSP et de la refactorisation** | Haute (sans Semantic Tokens) | **Complète** | **Complète** | Haute | **Inégalée (AST propre)** | Haute |
 | **Débogage (Debug)** | Basique (GDB 14+ pour Rust/C/C++/Zig, `lldb-dap` sous macOS ; le natif MoonBit est expérimental) | **Complet (n'importe quel langage)** | **Complet** | Basique/moyen (DAP récent) | **Excellent** | Basique (nvim-dap) |
 | **Contrôle de version (Git)** | Moyen (marques dans la marge et blame ; sans fusion à 3 voies ni stash) | **Complet** | **Complet** | Moyen | **Excellent (meilleure fusion)** | Via LazyGit / Fugitive |
 | **Prise en charge multiplateforme** | **Linux, macOS (Apple Silicon), Windows (x86_64)** | **Linux, macOS, Windows, Web** | **Linux, macOS, Windows** | **macOS, Linux, Windows** | **Linux, macOS, Windows** | **N'importe quel OS / SSH** |
@@ -122,8 +122,7 @@ IDE TEA part du principe que **les meilleurs agents tournent déjà dans le term
 
 ### Lacunes importantes de LSP face à VS Code, Zed et JetBrains
 1. ~~Pas de Code Actions / Quick Fixes (`Ctrl+.` / ampoule du LSP)~~ — **fait :** `Ctrl+.` liste les corrections et refactorisations du serveur pour l'erreur ou la sélection (import manquant, générer une fonction, extraire une variable).
-2. **Pas d'Inlay Hints :**
-   - N'affiche pas les types inférés dans le texte (`let x: Vec<String> = ...`) ni les noms de paramètres dans les appels de fonction, fonction très utilisée en Rust et en TypeScript dans VS Code, Zed et RustRover.
+2. ~~Pas d'Inlay Hints~~ — **fait :** le type déduit des variables et le nom des paramètres apparaissent en gris dans le code ; `Ctrl+Alt+I` les active et les désactive.
 3. **Pas de Semantic Tokens du LSP :**
    - Les couleurs de syntaxe viennent exclusivement de la grammaire `.sublime-syntax` (`syntect`), sans enrichissement sémantique du LSP (par exemple distinguer une variable mutable d'une variable immuable, ou une macro d'une fonction, par la couleur du serveur de langage).
 
@@ -167,7 +166,7 @@ IDE TEA part du principe que **les meilleurs agents tournent déjà dans le term
 
 ### Un autre IDE est encore meilleur quand vous :
 1. **Voulez une autocomplétion prédictive d'IA à chaque touche (`Tab` / Ghost text) ou une édition dans le texte par diff :** **Cursor**, **Windsurf** ou **Zed** servent mieux ce style.
-2. **Dépendez fortement des *Inlay Hints* ou des débogueurs Python/JS/Go dans l'interface :** **VS Code** ou **JetBrains** sont beaucoup plus complets aujourd'hui.
+2. **Dépendez fortement des débogueurs Python/JS/Go dans l'interface :** **VS Code** ou **JetBrains** sont beaucoup plus complets aujourd'hui.
 3. **Dépendez de SSH Remote Development / DevContainers, ou utilisez macOS Intel / Windows ARM :** **VS Code** et **Zed** ont déjà une prise en charge mûre de ces scénarios.
 
 ---
@@ -179,5 +178,5 @@ Si le but est de réduire la distance fonctionnelle avec VS Code et Zed tout en 
 1. ~~Code Actions / Quick Fixes du LSP (`Ctrl+.`)~~ — **fait :** la liste s'ouvre dans la palette, la recommandée en premier, et les modifications restent dans les onglets, non enregistrées.
 2. ~~Marques Git dans l'éditeur (Gutter Diff) + changement de branche~~ — **déjà fait :** marques dans la marge et changement/création de branche depuis la palette.
 3. ~~Raccourci « Envoyer la sélection / le diagnostic à l'agent » (`Ctrl+L`)~~ — **fait dans la 0.8.0**, avec le lanceur d'agents (`Ctrl+Shift+A`).
-4. **Inlay Hints du LSP (types inférés et noms de paramètres facultatifs) :** afficher des indications de type dans le texte, avec un raccourci rapide pour les activer ou les couper.
+4. ~~Inlay Hints du LSP~~ — **fait :** types déduits et noms de paramètres dans le code, activés par défaut, avec `Ctrl+Alt+I` pour les activer et les désactiver.
 5. **Davantage d'adaptateurs DAP (`debugpy`, `delve`, `js-debug`, `codelldb`) :** prendre en charge le débogage au-delà de GDB et de `lldb-dap`. La portabilité vers macOS et Windows, qui faisait aussi partie de ce point, est sortie dans la 0.5.0.

@@ -779,4 +779,8 @@ code-action-applied =
 code-action-kind-quickfix = 快速修复
 code-action-kind-refactor = 重构
 code-action-kind-source = 文件
+cmd-lsp-toggle-inlay-hints = LSP：切换内联提示（类型和参数名）
+inlay-hints-on = 内联提示：开
+inlay-hints-off = 内联提示：关
 guide-lsp-11 = 代码操作：把光标放在错误或警告上（或选中一段代码），按 { $lsp-code_actions } 列出服务器提供的修复和重构，例如缺少的 import；推荐的一项排在最前，带 ✓。更改留在标签页中，尚未保存（Ctrl+Z 可撤销）。
+guide-lsp-12 = 内联提示：服务器在代码中用灰色显示变量推断出的类型和调用中的参数名。它们不是文件的一部分：光标会跳过它们，也不会被保存。{ $lsp-toggle_inlay_hints } 开关它们；`[lsp] inlay_hints = false` 则一直关闭。

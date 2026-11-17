@@ -77,6 +77,8 @@ line_height = 1.45
 # (`moon lsp`) vêm nos language packs. Só iniciam se o comando existir no PATH.
 [lsp]
 enabled = true
+# Tipos inferidos e nomes de parâmetro dentro do código (Ctrl+Alt+I liga e desliga até reiniciar).
+inlay_hints = true
 # Exemplos:
 # servers.rust-analyzer = { command = "/caminho/rust-analyzer" }
 # servers.clangd = { enabled = false }
@@ -185,6 +187,7 @@ enabled = true
 "ctrl+shift+i" = "lsp.format"
 "f2" = "lsp.rename"
 "ctrl+." = "lsp.code_actions"
+"ctrl+alt+i" = "lsp.toggle_inlay_hints"
 "ctrl+'" = "terminal.focus"
 "ctrl+`" = "terminal.focus"
 "ctrl+shift+t" = "tab.reopen"
@@ -252,13 +255,15 @@ impl Default for ExtensionConfig {
 #[serde(default)]
 pub struct LspConfig {
     pub enabled: bool,
+    /// Inlay hints do servidor (RFC 0018).
+    pub inlay_hints: bool,
     /// Sobrescreve ou acrescenta servidores, por nome.
     pub servers: BTreeMap<String, LspServerConfig>,
 }
 
 impl Default for LspConfig {
     fn default() -> Self {
-        Self { enabled: true, servers: BTreeMap::new() }
+        Self { enabled: true, inlay_hints: true, servers: BTreeMap::new() }
     }
 }
 

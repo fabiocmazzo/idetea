@@ -71,15 +71,6 @@ impl DocText {
         self.lines.splice(start.line as usize..=end.line as usize, replacement);
     }
 
-    fn clamp(&self, p: Position) -> Position {
-        if self.lines.is_empty() {
-            return Position::default();
-        }
-        let line = (p.line as usize).min(self.lines.len() - 1);
-        let len = self.lines[line].chars().count() as u32;
-        Position::new(line as u32, p.character.min(len))
-    }
-
     /// Caracteres → unidade do servidor.
     pub fn to_server(&self, p: Position, enc: Encoding) -> Position {
         match enc {
@@ -92,6 +83,16 @@ impl DocText {
                 Position::new(p.line, col)
             }
         }
+    }
+
+    /// `p` dentro do documento: uma linha depois da última vai para o fim do texto, uma coluna depois do fim da
+    /// linha vai para o fim dela. Para intervalos que vêm da tela (o trecho visível pode passar do fim do arquivo,
+    /// e o rust-analyzer recusa o pedido inteiro).
+    pub fn clamp(&self, p: Position) -> Position {
+        let last = self.lines.len().saturating_sub(1) as u32;
+        let line = p.line.min(last);
+        let len = self.line(line).map_or(0, |l| l.chars().count() as u32);
+        if p.line > last { Position::new(line, len) } else { Position::new(line, p.character.min(len)) }
     }
 
     /// Unidade do servidor → caracteres.
@@ -253,6 +254,16 @@ mod tests {
         let mut d = DocText::new("ab");
         d.apply(r(9, 9, 9, 9), "!");
         assert_eq!(d.text(), "ab!");
+    }
+
+    #[test]
+    fn clamp_keeps_positions_inside_the_document() {
+        let doc = DocText::new("ab\nção\n");
+        assert_eq!(doc.clamp(Position::new(1, 2)), Position::new(1, 2));
+        assert_eq!(doc.clamp(Position::new(1, 9)), Position::new(1, 3));
+        assert_eq!(doc.clamp(Position::new(2, 0)), Position::new(2, 0), "a linha vazia depois do último \\n existe");
+        assert_eq!(doc.clamp(Position::new(10, 0)), Position::new(2, 0));
+        assert_eq!(DocText::new("ab").clamp(Position::new(5, 5)), Position::new(0, 2));
     }
 
     #[test]

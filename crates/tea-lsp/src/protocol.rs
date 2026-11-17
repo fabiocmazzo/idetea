@@ -4,7 +4,7 @@
 use serde_json::Value;
 
 use crate::text::{Position, Range};
-use crate::{CompletionItem, DocumentSymbol, Severity, SignatureHelp};
+use crate::{CompletionItem, DocumentSymbol, InlayHint, InlayHintKind, Severity, SignatureHelp};
 
 pub fn position(v: &Value) -> Option<Position> {
     Some(Position::new(v.get("line")?.as_u64()? as u32, v.get("character")?.as_u64()? as u32))
@@ -417,6 +417,37 @@ pub fn action_command(action: &Value) -> Option<Value> {
     }
 }
 
+/// `textDocument/inlayHint` → hints com a posição como o servidor mandou.
+pub fn inlay_hints(result: &Value) -> Vec<InlayHint> {
+    let Some(list) = result.as_array() else { return Vec::new() };
+    list.iter()
+        .filter_map(|h| {
+            let position = position(h.get("position")?)?;
+            let label = match h.get("label")? {
+                Value::String(s) => s.clone(),
+                Value::Array(parts) => parts.iter().filter_map(|p| p.get("value").and_then(Value::as_str)).collect(),
+                _ => return None,
+            };
+            if label.is_empty() {
+                return None;
+            }
+            let kind = match h.get("kind").and_then(Value::as_u64) {
+                Some(1) => InlayHintKind::Type,
+                Some(2) => InlayHintKind::Parameter,
+                _ => InlayHintKind::Other,
+            };
+            let flag = |k: &str| h.get(k).and_then(Value::as_bool).unwrap_or(false);
+            Some(InlayHint {
+                position,
+                label: label.replace(['\n', '\r'], " "),
+                kind,
+                padding_left: flag("paddingLeft"),
+                padding_right: flag("paddingRight"),
+            })
+        })
+        .collect()
+}
+
 /// `a` e `b` se tocam (encostar conta: o cursor no fim de um erro pede as correções dele).
 pub fn touches(a: Range, b: Range) -> bool {
     a.start <= b.end && b.start <= a.end
@@ -552,6 +583,27 @@ mod tests {
         super::locations(result).into_iter().next()
     }
     use serde_json::json;
+
+    #[test]
+    fn inlay_hint_shapes() {
+        use serde_json::json;
+        let result = json!([
+            {"position": {"line": 1, "character": 4}, "label": ": u32", "kind": 1, "paddingLeft": false},
+            {"position": {"line": 2, "character": 8}, "label": [{"value": "left"}, {"value": ":"}], "kind": 2,
+             "paddingRight": true},
+            {"position": {"line": 3, "character": 0}, "label": "a\nb"},
+            {"position": {"line": 3, "character": 0}, "label": ""},
+            {"label": "sem posição"}
+        ]);
+        let hints = inlay_hints(&result);
+        assert_eq!(hints.len(), 3);
+        assert_eq!((hints[0].label.as_str(), hints[0].kind), (": u32", InlayHintKind::Type));
+        assert_eq!(hints[0].position, Position::new(1, 4));
+        assert_eq!((hints[1].label.as_str(), hints[1].kind), ("left:", InlayHintKind::Parameter));
+        assert!(hints[1].padding_right && !hints[1].padding_left);
+        assert_eq!((hints[2].label.as_str(), hints[2].kind), ("a b", InlayHintKind::Other));
+        assert!(inlay_hints(&Value::Null).is_empty());
+    }
 
     #[test]
     fn hover_formats() {

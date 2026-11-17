@@ -129,7 +129,7 @@ JetBrains et Helix, mise à jour pour la 0.8.0. En bref :
   mascotte Tea). C'est ce que les autres éditeurs de cette note n'ont pas.
 - Il n'y a pas d'autocomplétion en texte fantôme, volontairement. Si vous voulez compléter avec Tab ou des diffs dans
   le texte, ce document indique Cursor, Windsurf ou Zed.
-- Les code actions, les inlay hints et la couverture du débogueur sont en retrait par rapport à VS Code et JetBrains.
+- La couverture du débogueur est en retrait par rapport à VS Code et JetBrains (gdb et lldb-dap seulement).
 
 ### Tea
 

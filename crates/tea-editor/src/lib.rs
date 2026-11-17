@@ -194,6 +194,14 @@ pub struct Editor {
     diagnostics: BTreeMap<String, Vec<tea_lsp::Diagnostic>>,
     /// O texto ao qual os diagnósticos guardados se referem, e a revisão dele (ver `follow_edits`).
     diagnostics_text: Option<(u64, String)>,
+    /// Inlay hints do servidor (RFC 0018), andando com o texto como os diagnósticos.
+    inlay_hints: Vec<tea_lsp::InlayHint>,
+    /// O texto ao qual os hints se referem: o do pedido, até a resposta; depois, o da última edição seguida.
+    inlay_text: Option<(u64, String)>,
+    /// O pedido de hints mais recente (uma resposta de um pedido anterior é descartada) e o texto dele.
+    inlay_token: u64,
+    inlay_request_text: Option<(u64, String)>,
+    inlay_enabled: bool,
     /// Linhas com breakpoint (começando em 0). Andam junto com o texto ao editar.
     breakpoints: BTreeSet<usize>,
     /// Linha onde o programa parou no debug (começando em 0).
@@ -298,6 +306,11 @@ impl Editor {
             lsp: None,
             revision: Default::default(),
             diagnostics_text: None,
+            inlay_hints: Vec::new(),
+            inlay_text: None,
+            inlay_token: 0,
+            inlay_request_text: None,
+            inlay_enabled: true,
             overlay: LspOverlayState::new(),
             hover: None,
             diagnostics: BTreeMap::new(),
@@ -559,6 +572,7 @@ impl Editor {
         style.scroller_color = theme.extended_palette().background.strongest.color.scale_alpha(0.6);
         self.inner.set_theme(style);
         self.theme = theme.clone();
+        self.push_inlay_hints();
     }
 
     pub fn set_font_size(&mut self, size: f32) {
@@ -840,14 +854,27 @@ impl Editor {
     /// linhas inteiras reescritas, às vezes o documento todo com o fim desencontrado).
     fn follow_edits(&mut self) {
         let revision = self.text_revision();
-        let Some((_, old)) = self.diagnostics_text.take_if(|(seen, _)| *seen != revision) else { return };
-        let new = self.text();
-        let (range, text) = tea_lsp::diff(&old, &new);
-        for d in self.diagnostics.values_mut().flatten() {
-            d.range = tea_lsp::shift_range(d.range, range, &text);
+        let stale = |t: &Option<(u64, String)>| t.as_ref().is_some_and(|(seen, _)| *seen != revision);
+        if !stale(&self.diagnostics_text) && !stale(&self.inlay_text) {
+            return;
         }
-        self.diagnostics_text = Some((revision, new));
-        self.push_diagnostics();
+        let new = self.text();
+        if let Some((_, old)) = self.diagnostics_text.take_if(|(seen, _)| *seen != revision) {
+            let (range, text) = tea_lsp::diff(&old, &new);
+            for d in self.diagnostics.values_mut().flatten() {
+                d.range = tea_lsp::shift_range(d.range, range, &text);
+            }
+            self.diagnostics_text = Some((revision, new.clone()));
+            self.push_diagnostics();
+        }
+        if let Some((_, old)) = self.inlay_text.take_if(|(seen, _)| *seen != revision) {
+            let (range, text) = tea_lsp::diff(&old, &new);
+            for h in &mut self.inlay_hints {
+                h.position = tea_lsp::shift_range(tea_lsp::Range { start: h.position, end: h.position }, range, &text).start;
+            }
+            self.inlay_text = Some((revision, new));
+            self.push_inlay_hints();
+        }
     }
 
     fn push_diagnostics(&mut self) {
@@ -864,9 +891,81 @@ impl Editor {
                     tea_lsp::Severity::Info => DiagnosticSeverity::Information,
                     tea_lsp::Severity::Hint => DiagnosticSeverity::Hint,
                 },
+                message: d.message.clone(),
+                source: d.source.clone(),
             })
             .collect();
         self.inner.set_diagnostics(all);
+    }
+
+    /// Liga ou desliga os inlay hints (`[lsp] inlay_hints`, `lsp.toggle_inlay_hints`). Ligando, pede ao servidor.
+    pub fn set_inlay_hints_enabled(&mut self, on: bool) {
+        if self.inlay_enabled == on {
+            return;
+        }
+        self.inlay_enabled = on;
+        self.inlay_hints.clear();
+        self.inlay_text = None;
+        self.inlay_request_text = None;
+        self.push_inlay_hints();
+        if on {
+            self.request_inlay_hints();
+        }
+    }
+
+    /// Pede ao servidor os inlay hints do arquivo. Resposta em `tea_lsp::Event::InlayHints`, para
+    /// [`Self::set_inlay_hints`]. Chamado quando o servidor termina de analisar (diagnósticos novos, o `refresh`
+    /// dele) e ao abrir a aba.
+    pub fn request_inlay_hints(&mut self) -> bool {
+        if !self.inlay_enabled {
+            return false;
+        }
+        let (Some(link), Some(path)) = (&self.lsp, &self.path) else { return false };
+        self.inner.lsp_flush_pending_changes();
+        self.inlay_token += 1;
+        // O arquivo todo (o cliente limita ao fim do documento): o trecho visível muda a cada rolagem e pediria de
+        // novo; os servidores respondem rápido mesmo em arquivos grandes.
+        let end = tea_lsp::Position::new(u32::MAX, 0);
+        link.client.inlay_hints(path, tea_lsp::Range { start: tea_lsp::Position::new(0, 0), end }, self.inlay_token);
+        // A resposta vem em posições deste texto: as edições até ela chegar movem os hints.
+        self.inlay_request_text = Some((self.text_revision(), self.text()));
+        true
+    }
+
+    /// A resposta de [`Self::request_inlay_hints`]. Uma resposta velha (`token` de um pedido anterior) é descartada.
+    pub fn set_inlay_hints(&mut self, token: u64, hints: Vec<tea_lsp::InlayHint>) {
+        if token != self.inlay_token || !self.inlay_enabled {
+            return;
+        }
+        let Some(text) = self.inlay_request_text.take() else { return };
+        self.inlay_hints = hints;
+        self.inlay_text = Some(text);
+        if self.inlay_text.as_ref().is_some_and(|(seen, _)| *seen != self.text_revision()) {
+            self.follow_edits();
+        } else {
+            self.push_inlay_hints();
+        }
+    }
+
+    fn push_inlay_hints(&mut self) {
+        let palette = self.theme.extended_palette();
+        let color = palette.background.base.text.scale_alpha(0.5);
+        let items = self
+            .inlay_hints
+            .iter()
+            .map(|h| iced_code_editor::VirtualText {
+                line: h.position.line as usize,
+                column: h.position.character as usize,
+                text: format!(
+                    "{}{}{}",
+                    if h.padding_left { " " } else { "" },
+                    h.label,
+                    if h.padding_right { " " } else { "" }
+                ),
+                color,
+            })
+            .collect();
+        self.inner.set_virtual_text("inlay-hints", items);
     }
 
     /// Liga o editor a um servidor LSP. Precisa de caminho.
@@ -894,6 +993,9 @@ impl Editor {
         self.diagnostics.clear();
         self.diagnostics_text = None;
         self.inner.set_diagnostics(Vec::new());
+        self.inlay_hints.clear();
+        self.inlay_text = None;
+        self.push_inlay_hints();
         self.overlay.clear_hover();
         self.overlay.clear_completions();
         self.hover = None;
@@ -1612,6 +1714,53 @@ mod tests {
         // A lista nova do servidor substitui (já é do texto atual).
         editor.set_diagnostics("rustc", &[]);
         assert!(lines(&editor).0.is_empty());
+        client.kill_now();
+    }
+
+    #[test]
+    fn inlay_hints_reach_the_widget_and_follow_the_text() {
+        use tea_lsp::{InlayHint, InlayHintKind, Position};
+        let mut editor = Editor::from_text(&tmp("hints.rs"), "fn main() {\n    let t = soma(2, 3);\n}\n");
+        let server = tea_lsp::ServerConfig {
+            name: "falso".into(),
+            command: std::env::current_exe().unwrap().to_string_lossy().into_owned(),
+            args: vec!["--list".into()],
+            languages: vec![("rs".into(), "rust".into())],
+        };
+        let client = tea_lsp::Client::start(&server, &std::env::temp_dir(), std::sync::Arc::new(|_| {})).unwrap();
+        editor.attach_lsp(client.clone(), "rust");
+        let hint = |line, character, label: &str, kind| InlayHint {
+            position: Position::new(line, character),
+            label: label.into(),
+            kind,
+            padding_left: false,
+            padding_right: kind == InlayHintKind::Parameter,
+        };
+        let shown = |editor: &Editor| {
+            editor.inner.virtual_text("inlay-hints").iter().map(|v| (v.line, v.column, v.text.clone())).collect::<Vec<_>>()
+        };
+
+        assert!(editor.request_inlay_hints());
+        let token = editor.inlay_token;
+        // Enter no começo antes da resposta: ela vem nas posições do texto do pedido.
+        editor.focus();
+        let _ = editor.update(EditorMessage(Msg::Widget(Inner::Enter)));
+        editor.set_inlay_hints(token, vec![hint(1, 9, ": i32", InlayHintKind::Type), hint(1, 17, "a:", InlayHintKind::Parameter)]);
+        assert_eq!(shown(&editor), vec![(2, 9, ": i32".into()), (2, 17, "a: ".into())]);
+        assert_eq!(editor.text(), "\nfn main() {\n    let t = soma(2, 3);\n}\n", "nunca no texto");
+
+        // Outro Enter: andam junto.
+        let _ = editor.update(EditorMessage(Msg::Widget(Inner::Enter)));
+        assert_eq!(shown(&editor)[0].0, 3);
+
+        // Uma resposta velha não substitui a nova.
+        assert!(editor.request_inlay_hints());
+        editor.set_inlay_hints(token, Vec::new());
+        assert_eq!(shown(&editor).len(), 2);
+
+        editor.set_inlay_hints_enabled(false);
+        assert!(shown(&editor).is_empty());
+        assert!(!editor.request_inlay_hints());
         client.kill_now();
     }
 

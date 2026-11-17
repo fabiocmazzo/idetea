@@ -52,6 +52,9 @@ La liste complète, pour le lecteur technique. Pour la version courte, voir le [
 - Actions de code (`Ctrl+.`) : les corrections et refactorisations que le serveur propose pour l'erreur ou la
   sélection (import manquant, générer une fonction, extraire une variable), la recommandée en premier. Les
   soulignements suivent le texte modifié jusqu'à ce que le serveur envoie de nouveaux diagnostics.
+- Inlay hints : le type déduit des variables et le nom des paramètres dans les appels, en gris dans le code. Le curseur
+  passe par-dessus et ils ne sont jamais enregistrés. Activés par défaut ; `Ctrl+Alt+I` les active et les désactive,
+  `[lsp] inlay_hints = false` pour de bon.
 - Aller à l'implémentation (`Ctrl+F12`) et au type ; avec plusieurs résultats, la liste va dans le panneau.
 - Rechercher les références (`Shift+F12`, ou `Ctrl+clic` sur la déclaration) groupées par fichier, et retour/avancer
   après chaque saut (`Alt+←` / `Alt+→`, ou les boutons latéraux de la souris).

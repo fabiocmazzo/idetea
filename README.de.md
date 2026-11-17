@@ -126,7 +126,7 @@ und Helix, aktualisiert für 0.8.0. Kurz gesagt:
   das, was die anderen Editoren in dieser Notiz nicht haben.
 - Es gibt keine Ghost-Text-Vervollständigung, mit Absicht. Wenn Sie mit Tab vervollständigen oder Inline-Diffs wollen, zeigt dieses Dokument auf
   Cursor, Windsurf oder Zed.
-- Code Actions, Inlay Hints und die Abdeckung des Debuggers liegen hinter VS Code und JetBrains.
+- Die Abdeckung des Debuggers liegt hinter VS Code und JetBrains (nur gdb und lldb-dap).
 
 ### Tea
 

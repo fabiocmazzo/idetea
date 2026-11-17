@@ -54,7 +54,7 @@ of hiding it.
 | Syntax errors | yes |
 | Type errors and other semantic checks | no (not in the server yet) |
 | Completion, references, rename, formatting | no (not in the server yet) |
-| Inlay hints | the server has them; the IDE does not show inlay hints yet |
+| Inlay hints | yes |
 | Tasks | your Makefile targets; a Makefile alone does not mean Hare, so the IDE adds no `hare` tasks. Add your own in `[tasks]` |
 
 **Known problem:** Hare's own parser (`hare::parse`, used by `hare-lsp`) crashes on any statement missing its `;`,

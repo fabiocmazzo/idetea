@@ -784,4 +784,8 @@ code-action-applied =
 code-action-kind-quickfix = quick fix
 code-action-kind-refactor = refactor
 code-action-kind-source = file
+cmd-lsp-toggle-inlay-hints = LSP: toggle inlay hints (types and parameter names in the code)
+inlay-hints-on = Inlay hints on
+inlay-hints-off = Inlay hints off
 guide-lsp-11 = Code actions: { $lsp-code_actions } with the cursor on an error or warning (or with some code selected) lists the quick fixes and refactorings the server offers, such as a missing import; the recommended one comes first, with ✓. The changes stay in the tabs, unsaved (Ctrl+Z undoes them).
+guide-lsp-12 = Inlay hints: the server shows, in gray inside the code, the inferred type of variables and the parameter names in calls. They are not part of the file: the cursor steps over them and nothing is saved. { $lsp-toggle_inlay_hints } turns them on and off; `[lsp] inlay_hints = false` turns them off for good.

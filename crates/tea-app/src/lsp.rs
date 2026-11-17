@@ -273,7 +273,7 @@ mod tests {
     use tea_core::config::LspServerConfig;
 
     fn cfg(entries: &[(&str, LspServerConfig)]) -> LspConfig {
-        LspConfig { enabled: true, servers: entries.iter().cloned().map(|(k, v)| (k.to_string(), v)).collect() }
+        LspConfig { enabled: true, inlay_hints: true, servers: entries.iter().cloned().map(|(k, v)| (k.to_string(), v)).collect() }
     }
 
     #[test]
@@ -428,7 +428,7 @@ mod crash_tests {
     #[test]
     fn exit_of_an_old_client_is_ignored_and_a_failed_start_stays_failed() {
         let root = std::env::temp_dir();
-        let config = LspConfig { enabled: true, servers: Default::default() };
+        let config = LspConfig { enabled: true, inlay_hints: true, servers: Default::default() };
         let mut manager = LspManager::new(&root, &config, Arc::new(|_| {}));
         // O próprio binário de teste faz as vezes do servidor: lista os testes e sai, sem handshake.
         let exe = std::env::current_exe().unwrap();

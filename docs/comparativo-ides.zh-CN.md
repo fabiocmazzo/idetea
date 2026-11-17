@@ -25,7 +25,7 @@
 | **给智能体的结构化协议（声明式界面、命令批准、吉祥物）** | **同类里独一份（基于文件，原生）** | 没有（依赖聊天扩展） | 专注专有的聊天/差异 | 专注聊天/行内辅助 | 专注聊天/行内 | 没有（只有终端） |
 | **行内AI补全（“Ghost text” / Tab）** | **没有（这是取舍）** | 通过Copilot | **优秀（领先）** | 很好（Zeta） | 好 | 通过插件 |
 | **文本编辑器的成熟度** | 基础不错，缺高级功能 | **标杆** | **标杆** | 很高 | **标杆** | **标杆（模态）** |
-| **LSP与重构的深度** | 中等（没有Inlay Hints） | **完整** | **完整** | 高 | **无可比拟（自有AST）** | 高 |
+| **LSP与重构的深度** | 高（没有Semantic Tokens） | **完整** | **完整** | 高 | **无可比拟（自有AST）** | 高 |
 | **调试（Debug）** | 基础（Rust/C/C++/Zig用GDB 14+，macOS上用`lldb-dap`；MoonBit原生后端为实验性） | **完整（任何语言）** | **完整** | 基础/中等（DAP较新） | **优秀** | 基础（nvim-dap） |
 | **版本控制（Git）** | 中等（有装订线标记和blame；没有三方合并，也没有stash） | **完整** | **完整** | 中等 | **优秀（合并最好）** | 通过LazyGit / Fugitive |
 | **多平台支持** | **Linux、macOS（Apple Silicon）、Windows（x86_64）** | **Linux、macOS、Windows、Web** | **Linux、macOS、Windows** | **macOS、Linux、Windows** | **Linux、macOS、Windows** | **任何操作系统 / SSH** |
@@ -121,8 +121,7 @@ IDE TEA认定**最好的智能体已经在终端里跑**（Claude Code、Codex�
 
 ### 相对VS Code、Zed和JetBrains，LSP上的重要缺口
 1. ~~没有Code Actions / 快速修复（`Ctrl+.` / LSP的灯泡）~~：**已完成**。`Ctrl+.`列出服务器针对错误或选区提供的修复和重构（缺少的import、生成函数、提取变量）。
-2. **没有Inlay Hints：**
-   - 不显示行内推断类型（`let x: Vec<String> = ...`），也不显示函数调用里的参数名。这是VS Code、Zed和RustRover里写Rust和TypeScript时很常用的功能。
+2. ~~没有Inlay Hints~~ —— **已完成：**变量推断出的类型和调用中的参数名以灰色显示在代码里；`Ctrl+Alt+I`开关它们。
 3. **没有LSP的Semantic Tokens：**
    - 语法颜色只来自`.sublime-syntax`语法（`syntect`），没有LSP的语义增强（例如按语言服务器的颜色区分可变变量和不可变变量，或区分宏和函数）。
 
@@ -166,7 +165,7 @@ IDE TEA认定**最好的智能体已经在终端里跑**（Claude Code、Codex�
 
 ### 下面这些时候，另一款IDE仍然更好
 1. **你想要每按一个键都有AI预测补全（`Tab` / Ghost Text），或按差异做行内编辑：** **Cursor**、**Windsurf**或**Zed**更适合这种写法。
-2. **你很依赖*Inlay Hints*，或GUI里的Python/JS/Go调试器：**今天的**VS Code**或**JetBrains**完整得多。
+2. **你很依赖GUI里的Python/JS/Go调试器：**今天的**VS Code**或**JetBrains**完整得多。
 3. **你依赖SSH Remote Development / DevContainers，或使用macOS Intel / Windows ARM：** **VS Code**和**Zed**对这些场景已经有成熟支持。
 
 ---
@@ -178,5 +177,5 @@ IDE TEA认定**最好的智能体已经在终端里跑**（Claude Code、Codex�
 1. ~~LSP的Code Actions / 快速修复（`Ctrl+.`）~~：**已完成**。列表在命令面板中打开，推荐项排在最前，更改留在标签页中、尚未保存。
 2. ~~编辑器里的Git标记（装订线差异）+ 切换分支~~：**已完成**，有装订线标记，也能在命令面板里切换/创建分支。
 3. ~~“把选区 / 诊断发给智能体”的快捷键（`Ctrl+L`）~~：**0.8.0已完成**，同时加入了智能体启动器（`Ctrl+Shift+A`）。
-4. **LSP的Inlay Hints（推断类型，以及可选的参数名）：**显示行内类型提示，并有一个快捷键快速开关。
+4. ~~LSP的Inlay Hints~~ —— **已完成：**在代码里显示推断类型和参数名，默认开启，用`Ctrl+Alt+I`开关。
 5. **更多DAP适配器（`debugpy`、`delve`、`js-debug`、`codelldb`）：**支持GDB和`lldb-dap`以外的调试。这一项里原本的macOS和Windows移植已在0.5.0发布。

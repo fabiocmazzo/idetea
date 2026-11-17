@@ -170,6 +170,27 @@ pub struct CodeAction {
     pub(crate) raw: Arc<serde_json::Value>,
 }
 
+/// Um texto que o servidor pede para mostrar dentro do código, sem fazer parte do arquivo: o tipo inferido de uma
+/// variável, o nome do parâmetro antes de um argumento.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct InlayHint {
+    /// Onde o texto aparece (antes do caractere nessa coluna), em caracteres.
+    pub position: Position,
+    /// O texto, com as partes já juntas.
+    pub label: String,
+    pub kind: InlayHintKind,
+    /// Um espaço antes / depois do texto.
+    pub padding_left: bool,
+    pub padding_right: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum InlayHintKind {
+    Type,
+    Parameter,
+    Other,
+}
+
 /// Um comando do servidor (`workspace/executeCommand`), a executar depois das edições de uma ação.
 #[derive(Debug, Clone)]
 pub struct ServerCommand {
@@ -205,6 +226,11 @@ pub enum Event {
     /// Edições a aplicar agora: de uma ação escolhida, ou pedidas pelo servidor (`workspace/applyEdit`, ex.: ao
     /// executar um comando). Depois de aplicar, `command` (se houver) vai para [`Client::execute_command`].
     ApplyEdit { label: String, files: Vec<FileEdits>, command: Option<ServerCommand> },
+    /// Inlay hints de `path` no intervalo pedido em [`Client::inlay_hints`] (`token` é o que foi passado lá).
+    /// Vazia se não há nenhum ou o servidor não souber responder.
+    InlayHints { path: PathBuf, token: u64, hints: Vec<InlayHint> },
+    /// O servidor pede para pedir os inlay hints de novo (ex.: o rust-analyzer, quando termina de analisar).
+    InlayHintsRefresh { server: String },
     /// Símbolos do projeto que combinam com `query` (vazia se o servidor não souber responder).
     WorkspaceSymbols { query: String, symbols: Vec<WorkspaceSymbol> },
     /// A função em `path`/`position`, para começar a árvore de chamadas (vazia se o cursor não

@@ -193,3 +193,6 @@ criar branch pela paleta (`231b860`, *Git: trocar de branch*) e o blame da linha
 - **Correção (2026-11-17):** a troca do documento inteiro deixava uma linha vazia a mais na cópia do servidor; o
   bug é do upstream. Quinto commit no fork (`50c3135`) e PR
   [#45](https://github.com/LuDog71FR/iced-code-editor/pull/45).
+- **2026-11-17:** o mantenedor juntou os PRs #42 a #45 e aceitou a API de decorações na issue #41 ("It's Ok for me").
+  O fork passa a ser o `upstream/main` mais o texto virtual (branch `idetea-main`), que vai como PR
+  ([RFC 0018](0018-inlay-hints.md)).

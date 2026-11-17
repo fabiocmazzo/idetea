@@ -129,7 +129,7 @@ y Helix, actualizada para la 0.8.0 (en portugués). En resumen:
   worktrees, la mascota Tea). Eso es lo que los otros editores de esa nota no tienen.
 - No hay autocompletado fantasma, a propósito. Si quieres completar con Tab o diffs en línea, ese texto señala a
   Cursor, Windsurf o Zed.
-- Las code actions, los inlay hints y la cobertura del depurador van por detrás de VS Code y JetBrains.
+- La cobertura del depurador va por detrás de VS Code y JetBrains (solo gdb y lldb-dap).
 
 ### Tea
 

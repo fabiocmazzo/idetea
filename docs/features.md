@@ -43,6 +43,9 @@ The full list, for the technical reader. For the short version, see the [README]
 - Code actions (`Ctrl+.`): the quick fixes and refactorings the server offers for the error or the selection (a
   missing import, generate a function, extract a variable), the recommended one first. Underlines follow the text
   you edit until the server sends new diagnostics.
+- Inlay hints: the inferred type of variables and the parameter names in calls, in gray inside the code. The cursor
+  steps over them and they are never saved. On by default; `Ctrl+Alt+I` turns them on and off, `[lsp] inlay_hints =
+  false` for good.
 - Go to implementation (`Ctrl+F12`) and to type; with several results, the list goes to the panel.
 - Find references (`Shift+F12`, or `Ctrl+click` on the declaration) grouped by file, and back/forward after each
   jump (`Alt+←` / `Alt+→`, or the mouse side buttons).

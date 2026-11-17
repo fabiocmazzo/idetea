@@ -45,6 +45,9 @@ Die vollständige Liste, für die technische Leserschaft. Die Kurzfassung steht 
 - Code-Aktionen (`Ctrl+.`): die Korrekturen und Refactorings, die der Server für den Fehler oder die Auswahl
   anbietet (fehlender Import, Funktion erzeugen, Variable extrahieren), die empfohlene zuerst. Die Unterstreichungen
   folgen dem bearbeiteten Text, bis der Server neue Diagnosen schickt.
+- Inlay Hints: der abgeleitete Typ von Variablen und die Parameternamen in Aufrufen, grau im Code. Der Cursor springt
+  darüber, und sie werden nie gespeichert. Standardmäßig an; `Ctrl+Alt+I` schaltet sie ein und aus, `[lsp]
+  inlay_hints = false` dauerhaft.
 - Gehe zu Implementierung (`Ctrl+F12`) und zum Typ; bei mehreren Ergebnissen geht die Liste in den Bereich.
 - Verweise suchen (`Shift+F12` oder `Ctrl+Klick` auf die Deklaration), nach Datei gruppiert, und zurück/vorwärts nach jedem
   Sprung (`Alt+←` / `Alt+→` oder die Seitentasten der Maus).

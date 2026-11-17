@@ -128,7 +128,7 @@ e Helix, aggiornato alla 0.8.0. In breve:
   mascotte Tea). È la cosa che gli altri editor di quella nota non hanno.
 - Niente autocompletamento fantasma, di proposito. Se vuoi completare con Tab o i diff in linea, quel documento
   indica Cursor, Windsurf o Zed.
-- Code action, inlay hint e copertura del debugger sono indietro rispetto a VS Code e JetBrains.
+- La copertura del debugger è indietro rispetto a VS Code e JetBrains (solo gdb e lldb-dap).
 
 ### Tea
 

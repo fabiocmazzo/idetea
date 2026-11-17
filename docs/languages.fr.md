@@ -55,7 +55,7 @@ de le cacher.
 | Erreurs de syntaxe | oui |
 | Erreurs de type et autres vérifications sémantiques | non (pas encore dans le serveur) |
 | Complétion, références, renommage, mise en forme | non (pas encore dans le serveur) |
-| Inlay hints | le serveur les a ; l'IDE n'affiche pas encore les inlay hints |
+| Inlay hints | oui |
 | Tâches | vos cibles de Makefile ; un Makefile seul ne signifie pas Hare, donc l'IDE n'ajoute pas de tâches `hare`. Ajoutez les vôtres dans `[tasks]` |
 
 **Problème connu :** l'analyseur propre à Hare (`hare::parse`, utilisé par `hare-lsp`) plante sur toute instruction

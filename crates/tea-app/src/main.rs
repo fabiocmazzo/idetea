@@ -418,6 +418,7 @@ const CORE_COMMANDS: &[(&str, &str)] = &[
     ("lsp.format", "cmd-lsp-format"),
     ("lsp.rename", "cmd-lsp-rename"),
     ("lsp.code_actions", "cmd-lsp-code-actions"),
+    ("lsp.toggle_inlay_hints", "cmd-lsp-toggle-inlay-hints"),
     ("lsp.restart", "cmd-lsp-restart"),
     ("theme.toggle", "cmd-theme-toggle"),
     ("config.open", "cmd-config-open"),
@@ -1145,6 +1146,7 @@ impl App {
         editor.set_theme(&self.theme);
         editor.set_code_font(self.editor_zoom.size(), self.code_font());
         editor.set_options(&self.editor_options(editor));
+        editor.set_inlay_hints_enabled(self.config.lsp.inlay_hints);
     }
 
     fn editor_options(&self, editor: &Editor) -> tea_editor::Options {
@@ -2272,6 +2274,15 @@ impl App {
         }
     }
 
+    /// Pede de novo os inlay hints das abas ligadas a `server`.
+    fn request_inlay_hints(&mut self, server: &str) {
+        for tab in &mut self.tabs {
+            if tab.editor.lsp_server() == Some(server) {
+                tab.editor.request_inlay_hints();
+            }
+        }
+    }
+
     /// Liga a aba ao servidor de linguagem do arquivo, se houver.
     fn ensure_lsp(&mut self, i: usize) -> Task<Message> {
         let editor = &self.tabs[i].editor;
@@ -2282,6 +2293,8 @@ impl App {
         match self.lsp.client_for(&path) {
             Ok(Some((client, language))) => {
                 self.tabs[i].editor.attach_lsp(client, &language);
+                // Antes do handshake o pedido não sai; o `Ready` pede de novo.
+                self.tabs[i].editor.request_inlay_hints();
                 Task::none()
             }
             Ok(None) => Task::none(),
@@ -2296,6 +2309,8 @@ impl App {
             E::Diagnostics { server, path, diagnostics } => {
                 if let Some(i) = tab_for(self, &path) {
                     self.tabs[i].editor.set_diagnostics(&server, &diagnostics);
+                    // O servidor acabou de analisar o arquivo: os tipos podem ter mudado.
+                    self.tabs[i].editor.request_inlay_hints();
                 }
                 let items = diagnostics
                     .into_iter()
@@ -2411,7 +2426,18 @@ impl App {
                 }
                 Task::none()
             }
+            E::InlayHints { path, token, hints } => {
+                if let Some(i) = tab_for(self, &path) {
+                    self.tabs[i].editor.set_inlay_hints(token, hints);
+                }
+                Task::none()
+            }
+            E::InlayHintsRefresh { server } => {
+                self.request_inlay_hints(&server);
+                Task::none()
+            }
             E::Ready { server } => {
+                self.request_inlay_hints(&server);
                 let activity = self.broadcast(CoreEvent::Activity { source: server, text: None });
                 Task::batch([activity, self.request_outline()])
             }
@@ -3009,6 +3035,14 @@ impl App {
             }
             "lsp.rename" => self.start_rename(),
             "lsp.code_actions" => self.start_code_actions(),
+            "lsp.toggle_inlay_hints" => {
+                let on = !self.config.lsp.inlay_hints;
+                self.config.lsp.inlay_hints = on;
+                for tab in &mut self.tabs {
+                    tab.editor.set_inlay_hints_enabled(on);
+                }
+                self.notify(if on { fl!("inlay-hints-on") } else { fl!("inlay-hints-off") })
+            }
             "lsp.format" => {
                 if self.editor_mut().request_formatting() {
                     Task::none()
