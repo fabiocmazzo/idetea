@@ -132,6 +132,8 @@ pub struct SearchExtension {
     context_on: bool,
     /// Valor de `[search] context_lines`. O botão liga o contexto; 0 no config vira 1 linha.
     context_configured: usize,
+    /// `[editor] fallback_encoding`: como ler um arquivo que não é UTF-8.
+    fallback: &'static tea_core::encoding::Encoding,
     opts: Options,
     results: Option<Arc<Results>>,
     error: Option<String>,
@@ -170,6 +172,7 @@ impl Default for SearchExtension {
             filters_open: false,
             context_on: false,
             context_configured: 0,
+            fallback: tea_core::encoding::fallback("windows-1252"),
             opts: Options::default(),
             results: None,
             error: None,
@@ -209,6 +212,7 @@ impl SearchExtension {
     fn current_opts(&self) -> Options {
         Options {
             context_lines: if self.context_on { self.context_configured.max(1) } else { 0 },
+            fallback: Some(self.fallback),
             ..self.opts.clone()
         }
     }
@@ -539,7 +543,7 @@ impl Extension for SearchExtension {
     fn activate(&mut self, ctx: &mut Context) -> Task<Message> {
         self.root = ctx.root().to_path_buf();
         self.history = load_history();
-        self.context_configured = configured_context(&self.root);
+        (self.context_configured, self.fallback) = configured(&self.root);
         self.context_on = self.context_configured > 0;
         ctx.register_panel_hidden(PANEL, fl!("search-panel"), Slot::Bottom);
         ctx.panel_icon(PANEL, Icon::Search);
@@ -567,8 +571,8 @@ impl Extension for SearchExtension {
             return Task::none();
         }
         if let CoreEvent::ConfigReloaded = event {
-            self.context_configured = configured_context(&self.root);
-            if self.context_on && self.results.is_some() {
+            (self.context_configured, self.fallback) = configured(&self.root);
+            if self.results.is_some() {
                 return self.restart();
             }
             return Task::none();
@@ -1085,10 +1089,12 @@ fn save_history(items: &[String]) {
     let _ = std::fs::write(path, text);
 }
 
-fn configured_context(root: &Path) -> usize {
+/// `[search] context_lines` e `[editor] fallback_encoding`.
+fn configured(root: &Path) -> (usize, &'static tea_core::encoding::Encoding) {
     let global = tea_core::config::global_config_path();
     let project = tea_core::config::project_config_path(root);
-    tea_core::config::Config::load(global.as_deref(), Some(&project)).search.context_lines as usize
+    let config = tea_core::config::Config::load(global.as_deref(), Some(&project));
+    (config.search.context_lines as usize, tea_core::encoding::fallback(&config.editor.fallback_encoding))
 }
 
 #[cfg(test)]

@@ -29,6 +29,8 @@ pub struct Options {
     pub whole_word: bool,
     /// Linhas antes e depois de cada resultado. 0 = nenhuma.
     pub context_lines: usize,
+    /// Encoding de um arquivo que não é UTF-8 nem tem BOM (`[editor] fallback_encoding`). `None`: Windows-1252.
+    pub fallback: Option<&'static tea_core::encoding::Encoding>,
 }
 
 /// Onde buscar, além das opções do texto. Caminho vazio = o projeto inteiro.
@@ -129,6 +131,7 @@ pub fn search(root: &Path, matcher: &Regex, scope: &Scope, opts: &Options, cance
         return Ok(Results { cancelled: true, ..Results::default() });
     }
     let context = opts.context_lines.min(MAX_CONTEXT);
+    let fallback = opts.fallback.unwrap_or_else(|| tea_core::encoding::fallback("windows-1252"));
     let overrides = build_overrides(root, scope)?;
     let target = match resolve_scope(root, scope.path.as_deref()) {
         ScopeTarget::Missing => return Ok(Results::default()),
@@ -140,7 +143,7 @@ pub fn search(root: &Path, matcher: &Regex, scope: &Scope, opts: &Options, cance
                 return Ok(Results::default());
             }
             let total = AtomicUsize::new(0);
-            let found = search_file(&path, matcher, &total, context);
+            let found = search_file(&path, matcher, &total, context, fallback);
             let total = total.into_inner();
             return Ok(Results {
                 files: found.into_iter().collect(),
@@ -173,7 +176,7 @@ pub fn search(root: &Path, matcher: &Regex, scope: &Scope, opts: &Options, cance
                 return WalkState::Continue;
             }
             scanned.fetch_add(1, Ordering::Relaxed);
-            if let Some(found) = search_file(entry.path(), matcher, &total, context) {
+            if let Some(found) = search_file(entry.path(), matcher, &total, context, fallback) {
                 files.lock().unwrap_or_else(|e| e.into_inner()).push(found);
             }
             WalkState::Continue
@@ -265,17 +268,23 @@ pub fn split_globs(input: &str) -> Vec<&str> {
     out
 }
 
-fn search_file(path: &Path, matcher: &Regex, total: &AtomicUsize, context: usize) -> Option<FileMatches> {
+fn search_file(
+    path: &Path,
+    matcher: &Regex,
+    total: &AtomicUsize,
+    context: usize,
+    fallback: &'static tea_core::encoding::Encoding,
+) -> Option<FileMatches> {
     let bytes = std::fs::read(path).ok()?;
     if bytes.len() as u64 > MAX_FILE_BYTES {
         return None;
     }
-    // UTF-8 (quase todos) sem copiar; senão, como o editor lê (RFC 0021): BOM, UTF-16, Windows-1252. Binário
+    // UTF-8 (quase todos) sem copiar; senão, como o editor lê (RFC 0021): BOM, UTF-16, a reserva. Binário
     // (byte zero sem BOM de UTF-16) fica de fora.
     let text: std::borrow::Cow<'_, str> = match std::str::from_utf8(&bytes) {
         Ok(t) if !t.as_bytes().iter().take(8192).any(|&b| b == 0) => t.into(),
         Ok(_) => return None,
-        Err(_) => tea_core::encoding::decode(&bytes, None, tea_core::encoding::Encoding::for_label(b"windows-1252")?).ok()?.0.into(),
+        Err(_) => tea_core::encoding::decode(&bytes, None, fallback).ok()?.0.into(),
     };
     // Atalho: a maioria dos arquivos não tem nada; evita quebrar em linhas à toa.
     if !matcher.is_match(&text) {
@@ -510,6 +519,11 @@ mod tests {
         std::fs::write(root.join("src/utf16.txt"), utf16).unwrap();
         let r = run(&root, "ação", Options::default());
         assert_eq!(found(&r, &root), ["src/latin1.txt:1:5", "src/utf16.txt:1:7"]);
+        // Com outra reserva (`[editor] fallback_encoding = "windows-1251"`), o cirílico.
+        std::fs::write(root.join("src/ru.txt"), b"\xef\xf0\xe8\xe2\xe5\xf2\n").unwrap();
+        let cp1251 = Some(tea_core::encoding::fallback("windows-1251"));
+        let r = run(&root, "привет", Options { fallback: cp1251, ..Default::default() });
+        assert_eq!(found(&r, &root), ["src/ru.txt:1:1"]);
     }
 
     #[test]
