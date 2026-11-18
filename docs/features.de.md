@@ -38,7 +38,7 @@ Die vollständige Liste, für die technische Leserschaft. Die Kurzfassung steht 
 
 - **Dateibaum:** erstellen, umbenennen und löschen (in den Papierkorb), die aktuelle Datei anzeigen, Git-Farben (geändert, neu,
   Konflikt, ignoriert).
-- **Projektsuche** während Sie tippen, unter Beachtung von `.gitignore`, mit Regex, ganzem Wort und Groß-/Kleinschreibung.
+- **Projektsuche** während Sie tippen, unter Beachtung von `.gitignore`, mit Regex, ganzem Wort und Groß-/Kleinschreibung. Rechtsklick auf einen Ordner oder eine Datei sucht nur dort (ein Etikett im Bereich hebt das auf). Einzuschließende und auszuschließende Dateien sind Globs, mit Komma getrennt (`src/**`, `*.test.rs`), hinter „Filter“. Jeder Treffer ist hervorgehoben; die Ersetzungsvorschau streicht die alte Spanne durch und hebt die neue hervor. Auf und Ab gehen durch die Ergebnisse, Eingabe öffnet die Zeile, Links und Rechts klappen eine Datei zu. `F4` und `Umschalt+F4` springen zum nächsten und vorherigen Treffer, auch aus dem Editor. Kontextzeilen kommen aus `[search] context_lines` (Standard 0) und einer Schaltfläche. Die letzten 20 Suchen bleiben im Verlauf.
 - **Kontextmenüs** im Baum, auf den Registerkarten und auf den Dateien im Git-Bereich.
 - **Aufgaben** (`Ctrl+Shift+B`): eigene Befehle aus der Konfiguration, dazu das, was die IDE im Projekt findet (cargo,
   Skripte aus `package.json`, Makefile-Ziele, Schritte aus `build.zig`), mit der Ausgabe im Terminal. MoonBit-Module bekommen außerdem
@@ -211,6 +211,7 @@ Einzelheiten: [terminais-de-agente.md](terminais-de-agente.md) (vorerst auf Port
 | `Ctrl+O` / `Ctrl+S` / `Ctrl+Shift+S` | Öffnen / Speichern / Speichern unter |
 | `Ctrl+B` | Dateibaum zeigen oder verbergen |
 | `Ctrl+Shift+F` | Im Projekt suchen |
+| `F4` / `Umschalt+F4` | Nächstes / vorheriges Suchergebnis |
 | `` Ctrl+` `` / `Ctrl+'` | Terminal |
 | `Ctrl+Shift+T` | Die zuletzt geschlossene Registerkarte wieder öffnen |
 | `Ctrl+Shift+G` | Git |

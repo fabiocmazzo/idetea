@@ -1063,6 +1063,7 @@ impl App {
                     self.calls.request(node, direction);
                 }
                 Request::Replace(replace) => tasks.push(self.replace_in_files(&replace)),
+                Request::SearchIn(path) => tasks.push(self.broadcast(CoreEvent::SearchIn(path))),
                 Request::DiffBase { path, text } => {
                     for t in self.tabs.iter_mut().filter(|t| t.editor.path() == Some(path.as_path())) {
                         t.editor.set_diff_base(text.clone());
@@ -5365,8 +5366,13 @@ mod tests {
         ids.dedup();
         assert_eq!(ids.len(), CORE_COMMANDS.len(), "ids repetidos");
 
-        let ext_commands = ["filetree.toggle", "filetree.reveal", "search.focus", "search.replace", "problems.focus", "problems.next", "terminal.focus", "git.focus", "outline.toggle", "preview.toggle", "tasks.run", "tasks.rerun"];
+        let ext_commands = ["filetree.toggle", "filetree.reveal", "search.focus", "search.replace", "search.next", "search.prev", "problems.focus", "problems.next", "terminal.focus", "git.focus", "outline.toggle", "preview.toggle", "tasks.run", "tasks.rerun"];
         let cfg = Config::from_layers(&[("padrão".into(), config::DEFAULT_CONFIG.into())]);
+        let (keymap, errors) = tea_core::keymap::Keymap::from_pairs(cfg.keys.iter().map(|(k, c)| (k.as_str(), c.as_str())));
+        assert!(errors.is_empty(), "{errors:?}");
+        assert_eq!(keymap.command_for(&tea_core::keymap::Chord::parse("f4").unwrap()), Some("search.next"));
+        assert_eq!(keymap.command_for(&tea_core::keymap::Chord::parse("shift+f4").unwrap()), Some("search.prev"));
+        assert!(keymap.command_for(&tea_core::keymap::Chord::parse("f5").unwrap()) != Some("search.next"), "F5 continua sendo o depurador");
         for (chord, cmd) in &cfg.keys {
             assert!(ids.contains(&cmd.as_str()) || ext_commands.contains(&cmd.as_str()), "{chord} -> {cmd}");
         }

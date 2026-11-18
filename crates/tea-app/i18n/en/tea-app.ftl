@@ -352,7 +352,7 @@ guide-files-10 = File changed outside (terminal, another editor): the tab reload
 guide-files-11 = Right-click a tab: close others, to the right, saved or all, copy path, reveal in the tree and open in the file manager. Middle-click closes the tab.
 guide-tree = File tree
 guide-tree-1 = Show/hide: { $filetree-toggle } · Reveal the current file: { $filetree-reveal }.
-guide-tree-2 = Right-click an item: new file, new folder, rename, delete, copy path and open in the file manager. Delete sends it to the system trash.
+guide-tree-2 = Right-click an item: new file, new folder, rename, delete, copy path and open in the file manager. Delete sends it to the system trash. Search in this folder, or in this file, opens project search limited to that path.
 guide-tree-3 = Git colors: yellow = modified, green = new, red = conflict, dimmed = ignored. A folder with changes inside shows a dot.
 guide-bottom = Bottom panel
 guide-bottom-1 = Project search ({ $search-focus }), Problems ({ $problems-focus }), Terminal ({ $terminal-focus }) and Git ({ $git-focus }) are tabs in the bottom panel. { $view-toggle_bottom } shows/hides the panel.
@@ -444,6 +444,7 @@ replaced = { $count } replacement(s) in { $files } file(s)
 replaced-failed = { $count } replacement(s) in { $files } file(s); { $failed } could not be changed (no permission or not text)
 
 guide-bottom-3 = Replace in project: { $search-replace } (or ▸ next to the search) opens "Replace with". Each result shows how it will look; "Replace" changes the line or the file, and "Replace all" asks first. Files open in tabs stay changed, not saved (Ctrl+Z undoes); the others are written straight to disk.
+guide-bottom-4 = In the results, Up and Down (or Tab) move the selection, Left and Right collapse and expand a file, and Enter opens the line. Next and previous result: { $search-next } and { $search-prev }, which open the match in the editor even while you are typing there. Filters and context lines sit in the panel; recent searches come back with Up and Down in an empty box, or from the history button. [search] context_lines sets how many context lines the button shows.
 
 ## Editor e salvar
 format-save-timeout = The server did not format in time: saved without formatting

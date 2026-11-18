@@ -107,6 +107,8 @@ pub enum CoreEvent {
     /// Colar texto na aba de agente (`Ctrl+L`, RFC 0016): a que está na tela, senão a mais recente. Sem nenhuma,
     /// a extensão do terminal abre o lançador e cola na aba que ele abrir.
     SendToAgent { text: String },
+    /// Abre a busca no projeto limitada a este caminho (arquivo ou pasta). Quem mostra é a extensão de busca.
+    SearchIn(PathBuf),
 }
 
 /// O que uma lista de lugares ([`CoreEvent::Locations`]) mostra.
@@ -210,6 +212,8 @@ pub enum Request {
     Notify(String),
     /// Mandar texto à aba de agente (RFC 0016): o app repassa como [`CoreEvent::SendToAgent`].
     SendToAgent(String),
+    /// Repassa [`CoreEvent::SearchIn`] às extensões (a árvore pede, a busca escuta).
+    SearchIn(PathBuf),
     /// Muda a visibilidade de um painel desta extensão. `None` alterna.
     PanelVisibility { id: PanelId, visible: Option<bool> },
     /// A extensão renomeou um arquivo ou pasta no disco: o app atualiza as abas.
@@ -466,6 +470,11 @@ impl<'a> Context<'a> {
 
     pub fn replace(&mut self, replace: replace::Replace) {
         self.requests.push(Request::Replace(replace));
+    }
+
+    /// Abre a busca no projeto limitada a este arquivo ou pasta.
+    pub fn search_in(&mut self, path: impl Into<PathBuf>) {
+        self.requests.push(Request::SearchIn(path.into()));
     }
 
     pub fn into_requests(self) -> Vec<Request> {

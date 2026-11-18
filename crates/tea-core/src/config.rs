@@ -133,6 +133,12 @@ allow = []
 [table]
 max_mb = 50
 
+# Busca no projeto (painel de baixo).
+[search]
+# Linhas de contexto antes e depois de cada resultado. 0 não mostra nenhuma; o botão "Contexto" do painel
+# liga, e aí vale este número (ou 1, se aqui estiver 0).
+context_lines = 0
+
 # Mascote reativo no canto da IDE (RFC 0012): acompanha perguntas no painel, terminais de agentes,
 # salvar, o build do depurador e `idetea mascot`. Não rouba o foco: o balão some sozinho e o card
 # recolhido continua recolhido.
@@ -174,6 +180,9 @@ enabled = true
 "ctrl+shift+e" = "filetree.reveal"
 "ctrl+shift+f" = "search.focus"
 "ctrl+shift+h" = "search.replace"
+# F4 / Shift+F4: próximo e anterior resultado da busca no projeto (também com o foco no editor).
+"f4" = "search.next"
+"shift+f4" = "search.prev"
 "ctrl+shift+j" = "view.toggle_bottom"
 "ctrl+j" = "view.toggle_bottom"
 "ctrl+shift+m" = "problems.focus"
@@ -357,6 +366,14 @@ pub enum MascotChatty {
     Chatty,
 }
 
+/// Busca no projeto (`[search]`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Deserialize)]
+#[serde(default)]
+pub struct SearchConfig {
+    /// Linhas de contexto antes e depois de cada resultado. 0 = nenhuma, até o painel ligar o contexto.
+    pub context_lines: u8,
+}
+
 /// Vista de tabela de CSV, TSV e JSONL (`[table]`, RFC 0020).
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 #[serde(default)]
@@ -424,6 +441,8 @@ pub struct Config {
     pub mascot: MascotConfig,
     /// `[table]` (RFC 0020).
     pub table: TableConfig,
+    /// `[search]`.
+    pub search: SearchConfig,
     pub extensions: BTreeMap<String, ExtensionConfig>,
     /// Config de cada plugin (`[plugins.<id>]`): o plugin lê com `host.config` (formato livre).
     pub plugins: BTreeMap<String, toml::Table>,
@@ -553,11 +572,13 @@ impl Config {
         let agents = take_section(&mut merged, "agents", &mut errors);
         let mascot = take_section(&mut merged, "mascot", &mut errors);
         let table = take_section(&mut merged, "table", &mut errors);
+        let mut search: SearchConfig = take_section(&mut merged, "search", &mut errors);
+        search.context_lines = search.context_lines.min(20);
         let plugins = take_section(&mut merged, "plugins", &mut errors);
         for unknown in merged.keys() {
             errors.push(fl!("config-unknown-section", section = unknown.as_str()));
         }
-        Self { ui, editor, lsp, debug, tasks, agents, mascot, table, extensions, plugins, keys, errors }
+        Self { ui, editor, lsp, debug, tasks, agents, mascot, table, search, extensions, plugins, keys, errors }
     }
 
     /// Config de uma extensão (padrão: ligada, slot escolhido pela extensão).
@@ -614,6 +635,7 @@ mod tests {
     fn defaults_parse_cleanly() {
         let c = layers(&[DEFAULT_CONFIG]);
         assert!(c.errors.is_empty(), "{:?}", c.errors);
+        assert_eq!(c.search.context_lines, 0);
         assert!(!c.ui.splash, "a splash vem desligada");
         assert_eq!(c.editor, EditorConfig::default(), "o texto e o Default dizem o mesmo");
         assert_eq!(layers(&["[editor]\ntab_size = 0"]).editor.tab_size, 1);

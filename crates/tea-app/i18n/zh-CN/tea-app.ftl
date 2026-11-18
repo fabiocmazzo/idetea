@@ -351,7 +351,7 @@ guide-files-10 = 文件在外面被改了（终端、别的编辑器）：选项
 guide-files-11 = 右键单击选项卡：关闭其他、右侧、已保存的或全部，复制路径，在文件树中显示，以及在文件管理器中打开。中键单击关掉这个选项卡。
 guide-tree = 文件树
 guide-tree-1 = 显示或隐藏：{ $filetree-toggle } · 定位当前文件：{ $filetree-reveal }。
-guide-tree-2 = 右键单击某一项：新建文件、新建文件夹、重命名、删除、复制路径，以及在文件管理器中打开。删除会送进系统回收站。
+guide-tree-2 = 右键单击某一项：新建文件、新建文件夹、重命名、删除、复制路径，以及在文件管理器中打开。删除会送进系统回收站。 “在此文件夹中搜索”或“在此文件中搜索”会打开项目搜索，并把范围限制在该路径。
 guide-tree-3 = Git颜色：黄色 = 已修改，绿色 = 新建，红色 = 冲突，变淡 = 已忽略。里面有更改的文件夹会显示一个圆点。
 guide-bottom = 底部面板
 guide-bottom-1 = 项目搜索（{ $search-focus }）、问题（{ $problems-focus }）、终端（{ $terminal-focus }）和Git（{ $git-focus }）是底部面板里的选项卡。{ $view-toggle_bottom } 用来显示或隐藏这个面板。
@@ -438,6 +438,7 @@ replaced = 已在 { $files } 个文件中替换 { $count } 处
 replaced-failed = 已在 { $files } 个文件中替换 { $count } 处；{ $failed } 处改不了（没有权限，或不是文本）
 
 guide-bottom-3 = 在项目里替换：{ $search-replace }（或搜索旁边的 ▸）会打开“替换为”。每条结果都会显示换成什么样；“替换”改这一行或这一个文件，“全部替换”会先问你。开在选项卡里的文件保持更改、不保存（Ctrl+Z撤消）；其余的直接写进磁盘。
+guide-bottom-4 = 在结果里，上和下（或 Tab）移动选择，左和右折叠或展开文件，Enter 打开那一行。下一个和上一个结果是 { $search-next } 和 { $search-prev }，即使焦点在编辑器里也会打开匹配处。过滤和上下文行在面板里；最近的搜索可以在空的输入框里用上和下翻，或用历史按钮。 [search] context_lines 决定按钮显示几行上下文。
 
 ## 编辑器和保存
 format-save-timeout = 服务器没能及时格式化：文件保存了，但没有格式化

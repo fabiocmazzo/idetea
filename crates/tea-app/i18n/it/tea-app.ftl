@@ -352,7 +352,7 @@ guide-files-10 = File cambiato fuori (terminale, un altro editor): la scheda si 
 guide-files-11 = Clic destro su una scheda: chiudi le altre, a destra, le salvate o tutte, copia il percorso, mostra nell'albero e apri nel gestore file. Il clic centrale chiude la scheda.
 guide-tree = Albero dei file
 guide-tree-1 = Mostra/nascondi: { $filetree-toggle } · Mostra il file corrente: { $filetree-reveal }.
-guide-tree-2 = Clic destro su un elemento: nuovo file, nuova cartella, rinomina, elimina, copia percorso e apri nel gestore file. Elimina lo manda nel cestino di sistema.
+guide-tree-2 = Clic destro su un elemento: nuovo file, nuova cartella, rinomina, elimina, copia percorso e apri nel gestore file. Elimina lo manda nel cestino di sistema. Cerca in questa cartella, o in questo file, apre la ricerca nel progetto limitata a quel percorso.
 guide-tree-3 = Colori git: giallo = modificato, verde = nuovo, rosso = conflitto, attenuato = ignorato. Una cartella con modifiche dentro mostra un punto.
 guide-bottom = Pannello inferiore
 guide-bottom-1 = Cerca nel progetto ({ $search-focus }), Problemi ({ $problems-focus }), Terminale ({ $terminal-focus }) e Git ({ $git-focus }) sono schede del pannello inferiore. { $view-toggle_bottom } mostra/nasconde il pannello.
@@ -444,6 +444,7 @@ replaced = { $count } sostituzioni in { $files } file
 replaced-failed = { $count } sostituzioni in { $files } file; { $failed } non si sono potute cambiare (permesso mancante o non è testo)
 
 guide-bottom-3 = Sostituisci nel progetto: { $search-replace } (o ▸ accanto alla ricerca) apre "Sostituisci con". Ogni risultato mostra come diventerà; "Sostituisci" cambia la riga o il file, e "Sostituisci tutto" chiede prima. I file aperti nelle schede restano modificati, non salvati (Ctrl+Z annulla); gli altri vengono scritti direttamente su disco.
+guide-bottom-4 = Nei risultati, Su e Giù (o Tab) spostano la selezione, Sinistra e Destra chiudono e aprono un file, e Invio apre la riga. Risultato successivo e precedente: { $search-next } e { $search-prev }, che aprono la corrispondenza nell'editor anche mentre ci stai scrivendo. Filtri e righe di contesto stanno nel pannello; le ricerche recenti tornano con Su e Giù nel campo vuoto, o dal pulsante della cronologia. [search] context_lines dice quante righe di contesto mostra il pulsante.
 
 ## Editor e salvataggio
 format-save-timeout = Il server non ha formattato in tempo: salvato senza formattare

@@ -21,3 +21,17 @@ search-replace-all-message =
     
     I file aperti nelle schede restano modificati, non salvati (Ctrl+Z annulla). Gli altri vengono scritti direttamente su disco, senza annullamento.
 search-replace-all-truncated = La ricerca si è fermata a { $count } risultati: cambiano solo i file elencati. Cerca di nuovo dopo per vedere il resto.
+## Ambito, filtri e navigazione
+cmd-search-next = Cerca: risultato successivo
+cmd-search-prev = Cerca: risultato precedente
+search-filters = Filtri
+search-context = Contesto
+search-history = Ricerche recenti
+search-history-empty = Nessuna ricerca recente
+search-include-placeholder = file da includere (es. src/**, *.rs)
+search-exclude-placeholder = file da escludere (es. *.test.rs)
+search-bad-glob = Modello non valido: { $error }
+search-no-results = Nessun risultato
+search-scope-folder = Nella cartella { $path }
+search-scope-file = Nel file { $path }
+search-scope-clear = Non limitare più la ricerca a questo percorso

@@ -38,7 +38,7 @@ L'elenco completo, per chi vuole il dettaglio tecnico. Per la versione breve, ve
 
 - **Albero dei file:** crea, rinomina ed elimina (nel cestino), mostra il file attuale, colori git (modificato, nuovo,
   conflitto, ignorato).
-- **Ricerca nel progetto** mentre scrivi, nel rispetto di `.gitignore`, con regex, parola intera e maiuscole/minuscole.
+- **Ricerca nel progetto** mentre scrivi, nel rispetto di `.gitignore`, con regex, parola intera e maiuscole/minuscole. Il clic destro su una cartella o un file cerca solo lì (un'etichetta nel pannello la toglie). I file da includere e da escludere sono glob separati da virgole (`src/**`, `*.test.rs`), dietro Filtri. Ogni occorrenza è evidenziata; l'anteprima della sostituzione barra il tratto vecchio ed evidenzia quello nuovo. Su e Giù scorrono i risultati, Invio apre la riga, Sinistra e Destra chiudono un file. `F4` e `Maiusc+F4` vanno al risultato successivo e precedente, anche dall'editor. Le righe di contesto vengono da `[search] context_lines` (predefinito 0) e da un pulsante. Le ultime 20 ricerche restano nella cronologia.
 - **Menu del clic destro** sull'albero, sulle schede e sui file nel pannello git.
 - **Attività** (`Ctrl+Shift+B`): i tuoi comandi dalla config, più quello che l'IDE trova nel progetto (cargo,
   script di `package.json`, target del Makefile, passi di `build.zig`), con l'output nel terminale. I moduli MoonBit
@@ -211,6 +211,7 @@ Dettagli dei terminali di agente (per ora in portoghese): [terminais-de-agente.m
 | `Ctrl+O` / `Ctrl+S` / `Ctrl+Shift+S` | Apri / salva / salva con nome |
 | `Ctrl+B` | Mostra/nascondi l'albero dei file |
 | `Ctrl+Shift+F` | Cerca nel progetto |
+| `F4` / `Maiusc+F4` | Risultato di ricerca successivo / precedente |
 | `` Ctrl+` `` / `Ctrl+'` | Terminale |
 | `Ctrl+Shift+T` | Riapri l'ultima scheda chiusa |
 | `Ctrl+Shift+G` | Git |
