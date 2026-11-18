@@ -486,6 +486,8 @@ enum CoreDialog {
     TeachAndLaunch(launcher::Choice),
     Launch(launcher::Choice),
     SkipTeachAndLaunch(launcher::Choice),
+    /// Um caractere não cabe no encoding da aba: gravar a aba em UTF-8.
+    SaveAsUtf8(u64),
 }
 
 /// Itens dos menus de contexto do próprio app (abas).
@@ -616,7 +618,8 @@ struct App {
     format_save: Option<u64>,
     format_save_wait: u64,
     /// Versão de referência de cada arquivo para as marcas do git (vem do git; vale ao abrir de novo).
-    diff_bases: std::collections::HashMap<PathBuf, std::sync::Arc<str>>,
+    /// Bytes do último commit de cada arquivo (cada aba decodifica com o próprio encoding).
+    diff_bases: std::collections::HashMap<PathBuf, std::sync::Arc<[u8]>>,
     diff_wait: u64,
     /// Espera para religar servidores que caíram (cada edição adia; ver `relink_later`).
     relink_wait: u64,
@@ -1063,12 +1066,12 @@ impl App {
                     self.calls.request(node, direction);
                 }
                 Request::Replace(replace) => tasks.push(self.replace_in_files(&replace)),
-                Request::DiffBase { path, text } => {
+                Request::DiffBase { path, bytes } => {
                     for t in self.tabs.iter_mut().filter(|t| t.editor.path() == Some(path.as_path())) {
-                        t.editor.set_diff_base(text.clone());
+                        t.editor.set_diff_base(bytes.as_deref().map(|b| diff_base_text(b, t.editor.encoding())));
                     }
-                    match text {
-                        Some(text) => self.diff_bases.insert(path, text),
+                    match bytes {
+                        Some(bytes) => self.diff_bases.insert(path, bytes),
                         None => self.diff_bases.remove(&path),
                     };
                 }
@@ -1152,7 +1155,8 @@ impl App {
     /// Tema, fonte e opções do editor (config `[editor]` + `.editorconfig`).
     fn style_editor(&self, editor: &mut Editor) {
         if let Some(base) = editor.path().and_then(|p| self.diff_bases.get(p)) {
-            editor.set_diff_base(Some(base.clone()));
+            let text = diff_base_text(base, editor.encoding());
+            editor.set_diff_base(Some(text));
         }
         editor.set_theme(&self.theme);
         editor.set_code_font(self.editor_zoom.size(), self.code_font());
@@ -2794,7 +2798,18 @@ impl App {
                 let reload = if is_config { self.reload_config() } else { Task::none() };
                 Task::batch([saved, note, reload, self.emit_status(false)])
             }
-            Err(err) => self.notify(fl!("save-error", error = err.to_string())),
+            Err(err) => {
+                // Um caractere que não cabe no encoding (o único InvalidData do salvar): oferece converter.
+                let enc = self.editor().encoding();
+                if err.kind() == std::io::ErrorKind::InvalidData && !enc.is_utf8() {
+                    let id = self.tabs[self.active].id;
+                    let dialog = Dialog::new(fl!("encoding-unmappable-title"), err.to_string())
+                        .button(fl!("encoding-save-utf8"), ButtonKind::Primary, CoreDialog::SaveAsUtf8(id))
+                        .cancel(fl!("cancel"));
+                    return self.open_dialog(dialog, dialog::Owner::Core);
+                }
+                self.notify(fl!("save-error", error = err.to_string()))
+            }
         }
     }
 
@@ -3767,6 +3782,10 @@ impl App {
             }
             CoreDialog::Recover => self.recover(),
             CoreDialog::ApplyRename => self.apply_rename(),
+            CoreDialog::SaveAsUtf8(id) => match self.tab_index(id) {
+                Some(i) => self.save_tab_with_encoding(i, tea_core::encoding::TextEncoding::UTF8),
+                None => Task::none(),
+            },
             CoreDialog::DiscardRecovery => {
                 for o in std::mem::take(&mut self.pending_recovery) {
                     o.remove();
@@ -3955,15 +3974,29 @@ impl App {
                     Err(e) => self.notify(fl!("file-open-error", path = display_rel(&path, &self.root), error = e.to_string())),
                 }
             }
-            EncodingChoice::SaveAs(enc) => {
-                let note = match self.tabs[i].editor.save_with_encoding(enc) {
-                    Ok(()) => fl!("encoding-saved", encoding = enc.label()),
-                    Err(e) => fl!("write-error", path = display_rel(&path, &self.root), error = e.to_string()),
-                };
-                let status = self.emit_status(true);
-                Task::batch([status, self.notify(note)])
-            }
+            EncodingChoice::SaveAs(enc) => self.save_tab_with_encoding(i, enc),
         }
+    }
+
+    /// Grava a aba num encoding (converte); a margem do git passa a comparar nesse encoding.
+    fn save_tab_with_encoding(&mut self, i: usize, enc: tea_core::encoding::TextEncoding) -> Task<Message> {
+        let Some(path) = self.tabs[i].editor.path().map(Path::to_path_buf) else { return Task::none() };
+        let mut tasks = Vec::new();
+        let note = match self.tabs[i].editor.save_with_encoding(enc) {
+            Ok(()) => {
+                if let Some(base) = self.diff_bases.get(&path) {
+                    let text = diff_base_text(base, enc);
+                    self.tabs[i].editor.set_diff_base(Some(text));
+                }
+                self.own_saves.insert(path.clone(), Instant::now());
+                tasks.push(self.broadcast(CoreEvent::FileSaved(path)));
+                fl!("encoding-saved", encoding = enc.label())
+            }
+            Err(e) => fl!("write-error", path = display_rel(&path, &self.root), error = e.to_string()),
+        };
+        tasks.push(self.emit_status(true));
+        tasks.push(self.notify(note));
+        Task::batch(tasks)
     }
 
     /// `Ctrl+Shift+B`: lista das tarefas do projeto (a última rodada vem primeiro).
@@ -5147,6 +5180,11 @@ fn expand_home(input: &str) -> PathBuf {
         Some(rest) => tea_core::os::home_dir().map(|h| h.join(rest)).unwrap_or_else(|| input.into()),
         None => PathBuf::from(input),
     }
+}
+
+/// O último commit de um arquivo como texto, no encoding da aba (para as marcas na margem).
+fn diff_base_text(bytes: &[u8], encoding: tea_core::encoding::TextEncoding) -> std::sync::Arc<str> {
+    tea_core::encoding::decode_lossy(bytes, encoding).into()
 }
 
 fn display_rel(path: &Path, root: &Path) -> String {

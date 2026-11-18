@@ -135,6 +135,16 @@ pub fn decode_as(bytes: &[u8], enc: TextEncoding) -> Result<String, DecodeError>
         .ok_or(DecodeError::Invalid(enc.encoding.name()))
 }
 
+/// Como [`decode_as`], mas sem falhar: um byte inválido vira `U+FFFD`. Para comparar (a margem do git), nunca
+/// para editar.
+pub fn decode_lossy(bytes: &[u8], enc: TextEncoding) -> String {
+    let bytes = match Encoding::for_bom(bytes) {
+        Some((e, len)) if e == enc.encoding => &bytes[len..],
+        _ => bytes,
+    };
+    enc.encoding.decode_without_bom_handling(bytes).0.into_owned()
+}
+
 /// Um caractere que o encoding não tem: qual e onde (linha e coluna, começando em 1).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Unmappable {
@@ -257,5 +267,18 @@ mod tests {
         assert_eq!(fallback("windows-1251"), encoding_rs::WINDOWS_1251);
         assert_eq!(fallback("utf-8"), WINDOWS_1252, "UTF-8 não serve de reserva");
         assert!(TextEncoding::choices().iter().all(|e| TextEncoding::from_label(&e.label()) == Some(*e) || e.encoding == UTF_16LE || e.encoding == UTF_16BE));
+    }
+
+    #[test]
+    fn the_git_base_decodes_in_the_tab_encoding() {
+        let latin1 = TextEncoding { encoding: WINDOWS_1252, bom: false };
+        assert_eq!(decode_lossy(b"a\xe7\xe3o\n", latin1), "ação\n");
+        // UTF-8 com BOM: o BOM não entra no texto, como ao abrir.
+        let bom = TextEncoding { encoding: UTF_8, bom: true };
+        assert_eq!(decode_lossy(b"\xef\xbb\xbfok", bom), "ok");
+        // Um byte inválido vira U+FFFD em vez de apagar as marcas.
+        assert_eq!(decode_lossy(b"a\xe7", TextEncoding::UTF8), "a\u{FFFD}");
+        let utf16 = TextEncoding { encoding: UTF_16LE, bom: true };
+        assert_eq!(decode_lossy(b"\xff\xfeo\0k\0", utf16), "ok");
     }
 }

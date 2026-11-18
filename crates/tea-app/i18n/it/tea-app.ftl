@@ -805,3 +805,5 @@ encoding-no-file = Questa scheda non ha un file su disco da riaprire o salvare c
 encoding-reopen-modified = Salva o annulla le modifiche prima di riaprire con un’altra codifica.
 encoding-reopened = Riaperto come { $encoding }.
 encoding-saved = Salvato come { $encoding }.
+encoding-unmappable-title = Questo carattere non esiste nella codifica del file
+encoding-save-utf8 = Salva come UTF-8

@@ -804,3 +804,5 @@ encoding-no-file = Dieser Tab hat keine Datei auf der Festplatte, die mit andere
 encoding-reopen-modified = Speichern oder verwerfen Sie die Änderungen, bevor Sie mit anderer Kodierung neu öffnen.
 encoding-reopened = Als { $encoding } neu geöffnet.
 encoding-saved = Als { $encoding } gespeichert.
+encoding-unmappable-title = Dieses Zeichen passt nicht in die Kodierung der Datei
+encoding-save-utf8 = Als UTF-8 speichern

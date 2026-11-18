@@ -131,8 +131,11 @@ acertar; num arquivo curto erra para Windows-1252 de qualquer jeito.
 decodifica), e é a leitura única usada pelo editor, por `reload_changed_tabs`, pelo trocar no projeto e pela busca.
 A barra de status mostra o encoding; um clique leva ao comando `file.encoding` (Reabrir com o encoding… / Salvar com o
 encoding…). Reabrir exige a aba sem alterações e recusa bytes inválidos no encoding escolhido. Um caractere que não
-cabe faz o salvar recusar, dizendo qual, a linha e a coluna; a oferta de "Salvar como UTF-8" no próprio erro ficou
-para depois (o caminho é o menu da barra).
+cabe faz o salvar recusar, dizendo qual, a linha e a coluna.
 
-**Falta:** a base do diff da margem (`git show`) (`head_text` em `tea-ext-git`) ainda é lida como UTF-8 com
-perdas, então numa aba que não é UTF-8 as linhas com acento aparecem como alteradas na margem; e a opção C (detecção com `chardetng`), se a reserva errar muito na prática.
+**2026-11-18: o resto**, aprovado no teste manual pelo painel. A margem do git recebe os bytes do último commit
+(`head_bytes` em `tea-ext-git`) e o app os decodifica com o encoding de cada aba, então um arquivo Latin-1 sem
+alterações não tem marcas. O caractere que não cabe abre um diálogo com **Salvar como UTF-8**, e salvar com outro
+encoding avisa o git como um salvar comum.
+
+**Falta:** só a opção C (detecção com `chardetng`), se a reserva errar muito na prática.

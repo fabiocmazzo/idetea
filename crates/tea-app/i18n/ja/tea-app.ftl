@@ -786,3 +786,5 @@ encoding-no-file = このタブには、別のエンコーディングで開き�
 encoding-reopen-modified = 別のエンコーディングで開き直す前に、変更を保存するか元に戻してください。
 encoding-reopened = { $encoding } で開き直しました。
 encoding-saved = { $encoding } で保存しました。
+encoding-unmappable-title = この文字はファイルのエンコーディングに入りません
+encoding-save-utf8 = UTF-8 で保存

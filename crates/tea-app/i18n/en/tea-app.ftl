@@ -805,3 +805,5 @@ encoding-no-file = This tab has no file on disk to reopen or save with another e
 encoding-reopen-modified = Save or undo the changes before reopening with another encoding.
 encoding-reopened = Reopened as { $encoding }.
 encoding-saved = Saved as { $encoding }.
+encoding-unmappable-title = This character does not fit the file's encoding
+encoding-save-utf8 = Save as UTF-8
