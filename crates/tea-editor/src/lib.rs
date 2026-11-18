@@ -223,6 +223,8 @@ pub struct Editor {
     pdf: Option<pdf_file::PdfFile>,
     /// CSV, TSV ou JSONL: a vista de tabela (RFC 0020), outra vista deste texto.
     table: Option<table_view::TableView>,
+    /// O limite de tamanho da vista de tabela com que a aba abriu (ver [`Editor::set_table_limit`]).
+    table_limit: usize,
     /// Abas de imagem e PDF: tamanho e data do arquivo quando foi lido (para perceber que mudou no disco).
     file_stamp: Option<(u64, Option<std::time::SystemTime>)>,
     /// Dica de parâmetros: `signature_open` = pedida (o cursor está numa chamada); `signature` = a que aparece.
@@ -242,8 +244,8 @@ pub struct Editor {
     code_font: tea_core::fonts::CodeFont,
 }
 
-/// Arquivo maior que isto (em bytes) não abre como tabela (RFC 0020): fica só o texto.
-const TABLE_MAX_BYTES: usize = 50 * 1024 * 1024;
+/// Arquivo maior que isto (em bytes) não abre como tabela (RFC 0020): fica só o texto. O padrão de `[table] max_mb`.
+pub const TABLE_MAX_BYTES: usize = 50 * 1024 * 1024;
 
 /// Linha maior que isto (em bytes) liga o modo leve: sem ela, um JSON ou JS minificado trava a tela (o
 /// desenho do texto cresce com o quadrado do tamanho da linha sem quebra, e o destaque refaz a linha inteira a
@@ -351,6 +353,7 @@ impl Editor {
             image: None,
             pdf: None,
             table: None,
+            table_limit: TABLE_MAX_BYTES,
             file_stamp: None,
             signature_open: false,
             signature: None,
@@ -713,7 +716,38 @@ impl Editor {
         let Some(t) = &mut self.table else { return Task::none() };
         t.showing = true;
         self.sync_table();
-        Task::none()
+        // A célula onde estava o cursor do texto.
+        let (line, column) = self.inner.cursor_position();
+        let text = self.inner.content();
+        let at = byte_at(&text, line, column);
+        let Some(t) = &mut self.table else { return Task::none() };
+        match t.select_at(at) {
+            table_view::Action::Task(task) => task.map(|m| EditorMessage(Msg::Table(m))),
+            _ => Task::none(),
+        }
+    }
+
+    /// Até que tamanho (em bytes) o arquivo abre como tabela (`[table] max_mb`; 0 desliga a vista). Acima, a aba
+    /// fica só no texto; abaixo, um CSV, TSV ou JSONL que não tinha a vista passa a ter.
+    pub fn set_table_limit(&mut self, max: usize) {
+        if self.table_limit == max {
+            return;
+        }
+        self.table_limit = max;
+        let Some(path) = self.path.clone().filter(|_| self.light.is_none() && self.image.is_none() && self.pdf.is_none()) else {
+            return;
+        };
+        let text = self.inner.content();
+        if text.len() > max {
+            self.table = None;
+            return;
+        }
+        if self.table.is_none()
+            && let Some(format) = tea_table::Format::detect(&path, &text)
+        {
+            self.table = Some(table_view::TableView::new(format, &text, self.text_revision()));
+            self.count_edits();
+        }
     }
 
     fn update_table(&mut self, msg: table_view::Msg) -> Task<EditorMessage> {
@@ -901,8 +935,10 @@ impl Editor {
                 .map(|m| EditorMessage(Msg::Table(m)));
             return KeyGate::new(view)
                 .intercept(focused, move |key| table.wants(key).then_some(EditorMessage(Msg::Table(table_view::Msg::Key(key)))))
+                .shift(focused, |on| EditorMessage(Msg::Table(table_view::Msg::Shift(on))))
                 .ctrl(focused, |c, shift| match (c, shift) {
-                    ("c", false) => Some(EditorMessage(Msg::Table(table_view::Msg::Copy))),
+                    ("c", csv) => Some(EditorMessage(Msg::Table(table_view::Msg::Copy(csv)))),
+                    ("a", false) => Some(EditorMessage(Msg::Table(table_view::Msg::SelectAll))),
                     ("z", false) => Some(EditorMessage(Msg::Widget(Inner::Undo))),
                     ("y", false) | ("z", true) => Some(EditorMessage(Msg::Widget(Inner::Redo))),
                     _ => None,
@@ -1747,6 +1783,21 @@ fn common_suffix(a: &str, b: &str) -> usize {
 }
 
 /// Posição (linha, coluna em caracteres, como o widget usa) de um byte do texto.
+/// O byte da linha e coluna (em caracteres, começando em 0) do texto; além do fim da linha, o fim dela.
+fn byte_at(text: &str, line: usize, column: usize) -> usize {
+    let start = if line == 0 {
+        0
+    } else {
+        match text.match_indices('\n').nth(line - 1) {
+            Some((i, _)) => i + 1,
+            None => return text.len(),
+        }
+    };
+    let rest = &text[start..];
+    let end = rest.find('\n').unwrap_or(rest.len());
+    start + rest[..end].char_indices().nth(column).map_or(end, |(i, _)| i)
+}
+
 fn lsp_position(text: &str, byte: usize) -> iced_code_editor::LspPosition {
     let before = &text[..byte];
     let line_start = before.rfind('\n').map_or(0, |i| i + 1);
@@ -1796,6 +1847,19 @@ mod tests {
     fn compound_pack_extension_picks_its_grammar() {
         assert_eq!(syntax_for(Some(Path::new("docs/README.mbt.md"))), "mbt.md");
         assert_eq!(syntax_for(Some(Path::new("notes.md"))), "md");
+    }
+
+    /// `[table] max_mb`: acima do limite a aba fica só no texto; com um limite maior, a vista volta.
+    #[test]
+    fn table_limit_turns_the_view_off_and_on() {
+        let mut ed = Editor::from_text(Path::new("/p/a.csv"), "a,b\n1,2\n");
+        ed.set_table_limit(4);
+        assert!(!ed.has_table());
+        ed.set_table_limit(TABLE_MAX_BYTES);
+        assert!(ed.has_table() && ed.showing_table());
+        assert_eq!(byte_at("ab\ncé\n", 1, 1), 4);
+        assert_eq!(byte_at("ab\ncé\n", 1, 9), 6, "além do fim da linha: o fim");
+        assert_eq!(byte_at("ab\n", 5, 0), 3);
     }
 
     /// Sem servidor LSP (um CSV não tem), a célula editada aparece na tabela e no texto.

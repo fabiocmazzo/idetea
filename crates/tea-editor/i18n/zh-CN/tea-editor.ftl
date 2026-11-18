@@ -38,3 +38,5 @@ table-sorted = 按 { $column } 排序 { $arrow }
 table-invalid-json = 不是 JSON：{ $error }
 table-broken-row = 这一行无法读取，请在文本中编辑。
 table-out-of-range = 这个单元格不存在。
+table-header-row = 第一行是表头
+table-rows-picked = 已选 { $count } 行

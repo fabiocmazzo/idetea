@@ -21,19 +21,29 @@ pub struct KeyGate<'a, Message, Theme, Renderer> {
     intercept: Option<Box<dyn Fn(Named) -> Option<Message> + 'a>>,
     /// Ctrl+letra (sem Alt): a letra em minúscula e se o Shift está apertado.
     ctrl: Option<CtrlKeys<'a, Message>>,
+    /// Avisa quando o Shift é apertado ou solto (a tabela estende a seleção de linhas com ele).
+    shift: Option<Box<dyn Fn(bool) -> Message + 'a>>,
 }
 
 type CtrlKeys<'a, Message> = Box<dyn Fn(&str, bool) -> Option<Message> + 'a>;
 
 impl<'a, Message, Theme, Renderer> KeyGate<'a, Message, Theme, Renderer> {
     pub fn new(content: impl Into<Element<'a, Message, Theme, Renderer>>) -> Self {
-        Self { content: content.into(), intercept: None, ctrl: None }
+        Self { content: content.into(), intercept: None, ctrl: None, shift: None }
     }
 
     /// Intercepta Ctrl+letra (só quando `active`): a vista de tabela usa para copiar e desfazer.
     pub fn ctrl(mut self, active: bool, f: impl Fn(&str, bool) -> Option<Message> + 'a) -> Self {
         if active {
             self.ctrl = Some(Box::new(f));
+        }
+        self
+    }
+
+    /// Avisa cada mudança do Shift (só quando `active`).
+    pub fn shift(mut self, active: bool, f: impl Fn(bool) -> Message + 'a) -> Self {
+        if active {
+            self.shift = Some(Box::new(f));
         }
         self
     }
@@ -100,6 +110,11 @@ where
             if held.control() != m.control() {
                 // O ponteiro muda sem o mouse se mexer: precisa redesenhar.
                 shell.request_redraw();
+            }
+            if let Some(f) = &self.shift
+                && held.shift() != m.shift()
+            {
+                shell.publish(f(m.shift()));
             }
             *held = *m;
         }

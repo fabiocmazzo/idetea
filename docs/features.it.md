@@ -23,6 +23,8 @@ L'elenco completo, per chi vuole il dettaglio tecnico. Per la versione breve, ve
 - CSV, TSV e JSONL si aprono come tabella (il pulsante nella barra delle schede o `table.toggle` torna al testo):
   ordinare e filtrare senza toccare il file; modificare una cella cambia solo quel campo nel testo (virgolette
   mantenute, `Ctrl+Z` la annulla). In JSONL una cella accetta JSON, e un valore non valido viene rifiutato.
+  Trascinare il bordo di una colonna ne cambia la larghezza; cliccare i numeri di riga (Maiusc estende), `Ctrl+C`
+  le copia come TSV, `Ctrl+Maiusc+C` come CSV. `[table] max_mb` (50 di default) fissa il limite di dimensione.
 - Conserva i CRLF. Un file che non è UTF-8 non viene aperto (con un avviso), invece di essere corrotto.
 - File grandi: un file da 50 MB si apre in meno di 0,1 s. Un file con una riga enorme (JSON o JS minificato) si apre in una
   modalità leggera, senza colori e con a capo automatico, così la finestra non si blocca.

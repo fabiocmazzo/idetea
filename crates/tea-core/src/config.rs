@@ -126,6 +126,10 @@ allow = []
 [agents.launchers]
 # "Claude (Opus)" = "claude --model opus"
 
+# CSV, TSV e JSONL abrem como tabela (RFC 0020) até este tamanho; acima dele, só o texto. 0 desliga a tabela.
+[table]
+max_mb = 50
+
 # Mascote reativo no canto da IDE (RFC 0012): acompanha perguntas no painel, terminais de agentes,
 # salvar, o build do depurador e `idetea mascot`. Não rouba o foco: o balão some sozinho e o card
 # recolhido continua recolhido.
@@ -347,6 +351,27 @@ pub enum MascotChatty {
     Chatty,
 }
 
+/// Vista de tabela de CSV, TSV e JSONL (`[table]`, RFC 0020).
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+#[serde(default)]
+pub struct TableConfig {
+    /// Tamanho máximo do arquivo para abrir como tabela, em MB. 0: nunca.
+    pub max_mb: u64,
+}
+
+impl Default for TableConfig {
+    fn default() -> Self {
+        Self { max_mb: 50 }
+    }
+}
+
+impl TableConfig {
+    /// O limite em bytes.
+    pub fn max_bytes(&self) -> usize {
+        usize::try_from(self.max_mb.saturating_mul(1024 * 1024)).unwrap_or(usize::MAX)
+    }
+}
+
 /// Mascote reativo no canto da IDE (`[mascot]`, RFC 0012).
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 #[serde(default)]
@@ -391,6 +416,8 @@ pub struct Config {
     pub agents: AgentsConfig,
     /// `[mascot]` (RFC 0012).
     pub mascot: MascotConfig,
+    /// `[table]` (RFC 0020).
+    pub table: TableConfig,
     pub extensions: BTreeMap<String, ExtensionConfig>,
     /// Config de cada plugin (`[plugins.<id>]`): o plugin lê com `host.config` (formato livre).
     pub plugins: BTreeMap<String, toml::Table>,
@@ -519,11 +546,12 @@ impl Config {
         let tasks = take_section(&mut merged, "tasks", &mut errors);
         let agents = take_section(&mut merged, "agents", &mut errors);
         let mascot = take_section(&mut merged, "mascot", &mut errors);
+        let table = take_section(&mut merged, "table", &mut errors);
         let plugins = take_section(&mut merged, "plugins", &mut errors);
         for unknown in merged.keys() {
             errors.push(fl!("config-unknown-section", section = unknown.as_str()));
         }
-        Self { ui, editor, lsp, debug, tasks, agents, mascot, extensions, plugins, keys, errors }
+        Self { ui, editor, lsp, debug, tasks, agents, mascot, table, extensions, plugins, keys, errors }
     }
 
     /// Config de uma extensão (padrão: ligada, slot escolhido pela extensão).
@@ -594,6 +622,8 @@ mod tests {
         assert!(!quiet.mascot.tips);
         assert_eq!(quiet.mascot.pack, "cups");
         assert!(quiet.mascot.enabled, "campo ausente continua no padrão");
+        assert_eq!(layers(&[]).table.max_bytes(), 50 * 1024 * 1024);
+        assert_eq!(layers(&["[table]\nmax_mb = 0"]).table.max_bytes(), 0);
         assert!(!layers(&["[mascot]\nchatty = \"loud\""]).errors.is_empty(), "nível desconhecido avisa");
         assert_eq!(layers(&["[tasks]\nservidor = \"cargo run\""]).tasks["servidor"], "cargo run");
         assert_eq!(c.extension("filetree").slot, Some(Slot::Left));

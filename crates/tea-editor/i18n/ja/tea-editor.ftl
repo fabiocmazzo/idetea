@@ -29,3 +29,5 @@ table-sorted = { $column } で並べ替え { $arrow }
 table-invalid-json = JSON ではありません: { $error }
 table-broken-row = この行は読めませんでした。テキストで編集してください。
 table-out-of-range = このセルはありません。
+table-header-row = 1 行目は見出し
+table-rows-picked = { $count } 行を選択

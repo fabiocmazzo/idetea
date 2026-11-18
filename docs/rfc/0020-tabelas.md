@@ -181,8 +181,12 @@ próprio widget do editor (`apply_lsp_text_edits`), que já põe cada célula no
 `ctx.edit_text` no núcleo não foi necessário. Uma aba de tabela sem servidor LSP liga um cliente mudo que só conta
 as edições, para a tabela saber quando o texto mudou.
 
-**Ainda não:** largura das colunas arrastando, copiar várias linhas como TSV/CSV, cabeçalho desligável, o cursor do
-texto levando à célula na volta, `[table] max_mb` na configuração (o limite é fixo em 50 MB) e a opção C.
+**2026-11-18: o resto da opção B**, aprovado no teste manual pelo painel: largura das colunas arrastando a borda
+do cabeçalho (dois cliques voltam à medida); linhas escolhidas pelo número (Shift estende, Ctrl+A ou o `#` escolhem
+todas) e copiadas como TSV (`Ctrl+C`) ou CSV (`Ctrl+Shift+C`); a caixa "Primeira linha é o cabeçalho" no CSV e no
+TSV; do texto para a tabela, a célula do cursor fica escolhida; `[table] max_mb` na configuração (0 desliga).
+
+**Falta:** a opção C (acrescentar, apagar e renomear linhas e colunas).
 
 ## Banco de dados (fora)
 

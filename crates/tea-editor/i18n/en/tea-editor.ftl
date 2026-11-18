@@ -44,3 +44,8 @@ table-sorted = sorted by { $column } { $arrow }
 table-invalid-json = Not JSON: { $error }
 table-broken-row = This line could not be read; edit it in the text.
 table-out-of-range = This cell does not exist.
+table-header-row = First row is the header
+table-rows-picked = { $count ->
+    [one] 1 row picked
+   *[other] { $count } rows picked
+}

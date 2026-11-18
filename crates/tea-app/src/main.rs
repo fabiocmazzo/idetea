@@ -1149,6 +1149,7 @@ impl App {
         editor.set_options(&self.editor_options(editor));
         editor.set_inlay_hints_enabled(self.config.lsp.inlay_hints);
         editor.set_semantic_tokens_enabled(self.config.lsp.semantic_tokens);
+        editor.set_table_limit(self.config.table.max_bytes());
     }
 
     fn editor_options(&self, editor: &Editor) -> tea_editor::Options {

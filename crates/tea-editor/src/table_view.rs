@@ -7,16 +7,19 @@
 use std::borrow::Cow;
 
 use iced::keyboard::key::Named;
-use iced::widget::{Id, button, column, container, mouse_area, operation, row, scrollable, space, text, text_input};
+use iced::widget::{Id, button, checkbox, column, container, mouse_area, operation, row, scrollable, space, text, text_input};
 use tea_core::style;
 use iced::{Alignment, Color, Element, Fill, Font, Length, Task, Theme};
 use tea_table::{Edit, EditError, Format, JsonKind, RowRef, Table};
 
 /// Linhas lidas para achar a largura de cada coluna.
 const WIDTH_SAMPLE: usize = 200;
-/// Largura de uma coluna, em caracteres.
+/// Largura de uma coluna, em caracteres: medida pela amostra até `MAX_CHARS`; arrastando, até `MAX_DRAG_CHARS`.
 const MIN_CHARS: usize = 3;
 const MAX_CHARS: usize = 40;
+const MAX_DRAG_CHARS: f32 = 300.0;
+/// A alça de arrastar a largura, na borda direita de cada cabeçalho, em pixels.
+const HANDLE: f32 = 6.0;
 
 #[derive(Debug, Clone)]
 pub enum Msg {
@@ -28,8 +31,23 @@ pub enum Msg {
     Sort(usize),
     Filter(String),
     Key(Named),
-    Copy,
+    /// Ctrl+C (`false`: as linhas escolhidas como TSV, ou a célula) e Ctrl+Shift+C (`true`: as linhas como CSV).
+    Copy(bool),
     ShowText,
+    /// Clique no número de uma linha: escolhe a linha (com Shift, de onde estava até ela).
+    SelectRow(usize),
+    /// Ctrl+A, ou clique no `#`: todas as linhas que aparecem.
+    SelectAll,
+    /// O Shift foi apertado ou solto.
+    Shift(bool),
+    /// CSV e TSV: a primeira linha é ou não o cabeçalho.
+    ToggleHeader(bool),
+    /// Arrastar a borda de uma coluna: começa, o mouse anda (x na vista), solta.
+    ResizeStart(usize),
+    ResizeMove(f32),
+    ResizeEnd,
+    /// Dois cliques na borda: a largura volta à medida pela amostra.
+    AutoFit(usize),
 }
 
 /// O que o editor faz depois de uma mensagem da tabela.
@@ -42,6 +60,14 @@ pub enum Action {
     ShowText(Option<usize>),
     /// Mudar a seleção pede foco no editor (as setas só valem com a aba focada).
     Focus(Task<Msg>),
+}
+
+/// Arrastando a borda da coluna `col`: onde o mouse estava no começo (o primeiro movimento diz) e a largura de
+/// então, em caracteres.
+struct Resize {
+    col: usize,
+    from_x: Option<f32>,
+    from_width: f32,
 }
 
 struct Editing {
@@ -59,11 +85,20 @@ pub struct TableView {
     /// A aba mostra a tabela (senão, o texto).
     pub showing: bool,
     sort: Option<(usize, bool)>,
+    /// CSV e TSV: a primeira linha é o cabeçalho.
+    header: bool,
     filter: String,
     /// As linhas que aparecem (índices em `table.rows`), na ordem da tela.
     order: Vec<usize>,
     selected: Option<(RowRef, usize)>,
+    /// Linhas escolhidas (pelo número, Shift ou Ctrl+A): de uma posição a outra em `order`, nas duas direções.
+    /// `bool`: com o cabeçalho na cópia (o clique no `#`).
+    rows: Option<(usize, usize, bool)>,
+    shift: bool,
     editing: Option<Editing>,
+    resize: Option<Resize>,
+    /// Larguras que o usuário arrastou, por coluna (em caracteres); valem por cima da medida.
+    custom: Vec<Option<f32>>,
     /// Erro da última edição (JSON inválido...), mostrado na barra até a próxima ação.
     error: Option<String>,
     scroll: (f32, f32),
@@ -85,10 +120,15 @@ impl TableView {
             revision: u64::MAX,
             showing: true,
             sort: None,
+            header: !matches!(format, Format::Jsonl),
             filter: String::new(),
             order: Vec::new(),
             selected: None,
+            rows: None,
+            shift: false,
             editing: None,
+            resize: None,
+            custom: Vec::new(),
             error: None,
             scroll: (0.0, 0.0),
             viewport: 600.0,
@@ -109,16 +149,36 @@ impl TableView {
     /// Relê a tabela do texto (o texto mudou: uma edição, outro programa).
     pub fn reload(&mut self, text: &str, revision: u64) {
         // Um CSV que agora tem outro separador continua com o de antes: o arquivo não muda de formato sozinho.
-        self.table = Table::parse(text, self.format, true);
+        self.table = Table::parse(text, self.format, self.header);
         self.text = text.to_string();
         self.revision = revision;
         self.widths = self.measure();
+        self.custom.resize(self.table.columns.len(), None);
+        if self.sort.is_some_and(|(c, _)| c >= self.table.columns.len()) {
+            self.sort = None;
+        }
         if let Some((RowRef::Row(r), _)) = self.selected
             && r >= self.table.rows.len()
         {
             self.selected = None;
         }
         self.refresh_order();
+        if self.rows.is_some_and(|(a, b, _)| a.max(b) >= self.order.len()) {
+            self.rows = None;
+        }
+    }
+
+    /// Largura da coluna, em caracteres: a arrastada, ou a medida.
+    fn width(&self, c: usize) -> f32 {
+        self.custom.get(c).copied().flatten().or_else(|| self.widths.get(c).copied()).unwrap_or(10.0)
+    }
+
+    /// Escolhe a célula onde estava o cursor do texto (o byte `at`) e rola até ela.
+    pub fn select_at(&mut self, at: usize) -> Action {
+        let Some((row, col)) = self.table.locate(&self.text, at) else { return Action::None };
+        self.selected = Some((row, col));
+        self.rows = None;
+        self.scroll_into_view(row)
     }
 
     fn measure(&self) -> Vec<f32> {
@@ -180,8 +240,70 @@ impl TableView {
             }
             Msg::Select(row, col) => {
                 self.selected = Some((row, col));
+                self.rows = None;
                 self.editing = None;
                 Action::Focus(Task::none())
+            }
+            Msg::SelectRow(r) => {
+                let Some(p) = self.order.iter().position(|&o| o == r) else { return Action::None };
+                self.rows = match self.rows {
+                    Some((anchor, _, _)) if self.shift => Some((anchor, p, false)),
+                    _ => Some((p, p, false)),
+                };
+                self.selected = Some((RowRef::Row(r), self.selected.map_or(0, |(_, c)| c)));
+                self.editing = None;
+                Action::Focus(Task::none())
+            }
+            Msg::SelectAll => {
+                if !self.order.is_empty() && self.editing.is_none() {
+                    self.rows = Some((0, self.order.len() - 1, true));
+                }
+                Action::Focus(Task::none())
+            }
+            Msg::Shift(on) => {
+                self.shift = on;
+                Action::None
+            }
+            Msg::ToggleHeader(on) => {
+                if matches!(self.format, Format::Jsonl) || on == self.header {
+                    return Action::None;
+                }
+                self.header = on;
+                // Outras colunas: a ordem, a escolha e as larguras eram das de antes.
+                self.sort = None;
+                self.selected = None;
+                self.rows = None;
+                self.editing = None;
+                self.custom.clear();
+                let text = std::mem::take(&mut self.text);
+                self.reload(&text, self.revision);
+                Action::None
+            }
+            Msg::ResizeStart(col) => {
+                self.resize = Some(Resize { col, from_x: None, from_width: self.width(col) });
+                Action::None
+            }
+            Msg::ResizeMove(x) => {
+                let char_w = self.font_size * 0.6;
+                let Some(r) = &mut self.resize else { return Action::None };
+                let from = *r.from_x.get_or_insert(x);
+                let width = (r.from_width + (x - from) / char_w).clamp(MIN_CHARS as f32, MAX_DRAG_CHARS);
+                let col = r.col;
+                if let Some(w) = self.custom.get_mut(col) {
+                    *w = Some(width);
+                }
+                Action::None
+            }
+            Msg::ResizeEnd => {
+                self.resize = None;
+                Action::None
+            }
+            Msg::AutoFit(col) => {
+                self.resize = None;
+                if let Some(w) = self.custom.get_mut(col) {
+                    *w = None;
+                }
+                Action::None
             }
             Msg::StartEdit(row, col) => self.start_edit(row, col),
             Msg::EditInput(value) => {
@@ -222,10 +344,17 @@ impl TableView {
                 Action::None
             }
             Msg::Key(key) => self.key(key),
-            Msg::Copy => match self.selected.and_then(|(r, c)| self.value(r, c)) {
-                Some(v) => Action::Task(iced::clipboard::write(v.into_owned())),
-                None => Action::None,
-            },
+            Msg::Copy(csv) => {
+                if let Some((a, b, with_header)) = self.rows {
+                    let rows: Vec<usize> = self.order[a.min(b)..=a.max(b)].to_vec();
+                    let separator = if csv { ',' } else { '\t' };
+                    return Action::Task(iced::clipboard::write(self.table.copy_rows(&self.text, &rows, separator, with_header)));
+                }
+                match self.selected.and_then(|(r, c)| self.value(r, c)) {
+                    Some(v) => Action::Task(iced::clipboard::write(v.into_owned())),
+                    None => Action::None,
+                }
+            }
             Msg::ShowText => {
                 let at = self.selected.and_then(|(r, c)| {
                     let row = match r {
@@ -278,6 +407,14 @@ impl TableView {
         let new = match key {
             Named::ArrowLeft => (row, col.saturating_sub(1)),
             Named::ArrowRight => (row, (col + 1).min(last_col)),
+            Named::ArrowUp | Named::ArrowDown if self.shift && pos.is_some() => {
+                // Shift+↑/↓: estende as linhas escolhidas a partir da atual.
+                let p = pos.unwrap_or(0);
+                let to = if key == Named::ArrowUp { p.saturating_sub(1) } else { (p + 1).min(self.order.len() - 1) };
+                let anchor = self.rows.map_or(p, |(a, _, _)| a);
+                self.rows = Some((anchor, to, false));
+                (to_row(Some(to)), col)
+            }
             Named::ArrowUp => match pos {
                 Some(0) if has_header => (RowRef::Header, col),
                 Some(p) => (to_row(Some(p.saturating_sub(1))), col),
@@ -290,11 +427,16 @@ impl TableView {
             },
             Named::Enter | Named::F2 => return self.start_edit(row, col),
             Named::Escape => {
-                self.selected = None;
+                if self.rows.take().is_none() {
+                    self.selected = None;
+                }
                 return Action::None;
             }
             _ => return Action::None,
         };
+        if !(self.shift && matches!(key, Named::ArrowUp | Named::ArrowDown)) {
+            self.rows = None;
+        }
         self.selected = Some(new);
         self.scroll_into_view(new.0)
     }
@@ -331,7 +473,7 @@ impl TableView {
         let char_w = size * 0.6;
         let h = row_height(size);
         let number_w = (self.table.rows.last().map_or(1, |r| r.line + 1).to_string().len() as f32 + 1.0) * char_w + 12.0;
-        let col_w = |c: usize| self.widths.get(c).copied().unwrap_or(10.0) * char_w + 14.0;
+        let col_w = |c: usize| self.width(c) * char_w + 14.0;
         let total_w = number_w + (0..self.table.columns.len()).map(col_w).sum::<f32>();
         let muted = palette.background.base.text.scale_alpha(0.5);
         let selected_bg = palette.primary.weak.color.scale_alpha(0.35);
@@ -350,19 +492,26 @@ impl TableView {
                 fl!("table-sorted", column = self.table.columns.get(c).cloned().unwrap_or_default(), arrow = if asc { "↑" } else { "↓" })
             ));
         }
+        if let Some((a, b, _)) = self.rows {
+            info.push_str(&format!(" · {}", fl!("table-rows-picked", count = (a.abs_diff(b) + 1))));
+        }
         let mut bar = row![
             button(text(fl!("table-show-text")).size(size * 0.9)).style(button::secondary).on_press(Msg::ShowText),
             text_input(&fl!("table-filter"), &self.filter).on_input(Msg::Filter).size(size * 0.9).width(Length::Fixed(220.0)),
-            text(info).size(size * 0.85).color(muted),
         ]
         .spacing(10)
         .align_y(Alignment::Center);
+        if !matches!(self.format, Format::Jsonl) {
+            bar = bar.push(checkbox(self.header).label(fl!("table-header-row")).text_size(size * 0.85).size(size * 0.9).on_toggle(Msg::ToggleHeader));
+        }
+        bar = bar.push(text(info).size(size * 0.85).color(muted));
         if let Some(e) = &self.error {
             bar = bar.push(text(e.clone()).size(size * 0.85).color(palette.danger.base.color));
         }
 
         // Cabeçalho: os nomes; clicar ordena. Num CSV com cabeçalho, dois cliques editam o nome.
-        let mut header = row![container(text("#").size(size * 0.85).color(muted)).width(number_w).padding([4, 6])];
+        let corner = container(text("#").size(size * 0.85).color(muted)).width(number_w).padding([4, 6]);
+        let mut header = row![mouse_area(corner).on_press(Msg::SelectAll)];
         for (c, name) in self.table.columns.iter().enumerate() {
             let arrow = match self.sort {
                 Some((s, true)) if s == c => " ↑",
@@ -374,7 +523,7 @@ impl TableView {
                 self.input(e, font, size, col_w(c))
             } else {
                 let label = container(text(format!("{name}{arrow}")).size(size).font(Font { weight: iced::font::Weight::Bold, ..font }).wrapping(text::Wrapping::None))
-                    .width(col_w(c))
+                    .width(col_w(c) - HANDLE)
                     .height(h)
                     .padding([2, 6])
                     .clip(true)
@@ -383,7 +532,12 @@ impl TableView {
                 if self.table.header.is_some() {
                     area = area.on_double_click(Msg::StartEdit(RowRef::Header, c)).on_right_press(Msg::Select(RowRef::Header, c));
                 }
-                area.into()
+                // A borda direita: arrastar muda a largura; dois cliques voltam à medida.
+                let handle = mouse_area(container(space()).width(HANDLE).height(h).style(move |_| cell_style(None, border)))
+                    .interaction(iced::mouse::Interaction::ResizingHorizontally)
+                    .on_press(Msg::ResizeStart(c))
+                    .on_double_click(Msg::AutoFit(c));
+                row![area, handle].into()
             };
             header = header.push(cell);
         }
@@ -406,7 +560,16 @@ impl TableView {
             .width(Fill)
             .height(Fill);
 
-        column![container(bar).padding([6, 8]), header, body].width(Fill).height(Fill).into()
+        let all = column![container(bar).padding([6, 8]), header, body].width(Fill).height(Fill);
+        match self.resize {
+            // Arrastando: o mouse é seguido na vista inteira, e soltar em qualquer lugar termina.
+            Some(_) => mouse_area(all)
+                .on_move(|p| Msg::ResizeMove(p.x))
+                .on_release(Msg::ResizeEnd)
+                .interaction(iced::mouse::Interaction::ResizingHorizontally)
+                .into(),
+            None => all.into(),
+        }
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -425,12 +588,16 @@ impl TableView {
         danger: Color,
     ) -> Element<'a, Msg> {
         let data = &self.table.rows[r];
+        let picked = self.rows.is_some_and(|(a, b, _)| {
+            self.order[a.min(b)..=a.max(b).min(self.order.len().saturating_sub(1))].contains(&r)
+        });
         let number = container(text((data.line + 1).to_string()).size(size * 0.85).color(muted))
             .width(number_w)
             .height(h)
             .padding([2, 6])
-            .align_x(Alignment::End);
-        let mut line = row![number];
+            .align_x(Alignment::End)
+            .style(move |_| cell_style(picked.then_some(selected_bg), Color::TRANSPARENT));
+        let mut line = row![mouse_area(number).on_press(Msg::SelectRow(r))];
         if let Some(err) = &data.error {
             // JSONL que não é um objeto: o texto da linha inteira, marcado.
             let raw = self.text.split('\n').nth(data.line).unwrap_or_default();
@@ -455,7 +622,7 @@ impl TableView {
             if kind == Some(JsonKind::Null) {
                 label = label.color(muted);
             }
-            let is_selected = self.selected == Some((RowRef::Row(r), c));
+            let is_selected = picked || self.selected == Some((RowRef::Row(r), c));
             let cell = container(label)
                 .width(w)
                 .height(h)
@@ -522,6 +689,66 @@ mod tests {
 
     fn view(text: &str) -> TableView {
         TableView::new(Format::Csv(b','), text, 1)
+    }
+
+    #[test]
+    fn header_can_be_a_row() {
+        let mut t = view("a,b\n1,2\n");
+        assert_eq!((t.table.columns.clone(), t.table.rows.len()), (vec!["a".to_string(), "b".into()], 1));
+        let _ = t.update(Msg::ToggleHeader(false));
+        assert_eq!((t.table.columns.clone(), t.table.rows.len()), (vec!["A".to_string(), "B".into()], 2));
+        assert_eq!(t.value(RowRef::Row(0), 0).as_deref(), Some("a"));
+        // Relido do texto (uma edição) continua sem cabeçalho.
+        t.reload("a,b\n1,2\n3,4\n", 2);
+        assert_eq!(t.table.rows.len(), 3);
+    }
+
+    #[test]
+    fn picked_rows_follow_the_screen_order_and_shift() {
+        let mut t = view("n\nc\na\nb\n");
+        let _ = t.update(Msg::Sort(0));
+        assert_eq!(t.order, [1, 2, 0], "a, b, c");
+        let _ = t.update(Msg::SelectRow(1));
+        let _ = t.update(Msg::Shift(true));
+        let _ = t.update(Msg::SelectRow(0));
+        assert_eq!(t.rows, Some((0, 2, false)), "de a até c, pela tela");
+        let _ = t.update(Msg::Shift(false));
+        let _ = t.update(Msg::SelectRow(2));
+        assert_eq!(t.rows, Some((1, 1, false)), "sem Shift: só ela");
+        // Shift+↓ estende a partir dela.
+        let _ = t.update(Msg::Shift(true));
+        let _ = t.update(Msg::Key(Named::ArrowDown));
+        assert_eq!(t.rows, Some((1, 2, false)));
+        let _ = t.update(Msg::Shift(false));
+        let _ = t.update(Msg::Key(Named::Escape));
+        assert_eq!(t.rows, None, "Esc tira as linhas antes da célula");
+        assert!(t.selected.is_some());
+        let _ = t.update(Msg::SelectAll);
+        assert_eq!(t.rows, Some((0, 2, true)), "Ctrl+A: todas, com o cabeçalho na cópia");
+    }
+
+    #[test]
+    fn dragging_a_border_sets_the_width_and_two_clicks_measure_again() {
+        let mut t = view("nome\nana\n");
+        t.font_size = 10.0; // 6 px por caractere
+        let measured = t.width(0);
+        let _ = t.update(Msg::ResizeStart(0));
+        let _ = t.update(Msg::ResizeMove(100.0));
+        let _ = t.update(Msg::ResizeMove(160.0));
+        let _ = t.update(Msg::ResizeEnd);
+        assert_eq!(t.width(0), measured + 10.0);
+        t.reload("nome\nana\nbeatriz\n", 2);
+        assert_eq!(t.width(0), measured + 10.0, "a largura arrastada fica depois de reler");
+        let _ = t.update(Msg::AutoFit(0));
+        assert_eq!(t.width(0), t.widths[0]);
+    }
+
+    #[test]
+    fn the_text_cursor_picks_the_cell() {
+        let text = "a,b\n1,2\n3,4\n";
+        let mut t = view(text);
+        let _ = t.select_at(text.find('4').unwrap());
+        assert_eq!(t.selected, Some((RowRef::Row(1), 1)));
     }
 
     #[test]

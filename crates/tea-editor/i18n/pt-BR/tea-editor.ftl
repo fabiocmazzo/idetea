@@ -44,3 +44,8 @@ table-sorted = ordenado por { $column } { $arrow }
 table-invalid-json = Não é JSON: { $error }
 table-broken-row = Esta linha não pôde ser lida; edite no texto.
 table-out-of-range = Esta célula não existe.
+table-header-row = Primeira linha é o cabeçalho
+table-rows-picked = { $count ->
+    [one] 1 linha escolhida
+   *[other] { $count } linhas escolhidas
+}

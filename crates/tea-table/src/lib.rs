@@ -550,6 +550,67 @@ pub fn apply(text: &str, edit: &Edit) -> String {
     out
 }
 
+impl Table {
+    /// A célula onde está o byte `at` do texto (o cursor do modo texto): o registro que começa na linha dele ou
+    /// antes, e a última célula que começa nele ou antes. Fora de qualquer registro (linha em branco no fim):
+    /// o último.
+    pub fn locate(&self, text: &str, at: usize) -> Option<(RowRef, usize)> {
+        let at = at.min(text.len());
+        let line = text.as_bytes()[..at].iter().filter(|&&b| b == b'\n').count();
+        let after = self.rows.partition_point(|r| r.line <= line);
+        let (which, row) = match after.checked_sub(1) {
+            Some(i) => (RowRef::Row(i), &self.rows[i]),
+            None => match &self.header {
+                Some(h) => (RowRef::Header, h),
+                None => (RowRef::Row(0), self.rows.first()?),
+            },
+        };
+        let col = row
+            .cells
+            .iter()
+            .enumerate()
+            .filter_map(|(c, cell)| cell.as_ref().map(|cell| (c, cell.span.start)))
+            .take_while(|&(_, start)| start <= at)
+            .last()
+            .map_or(0, |(c, _)| c);
+        Some((which, col.min(self.columns.len().saturating_sub(1))))
+    }
+
+    /// Estes registros (índices em `rows`, na ordem dada) como texto para colar numa planilha: os valores separados
+    /// por `separator` (`\t` para TSV, `,` para CSV), uma linha por registro, com `\n`. Um valor com o separador,
+    /// aspas ou quebra de linha vai entre aspas, com as aspas dobradas (o que as planilhas esperam também no TSV).
+    /// `with_header`: os nomes das colunas na primeira linha.
+    pub fn copy_rows(&self, text: &str, rows: &[usize], separator: char, with_header: bool) -> String {
+        let quote = |v: &str| {
+            if v.contains([separator, '"', '\n', '\r']) {
+                format!("\"{}\"", v.replace('"', "\"\""))
+            } else {
+                v.to_string()
+            }
+        };
+        let sep = separator.to_string();
+        let mut out = String::new();
+        if with_header {
+            out.push_str(&self.columns.iter().map(|c| quote(c)).collect::<Vec<_>>().join(&sep));
+            out.push('\n');
+        }
+        for &r in rows {
+            let Some(row) = self.rows.get(r) else { continue };
+            let line = match &row.error {
+                // O registro que não foi lido vai como está no arquivo, num campo só.
+                Some(_) => quote(text.lines().nth(row.line).unwrap_or_default()),
+                None => (0..self.columns.len())
+                    .map(|c| self.value(text, RowRef::Row(r), c).map(|v| quote(&v)).unwrap_or_default())
+                    .collect::<Vec<_>>()
+                    .join(&sep),
+            };
+            out.push_str(&line);
+            out.push('\n');
+        }
+        out
+    }
+}
+
 /// A posição (linha, coluna em caracteres) de um byte do texto, começando em 0.
 pub fn position(text: &str, byte: usize) -> (usize, usize) {
     let before = &text[..byte];
@@ -564,6 +625,33 @@ mod tests {
 
     fn csv(text: &str) -> Table {
         Table::parse(text, Format::Csv(b','), true)
+    }
+
+    #[test]
+    fn locate_finds_the_cell_under_the_cursor() {
+        let text = "a,b,c\n1,\"x\ny\",3\n4,5,6\n";
+        let t = csv(text);
+        assert_eq!(t.locate(text, 0), Some((RowRef::Header, 0)));
+        assert_eq!(t.locate(text, 4), Some((RowRef::Header, 2)));
+        assert_eq!(t.locate(text, text.find("x").unwrap()), Some((RowRef::Row(0), 1)));
+        // Na segunda linha do campo com quebra: ainda o primeiro registro, mesma célula.
+        assert_eq!(t.locate(text, text.find("y").unwrap()), Some((RowRef::Row(0), 1)));
+        assert_eq!(t.locate(text, text.find("6").unwrap()), Some((RowRef::Row(1), 2)));
+        assert_eq!(t.locate(text, text.len()), Some((RowRef::Row(1), 2)), "linha vazia do fim: o último registro");
+        let headless = Table::parse(text, Format::Csv(b','), false);
+        assert_eq!(headless.locate(text, 0), Some((RowRef::Row(0), 0)));
+        assert_eq!(csv("").locate("", 0), None);
+    }
+
+    #[test]
+    fn copy_rows_quotes_what_a_spreadsheet_needs() {
+        let text = "nome,obs\nana,\"a, b\"\nbia,\"diz \"\"oi\"\"\"\n";
+        let t = csv(text);
+        assert_eq!(t.copy_rows(text, &[1, 0], '\t', false), "bia\t\"diz \"\"oi\"\"\"\nana\ta, b\n");
+        assert_eq!(t.copy_rows(text, &[0], ',', true), "nome,obs\nana,\"a, b\"\n");
+        let jsonl = "{\"a\": 1}\nnão json\n";
+        let j = Table::parse(jsonl, Format::Jsonl, false);
+        assert_eq!(j.copy_rows(jsonl, &[0, 1], '\t', true), "a\n1\nnão json\n");
     }
 
     fn values(t: &Table, text: &str, row: usize) -> Vec<String> {

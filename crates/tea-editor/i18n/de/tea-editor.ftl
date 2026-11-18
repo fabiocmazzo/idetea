@@ -44,3 +44,8 @@ table-sorted = sortiert nach { $column } { $arrow }
 table-invalid-json = Kein JSON: { $error }
 table-broken-row = Diese Zeile konnte nicht gelesen werden; bearbeiten Sie sie im Text.
 table-out-of-range = Diese Zelle gibt es nicht.
+table-header-row = Erste Zeile ist die Kopfzeile
+table-rows-picked = { $count ->
+    [one] 1 Zeile gewählt
+   *[other] { $count } Zeilen gewählt
+}
