@@ -18,6 +18,7 @@ import argparse
 import json
 import os
 import shutil
+import tempfile
 import signal
 import subprocess
 import sys
@@ -90,13 +91,18 @@ def x_env(extra: dict | None = None) -> dict:
         env["MESA_GLSL_VERSION_OVERRIDE"] = os.environ.get("MESA_GLSL_VERSION_OVERRIDE", "450")
     env["LIBGL_DRIVERS_PATH"] = "/usr/lib/x86_64-linux-gnu/dri"
     # Isolated IDE config / state (do not touch the real home config).
-    env["XDG_CONFIG_HOME"] = str(ROOT / "xdg" / "config")
+    env["XDG_CONFIG_HOME"] = os.environ.get("IDETEA_DEMO_CONFIG_HOME", str(ROOT / "xdg" / "config"))
     env["XDG_STATE_HOME"] = str(ROOT / "xdg" / "state")
     env["XDG_DATA_HOME"] = str(ROOT / "xdg" / "data")
     env["XDG_CACHE_HOME"] = str(ROOT / "xdg" / "cache")
     env["IDETEA_NO_SPLASH"] = "1"
     env["LC_ALL"] = "C.UTF-8"
     env["LANG"] = "C.UTF-8"
+    # `idetea` (for `idetea agent`, `idetea mascot` typed in the IDE terminal) and the
+    # demo's stand-in agent script are on the PATH of the IDE and its terminals.
+    extra_path = [p for p in os.environ.get("IDETEA_DEMO_PATH", "").split(os.pathsep) if p]
+    if extra_path:
+        env["PATH"] = os.pathsep.join(extra_path + [env.get("PATH", "")])
     if extra:
         env.update(extra)
     return env
@@ -326,6 +332,27 @@ def concat_audio(wavs: list[Path], out: Path) -> float:
     return duration_of(out)
 
 
+def place_audio(cfg: dict, out: Path) -> float:
+    """Narration with each scene's clip at the time its scene really started.
+
+    When a scene's actions outlast its narration (an IDE restart, say), the next
+    clip waits for its scene instead of drifting ahead of the picture.
+    """
+    scenes = cfg["scenes"]
+    inputs, parts = [], []
+    for i, scene in enumerate(scenes):
+        inputs += ["-i", str(scene["_audio"])]
+        ms = int(round(scene["_start"] * 1000))
+        parts.append(f"[{i}:a]adelay={ms}|{ms}[d{i}]")
+    filt = ";".join(parts) + ";" + "".join(f"[d{i}]" for i in range(len(scenes)))
+    filt += f"amix=inputs={len(scenes)}:duration=longest:normalize=0[a]"
+    run([
+        "ffmpeg", "-y", *inputs, "-filter_complex", filt, "-map", "[a]",
+        "-c:a", "pcm_s16le", str(out),
+    ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    return duration_of(out)
+
+
 def write_srt(cfg: dict, out: Path) -> None:
     t = 0.0
     lines = []
@@ -340,6 +367,7 @@ def write_srt(cfg: dict, out: Path) -> None:
         return f"{h:02d}:{m:02d}:{s:02d},{ms:03d}"
     for i, scene in enumerate(cfg["scenes"], 1):
         dur = scene["_duration"]
+        t = scene.get("_start", t)  # where the scene really began, when known
         # wrap narration ~60 chars
         text = scene["narration"]
         lines.append(f"{i}\n{ts(t)} --> {ts(t + dur)}\n{text}\n")
@@ -352,7 +380,8 @@ def write_srt(cfg: dict, out: Path) -> None:
 # ---------------------------------------------------------------------------
 
 class Session:
-    def __init__(self, width: int, height: int):
+    def __init__(self, width: int, height: int, layout: dict | None = None):
+        self.layout = layout or {}
         self.width = width
         self.height = height
         self.procs: list[subprocess.Popen] = []
@@ -419,16 +448,16 @@ class Session:
         # Restore a known window size / panel layout before each run.
         state = ROOT / "xdg" / "state" / "idetea" / "state.toml"
         state.parent.mkdir(parents=True, exist_ok=True)
+        lay = {"left_width": 260.0, "right_width": 360.0, "bottom_height": 220.0, "split": 0.5}
+        lay.update({k: float(v) for k, v in self.layout.items()})
         state.write_text(
-            "left_width = 260.0\n"
-            "right_width = 360.0\n"
-            "bottom_height = 220.0\n"
-            "split = 0.5\n"
-            f"window_width = {float(self.width)}\n"
+            "".join(f"{k} = {float(v)}\n" for k, v in lay.items())
+            + f"window_width = {float(self.width)}\n"
             f"window_height = {float(self.height)}\n"
             "mascot_collapsed = false\n"
         )
-        logf = open(WORK / "idetea.log", "w")
+        self._binary, self._open_file = binary, open_file
+        logf = open(WORK / "idetea.log", "a")
         p = subprocess.Popen(
             [str(binary), "--no-splash", open_file],
             cwd=str(project),
@@ -437,11 +466,51 @@ class Session:
             stderr=subprocess.STDOUT,
             start_new_session=True,
         )
+        p._is_ide = True
         self.procs.append(p)
         self._ide_log = logf
         self.wid = self._wait_window(timeout=40)
         log(f"IDE window id={self.wid}")
         self._fit_window()
+
+    def restart_ide(self) -> None:
+        """Start a second IDE on top of the first, then close the first.
+
+        Settings such as the interface language take effect after a restart. With no
+        window manager, the new window maps over the old one, so the picture goes from
+        one IDE to the other without an empty frame.
+        """
+        old_wid, old_procs = self.wid, [p for p in self.procs if getattr(p, "_is_ide", False)]
+        before = set(self._all_windows())
+        p = subprocess.Popen(
+            [str(self._binary), "--no-splash", self._open_file],
+            cwd=str(self.project), env=self.env, stdout=self._ide_log, stderr=subprocess.STDOUT,
+            start_new_session=True,
+        )
+        p._is_ide = True
+        self.procs.append(p)
+        deadline = time.time() + 30
+        new = None
+        while time.time() < deadline and not new:
+            fresh = [w for w in self._all_windows() if w not in before]
+            new = fresh[-1] if fresh else None
+            time.sleep(0.1)
+        if not new:
+            raise RuntimeError("the restarted IDE window did not appear")
+        self.wid = new
+        self._fit_window()
+        time.sleep(1.2)  # first frame drawn
+        for op in old_procs:
+            try:
+                os.killpg(op.pid, signal.SIGTERM)
+            except OSError:
+                pass
+        time.sleep(0.3)
+        self.focus()
+
+    def _all_windows(self) -> list[str]:
+        r = self.xdo("search", "--name", "IDE TEA", check=False)
+        return r.stdout.decode().split() if r.returncode == 0 else []
 
     def _wait_window(self, timeout: float) -> str:
         deadline = time.time() + timeout
@@ -508,6 +577,44 @@ class Session:
             self.xdo("mousemove", "--sync", str(c["x"]), str(c["y"]))
             self.xdo("click", "1")
             time.sleep(0.1)
+        elif "dblclick" in action:
+            c = action["dblclick"]
+            self.xdo("mousemove", "--sync", str(c["x"]), str(c["y"]))
+            self.xdo("click", "--repeat", "2", "--delay", "90", "1")
+            time.sleep(0.1)
+        elif "shift_click" in action:
+            c = action["shift_click"]
+            self.xdo("mousemove", "--sync", str(c["x"]), str(c["y"]))
+            self.xdo("keydown", "shift")
+            self.xdo("click", "1")
+            self.xdo("keyup", "shift")
+            time.sleep(0.1)
+        elif "drag" in action:
+            # Press, glide in small steps (so the IDE sees a drag), release.
+            a, b = action["drag"]["from"], action["drag"]["to"]
+            steps = int(action["drag"].get("steps", 16))
+            self.xdo("mousemove", "--sync", str(a["x"]), str(a["y"]))
+            self.xdo("mousedown", "1")
+            time.sleep(0.15)
+            for i in range(1, steps + 1):
+                x = a["x"] + (b["x"] - a["x"]) * i / steps
+                y = a["y"] + (b["y"] - a["y"]) * i / steps
+                self.xdo("mousemove", str(int(x)), str(int(y)))
+                time.sleep(0.03)
+            self.xdo("mouseup", "1")
+            time.sleep(0.1)
+        elif "glide" in action:
+            # Move the pointer smoothly to a point (looks better than a jump).
+            c = action["glide"]
+            r = self.xdo("getmouselocation", "--shell", check=False)
+            cur = dict(l.split("=", 1) for l in r.stdout.decode().split() if "=" in l)
+            x0, y0 = int(cur.get("X", c["x"])), int(cur.get("Y", c["y"]))
+            steps = int(c.get("steps", 14))
+            for i in range(1, steps + 1):
+                self.xdo("mousemove", str(int(x0 + (c["x"] - x0) * i / steps)), str(int(y0 + (c["y"] - y0) * i / steps)))
+                time.sleep(0.02)
+        elif "restart_ide" in action:
+            self.restart_ide()
         elif "agent_form" in action:
             spec = action["agent_form"]
             src = ROOT / spec["from"]
@@ -603,7 +710,7 @@ class Session:
                 pass
 
 
-def ensure_sample_git(project: Path) -> None:
+def ensure_sample_git(project: Path, date: str | None = None) -> None:
     """Give the status bar a branch without committing a nested .git in this repo.
 
     The sample project's .git is gitignored. A fresh recording creates it here,
@@ -621,7 +728,10 @@ def ensure_sample_git(project: Path) -> None:
         "GIT_COMMITTER_NAME": "IDE TEA demo",
         "GIT_COMMITTER_EMAIL": "demo@idetea.local",
     })
-    run(["git", "init"], cwd=project, env=env, stdout=subprocess.DEVNULL)
+    if date:
+        # A fixed age keeps the status bar's blame text ("3 days ago") the same width all take long.
+        env["GIT_AUTHOR_DATE"] = env["GIT_COMMITTER_DATE"] = date
+    run(["git", "init", "-q", "-b", "master"], cwd=project, env=env, stdout=subprocess.DEVNULL)
     run(["git", "checkout", "-B", "master"], cwd=project, env=env, stdout=subprocess.DEVNULL)
     run(["git", "add", "-A"], cwd=project, env=env, stdout=subprocess.DEVNULL)
     run(
@@ -654,6 +764,48 @@ def reset_sample_project(project: Path) -> None:
     ensure_sample_git(project)
 
 
+def prepare_project_copy(src: Path, cfg: dict) -> Path:
+    """Copy a sample project to work/projects/<name>, add fixtures, give it a git repo."""
+    dest = WORK / "projects" / src.name
+    shutil.rmtree(dest, ignore_errors=True)
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copytree(src, dest, ignore=shutil.ignore_patterns(".git", "target", "Cargo.lock", "state.json"))
+    for sub in ("backups", "sessions", "session"):
+        shutil.rmtree(ROOT / "xdg" / "state" / "idetea" / sub, ignore_errors=True)
+    # The IDE keeps its history out of git (and ignores entries that are tracked).
+    hist = dest / ".idetea" / "history"
+    hist.mkdir(parents=True, exist_ok=True)
+    (hist / ".gitignore").write_text("*\n")
+    three_days_ago = time.strftime("%Y-%m-%dT%H:%M:%S", time.localtime(time.time() - 3 * 86400))
+    ensure_sample_git(dest, date=three_days_ago)
+    # Fixtures come after the commit, as untracked files, the way the IDE would have left them.
+    for fx in cfg.get("fixtures") or []:
+        target = dest / fx["to"]
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(ROOT / fx["from"], target)
+    return dest
+
+
+def prepare_user_config(cfg: dict, binary: Path) -> None:
+    """Point the IDE at a per-video user config and put `idetea` and assets/ on the PATH.
+
+    `user_config` names a TOML template in xdg/; `@DEMO_ROOT@` becomes this folder.
+    The real ~/.config/idetea is never read or written.
+    """
+    os.environ["IDETEA_DEMO_PATH"] = os.pathsep.join([str(binary.parent), str(ROOT / "assets")])
+    name = cfg.get("user_config")
+    if not name:
+        os.environ.pop("IDETEA_DEMO_CONFIG_HOME", None)
+        return
+    # A short path: Settings prints it in its header, and a long one wraps in some languages.
+    home = Path(tempfile.gettempdir()) / "idetea-demo-config"
+    shutil.rmtree(home, ignore_errors=True)
+    (home / "idetea").mkdir(parents=True)
+    text = (ROOT / name).read_text(encoding="utf-8").replace("@DEMO_ROOT@", str(ROOT))
+    (home / "idetea" / "config.toml").write_text(text, encoding="utf-8")
+    os.environ["IDETEA_DEMO_CONFIG_HOME"] = str(home)
+
+
 def frame_is_mostly_black(path: Path, threshold: float = 0.04) -> tuple[bool, float]:
     """Return (is_black, mean_luma 0..1) using ffmpeg signalstats."""
     # Scale down and compute average luma via a one-liner python on raw pixels.
@@ -674,7 +826,8 @@ def frame_is_mostly_black(path: Path, threshold: float = 0.04) -> tuple[bool, fl
 # Mux
 # ---------------------------------------------------------------------------
 
-def mux(video: Path, audio: Path, srt: Path | None, out: Path, burn_subs: bool, offset: float = 0.0) -> None:
+def mux(video: Path, audio: Path, srt: Path | None, out: Path, burn_subs: bool, offset: float = 0.0,
+        extra_style: str = "") -> None:
     out.parent.mkdir(parents=True, exist_ok=True)
     if offset > 0.01 and srt and srt.is_file():
         shifted = srt.with_name("narration-shifted.srt")
@@ -688,6 +841,8 @@ def mux(video: Path, audio: Path, srt: Path | None, out: Path, burn_subs: bool, 
         # Escape path for the subtitles filter.
         srt_esc = str(srt).replace("\\", "\\\\").replace(":", "\\:").replace("'", "\\'")
         style = "FontName=DejaVu Sans,FontSize=11,PrimaryColour=&H00FFFFFF,OutlineColour=&H80000000,BorderStyle=3,Outline=1,Shadow=0,MarginV=12"
+        if extra_style:  # e.g. "MarginR=90" keeps the captions off the mascot bubble
+            style += "," + extra_style
         filt.append(f"subtitles='{srt_esc}':force_style='{style}'")
     if filt:
         cmd += ["-vf", ",".join(filt)]
@@ -725,6 +880,7 @@ def main() -> int:
     width, height, fps = int(cfg["width"]), int(cfg["height"]), int(cfg["fps"])
     project = (ROOT / cfg.get("project", "sample-project")).resolve()
     open_file = cfg.get("open", "src/main.rs")
+    (WORK / "idetea.log").write_text("")
 
     log("Generating narration")
     wavs = generate_narration(cfg)
@@ -753,8 +909,15 @@ def main() -> int:
     if not project.is_dir():
         sys.exit(f"Sample project not found: {project}")
 
-    reset_sample_project(project)
-    session = Session(width, height)
+    if cfg.get("project_copy"):
+        # Feature videos record in a fresh copy of their sample project, so edits,
+        # saves and files the IDE writes (AGENTS.md, ADRs, history) never touch the
+        # tracked originals and every take starts from the same state.
+        project = prepare_project_copy(project, cfg)
+    else:
+        reset_sample_project(project)
+    prepare_user_config(cfg, binary)
+    session = Session(width, height, layout=cfg.get("layout"))
     raw_video = WORK / "capture.mp4"
     rec = None
     audio_offset = 0.0
@@ -766,6 +929,9 @@ def main() -> int:
         time.sleep(1.5)
         session._fit_window()
         time.sleep(0.4)
+        # Actions that run before the capture starts (wait for a language server, open a panel).
+        for action in cfg.get("setup") or []:
+            session.do_action(action)
         first = FRAMES_DIR / "00-startup.png"
         session.screenshot(first)
         black, luma = frame_is_mostly_black(first)
@@ -785,6 +951,7 @@ def main() -> int:
         for scene in cfg["scenes"]:
             log(f"Scene {scene['id']} ({scene['_duration']:.2f}s)")
             t0 = time.time()
+            scene["_start"] = t0 - rec_t0 - audio_offset
             for action in scene["actions"]:
                 session.do_action(action)
             # Mid-scene snapshot for the last action visibility check later
@@ -804,9 +971,20 @@ def main() -> int:
     if not raw_video.is_file() or raw_video.stat().st_size < 1000:
         sys.exit(f"Recording missing or empty: {raw_video}")
 
+    # Scenes whose actions ran past their narration push the later clips back.
+    planned = 0.0
+    drift = 0.0
+    for scene in cfg["scenes"]:
+        drift = max(drift, abs(scene.get("_start", planned) - planned))
+        planned += scene["_duration"]
+    if drift > 0.15:
+        log(f"Re-timing narration to the scenes (drift up to {drift:.1f}s)")
+        total = place_audio(cfg, narration_wav)
+        write_srt(cfg, srt)
     video_dur = duration_of(raw_video)
     log(f"Raw video {video_dur:.2f}s, audio {total:.2f}s")
-    mux(raw_video, narration_wav, srt, args.out.resolve(), burn_subs=not args.no_subs, offset=audio_offset)
+    mux(raw_video, narration_wav, srt, args.out.resolve(), burn_subs=not args.no_subs, offset=audio_offset,
+        extra_style=str(cfg.get("subtitle_style") or ""))
     out_dur = duration_of(args.out)
     out_size = args.out.stat().st_size
     log(f"Wrote {args.out}  ({out_dur:.2f}s, {out_size/1e6:.1f} MB)")

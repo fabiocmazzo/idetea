@@ -70,6 +70,50 @@
 1 つのコマンドが、プロジェクトのエージェントに教えます。「インターフェース: このプロジェクトのエージェントに教える」は、手順を
 `AGENTS.md` と `CLAUDE.md` に書きます。
 
+## 機能の実演
+
+短いクリップが 5 本あります。ナレーションは英語で、字幕は映像に入っています。GitHub は、リポジトリ内の動画ファイルを README の中では再生しません。ポスターを開くと Web サイトで音声付きで再生します。ファイルは `assets/` にあります。
+
+<table>
+<tr>
+  <td width="50%" valign="top">
+    <a href="https://idetea.belabs.cloud/ja/#feature-agents"><img src="assets/agents-poster.png" width="440" alt="エージェント: ターミナルのエージェント。記憶はリポジトリに。"></a><br>
+    <a href="https://idetea.belabs.cloud/ja/#feature-agents"><b>エージェント</b></a> · 57 秒<br>
+    ターミナルのエージェント。記憶はリポジトリに。<br>
+    <a href="assets/idetea-agents.mp4"><code>assets/idetea-agents.mp4</code></a>
+  </td>
+  <td width="50%" valign="top">
+    <a href="https://idetea.belabs.cloud/ja/#feature-tables"><img src="assets/tables-poster.png" width="440" alt="テーブル: データは表に。中身はただのテキスト。"></a><br>
+    <a href="https://idetea.belabs.cloud/ja/#feature-tables"><b>テーブル</b></a> · 45 秒<br>
+    データは表に。中身はただのテキスト。<br>
+    <a href="assets/idetea-tables.mp4"><code>assets/idetea-tables.mp4</code></a>
+  </td>
+</tr>
+<tr>
+  <td width="50%" valign="top">
+    <a href="https://idetea.belabs.cloud/ja/#feature-lsp"><img src="assets/lsp-poster.png" width="440" alt="LSP: 深い言語サポートを、最初から。"></a><br>
+    <a href="https://idetea.belabs.cloud/ja/#feature-lsp"><b>LSP</b></a> · 41 秒<br>
+    深い言語サポートを、最初から。<br>
+    <a href="assets/idetea-lsp.mp4"><code>assets/idetea-lsp.mp4</code></a>
+  </td>
+  <td width="50%" valign="top">
+    <a href="https://idetea.belabs.cloud/ja/#feature-encodings"><img src="assets/encodings-poster.png" width="440" alt="文字コード: 古いファイルも、新しいエディターで、そのまま。"></a><br>
+    <a href="https://idetea.belabs.cloud/ja/#feature-encodings"><b>文字コード</b></a> · 47 秒<br>
+    古いファイルも、新しいエディターで、そのまま。<br>
+    <a href="assets/idetea-encodings.mp4"><code>assets/idetea-encodings.mp4</code></a>
+  </td>
+</tr>
+<tr>
+  <td width="50%" valign="top">
+    <a href="https://idetea.belabs.cloud/ja/#feature-mascot"><img src="assets/mascot-poster.png" width="440" alt="マスコット: 落ち着いた一杯のティーを、あなたの言語で。"></a><br>
+    <a href="https://idetea.belabs.cloud/ja/#feature-mascot"><b>マスコット</b></a> · 52 秒<br>
+    落ち着いた一杯のティーを、あなたの言語で。<br>
+    <a href="assets/idetea-mascot.mp4"><code>assets/idetea-mascot.mp4</code></a>
+  </td>
+  <td width="50%" valign="top"></td>
+</tr>
+</table>
+
 ## インストール
 
 **Linux、macOS、Windows。すぐに実行できます。** プラットフォーム用のパッケージを

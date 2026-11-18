@@ -1,0 +1,94 @@
+# Feature video: tables (RFC 0020). Record with:  just demo tables
+# Coordinates are for the 1280x720 capture and the layout below.
+title: IDE TEA tables
+width: 1280
+height: 720
+fps: 30
+language: en
+project: projects/tables
+project_copy: true
+open: data/teas.csv
+
+scenes:
+  - id: intro
+    narration: "In IDE TEA, CSV, TSV and JSONL files open straight into a table. The table is another view of the text in the tab."
+    actions:
+      - mousemove: {x: 700, y: 600}
+      - wait: 0.8
+      - glide: {x: 560, y: 200}
+      - wait: 1.0
+      - glide: {x: 900, y: 330}
+
+  - id: edit
+    narration: "Double click a cell to edit it. The change lands in the text as a normal unsaved edit, so undo and save work as usual."
+    actions:
+      - wait: 0.6
+      - glide: {x: 1030, y: 405}
+      - dblclick: {x: 1030, y: 405}
+      - wait: 0.5
+      - type: "13.90"
+      - wait: 0.3
+      - key: Return
+      - wait: 0.6
+      - glide: {x: 1000, y: 560}
+
+  - id: width
+    narration: "Drag a header border to resize a column."
+    actions:
+      - glide: {x: 497, y: 109}
+      - wait: 0.3
+      - drag: {from: {x: 497, y: 109}, to: {x: 585, y: 109}}
+
+  - id: rows
+    narration: "Pick rows by their numbers, with Shift to extend. Control C copies them as tab separated values, and Control Shift C as CSV, ready to paste."
+    actions:
+      - glide: {x: 331, y: 135}
+      - click: {x: 331, y: 135}
+      - wait: 0.5
+      - shift_click: {x: 331, y: 216}
+      - wait: 1.6
+      - key: ctrl+shift+c
+      - wait: 1.2
+      - key: ctrl+n
+      - wait: 0.5
+      - key: ctrl+v
+      - mousemove: {x: 900, y: 500}
+
+  - id: tsv
+    narration: "A TSV file opens the same way. When the first row is data, not a header, untick the box."
+    actions:
+      - key: ctrl+p
+      - wait: 0.4
+      - type: "sales.tsv"
+      - wait: 0.3
+      - key: Return
+      - wait: 1.6
+      - glide: {x: 622, y: 76}
+      - click: {x: 622, y: 76}
+      - wait: 0.4
+      - glide: {x: 800, y: 300}
+
+  - id: jsonl
+    narration: "JSONL works too. Each key becomes a column, in the order it first appears."
+    actions:
+      - key: ctrl+p
+      - wait: 0.4
+      - type: "events.jsonl"
+      - wait: 0.3
+      - key: Return
+      - wait: 0.8
+      - glide: {x: 760, y: 140}
+
+  - id: text
+    narration: "And the Text button shows the raw file again."
+    actions:
+      - glide: {x: 350, y: 76}
+      - click: {x: 350, y: 76}
+      - wait: 0.4
+      - glide: {x: 900, y: 420}
+
+  - id: close
+    narration: "Your data as a table. Still just text."
+    actions:
+      - wait: 0.6
+      - glide: {x: 1080, y: 300}

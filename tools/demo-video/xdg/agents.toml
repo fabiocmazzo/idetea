@@ -1,0 +1,23 @@
+[ui]
+splash = false
+theme = "dark"
+font_size = 16
+language = "en"
+restore_session = false
+
+[editor]
+show_whitespace = false
+font = "JetBrains Mono"
+
+[lsp]
+enabled = false
+
+[mascot]
+enabled = true
+
+# The stand-in agent (assets/demo-agent, on the PATH during a recording).
+[agents]
+default = "demo-agent"
+
+[agents.launchers]
+"demo-agent" = "demo-agent"

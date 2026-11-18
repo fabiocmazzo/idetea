@@ -1,0 +1,6 @@
+{"ts":"2026-11-18T09:00:12Z","level":"info","event":"kettle_on","user":"ana"}
+{"ts":"2026-11-18T09:03:40Z","level":"info","event":"steep_start","user":"ana","tea":"Sencha"}
+{"ts":"2026-11-18T09:05:41Z","level":"warn","event":"steep_long","user":"ana","tea":"Sencha"}
+{"ts":"2026-11-18T09:10:03Z","level":"info","event":"kettle_on","user":"leo"}
+{"ts":"2026-11-18T09:14:27Z","level":"error","event":"cup_spilled","user":"leo"}
+{"ts":"2026-11-18T09:15:00Z","level":"info","event":"steep_start","user":"leo","tea":"Assam"}

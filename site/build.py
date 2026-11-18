@@ -2,7 +2,7 @@
 """Monta o site em uma pasta (padrão: target/site), só com a biblioteca padrão.
 
 - copia site/ (menos este script e os templates);
-- traz de assets/ o ícone, o GIF antigo, o pôster, o GIF curto e o mp4 da demo;
+- traz de assets/ o ícone, o GIF antigo, o pôster, o GIF curto, o mp4 da demo e os vídeos de funcionalidades;
 - gera features.html a partir de docs/features.md (a lista fica num lugar só).
 
 Uso: python3 site/build.py [pasta]
@@ -365,7 +365,25 @@ def main() -> None:
     if out.exists():
         shutil.rmtree(out)
     shutil.copytree(SITE, out, ignore=shutil.ignore_patterns("build.py", "*.template.html", "__pycache__"))
-    for name in ["idetea.svg", "idetea.png", "demo.gif", "demo-poster.png", "demo-preview.gif", "idetea-demo.mp4"]:
+    assets = [
+        "idetea.svg",
+        "idetea.png",
+        "demo.gif",
+        "demo-poster.png",
+        "demo-preview.gif",
+        "idetea-demo.mp4",
+        "idetea-agents.mp4",
+        "agents-poster.png",
+        "idetea-tables.mp4",
+        "tables-poster.png",
+        "idetea-lsp.mp4",
+        "lsp-poster.png",
+        "idetea-encodings.mp4",
+        "encodings-poster.png",
+        "idetea-mascot.mp4",
+        "mascot-poster.png",
+    ]
+    for name in assets:
         shutil.copy(ROOT / "assets" / name, out / "img" / name)
     for lang_id in FEATURES_LOCALES:
         page = features_page(lang_id)

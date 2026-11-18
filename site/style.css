@@ -217,3 +217,18 @@ footer .wrap { display: flex; gap: 16px; flex-wrap: wrap; justify-content: space
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
 }
+
+.feature-videos {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 18px;
+  margin-top: 16px;
+}
+.feature-clip { margin: 0; }
+.feature-clip .player { box-shadow: none; }
+.feature-clip figcaption {
+  color: var(--muted);
+  font-size: 14px;
+  margin-top: 8px;
+}
+.feature-clip figcaption strong { color: var(--text); }

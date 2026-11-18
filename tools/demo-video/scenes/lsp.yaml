@@ -1,0 +1,73 @@
+# Feature video: LSP (code actions, inlay hints RFC 0018, semantic tokens RFC 0019, hover).
+# Needs rust-analyzer on the PATH (rustup component add rust-analyzer rust-src).
+# Record with:  just demo lsp
+title: IDE TEA LSP
+width: 1280
+height: 720
+fps: 30
+language: en
+project: projects/lsp
+project_copy: true
+open: src/main.rs
+setup:
+  # rust-analyzer loads the crate and runs its first cargo check before the capture starts.
+  - wait: 25
+
+scenes:
+  - id: intro
+    narration: "IDE TEA speaks the Language Server Protocol. Here, rust-analyzer is running on a small Rust crate."
+    actions:
+      - mousemove: {x: 900, y: 620}
+      - wait: 1.0
+      - glide: {x: 1000, y: 330}
+
+  - id: hints
+    narration: "Inlay hints show inferred types and parameter names in gray, right in the code. They are not part of the file. Control Alt I hides them, and brings them back."
+    actions:
+      # Pointer parks in empty space at the end of the lines: resting on code opens a hover.
+      - glide: {x: 1120, y: 468}
+      - wait: 3.6
+      - key: ctrl+alt+i
+      - wait: 1.6
+      - key: ctrl+alt+i
+      - wait: 0.4
+      - glide: {x: 900, y: 600}
+
+  - id: semantic
+    narration: "Semantic tokens color the code by meaning, so parameters and struct fields stand apart from local variables."
+    actions:
+      - glide: {x: 650, y: 228}
+      - wait: 1.6
+      - glide: {x: 590, y: 124}
+      - wait: 1.6
+
+  - id: hover
+    narration: "Rest the pointer on an error to read the compiler's diagnostic."
+    actions:
+      - glide: {x: 545, y: 297}
+      - wait: 0.3
+      - mousemove: {x: 547, y: 298}
+      - wait: 2.2
+
+  - id: action
+    narration: "With the cursor on it, Control Period lists the quick fixes and refactorings. Pick the import, and new hints appear as the types resolve."
+    actions:
+      - click: {x: 545, y: 297}
+      - glide: {x: 980, y: 600}
+      - key: ctrl+period
+      - wait: 2.2
+      - key: Return
+      - wait: 0.5
+
+  - id: save
+    narration: "Save, and the check on save clears the errors."
+    actions:
+      - key: ctrl+s
+      - wait: 1.0
+      - glide: {x: 900, y: 645}
+
+  - id: close
+    narration: "Deep language support, built in."
+    actions:
+      - wait: 0.6
+      - glide: {x: 1120, y: 380}
