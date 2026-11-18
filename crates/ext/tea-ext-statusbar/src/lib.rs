@@ -10,12 +10,23 @@ use std::collections::{BTreeMap, HashMap};
 use std::path::PathBuf;
 use std::time::{Duration, Instant};
 
-use iced::widget::{button, row, space, text};
+use iced::widget::{button, container, row, text, tooltip};
 use iced::{Element, Task, Theme};
 use tea_core::icons::{Icon, icon};
 use tea_core::{Context, CoreEvent, EditorStatus, Extension, PanelId, Severity, Slot};
 
 const PANEL: PanelId = PanelId("bar");
+/// Linhas de uma notificação longa no tooltip (o resto fica de fora).
+const TOOLTIP_LINES: usize = 40;
+
+/// A primeira linha com texto da notificação, com `…` quando há mais; e se há mais.
+fn summary(msg: &str) -> (String, bool) {
+    let mut lines = msg.lines().map(str::trim_end).filter(|l| !l.trim().is_empty());
+    let first = lines.next().unwrap_or_default();
+    let more = lines.next().is_some();
+    (if more { format!("{first} …") } else { first.to_string() }, more)
+}
+
 /// Depois disso, a notificação some no próximo movimento do editor.
 const NOTIFICATION_TTL: Duration = Duration::from_secs(5);
 
@@ -125,9 +136,19 @@ impl Extension for StatusBarExtension {
         .style(button::text)
         .padding([0, 4]);
 
+        // Só a primeira linha, cortada se não couber: um erro de várias linhas (o do rust-analyzer quando o
+        // `cargo metadata` falha) faria a barra crescer até caber tudo. O texto inteiro fica no tooltip.
+        let (first, more) = summary(&self.notification);
+        let line = container(text(first).size(size).wrapping(text::Wrapping::None)).width(iced::Fill).clip(true);
+        let notification: Element<'_, Message> = if more {
+            let full = self.notification.lines().take(TOOLTIP_LINES).collect::<Vec<_>>().join("\n");
+            tooltip(line, container(text(full).size(size)).padding(8).max_width(900).style(container::bordered_box), tooltip::Position::Top)
+                .into()
+        } else {
+            line.into()
+        };
         row![
-            text(&self.notification).size(size),
-            space::horizontal(),
+            notification,
             text(activity).size(size).style(text::secondary),
             text(modified).size(size),
             problems,
@@ -139,5 +160,19 @@ impl Extension for StatusBarExtension {
         .spacing(16)
         .align_y(iced::Center)
         .into()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_long_message_shows_one_line() {
+        let msg = "rust-analyzer: warning: Failed to run build scripts\n\nPlease refer to the logs\nerror: can't find lib";
+        assert_eq!(summary(msg), ("rust-analyzer: warning: Failed to run build scripts …".to_string(), true));
+        assert_eq!(summary("Salvo."), ("Salvo.".to_string(), false));
+        assert_eq!(summary("\n  \nsó esta\n"), ("só esta".to_string(), false));
+        assert_eq!(summary(""), (String::new(), false));
     }
 }
