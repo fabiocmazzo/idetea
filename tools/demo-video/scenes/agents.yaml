@@ -1,0 +1,105 @@
+# Feature video: agent launcher, Ctrl+L, `idetea agent` and project memory (RFC 0016).
+# The agent is assets/demo-agent, a local stand-in script that only echoes what it
+# receives (no model, no network). Record with:  just demo agents
+title: IDE TEA agents and project memory
+width: 1280
+height: 720
+fps: 30
+language: en
+project: projects/agents
+project_copy: true
+open: src/greet.rs
+user_config: xdg/agents.toml
+layout: {bottom_height: 360}
+fixtures:
+  # An answer given earlier in the Interfaces panel, for "Record as a decision".
+  - from: assets/agents-history.json
+    to: .idetea/history/2026-11/20261118-204019-empty-name-r1-1a1f06392b0-1e150-1.json
+
+scenes:
+  - id: launcher
+    narration: "IDE TEA starts coding agents for you. Control Shift A lists the agents on your PATH and in your config. Here, a small stand-in script plays the agent."
+    actions:
+      - mousemove: {x: 760, y: 330}
+      - wait: 1.2
+      - key: ctrl+shift+a
+      - wait: 1.0
+      - glide: {x: 560, y: 120}
+
+  - id: launch
+    narration: "Pick one, and it opens in a terminal tab named after it. The IDE also writes its instructions for agents into AGENTS.md and CLAUDE.md."
+    actions:
+      - key: Return
+      - wait: 1.5
+      - glide: {x: 200, y: 200}
+      - wait: 1.5
+      - glide: {x: 600, y: 520}
+
+  - id: context
+    narration: "Select some code and press Control L. The file, the line range and the snippet go straight to the agent."
+    actions:
+      - glide: {x: 400, y: 90}
+      - click: {x: 400, y: 90}
+      - key: Home
+      - key: shift+Down
+      - key: shift+Down
+      - key: shift+End
+      - wait: 0.8
+      - key: ctrl+l
+      - wait: 0.6
+      - glide: {x: 700, y: 560}
+
+  - id: cli
+    narration: "From any terminal, idetea agent does the same. The IDE shows the exact command and asks before running it. Allow it, and a second agent tab opens."
+    actions:
+      - glide: {x: 457, y: 372}
+      - click: {x: 457, y: 372}
+      - wait: 1.0
+      - type: "idetea agent demo-agent"
+      - key: Return
+      - wait: 2.0
+      - glide: {x: 384, y: 542}
+      - wait: 0.5
+      - click: {x: 384, y: 542}
+      - wait: 0.6
+      - glide: {x: 700, y: 600}
+
+  - id: memory
+    narration: "Project memory is plain Markdown in docs/memory and docs/decisions, versioned with the code. The panel lists facts and decisions, and flags paths that no longer exist."
+    actions:
+      - click: {x: 700, y: 200}
+      - key: ctrl+j
+      - wait: 0.4
+      - glide: {x: 24, y: 194}
+      - click: {x: 24, y: 194}
+      - wait: 0.3
+      - key: ctrl+b
+      - wait: 1.2
+      - glide: {x: 180, y: 160}
+      - wait: 1.5
+      - glide: {x: 200, y: 258}
+      - wait: 1.5
+      - glide: {x: 180, y: 360}
+
+  - id: decision
+    narration: "Answers you give an agent in the Interfaces panel stay in its history. Record as a decision turns one into a decision record, ready to review."
+    actions:
+      - glide: {x: 24, y: 159}
+      - click: {x: 24, y: 159}
+      - wait: 1.0
+      - glide: {x: 1094, y: 134}
+      - click: {x: 1094, y: 134}
+      - wait: 1.4
+      - glide: {x: 999, y: 244}
+      - wait: 0.4
+      - click: {x: 999, y: 244}
+      - wait: 1.0
+      - glide: {x: 560, y: 420}
+      - wait: 1.0
+      - glide: {x: 180, y: 445}
+
+  - id: close
+    narration: "Agents in your terminal. Memory in your repo."
+    actions:
+      - wait: 0.6
+      - glide: {x: 640, y: 420}
