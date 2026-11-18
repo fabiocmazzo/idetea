@@ -16,6 +16,24 @@ That builds the IDE if `target/release/idetea` is missing, then writes `dist/ide
 
 From this folder, the same entry points are `./demo.sh` and `make demo`.
 
+### Feature videos
+
+Each file in `scenes/` is a short video about one feature, recorded on its own:
+
+| Command | Output | Shows |
+|---|---|---|
+| `just demo agents` | `dist/idetea-agents.mp4` | Agent launcher (Ctrl+Shift+A), Ctrl+L, `idetea agent`, project memory, Record as a decision (RFC 0016) |
+| `just demo tables` | `dist/idetea-tables.mp4` | CSV, TSV and JSONL as tables (RFC 0020) |
+| `just demo lsp` | `dist/idetea-lsp.mp4` | Inlay hints, semantic tokens, hover diagnostics, code actions (RFC 0018, 0019) |
+| `just demo encodings` | `dist/idetea-encodings.mp4` | Encoding detection, reopen and save with encoding (RFC 0021) |
+| `just demo mascot` | `dist/idetea-mascot.mp4` | Mascot reactions and the interface in pt-BR, Japanese and Chinese |
+
+`just demo all` records the overview and every feature video. `just demo` alone still records only the overview.
+
+The agent in `agents` is `assets/demo-agent`, a local stand-in script that echoes what it receives. It calls no model and no network. The `lsp` video needs `rust-analyzer` (`rustup component add rust-analyzer`).
+
+Feature videos record in a fresh copy of their sample project under `work/projects/`, so the originals in `projects/` never change.
+
 ## Voice
 
 `just demo` picks the engine from the environment. It never prints an API key.
@@ -59,8 +77,23 @@ Edit `scenes.yaml`. Each scene has a `narration` line (English, spoken as-is) an
 | `mousemove: {x: 640, y: 360}` | Move the pointer |
 | `click: {x: 100, y: 200}` | Click |
 | `agent_form: {from, name}` | Write `.idetea/ui/<name>.json` the way an agent would |
+| `dblclick: {x, y}` / `shift_click: {x, y}` | Double click, or click with Shift held |
+| `drag: {from: {x, y}, to: {x, y}, steps: 12}` | Press, move and release (column borders, splitters) |
+| `glide: {x, y, steps: 14}` | Move the pointer smoothly, so viewers can follow it |
+| `restart_ide: true` | Start a new IDE over the current one, then close the old one (settings that need a restart) |
 
-The driver generates speech first, measures each clip, runs the actions, then waits so the picture stays in sync with the voice.
+Top-level keys a scene file can add:
+
+| Key | Effect |
+|---|---|
+| `project_copy: true` | Record in a fresh copy of `project` (no `.git`, `target`, `Cargo.lock` or state) |
+| `fixtures: [{from, to}]` | Files copied into that copy after its first commit, so they stay untracked |
+| `user_config: xdg/<name>.toml` | User config template; it goes to a short temporary folder, so the real one is never touched |
+| `layout: {left_width, right_width, bottom_height, split}` | Panel sizes for the first frame |
+| `setup: [actions]` | Actions run before the capture starts (wait for a language server) |
+| `subtitle_style: "MarginR=96"` | Extra ASS style for the burned-in captions |
+
+The driver generates speech first, measures each clip, runs the actions, then waits so the picture stays in sync with the voice. When a scene's actions take longer than its line (an IDE restart, say), the narration is re-timed to the real scene starts, so the next line waits for its picture.
 
 Subtitles can be omitted with `python3 record_demo.py --no-subs`.
 
@@ -72,7 +105,10 @@ tools/demo-video/
   fetch-piper.sh      downloads Piper and the voice if they are missing
   assets/agent-review.json  the form the "agent" writes during the Interfaces scene
   Makefile            make demo / make narration / make build
-  scenes.yaml         actions + narration
+  scenes.yaml         actions + narration (overview)
+  scenes/             one file per feature video
+  projects/           sample projects for the feature videos
+  assets/demo-agent   stand-in agent for the agents video (local, calls nothing)
   record_demo.py      driver
   yaml_lite.py        small YAML loader (no PyYAML)
   sample-project/     tiny Rust crate opened in the IDE
