@@ -21,3 +21,17 @@ search-replace-all-message =
     
     Arquivos abertos em abas ficam alterados sem salvar (Ctrl+Z desfaz). Os outros são gravados direto no disco, sem desfazer.
 search-replace-all-truncated = A busca parou em { $count } resultados: só os arquivos listados mudam. Depois, busque de novo para ver o resto.
+## Escopo, filtros e navegação
+cmd-search-next = Busca: próximo resultado
+cmd-search-prev = Busca: resultado anterior
+search-filters = Filtros
+search-context = Contexto
+search-history = Buscas recentes
+search-history-empty = Nenhuma busca recente
+search-include-placeholder = arquivos a incluir (ex.: src/**, *.rs)
+search-exclude-placeholder = arquivos a excluir (ex.: *.test.rs)
+search-bad-glob = Padrão inválido: { $error }
+search-no-results = Nenhum resultado
+search-scope-folder = Na pasta { $path }
+search-scope-file = No arquivo { $path }
+search-scope-clear = Parar de limitar a busca a este caminho

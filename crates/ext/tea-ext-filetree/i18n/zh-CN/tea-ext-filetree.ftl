@@ -35,3 +35,5 @@ copied = 已复制：{ $text }
 filetree-file-manager-error = 无法打开文件管理器：{ $error }
 filetree-name-relative = 请使用相对名称
 filetree-name-dots = 名称不能包含 ".." 或 "."
+filetree-search-folder = 在此文件夹中搜索
+filetree-search-file = 在此文件中搜索

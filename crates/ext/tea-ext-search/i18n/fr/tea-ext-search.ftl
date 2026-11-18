@@ -21,3 +21,17 @@ search-replace-all-message =
     
     Les fichiers ouverts dans des onglets restent modifiés, non enregistrés (Ctrl+Z annule). Les autres sont écrits directement sur le disque, sans annulation.
 search-replace-all-truncated = La recherche s'est arrêtée à { $count } résultats : seuls les fichiers listés changent. Recherchez à nouveau ensuite pour voir le reste.
+## Périmètre, filtres et navigation
+cmd-search-next = Recherche : résultat suivant
+cmd-search-prev = Recherche : résultat précédent
+search-filters = Filtres
+search-context = Contexte
+search-history = Recherches récentes
+search-history-empty = Aucune recherche récente
+search-include-placeholder = fichiers à inclure (p. ex. src/**, *.rs)
+search-exclude-placeholder = fichiers à exclure (p. ex. *.test.rs)
+search-bad-glob = Motif invalide : { $error }
+search-no-results = Aucun résultat
+search-scope-folder = Dans le dossier { $path }
+search-scope-file = Dans le fichier { $path }
+search-scope-clear = Ne plus limiter la recherche à ce chemin

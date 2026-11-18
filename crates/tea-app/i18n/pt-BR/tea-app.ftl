@@ -352,7 +352,7 @@ guide-files-10 = Arquivo mudado por fora (terminal, outro editor): a aba recarre
 guide-files-11 = Botão direito numa aba: fechar outras, à direita, salvas ou todas, copiar caminho, revelar na árvore e abrir no gerenciador de arquivos. Clique do meio fecha a aba.
 guide-tree = Árvore de arquivos
 guide-tree-1 = Mostrar/ocultar: { $filetree-toggle } · Revelar o arquivo atual: { $filetree-reveal }.
-guide-tree-2 = Botão direito num item: novo arquivo, nova pasta, renomear, apagar, copiar caminho e abrir no gerenciador de arquivos. Apagar manda para a lixeira do sistema.
+guide-tree-2 = Botão direito num item: novo arquivo, nova pasta, renomear, apagar, copiar caminho e abrir no gerenciador de arquivos. Apagar manda para a lixeira do sistema. Buscar nesta pasta, ou neste arquivo, abre a busca do projeto limitada àquele caminho.
 guide-tree-3 = Cores do git: amarelo = modificado, verde = novo, vermelho = conflito, apagado = ignorado. Uma pasta com mudanças dentro mostra um ponto.
 guide-bottom = Painel inferior
 guide-bottom-1 = Busca no projeto ({ $search-focus }), Problemas ({ $problems-focus }), Terminal ({ $terminal-focus }) e Git ({ $git-focus }) ficam em abas no painel de baixo. { $view-toggle_bottom } mostra/esconde o painel.
@@ -444,6 +444,7 @@ replaced = { $count } troca(s) em { $files } arquivo(s)
 replaced-failed = { $count } troca(s) em { $files } arquivo(s); { $failed } não deu para mudar (sem permissão ou não é texto)
 
 guide-bottom-3 = Substituir no projeto: { $search-replace } (ou ▸ ao lado da busca) abre "Substituir por". Cada resultado mostra como fica; "Substituir" troca a linha ou o arquivo, e "Substituir tudo" pede confirmação. Arquivos abertos em abas ficam alterados sem salvar (Ctrl+Z desfaz); os outros são gravados direto no disco.
+guide-bottom-4 = Nos resultados, Cima e Baixo (ou Tab) movem a seleção, Esquerda e Direita fecham e abrem um arquivo, e Enter abre a linha. Próximo e anterior: { $search-next } e { $search-prev }, que abrem o trecho no editor mesmo enquanto você digita nele. Filtros e linhas de contexto ficam no painel; as buscas recentes voltam com Cima e Baixo no campo vazio, ou pelo botão de histórico. [search] context_lines diz quantas linhas de contexto o botão mostra.
 
 ## Editor e salvar
 format-save-timeout = O servidor não formatou a tempo: salvo sem formatar

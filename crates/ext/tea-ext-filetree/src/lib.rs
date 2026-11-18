@@ -67,6 +67,8 @@ pub enum Message {
     ContextMenu(Option<PathBuf>, Point),
     CopyPath(String),
     OpenInFileManager(PathBuf),
+    /// Abre a busca no projeto limitada a este arquivo ou pasta.
+    SearchIn(PathBuf),
 }
 
 #[derive(Default)]
@@ -162,6 +164,10 @@ impl FileTreeExtension {
                 .item(Some(Icon::Edit), fl!("filetree-rename"), Message::Rename)
                 .danger(Some(Icon::Trash), fl!("filetree-delete-menu"), Message::Delete)
                 .separator();
+        }
+        menu = menu.item(Some(Icon::Search), fl!("filetree-search-folder"), Message::SearchIn(dir.clone()));
+        if path.is_some_and(|p| p.is_file()) {
+            menu = menu.item(Some(Icon::Search), fl!("filetree-search-file"), Message::SearchIn(target.to_path_buf()));
         }
         menu = menu.item(Some(Icon::Copy), fl!("filetree-copy-path"), Message::CopyPath(target.to_string_lossy().into_owned()));
         if path.is_some() {
@@ -494,6 +500,7 @@ impl Extension for FileTreeExtension {
                 ctx.notify(fl!("copied", text = text.as_str()));
                 return iced::clipboard::write(text);
             }
+            Message::SearchIn(path) => ctx.search_in(path),
             Message::OpenInFileManager(dir) => {
                 if let Err(e) = tea_core::os::open_in_file_manager(&dir) {
                     ctx.notify(fl!("filetree-file-manager-error", error = e.to_string()));
@@ -777,6 +784,34 @@ mod tests {
         assert_eq!(ft.status_of(&root.join("b.txt")), None);
         assert!(!ft.folders.contains_key(&root), "a raiz não ganha cor");
         assert!(!ft.folders.contains_key(&root.join("target")), "ignorado não sobe");
+    }
+
+    #[test]
+    fn context_menu_offers_search_in_folder_and_file() {
+        use tea_core::menu::{MenuAction, MenuItem};
+        let root = temp_root("search-menu");
+        let mut ft = activated(&root);
+        let file = root.join("src/deep/x.rs");
+        let mut ctx = Context::new(&root, None);
+        let _ = ft.update(Message::ContextMenu(Some(file.clone()), Point::new(0.0, 0.0)), &mut ctx);
+        let menu = ctx.into_requests().into_iter().find_map(|r| match r {
+            Request::Menu(menu) => Some(menu),
+            _ => None,
+        });
+        let menu = menu.expect("menu");
+        let paths: Vec<PathBuf> = menu
+            .items
+            .iter()
+            .filter_map(|item| {
+                let MenuItem::Action { action: Some(MenuAction::Message(msg)), .. } = item else { return None };
+                match msg.downcast_ref::<Message>() {
+                    Some(Message::SearchIn(path)) => Some(path.clone()),
+                    _ => None,
+                }
+            })
+            .collect();
+        assert!(paths.iter().any(|p| p.as_path() == file.parent().unwrap()), "busca na pasta: {paths:?}");
+        assert!(paths.iter().any(|p| p == &file), "busca no arquivo: {paths:?}");
     }
 
     #[test]

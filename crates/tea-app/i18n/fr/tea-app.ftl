@@ -352,7 +352,7 @@ guide-files-10 = Fichier modifié ailleurs (terminal, autre éditeur) : l'onglet
 guide-files-11 = Clic droit sur un onglet : fermer les autres, à droite, les enregistrés ou tous, copier le chemin, afficher dans l'arborescence et ouvrir dans le gestionnaire de fichiers. Le clic du milieu ferme l'onglet.
 guide-tree = Arborescence
 guide-tree-1 = Afficher/masquer : { $filetree-toggle } · Afficher le fichier courant : { $filetree-reveal }.
-guide-tree-2 = Clic droit sur un élément : nouveau fichier, nouveau dossier, renommer, supprimer, copier le chemin et ouvrir dans le gestionnaire de fichiers. Supprimer l'envoie à la corbeille du système.
+guide-tree-2 = Clic droit sur un élément : nouveau fichier, nouveau dossier, renommer, supprimer, copier le chemin et ouvrir dans le gestionnaire de fichiers. Supprimer l'envoie à la corbeille du système. Rechercher dans ce dossier, ou dans ce fichier, ouvre la recherche du projet limitée à ce chemin.
 guide-tree-3 = Couleurs git : jaune = modifié, vert = nouveau, rouge = conflit, atténué = ignoré. Un dossier contenant des modifications affiche un point.
 guide-bottom = Panneau inférieur
 guide-bottom-1 = La recherche dans le projet ({ $search-focus }), Problèmes ({ $problems-focus }), Terminal ({ $terminal-focus }) et Git ({ $git-focus }) sont des onglets du panneau inférieur. { $view-toggle_bottom } affiche ou masque le panneau.
@@ -444,6 +444,7 @@ replaced = { $count } remplacement(s) dans { $files } fichier(s)
 replaced-failed = { $count } remplacement(s) dans { $files } fichier(s) ; { $failed } n'ont pas pu être modifiés (pas de permission ou pas du texte)
 
 guide-bottom-3 = Remplacer dans le projet : { $search-replace } (ou ▸ à côté de la recherche) ouvre "Remplacer par". Chaque résultat montre le rendu ; "Remplacer" change la ligne ou le fichier, et "Tout remplacer" demande d'abord. Les fichiers ouverts dans des onglets restent modifiés, non enregistrés (Ctrl+Z annule) ; les autres sont écrits directement sur le disque.
+guide-bottom-4 = Dans les résultats, Haut et Bas (ou Tab) déplacent la sélection, Gauche et Droite replient et déplient un fichier, et Entrée ouvre la ligne. Résultat suivant et précédent : { $search-next } et { $search-prev }, qui ouvrent la correspondance dans l'éditeur même pendant la saisie. Les filtres et les lignes de contexte sont dans le panneau ; les recherches récentes reviennent avec Haut et Bas dans un champ vide, ou par le bouton d'historique. [search] context_lines indique combien de lignes de contexte le bouton affiche.
 
 ## Éditeur et enregistrement
 format-save-timeout = Le serveur n'a pas mis en forme à temps : enregistré sans mise en forme

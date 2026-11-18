@@ -9,7 +9,7 @@ fn main() {
     let query = args.next().unwrap_or_else(|| "fn ".into());
     let m = engine::build_matcher(&query, &Options::default()).unwrap();
     let t = Instant::now();
-    let r = engine::search(root.as_ref(), &m, &Arc::new(AtomicBool::new(false)));
+    let r = engine::search(root.as_ref(), &m, &engine::Scope::default(), &Options::default(), &Arc::new(AtomicBool::new(false))).unwrap();
     println!(
         "{} resultados em {} arquivos, {} lidos, truncado={} em {:?}",
         r.total, r.files.len(), r.files_scanned, r.truncated, t.elapsed()

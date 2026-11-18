@@ -35,7 +35,7 @@ The full list, for the technical reader. For the short version, see the [README]
 
 - **File tree:** create, rename and delete (to the trash), reveal the current file, git colors (modified, new,
   conflict, ignored).
-- **Project search** as you type, respecting `.gitignore`, with regex, whole word and match case.
+- **Project search** as you type, respecting `.gitignore`, with regex, whole word and match case. Right-click a folder or file to search only there (a chip in the panel clears it). Files to include and files to exclude are comma-separated globs (`src/**`, `*.test.rs`), tucked behind Filters. Each hit is highlighted; a replace preview strikes the old span and highlights the new one. Up and Down move through results, Enter opens the line, Left and Right collapse a file. `F4` and `Shift+F4` jump to the next and previous match even from the editor. Context lines come from `[search] context_lines` (default 0) and a button in the panel. The last 20 queries stay in the history.
 - **Right-click menus** on the tree, the tabs and the files in the git panel.
 - **Tasks** (`Ctrl+Shift+B`): your own commands from the config, plus what the IDE finds in the project (cargo,
   `package.json` scripts, Makefile targets, `build.zig` steps), with the output in the terminal. MoonBit modules also
@@ -205,6 +205,7 @@ Details (in Portuguese for now): [terminais-de-agente.md](terminais-de-agente.md
 | `Ctrl+O` / `Ctrl+S` / `Ctrl+Shift+S` | Open / save / save as |
 | `Ctrl+B` | Show/hide the file tree |
 | `Ctrl+Shift+F` | Search in the project |
+| `F4` / `Shift+F4` | Next / previous search result |
 | `` Ctrl+` `` / `Ctrl+'` | Terminal |
 | `Ctrl+Shift+T` | Reopen the last closed tab |
 | `Ctrl+Shift+G` | Git |

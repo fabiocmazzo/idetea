@@ -35,3 +35,5 @@ copied = Copiado: { $text }
 filetree-file-manager-error = No se pudo abrir el gestor de archivos: { $error }
 filetree-name-relative = use un nombre relativo
 filetree-name-dots = el nombre no puede contener ".." ni "."
+filetree-search-folder = Buscar en esta carpeta
+filetree-search-file = Buscar en este archivo

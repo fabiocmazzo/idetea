@@ -21,3 +21,17 @@ search-replace-all-message =
     
     Files open in tabs stay changed, not saved (Ctrl+Z undoes). The others are written straight to disk, with no undo.
 search-replace-all-truncated = The search stopped at { $count } results: only the listed files change. Search again afterwards to see the rest.
+## Escopo, filtros e navegação
+cmd-search-next = Search: next result
+cmd-search-prev = Search: previous result
+search-filters = Filters
+search-context = Context
+search-history = Recent searches
+search-history-empty = No recent searches
+search-include-placeholder = files to include (e.g. src/**, *.rs)
+search-exclude-placeholder = files to exclude (e.g. *.test.rs)
+search-bad-glob = Invalid pattern: { $error }
+search-no-results = No results
+search-scope-folder = In folder { $path }
+search-scope-file = In file { $path }
+search-scope-clear = Stop limiting the search to this path

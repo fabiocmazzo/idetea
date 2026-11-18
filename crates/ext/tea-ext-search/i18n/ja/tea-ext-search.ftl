@@ -21,3 +21,17 @@ search-replace-all-message =
     
     タブで開いているファイルは、変更されたまま未保存です (Ctrl+Z で元に戻します)。それ以外はディスクへ直接書き込まれ、元に戻せません。
 search-replace-all-truncated = 検索は結果 { $count } 件で停止しました。一覧にあるファイルだけが変わります。残りは、そのあとでもう一度検索してください。
+## 範囲、フィルター、移動
+cmd-search-next = 検索: 次の結果
+cmd-search-prev = 検索: 前の結果
+search-filters = フィルター
+search-context = 前後の行
+search-history = 最近の検索
+search-history-empty = 最近の検索はありません
+search-include-placeholder = 含めるファイル (例: src/**, *.rs)
+search-exclude-placeholder = 除外するファイル (例: *.test.rs)
+search-bad-glob = 無効なパターン: { $error }
+search-no-results = 結果はありません
+search-scope-folder = フォルダー { $path } 内
+search-scope-file = ファイル { $path } 内
+search-scope-clear = このパスに検索を限定するのをやめる

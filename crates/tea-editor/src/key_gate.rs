@@ -3,8 +3,8 @@
 //! Usado para o menu de autocomplete: com ele aberto, ↑/↓/Enter/Tab/Esc navegam
 //! no menu em vez de mover o cursor do editor.
 //!
-//! Algumas teclas são da IDE e não chegam ao widget: Alt+←/→ (voltar/avançar), Ctrl+Shift+V (prévia) e
-//! Ctrl+Shift+A (iniciar um agente).
+//! Algumas teclas são da IDE e não chegam ao widget: Alt+←/→ (voltar/avançar), F4 e Shift+F4 (busca),
+//! Ctrl+Shift+V (prévia) e Ctrl+Shift+A (iniciar um agente).
 //!
 //! Também mostra a mãozinha com Ctrl sobre o texto (Ctrl+clique vai para a definição): o widget
 //! de edição só sublinha a palavra, sem trocar o ponteiro.
@@ -139,6 +139,14 @@ where
             && [key, modified_key].into_iter().any(
                 |k| matches!(k, keyboard::Key::Character(c) if matches!(c.to_lowercase().as_str(), "." | "k" | "j")),
             )
+        {
+            return;
+        }
+        // F4 e Shift+F4 são da IDE (próximo e anterior resultado da busca), mesmo com o editor focado.
+        if let Event::Keyboard(keyboard::Event::KeyPressed { key: keyboard::Key::Named(Named::F4), modifiers, .. }) = event
+            && !modifiers.control()
+            && !modifiers.alt()
+            && !modifiers.logo()
         {
             return;
         }

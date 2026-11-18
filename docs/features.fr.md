@@ -42,7 +42,12 @@ La liste complète, pour le lecteur technique. Pour la version courte, voir le [
 - **Arborescence :** créer, renommer et supprimer (vers la corbeille), révéler le fichier courant, couleurs git
   (modifié, nouveau, conflit, ignoré).
 - **Recherche dans le projet** au fil de la frappe, en respectant `.gitignore`, avec expression régulière, mot entier
-  et respect de la casse.
+  et respect de la casse. Un clic droit sur un dossier ou un fichier ne cherche que là (une pastille du panneau
+  l'enlève). Fichiers à inclure et à exclure : des motifs séparés par des virgules (`src/**`, `*.test.rs`), derrière
+  Filtres. Chaque occurrence est surlignée ; l'aperçu du remplacement barre l'ancien passage et surligne le nouveau.
+  Haut et Bas parcourent les résultats, Entrée ouvre la ligne, Gauche et Droite replient un fichier. `F4` et
+  `Maj+F4` vont au résultat suivant et précédent, même depuis l'éditeur. Les lignes de contexte viennent de
+  `[search] context_lines` (0 par défaut) et d'un bouton. Les 20 dernières requêtes restent dans l'historique.
 - **Menus du clic droit** sur l'arborescence, les onglets et les fichiers du panneau git.
 - **Tâches** (`Ctrl+Shift+B`) : vos propres commandes, depuis la configuration, plus ce que l'IDE trouve dans le projet
   (cargo, scripts de `package.json`, cibles de Makefile, étapes de `build.zig`), avec la sortie dans le terminal. Les
@@ -236,6 +241,7 @@ Détails (en portugais pour l'instant) : [terminais-de-agente.md](terminais-de-a
 | `Ctrl+O` / `Ctrl+S` / `Ctrl+Shift+S` | Ouvrir / enregistrer / enregistrer sous |
 | `Ctrl+B` | Afficher/masquer l'arborescence |
 | `Ctrl+Shift+F` | Rechercher dans le projet |
+| `F4` / `Maj+F4` | Résultat de recherche suivant / précédent |
 | `` Ctrl+` `` / `Ctrl+'` | Terminal |
 | `Ctrl+Shift+T` | Rouvrir le dernier onglet fermé |
 | `Ctrl+Shift+G` | Git |

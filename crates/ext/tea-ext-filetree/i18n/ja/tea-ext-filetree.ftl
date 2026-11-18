@@ -35,3 +35,5 @@ copied = コピーしました: { $text }
 filetree-file-manager-error = ファイル マネージャーを開けませんでした: { $error }
 filetree-name-relative = 相対名を使ってください
 filetree-name-dots = 名前に ".." や "." は使えません
+filetree-search-folder = このフォルダーを検索
+filetree-search-file = このファイルを検索

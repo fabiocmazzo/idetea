@@ -26,7 +26,7 @@
 ## 项目
 
 - **文件树：**创建、重命名和删除（送进回收站），在树里定位当前文件，git颜色（已修改、新文件、冲突、已忽略）。
-- **项目搜索**随输入进行，遵守`.gitignore`，支持正则、全词匹配和区分大小写。
+- **项目搜索**随输入进行，遵守`.gitignore`，支持正则、全词匹配和区分大小写。在文件夹或文件上右键，只搜索那一条路径（面板里的标签可以去掉）。要包含和要排除的文件是逗号分隔的 glob（`src/**`、`*.test.rs`），收在“过滤”后面。每一处匹配都会高亮；替换预览里，旧的一段带删除线，新的一段高亮。上和下移动结果，Enter 打开那一行，左和右折叠文件。`F4` 和 `Shift+F4` 跳到下一处和上一处匹配，编辑器有焦点时也一样。上下文行来自 `[search] context_lines`（默认 0）和面板上的按钮。最近 20 条查询留在历史里。
 - **右键菜单**出现在文件树、选项卡和git面板里的文件上。
 - **任务**（`Ctrl+Shift+B`）：配置里你自己的命令，加上IDE在项目里找到的（cargo、`package.json`的脚本、Makefile目标、`build.zig`的步骤），输出在终端里。MoonBit模块还会得到`moon check`、`build`、`test`和`fmt --check`，在离当前文件最近的`moon.mod`所在目录运行。
 - **新建项目**（“项目: 新建…”或`idetea new <folder>`）：文件夹、git、模板的智能体技能（空项目、Rust、网站、Python、FastAPI），以及写进`AGENTS.md`的初始请求。见[skills.zh-CN.md](skills.zh-CN.md)。
@@ -123,6 +123,7 @@
 | `Ctrl+O` / `Ctrl+S` / `Ctrl+Shift+S` | 打开 / 保存 / 另存为 |
 | `Ctrl+B` | 显示/隐藏文件树 |
 | `Ctrl+Shift+F` | 在项目里搜索 |
+| `F4` / `Shift+F4` | 下一个 / 上一个搜索结果 |
 | `` Ctrl+` `` / `Ctrl+'` | 终端 |
 | `Ctrl+Shift+T` | 重新打开上次关闭的选项卡 |
 | `Ctrl+Shift+G` | Git |

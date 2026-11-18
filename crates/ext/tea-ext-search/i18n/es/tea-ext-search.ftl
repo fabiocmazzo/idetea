@@ -21,3 +21,17 @@ search-replace-all-message =
     
     Los archivos abiertos en pestañas quedan cambiados sin guardar (Ctrl+Z deshace). Los demás se guardan directo en el disco, sin deshacer.
 search-replace-all-truncated = La búsqueda se detuvo en { $count } resultados: solo cambian los archivos listados. Después, busque de nuevo para ver el resto.
+## Ámbito, filtros y navegación
+cmd-search-next = Búsqueda: resultado siguiente
+cmd-search-prev = Búsqueda: resultado anterior
+search-filters = Filtros
+search-context = Contexto
+search-history = Búsquedas recientes
+search-history-empty = No hay búsquedas recientes
+search-include-placeholder = archivos a incluir (p. ej. src/**, *.rs)
+search-exclude-placeholder = archivos a excluir (p. ej. *.test.rs)
+search-bad-glob = Patrón no válido: { $error }
+search-no-results = Ningún resultado
+search-scope-folder = En la carpeta { $path }
+search-scope-file = En el archivo { $path }
+search-scope-clear = Dejar de limitar la búsqueda a esta ruta

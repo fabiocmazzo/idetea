@@ -351,7 +351,7 @@ guide-files-10 = Datei außerhalb geändert (Terminal, anderer Editor): die Regi
 guide-files-11 = Rechtsklick auf eine Registerkarte: andere schließen, rechts davon, gespeicherte oder alle, Pfad kopieren, im Baum anzeigen und im Dateimanager öffnen. Ein Mittelklick schließt die Registerkarte.
 guide-tree = Dateibaum
 guide-tree-1 = Ein-/ausblenden: { $filetree-toggle } · Die aktuelle Datei anzeigen: { $filetree-reveal }.
-guide-tree-2 = Rechtsklick auf ein Element: neue Datei, neuer Ordner, umbenennen, löschen, Pfad kopieren und im Dateimanager öffnen. Löschen verschiebt in den Papierkorb des Systems.
+guide-tree-2 = Rechtsklick auf ein Element: neue Datei, neuer Ordner, umbenennen, löschen, Pfad kopieren und im Dateimanager öffnen. Löschen verschiebt in den Papierkorb des Systems. In diesem Ordner suchen, oder in dieser Datei, öffnet die Projektsuche begrenzt auf diesen Pfad.
 guide-tree-3 = Git-Farben: gelb = geändert, grün = neu, rot = Konflikt, abgeblendet = ignoriert. Ein Ordner mit Änderungen darin zeigt einen Punkt.
 guide-bottom = Unterer Bereich
 guide-bottom-1 = Projektsuche ({ $search-focus }), Probleme ({ $problems-focus }), Terminal ({ $terminal-focus }) und Git ({ $git-focus }) sind Registerkarten im unteren Bereich. { $view-toggle_bottom } blendet den Bereich ein und aus.
@@ -443,6 +443,7 @@ replaced = { $count } Ersetzung(en) in { $files } Datei(en)
 replaced-failed = { $count } Ersetzung(en) in { $files } Datei(en); { $failed } konnten nicht geändert werden (keine Berechtigung oder kein Text)
 
 guide-bottom-3 = Im Projekt ersetzen: { $search-replace } (oder ▸ neben der Suche) öffnet "Ersetzen durch". Jedes Ergebnis zeigt, wie es aussehen wird; "Ersetzen" ändert die Zeile oder die Datei, und "Alle ersetzen" fragt zuerst. In Registerkarten geöffnete Dateien bleiben geändert, nicht gespeichert (Ctrl+Z macht rückgängig); die anderen werden direkt auf den Datenträger geschrieben.
+guide-bottom-4 = In den Ergebnissen bewegen Auf und Ab (oder Tab) die Auswahl, Links und Rechts klappen eine Datei zu und auf, und Eingabe öffnet die Zeile. Nächstes und vorheriges Ergebnis: { $search-next } und { $search-prev }. Sie öffnen die Stelle im Editor, auch während Sie dort tippen. Filter und Kontextzeilen sitzen im Bereich; letzte Suchen kommen mit Auf und Ab im leeren Feld zurück, oder über die Schaltfläche für den Verlauf. [search] context_lines legt fest, wie viele Kontextzeilen die Schaltfläche zeigt.
 
 ## Editor und Speichern
 format-save-timeout = Der Server hat nicht rechtzeitig formatiert: ohne Formatieren gespeichert

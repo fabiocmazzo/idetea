@@ -352,7 +352,7 @@ guide-files-10 = Archivo cambiado desde fuera (terminal, otro editor): la pesta�
 guide-files-11 = Clic derecho en una pestaña: cerrar las otras, las de la derecha, las guardadas o todas, copiar ruta, mostrar en el árbol y abrir en el gestor de archivos. El clic central cierra la pestaña.
 guide-tree = Árbol de archivos
 guide-tree-1 = Mostrar/ocultar: { $filetree-toggle } · Mostrar el archivo actual: { $filetree-reveal }.
-guide-tree-2 = Clic derecho en un elemento: nuevo archivo, nueva carpeta, renombrar, eliminar, copiar ruta y abrir en el gestor de archivos. Eliminar lo envía a la papelera del sistema.
+guide-tree-2 = Clic derecho en un elemento: nuevo archivo, nueva carpeta, renombrar, eliminar, copiar ruta y abrir en el gestor de archivos. Eliminar lo envía a la papelera del sistema. Buscar en esta carpeta, o en este archivo, abre la búsqueda del proyecto limitada a esa ruta.
 guide-tree-3 = Colores de git: amarillo = modificado, verde = nuevo, rojo = conflicto, atenuado = ignorado. Una carpeta con cambios dentro muestra un punto.
 guide-bottom = Panel inferior
 guide-bottom-1 = Búsqueda en el proyecto ({ $search-focus }), Problemas ({ $problems-focus }), Terminal ({ $terminal-focus }) y Git ({ $git-focus }) son pestañas del panel inferior. { $view-toggle_bottom } muestra/oculta el panel.
@@ -444,6 +444,7 @@ replaced = { $count } reemplazo(s) en { $files } archivo(s)
 replaced-failed = { $count } reemplazo(s) en { $files } archivo(s); { $failed } no se pudieron cambiar (sin permiso o no es texto)
 
 guide-bottom-3 = Reemplazar en el proyecto: { $search-replace } (o ▸ junto a la búsqueda) abre "Reemplazar por". Cada resultado muestra cómo queda; "Reemplazar" cambia la línea o el archivo, y "Reemplazar todo" pide confirmación. Los archivos abiertos en pestañas quedan cambiados sin guardar (Ctrl+Z deshace); los demás se guardan directo en el disco.
+guide-bottom-4 = En los resultados, Arriba y Abajo (o Tab) mueven la selección, Izquierda y Derecha contraen y expanden un archivo, y Enter abre la línea. Resultado siguiente y anterior: { $search-next } y { $search-prev }, que abren la coincidencia en el editor aunque esté escribiendo ahí. Los filtros y las líneas de contexto están en el panel; las búsquedas recientes vuelven con Arriba y Abajo en el campo vacío, o con el botón de historial. [search] context_lines dice cuántas líneas de contexto muestra el botón.
 
 ## Editor e salvar
 format-save-timeout = El servidor no formateó a tiempo: guardado sin formatear

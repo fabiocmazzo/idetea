@@ -21,3 +21,17 @@ search-replace-all-message =
     
     In Registerkarten geöffnete Dateien bleiben geändert, nicht gespeichert (Ctrl+Z macht rückgängig). Die anderen werden direkt auf den Datenträger geschrieben, ohne Rückgängig.
 search-replace-all-truncated = Die Suche stoppte bei { $count } Ergebnissen: nur die aufgeführten Dateien ändern sich. Suchen Sie danach erneut, um den Rest zu sehen.
+## Bereich, Filter und Navigation
+cmd-search-next = Suchen: nächstes Ergebnis
+cmd-search-prev = Suchen: vorheriges Ergebnis
+search-filters = Filter
+search-context = Kontext
+search-history = Letzte Suchen
+search-history-empty = Keine letzten Suchen
+search-include-placeholder = einzubeziehende Dateien (z. B. src/**, *.rs)
+search-exclude-placeholder = auszuschließende Dateien (z. B. *.test.rs)
+search-bad-glob = Ungültiges Muster: { $error }
+search-no-results = Keine Ergebnisse
+search-scope-folder = Im Ordner { $path }
+search-scope-file = In der Datei { $path }
+search-scope-clear = Suche nicht mehr auf diesen Pfad begrenzen

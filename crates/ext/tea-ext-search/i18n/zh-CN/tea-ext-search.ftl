@@ -21,3 +21,17 @@ search-replace-all-message =
     
     在选项卡里打开的文件会保持更改、不保存（Ctrl+Z撤消）。其余文件直接写入磁盘，不能撤消。
 search-replace-all-truncated = 搜索在 { $count } 条结果处停了：只有列出的文件会改。之后再搜一次才能看到剩下的。
+## 范围、过滤和导航
+cmd-search-next = 搜索: 下一个结果
+cmd-search-prev = 搜索: 上一个结果
+search-filters = 过滤
+search-context = 上下文
+search-history = 最近的搜索
+search-history-empty = 没有最近的搜索
+search-include-placeholder = 要包含的文件（例如 src/**, *.rs）
+search-exclude-placeholder = 要排除的文件（例如 *.test.rs）
+search-bad-glob = 无效的模式：{ $error }
+search-no-results = 没有结果
+search-scope-folder = 文件夹 { $path } 中
+search-scope-file = 文件 { $path } 中
+search-scope-clear = 不再把搜索限制在此路径
