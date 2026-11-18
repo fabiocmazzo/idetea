@@ -2,7 +2,9 @@
 
 Records a narrated screen capture of IDE TEA on a private virtual display (Xvfb). Nothing is shown on the host desktop.
 
-The video committed in `assets/idetea-demo.mp4` was made with this pipeline: OpenRouter `gpt-audio`, voice `sage`, English, burned-in subtitles, 1280×720, about 52 seconds.
+The overview committed in `assets/idetea-demo.mp4` was made with this pipeline: OpenRouter `gpt-audio`, voice `sage`, English, burned-in subtitles, 1280×720, about 52 seconds.
+
+The five feature clips committed next to it (`assets/idetea-agents.mp4`, `assets/idetea-tables.mp4`, `assets/idetea-lsp.mp4`, `assets/idetea-encodings.mp4`, `assets/idetea-mascot.mp4`) were recorded the same way, with the local Piper voice (`en_US-lessac-medium`). After a new take, copy `dist/idetea-<name>.mp4` into `assets/` and refresh the matching `assets/<name>-poster.png`.
 
 ## One command
 

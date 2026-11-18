@@ -67,6 +67,50 @@
 
 一条命令就能教会这个项目里的智能体：“界面: 教会本项目的智能体”会把协议写进`AGENTS.md`和`CLAUDE.md`。
 
+## 功能实况
+
+五段短片，英语旁白，字幕嵌在画面里。GitHub不会在README里播放仓库中的视频文件。点击海报会在网站上打开片段，可以带声音播放。文件在`assets/`里。
+
+<table>
+<tr>
+  <td width="50%" valign="top">
+    <a href="https://idetea.belabs.cloud/zh-cn/#feature-agents"><img src="assets/agents-poster.png" width="440" alt="智能体: 智能体在终端里。记忆在仓库里。"></a><br>
+    <a href="https://idetea.belabs.cloud/zh-cn/#feature-agents"><b>智能体</b></a> · 57秒<br>
+    智能体在终端里。记忆在仓库里。<br>
+    <a href="assets/idetea-agents.mp4"><code>assets/idetea-agents.mp4</code></a>
+  </td>
+  <td width="50%" valign="top">
+    <a href="https://idetea.belabs.cloud/zh-cn/#feature-tables"><img src="assets/tables-poster.png" width="440" alt="表格: 数据就是表格。内容仍是纯文本。"></a><br>
+    <a href="https://idetea.belabs.cloud/zh-cn/#feature-tables"><b>表格</b></a> · 45秒<br>
+    数据就是表格。内容仍是纯文本。<br>
+    <a href="assets/idetea-tables.mp4"><code>assets/idetea-tables.mp4</code></a>
+  </td>
+</tr>
+<tr>
+  <td width="50%" valign="top">
+    <a href="https://idetea.belabs.cloud/zh-cn/#feature-lsp"><img src="assets/lsp-poster.png" width="440" alt="LSP: 深入的语言支持，内置于编辑器。"></a><br>
+    <a href="https://idetea.belabs.cloud/zh-cn/#feature-lsp"><b>LSP</b></a> · 41秒<br>
+    深入的语言支持，内置于编辑器。<br>
+    <a href="assets/idetea-lsp.mp4"><code>assets/idetea-lsp.mp4</code></a>
+  </td>
+  <td width="50%" valign="top">
+    <a href="https://idetea.belabs.cloud/zh-cn/#feature-encodings"><img src="assets/encodings-poster.png" width="440" alt="编码: 旧文件，新编辑器，什么都不会丢。"></a><br>
+    <a href="https://idetea.belabs.cloud/zh-cn/#feature-encodings"><b>编码</b></a> · 47秒<br>
+    旧文件，新编辑器，什么都不会丢。<br>
+    <a href="assets/idetea-encodings.mp4"><code>assets/idetea-encodings.mp4</code></a>
+  </td>
+</tr>
+<tr>
+  <td width="50%" valign="top">
+    <a href="https://idetea.belabs.cloud/zh-cn/#feature-mascot"><img src="assets/mascot-poster.png" width="440" alt="吉祥物: 一杯平静的茶，用你的语言。"></a><br>
+    <a href="https://idetea.belabs.cloud/zh-cn/#feature-mascot"><b>吉祥物</b></a> · 52秒<br>
+    一杯平静的茶，用你的语言。<br>
+    <a href="assets/idetea-mascot.mp4"><code>assets/idetea-mascot.mp4</code></a>
+  </td>
+  <td width="50%" valign="top"></td>
+</tr>
+</table>
+
 ## 安装
 
 **Linux、macOS和Windows，下载就能跑。**从[Releases](https://github.com/fabiocmazzo/idetea/releases)下载你平台的包：Linux x86_64/aarch64用`.tar.gz`或`.AppImage`，macOS aarch64用带`IDE TEA.app`的`.tar.gz`，Windows x86_64用`-setup.exe`安装程序或便携`.zip`。`SHA256SUMS`里是校验和。
