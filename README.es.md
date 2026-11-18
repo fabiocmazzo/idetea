@@ -80,6 +80,51 @@ correcto) y se pliega en la barra de estado cuando quieres la esquina de vuelta.
 Un comando enseña a los agentes del proyecto: "Interfaces: enseñar a los agentes de este proyecto" escribe el
 protocolo en `AGENTS.md` y `CLAUDE.md`.
 
+## Funciones en acción
+
+Cinco clips cortos, narración en inglés, subtítulos en la imagen. GitHub no reproduce un vídeo del repositorio
+dentro del README. Los pósters abren el clip en el sitio, con sonido. Los archivos están en `assets/`.
+
+<table>
+<tr>
+  <td width="50%" valign="top">
+    <a href="https://idetea.belabs.cloud/es/#feature-agents"><img src="assets/agents-poster.png" width="440" alt="Agentes: Agentes en tu terminal. Memoria en tu repositorio."></a><br>
+    <a href="https://idetea.belabs.cloud/es/#feature-agents"><b>Agentes</b></a> · 57 segundos<br>
+    Agentes en tu terminal. Memoria en tu repositorio.<br>
+    <a href="assets/idetea-agents.mp4"><code>assets/idetea-agents.mp4</code></a>
+  </td>
+  <td width="50%" valign="top">
+    <a href="https://idetea.belabs.cloud/es/#feature-tables"><img src="assets/tables-poster.png" width="440" alt="Tablas: Tus datos como tabla. Siguen siendo solo texto."></a><br>
+    <a href="https://idetea.belabs.cloud/es/#feature-tables"><b>Tablas</b></a> · 45 segundos<br>
+    Tus datos como tabla. Siguen siendo solo texto.<br>
+    <a href="assets/idetea-tables.mp4"><code>assets/idetea-tables.mp4</code></a>
+  </td>
+</tr>
+<tr>
+  <td width="50%" valign="top">
+    <a href="https://idetea.belabs.cloud/es/#feature-lsp"><img src="assets/lsp-poster.png" width="440" alt="LSP: Soporte profundo de lenguaje, integrado."></a><br>
+    <a href="https://idetea.belabs.cloud/es/#feature-lsp"><b>LSP</b></a> · 41 segundos<br>
+    Soporte profundo de lenguaje, integrado.<br>
+    <a href="assets/idetea-lsp.mp4"><code>assets/idetea-lsp.mp4</code></a>
+  </td>
+  <td width="50%" valign="top">
+    <a href="https://idetea.belabs.cloud/es/#feature-encodings"><img src="assets/encodings-poster.png" width="440" alt="Codificaciones: Archivos viejos, editor nuevo, no se pierde nada."></a><br>
+    <a href="https://idetea.belabs.cloud/es/#feature-encodings"><b>Codificaciones</b></a> · 47 segundos<br>
+    Archivos viejos, editor nuevo, no se pierde nada.<br>
+    <a href="assets/idetea-encodings.mp4"><code>assets/idetea-encodings.mp4</code></a>
+  </td>
+</tr>
+<tr>
+  <td width="50%" valign="top">
+    <a href="https://idetea.belabs.cloud/es/#feature-mascot"><img src="assets/mascot-poster.png" width="440" alt="Mascota: Una taza de té serena, en tu idioma."></a><br>
+    <a href="https://idetea.belabs.cloud/es/#feature-mascot"><b>Mascota</b></a> · 52 segundos<br>
+    Una taza de té serena, en tu idioma.<br>
+    <a href="assets/idetea-mascot.mp4"><code>assets/idetea-mascot.mp4</code></a>
+  </td>
+  <td width="50%" valign="top"></td>
+</tr>
+</table>
+
 ## Instalación
 
 **Linux, macOS y Windows, listo para usar.** Descarga el paquete de tu sistema en

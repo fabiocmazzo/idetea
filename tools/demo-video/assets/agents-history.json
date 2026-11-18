@@ -1,0 +1,71 @@
+{
+  "format": "idetea-ui-history",
+  "version": 1,
+  "name": "empty-name",
+  "title": "Empty names in hello()",
+  "source": "agent",
+  "revision": 1,
+  "outcome": "answered",
+  "shown": "2026-11-18T20:40:02Z",
+  "answered": "2026-11-18T20:40:19Z",
+  "read_by_agent": "2026-11-18T20:40:20Z",
+  "document": {
+    "components": [
+      {
+        "component": "markdown",
+        "id": "texto",
+        "text": "hello() gets an empty name. What should it do?"
+      },
+      {
+        "component": "select",
+        "id": "escolha",
+        "label": "Choose",
+        "options": [
+          "Greet without a name",
+          "Return an error",
+          "Use \"friend\" as the name"
+        ],
+        "value": "/escolha"
+      },
+      {
+        "action": {
+          "context": [
+            "/escolha"
+          ],
+          "name": "ok"
+        },
+        "component": "button",
+        "id": "ok",
+        "label": "Confirm",
+        "requires": "/escolha"
+      }
+    ],
+    "data": {},
+    "format": "idetea-ui",
+    "revision": 1,
+    "source": "agent",
+    "title": "Empty names in hello()",
+    "version": 1
+  },
+  "response": {
+    "format": "idetea-ui-response",
+    "version": 1,
+    "surface": "empty-name",
+    "revision": 1,
+    "event": "1a1f06392b0-1e150-1",
+    "seq": 1,
+    "action": "ok",
+    "source": "ok",
+    "time": "2026-11-18T20:40:19Z",
+    "values": {
+      "/escolha": "Greet without a name"
+    },
+    "comment": "Keep it calm: no panic in a greeting.",
+    "ide": {
+      "pid": 123216,
+      "version": "0.13.0",
+      "outdated": false,
+      "instructions": "e2fab562"
+    }
+  }
+}

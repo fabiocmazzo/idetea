@@ -1,0 +1,120 @@
+# Feature video: the mascot's reactions and the interface in other languages.
+# The language is a user setting (the sample project's config has no `language` line), so
+# Settings writes it to work/config-home and restart_ide brings it into effect.
+# Record with:  just demo mascot
+title: IDE TEA mascot and languages
+width: 1280
+height: 720
+fps: 30
+language: en
+project: projects/mascot
+project_copy: true
+open: src/main.rs
+user_config: xdg/mascot.toml
+layout: {bottom_height: 200}
+# Keep the captions left of the mascot's bubble.
+subtitle_style: "MarginL=8,MarginR=96"
+
+scenes:
+  - id: intro
+    narration: "Meet Tea, the IDE TEA mascot. It keeps you company in the corner and reacts to what you do."
+    actions:
+      - mousemove: {x: 640, y: 300}
+      - wait: 2.0
+      - glide: {x: 900, y: 560}
+
+  - id: save
+    narration: "It notices your work. Save a file, and Tea is pleased."
+    actions:
+      - glide: {x: 700, y: 300}
+      - click: {x: 700, y: 300}
+      - key: ctrl+End
+      - key: Return
+      - type: "// brewed with care"
+      - key: ctrl+s
+      - glide: {x: 900, y: 560}
+
+  - id: cli
+    narration: "Scripts and agents can set its mood from the terminal, with idetea mascot."
+    actions:
+      - glide: {x: 23, y: 537}
+      - click: {x: 23, y: 537}
+      - wait: 1.2
+      - type: 'idetea mascot thinking --text "Steeping a plan" --ttl 6'
+      - key: Return
+      - glide: {x: 900, y: 560}
+
+  - id: poke
+    narration: "Rest the pointer on it and it gets curious. Click it, double click it, and if you keep poking, it lets you know."
+    actions:
+      - glide: {x: 1035, y: 648}
+      - wait: 1.2
+      - click: {x: 1035, y: 648}
+      - wait: 1.6
+      - dblclick: {x: 1035, y: 648}
+      - wait: 1.6
+      - click: {x: 1035, y: 648}
+      - wait: 0.3
+      - click: {x: 1035, y: 648}
+      - wait: 0.3
+      - click: {x: 1035, y: 648}
+
+  - id: settings
+    narration: "The interface speaks eight languages. Pick one in Settings, under Appearance, and restart."
+    actions:
+      - click: {x: 700, y: 250}
+      - key: ctrl+comma
+      - wait: 1.0
+      - glide: {x: 931, y: 210}
+      - click: {x: 931, y: 210}
+      - wait: 0.8
+      - glide: {x: 870, y: 264}
+      - click: {x: 870, y: 264}
+      - wait: 0.8
+      - restart_ide: true
+      - glide: {x: 1035, y: 648}
+
+  - id: ptbr
+    narration: "Here is Brazilian Portuguese. Menus, panels, settings and the mascot's lines are all translated."
+    actions:
+      - click: {x: 1035, y: 648}
+      - wait: 1.8
+      - key: ctrl+comma
+      - wait: 1.0
+      - glide: {x: 931, y: 210}
+      - click: {x: 931, y: 210}
+      - wait: 0.6
+      - glide: {x: 870, y: 426}
+      - click: {x: 870, y: 426}
+      - wait: 0.4
+      - restart_ide: true
+      - glide: {x: 1035, y: 648}
+
+  - id: ja
+    narration: "Japanese, the same way: every label, every message, and Tea's little remarks."
+    actions:
+      - click: {x: 1035, y: 648}
+      - wait: 1.6
+      - key: ctrl+comma
+      - wait: 0.8
+      - click: {x: 931, y: 210}
+      - wait: 0.5
+      - click: {x: 870, y: 452}
+      - wait: 0.3
+      - restart_ide: true
+      - glide: {x: 1035, y: 648}
+
+  - id: zh
+    narration: "And Simplified Chinese, along with English, Spanish, French, German and Italian."
+    actions:
+      - click: {x: 1035, y: 648}
+      - wait: 1.8
+      - key: ctrl+comma
+      - wait: 2.4
+      - key: Escape
+
+  - id: close
+    narration: "A calm cup of tea, in your language."
+    actions:
+      - wait: 0.5
+      - glide: {x: 640, y: 360}

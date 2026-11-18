@@ -78,6 +78,52 @@ into the status bar when you want the corner back.
 One command teaches the project's agents: "Interfaces: teach this project's agents" writes the protocol into
 `AGENTS.md` and `CLAUDE.md`.
 
+## Features in action
+
+Five short clips, narrated in English, with subtitles burned in. GitHub does not play a video file from the
+repository inside the README. The posters open the clip on the website, where it plays with sound. The files
+themselves are in `assets/`.
+
+<table>
+<tr>
+  <td width="50%" valign="top">
+    <a href="https://idetea.belabs.cloud/#feature-agents"><img src="assets/agents-poster.png" width="440" alt="Agents: Agents in your terminal. Memory in your repo."></a><br>
+    <a href="https://idetea.belabs.cloud/#feature-agents"><b>Agents</b></a> · 57 seconds<br>
+    Agents in your terminal. Memory in your repo.<br>
+    <a href="assets/idetea-agents.mp4"><code>assets/idetea-agents.mp4</code></a>
+  </td>
+  <td width="50%" valign="top">
+    <a href="https://idetea.belabs.cloud/#feature-tables"><img src="assets/tables-poster.png" width="440" alt="Tables: Your data as a table. Still just text."></a><br>
+    <a href="https://idetea.belabs.cloud/#feature-tables"><b>Tables</b></a> · 45 seconds<br>
+    Your data as a table. Still just text.<br>
+    <a href="assets/idetea-tables.mp4"><code>assets/idetea-tables.mp4</code></a>
+  </td>
+</tr>
+<tr>
+  <td width="50%" valign="top">
+    <a href="https://idetea.belabs.cloud/#feature-lsp"><img src="assets/lsp-poster.png" width="440" alt="LSP: Deep language support, built in."></a><br>
+    <a href="https://idetea.belabs.cloud/#feature-lsp"><b>LSP</b></a> · 41 seconds<br>
+    Deep language support, built in.<br>
+    <a href="assets/idetea-lsp.mp4"><code>assets/idetea-lsp.mp4</code></a>
+  </td>
+  <td width="50%" valign="top">
+    <a href="https://idetea.belabs.cloud/#feature-encodings"><img src="assets/encodings-poster.png" width="440" alt="Encodings: Old files, new editor, nothing lost."></a><br>
+    <a href="https://idetea.belabs.cloud/#feature-encodings"><b>Encodings</b></a> · 47 seconds<br>
+    Old files, new editor, nothing lost.<br>
+    <a href="assets/idetea-encodings.mp4"><code>assets/idetea-encodings.mp4</code></a>
+  </td>
+</tr>
+<tr>
+  <td width="50%" valign="top">
+    <a href="https://idetea.belabs.cloud/#feature-mascot"><img src="assets/mascot-poster.png" width="440" alt="Mascot: A calm cup of tea, in your language."></a><br>
+    <a href="https://idetea.belabs.cloud/#feature-mascot"><b>Mascot</b></a> · 52 seconds<br>
+    A calm cup of tea, in your language.<br>
+    <a href="assets/idetea-mascot.mp4"><code>assets/idetea-mascot.mp4</code></a>
+  </td>
+  <td width="50%" valign="top"></td>
+</tr>
+</table>
+
 ## Install
 
 **Linux, macOS and Windows, ready to run.** Download the package for your platform from

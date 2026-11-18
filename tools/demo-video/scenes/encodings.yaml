@@ -1,0 +1,79 @@
+# Feature video: encodings beyond UTF-8 (RFC 0021). Record with:  just demo encodings
+# The two files in projects/encodings/legacy are Windows-1252 and Shift_JIS bytes.
+title: IDE TEA encodings
+width: 1280
+height: 720
+fps: 30
+language: en
+project: projects/encodings
+project_copy: true
+open: legacy/relatorio-1252.txt
+
+scenes:
+  - id: intro
+    narration: "IDE TEA reads and writes more than UTF-8. This old report was saved in Windows 1252, and the status bar says so."
+    actions:
+      - mousemove: {x: 700, y: 420}
+      - wait: 0.8
+      - glide: {x: 560, y: 160}
+      - wait: 2.2
+      - glide: {x: 790, y: 690}
+
+  - id: detect
+    narration: "Detection checks for a byte order mark, the editorconfig charset and valid UTF-8, then falls back to Windows 1252. So this Shift JIS file comes out garbled."
+    actions:
+      - wait: 1.0
+      - key: ctrl+p
+      - wait: 0.4
+      - type: "zaiko"
+      - wait: 0.4
+      - key: Return
+      - wait: 0.8
+      - glide: {x: 640, y: 200}
+
+  - id: reopen
+    narration: "Click the encoding in the status bar, choose Reopen with encoding, and pick Shift JIS. Now the Japanese text is right."
+    actions:
+      - glide: {x: 790, y: 705}
+      - click: {x: 790, y: 705}
+      - wait: 0.9
+      - key: Return
+      - wait: 0.7
+      - type: "shift"
+      - wait: 0.6
+      - key: Return
+      - wait: 0.3
+      - glide: {x: 640, y: 260}
+
+  - id: save
+    narration: "Save with encoding converts the file, here to UTF-8."
+    actions:
+      - glide: {x: 790, y: 705}
+      - click: {x: 790, y: 705}
+      - wait: 0.4
+      - key: Down
+      - key: Return
+      - wait: 0.4
+      - type: "UTF-8"
+      - key: Return
+      - wait: 0.2
+      - glide: {x: 900, y: 560}
+
+  - id: refuse
+    narration: "And if you type a character the file's encoding cannot hold, saving stops and tells you which one, with the line and column. Nothing turns into question marks."
+    actions:
+      - glide: {x: 400, y: 20}
+      - click: {x: 400, y: 20}
+      - wait: 0.5
+      - key: ctrl+End
+      - type: " 緑茶"
+      - wait: 0.4
+      - key: ctrl+s
+      - wait: 0.4
+      - glide: {x: 760, y: 560}
+
+  - id: close
+    narration: "Old files, new editor, nothing lost."
+    actions:
+      - wait: 0.6
+      - glide: {x: 900, y: 360}
