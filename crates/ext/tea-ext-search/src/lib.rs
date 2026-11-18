@@ -116,13 +116,14 @@ impl SearchExtension {
         self.cancel = Some(cancel.clone());
         let generation = self.generation;
         let root = self.root.clone();
+        let opts = self.opts.clone();
         let (tx, rx) = oneshot::channel();
         std::thread::spawn(move || {
             std::thread::sleep(DEBOUNCE);
             if cancel.load(Ordering::Relaxed) {
                 return;
             }
-            let _ = tx.send(engine::search(&root, &matcher, &cancel));
+            let _ = tx.send(engine::search(&root, &matcher, &engine::Scope::default(), &opts, &cancel).unwrap_or_default());
         });
         // Se a busca foi cancelada, o canal fecha e nada chega.
         Task::future(async move { rx.await.ok() })
