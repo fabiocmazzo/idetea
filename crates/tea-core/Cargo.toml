@@ -16,6 +16,7 @@ rust-embed.workspace = true
 sys-locale.workspace = true
 fluent-syntax.workspace = true
 regex.workspace = true
+encoding_rs.workspace = true
 
 [dev-dependencies]
 ttf-parser = "0.25"

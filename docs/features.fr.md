@@ -28,8 +28,10 @@ La liste complète, pour le lecteur technique. Pour la version courte, voir le [
   `Ctrl+Z` l'annule). En JSONL, une cellule prend du JSON, et une valeur invalide est refusée.
   Glisser le bord d'une colonne la redimensionne ; cliquer les numéros de ligne (Maj étend), `Ctrl+C` les copie
   en TSV, `Ctrl+Maj+C` en CSV. `[table] max_mb` (50 par défaut) fixe la taille maximale.
-- Conserve les CRLF. Un fichier qui n'est pas en UTF-8 n'est pas ouvert (avec un avertissement), au lieu d'être
-  corrompu.
+- Conserve les CRLF. Les fichiers dans d'autres encodages s'ouvrent et s'enregistrent dans le leur (BOM, UTF-16,
+  `charset` de `.editorconfig`, sinon `[editor] fallback_encoding`, `windows-1252` par défaut) ; un clic sur l'encodage
+  dans la barre d'état rouvre ou enregistre avec un autre. Un caractère qui ne rentre pas est refusé à
+  l'enregistrement, jamais changé en `?`. Les fichiers binaires ne s'ouvrent pas.
 - Gros fichiers : un fichier de 50 Mo s'ouvre en moins de 0,1 s. Un fichier d'une seule ligne géante (JSON ou JS
   minifié) s'ouvre dans un mode léger, sans couleurs et avec retour à la ligne, pour que la fenêtre ne se fige pas.
 - Facultatif à l'enregistrement : supprimer les espaces en fin de ligne, saut de ligne final, mettre en forme avec le
@@ -262,6 +264,7 @@ un terminal, `idetea .` ouvre l'IDE et rend l'invite ; `idetea -f .` reste attac
   projet avec des compétences.
 - [ ] Extensions tierces en WASM, sans recompiler l'IDE (un prototype existe derrière la fonctionnalité `plugins`).
 - [ ] Davantage d'adaptateurs de débogage (codelldb, debugpy, delve…).
-- [ ] Encodages autres que l'UTF-8 ; une vue de fusion à 3 voies ; le stash depuis l'interface.
+- [x] Encodages autres que l'UTF-8.
+- [ ] Une vue de fusion à 3 voies ; le stash depuis l'interface.
 
 Le plan détaillé, phase par phase, est dans [SPEC.md](../SPEC.md) (en portugais).

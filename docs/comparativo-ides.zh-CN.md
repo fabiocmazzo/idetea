@@ -103,7 +103,7 @@ IDE TEA认定**最好的智能体已经在终端里跑**（Claude Code、Codex�
 ### 相对VS Code、Zed和JetBrains，编辑器还缺的
 1. **代码片段：**没有片段引擎（Tab停靠点`$1`、`$2`）来展开一小块常用代码。
 2. **按AST的结构化选择（Expand/Shrink Selection）：**在Zed、Helix和JetBrains里，一个快捷键可以把选区从词 → 表达式 → `if`块 → 整个函数，靠`tree-sitter`/AST扩大。
-3. **旧编码：**只打开UTF-8（保留LF/CRLF）。用`ISO-8859-1` / `Windows-1252`文件的人没法在IDE TEA里编辑它们。
+3. ~~旧编码~~ —— **已完成：**Windows-1252、ISO-8859-*、UTF-16、Shift_JIS、GBK 等编码的文件按原编码打开和保存；状态栏显示编码，可用另一种编码重新打开或保存。
 4. **同一实例里的多窗口 / 多项目：**每个项目是一个单独的`idetea`进程；同一个窗口里没有“Multi-root Workspaces”。
 
 ---

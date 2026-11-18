@@ -25,7 +25,10 @@ Die vollständige Liste, für die technische Leserschaft. Die Kurzfassung steht 
   bleiben, `Strg+Z` macht es rückgängig). In JSONL nimmt eine Zelle JSON an; ein ungültiger Wert wird abgelehnt.
   Spaltenbreite durch Ziehen am Rand; Zeilennummern anklicken (Shift erweitert), `Strg+C` kopiert sie als TSV,
   `Strg+Shift+C` als CSV. `[table] max_mb` (Standard 50) setzt die Größengrenze.
-- CRLF bleibt erhalten. Eine Datei, die nicht UTF-8 ist, wird nicht geöffnet (mit einer Warnung), statt beschädigt zu werden.
+- CRLF bleibt erhalten. Dateien in anderen Kodierungen öffnen und speichern in ihrer eigenen (BOM, UTF-16, `charset`
+  aus `.editorconfig`, sonst `[editor] fallback_encoding`, Standard `windows-1252`); ein Klick auf die Kodierung in
+  der Statusleiste öffnet neu oder speichert mit einer anderen. Ein Zeichen, das nicht passt, wird beim Speichern
+  abgelehnt, nie zu `?`. Binärdateien werden nicht geöffnet.
 - Große Dateien: eine Datei von 50 MB öffnet in unter 0,1 s. Eine Datei mit einer riesigen Zeile (minifiziertes JSON oder JS) öffnet in einem Leichtmodus,
   ohne Farben und mit Umbruch, damit das Fenster nicht einfriert.
 - Optional beim Speichern: Leerzeichen am Zeilenende entfernen, abschließender Zeilenumbruch, mit dem Sprachserver formatieren. Eine `.editorconfig`
@@ -235,6 +238,7 @@ Terminal öffnet `idetea .` die IDE und gibt die Eingabeaufforderung zurück; `i
 - [x] Agenten: Bereich Interfaces, Agenten-Terminals, Zulassungsliste, Helfer in Worktrees, neues Projekt mit Skills.
 - [ ] Plugins von Dritten in WASM, ohne die IDE neu zu bauen (ein Prototyp existiert hinter dem Feature `plugins`).
 - [ ] Weitere Debug-Adapter (codelldb, debugpy, delve …).
-- [ ] Andere Kodierungen als UTF-8; eine 3-Wege-Merge-Ansicht; Stash über die Oberfläche.
+- [x] Andere Kodierungen als UTF-8.
+- [ ] Eine 3-Wege-Merge-Ansicht; Stash über die Oberfläche.
 
 Der ausführliche Plan, Phase für Phase, steht in [SPEC.md](../SPEC.md) (auf Portugiesisch).

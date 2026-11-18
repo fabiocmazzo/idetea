@@ -24,6 +24,7 @@ pub mod coding_agents;
 pub mod config;
 pub mod config_edit;
 pub mod debug;
+pub mod encoding;
 pub mod file_icons;
 pub mod fonts;
 pub mod i18n;
@@ -186,7 +187,8 @@ pub struct EditorStatus {
     pub column: usize,
     pub language: String,
     pub modified: bool,
-    pub encoding: &'static str,
+    /// O encoding do arquivo (`UTF-8`, `windows-1252`, `UTF-8 BOM`…).
+    pub encoding: String,
     pub line_ending: &'static str,
 }
 

@@ -767,6 +767,7 @@ code-action-kind-refactor = リファクタリング
 code-action-kind-source = ファイル
 cmd-lsp-toggle-inlay-hints = LSP: インレイ ヒントの表示を切り替え (型とパラメーター名)
 cmd-table-toggle = 表: テキストと表を切り替える (CSV、TSV、JSONL)
+cmd-file-encoding = ファイル: 別のエンコーディングで開き直す/保存する
 inlay-hints-on = インレイ ヒント: オン
 inlay-hints-off = インレイ ヒント: オフ
 guide-lsp-11 = コード アクション: エラーや警告の上にカーソルを置いて (またはコードを選択して) { $lsp-code_actions } を押すと、足りない import など、サーバーが提案する修正とリファクタリングが一覧になります。おすすめは ✓ 付きで先頭に出ます。変更はタブ内で未保存のままです (Ctrl+Z で元に戻せます)。
@@ -775,3 +776,13 @@ guide-lsp-12 = インレイ ヒント: サーバーが推論した変数の型�
 ## Tabela (RFC 0020)
 table-not-a-table = このファイルには表ビューがありません (CSV、TSV、JSONL)。
 table-toggle-tip = 表またはテキスト
+
+## Encodings (RFC 0021)
+encoding-placeholder = エンコーディング: { $encoding }
+encoding-reopen = エンコーディングを指定して開き直す…
+encoding-save = エンコーディングを指定して保存…
+encoding-current = 現在
+encoding-no-file = このタブには、別のエンコーディングで開き直したり保存したりできるファイルがありません。
+encoding-reopen-modified = 別のエンコーディングで開き直す前に、変更を保存するか元に戻してください。
+encoding-reopened = { $encoding } で開き直しました。
+encoding-saved = { $encoding } で保存しました。

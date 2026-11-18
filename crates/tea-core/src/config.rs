@@ -65,6 +65,9 @@ font = "JetBrains Mono"
 font_weight = "normal"
 # Altura da linha, em múltiplos do tamanho da fonte (1.0 a 2.5).
 line_height = 1.45
+# Um arquivo que não é UTF-8 nem tem BOM abre neste encoding (e salva nele). Errou: clique no encoding na barra
+# de status e "Reabrir com…". Ex.: "windows-1252", "iso-8859-15", "windows-1251", "shift_jis", "gbk".
+fallback_encoding = "windows-1252"
 
 # Tarefas (Ctrl+Shift+B): "nome" = "comando", rodam na raiz do projeto com a saída no terminal. Além destas,
 # a lista traz o que achar no projeto (cargo, scripts do package.json, alvos do Makefile).
@@ -305,6 +308,8 @@ pub struct EditorConfig {
     pub font_weight: String,
     /// Altura da linha, em múltiplos do tamanho da fonte.
     pub line_height: f32,
+    /// Encoding de um arquivo que não é UTF-8 nem tem BOM (RFC 0021).
+    pub fallback_encoding: String,
 }
 
 impl Default for EditorConfig {
@@ -322,6 +327,7 @@ impl Default for EditorConfig {
             font: crate::fonts::DEFAULT_FAMILY.into(),
             font_weight: "normal".into(),
             line_height: crate::fonts::LINE_HEIGHT_DEFAULT,
+            fallback_encoding: "windows-1252".into(),
         }
     }
 }

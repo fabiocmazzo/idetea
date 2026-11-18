@@ -106,12 +106,14 @@ pub fn search(root: &Path, matcher: &Regex, cancel: &Arc<AtomicBool>) -> Results
 
 fn search_file(path: &Path, matcher: &Regex, total: &AtomicUsize) -> Option<FileMatches> {
     let bytes = std::fs::read(path).ok()?;
-    // Binário: tem byte zero no começo.
-    if bytes.iter().take(8192).any(|&b| b == 0) {
-        return None;
-    }
+    // UTF-8 (quase todos) sem copiar; senão, como o editor lê (RFC 0021): BOM, UTF-16, Windows-1252. Binário
+    // (byte zero sem BOM de UTF-16) fica de fora.
+    let text: std::borrow::Cow<'_, str> = match std::str::from_utf8(&bytes) {
+        Ok(t) if !t.as_bytes().iter().take(8192).any(|&b| b == 0) => t.into(),
+        Ok(_) => return None,
+        Err(_) => tea_core::encoding::decode(&bytes, None, tea_core::encoding::Encoding::for_label(b"windows-1252")?).ok()?.0.into(),
+    };
     // Atalho: a maioria dos arquivos não tem nada; evita quebrar em linhas à toa.
-    let text = String::from_utf8_lossy(&bytes);
     if !matcher.is_match(&text) {
         return None;
     }
@@ -190,6 +192,17 @@ mod tests {
         assert_eq!(r.total, 4, "inclui 'foobar'");
         let r = run(&root, "foo", Options { whole_word: true, ..Default::default() });
         assert_eq!(r.total, 3, "'foobar' não é palavra inteira");
+    }
+
+    /// RFC 0021: um Latin-1 e um UTF-16 com BOM são lidos como o editor lê; um binário continua de fora.
+    #[test]
+    fn finds_text_in_legacy_encodings() {
+        let root = project("encodings");
+        std::fs::write(root.join("src/latin1.txt"), b"uma a\xe7\xe3o aqui\n").unwrap();
+        let utf16: Vec<u8> = [0xFF, 0xFE].into_iter().chain("outra ação\n".encode_utf16().flat_map(u16::to_le_bytes)).collect();
+        std::fs::write(root.join("src/utf16.txt"), utf16).unwrap();
+        let r = run(&root, "ação", Options::default());
+        assert_eq!(found(&r, &root), ["src/latin1.txt:1:5", "src/utf16.txt:1:7"]);
     }
 
     #[test]

@@ -420,6 +420,7 @@ const CORE_COMMANDS: &[(&str, &str)] = &[
     ("lsp.code_actions", "cmd-lsp-code-actions"),
     ("lsp.toggle_inlay_hints", "cmd-lsp-toggle-inlay-hints"),
     ("table.toggle", "cmd-table-toggle"),
+    ("file.encoding", "cmd-file-encoding"),
     ("lsp.restart", "cmd-lsp-restart"),
     ("theme.toggle", "cmd-theme-toggle"),
     ("config.open", "cmd-config-open"),
@@ -441,6 +442,15 @@ const CORE_COMMANDS: &[(&str, &str)] = &[
 /// Item escolhido na lista de ações de código (índice em `code_actions`).
 #[derive(Debug, Clone, Copy)]
 struct CodeActionChoice(usize);
+
+/// O menu do encoding (RFC 0021): primeiro o que fazer, depois com qual.
+#[derive(Debug, Clone, Copy)]
+enum EncodingChoice {
+    Reopen,
+    Save,
+    ReopenAs(tea_core::encoding::TextEncoding),
+    SaveAs(tea_core::encoding::TextEncoding),
+}
 
 /// O tipo da ação, para mostrar ao lado do título.
 fn code_action_kind(kind: &str) -> String {
@@ -1127,7 +1137,7 @@ impl App {
             column,
             language: ed.language(),
             modified: ed.is_modified(),
-            encoding: "UTF-8",
+            encoding: ed.encoding().label(),
             line_ending: ed.line_ending().label(),
         };
         if !force && status == self.last_status {
@@ -1211,11 +1221,22 @@ impl App {
         self.tabs.iter().position(|t| t.id == id)
     }
 
+    /// O encoding de reserva do config (`[editor] fallback_encoding`, RFC 0021).
+    fn fallback_encoding(&self) -> &'static tea_core::encoding::Encoding {
+        tea_core::encoding::fallback(&self.config.editor.fallback_encoding)
+    }
+
+    /// Abre um arquivo no encoding dele: `keep` (o da aba, ao recarregar), senão o `charset` do `.editorconfig`.
+    fn open_editor(&self, path: &Path, keep: Option<tea_core::encoding::TextEncoding>) -> std::io::Result<Editor> {
+        let hint = keep.or_else(|| editorconfig::Props::for_file(path).charset);
+        Editor::open_with(path, hint, self.fallback_encoding())
+    }
+
     fn open_file(&mut self, path: PathBuf) -> Task<Message> {
         if let Some(i) = self.tabs.iter().position(|t| t.editor.path() == Some(path.as_path())) {
             return self.set_active(i);
         }
-        match Editor::open(&path) {
+        match self.open_editor(&path, None) {
             Ok(mut editor) => {
                 // Troca a aba vazia inicial em vez de acumular abas "sem título".
                 let i = if self.tabs.len() == 1 && self.tabs[0].editor.is_blank() {
@@ -1256,7 +1277,8 @@ impl App {
             let name = self.tabs[i].editor.file_name();
             return self.notify(fl!("file-changed-on-disk-kept", name = name));
         }
-        match Editor::open(path) {
+        let keep = Some(self.tabs[i].editor.encoding());
+        match self.open_editor(path, keep) {
             Ok(mut editor) => {
                 self.style_editor(&mut editor);
                 // A aba antiga sai (e avisa o LSP); a nova entra no lugar, com o mesmo id.
@@ -1552,8 +1574,9 @@ impl App {
             .filter(|t| !t.editor.is_modified() && !t.editor.is_new_file())
             .filter_map(|t| {
                 let path = t.editor.path()?;
-                let changed = match std::fs::read_to_string(path) {
-                    Ok(disk) => disk.replace("\r\n", "\n") != t.editor.text(),
+                // No encoding da aba: um Latin-1 também recarrega depois de um `git pull` (RFC 0021).
+                let changed = match tea_core::encoding::read_text(path, Some(t.editor.encoding()), self.fallback_encoding()) {
+                    Ok((disk, _)) => disk.replace("\r\n", "\n") != t.editor.text(),
                     Err(e) => e.kind() == std::io::ErrorKind::NotFound,
                 };
                 changed.then(|| path.to_path_buf())
@@ -1813,6 +1836,7 @@ impl App {
             Err(e) => return self.notify(e.to_string()),
         };
         let mut wrote = false;
+        let fallback = self.fallback_encoding();
         for target in &replace.targets {
             let lines = target.lines.as_deref();
             let tab = self.tabs.iter_mut().find(|t| t.editor.path() == Some(target.path.as_path()));
@@ -1826,14 +1850,16 @@ impl App {
                     }
                     Some(n)
                 }
-                None => std::fs::read_to_string(&target.path).ok().and_then(|text| {
+                // No encoding do arquivo; uma troca que não cabe nele conta como falha (RFC 0021).
+                None => tea_core::encoding::read_text(&target.path, None, fallback).ok().and_then(|(text, enc)| {
                     let (new, n) =
                         tea_core::replace::replace_text(&text, &re, &replace.replacement, replace.expand, lines);
                     if n == 0 {
                         return Some(0);
                     }
+                    let bytes = tea_core::encoding::encode(&new, enc).ok()?;
                     wrote = true;
-                    std::fs::write(&target.path, new).ok().map(|()| n)
+                    std::fs::write(&target.path, bytes).ok().map(|()| n)
                 }),
             };
             match n {
@@ -2006,7 +2032,7 @@ impl App {
             let lines = files.entry(path.to_path_buf()).or_insert_with(|| {
                 let text = match app.tabs.iter().find(|t| t.editor.path() == Some(path)) {
                     Some(t) => t.editor.text(),
-                    None => std::fs::read_to_string(path).unwrap_or_default(),
+                    None => tea_core::encoding::read_text(path, None, app.fallback_encoding()).map(|(t, _)| t).unwrap_or_default(),
                 };
                 text.lines().map(str::to_string).collect()
             });
@@ -3055,6 +3081,7 @@ impl App {
             }
             "lsp.rename" => self.start_rename(),
             "lsp.code_actions" => self.start_code_actions(),
+            "file.encoding" => self.encoding_menu(None),
             "table.toggle" => {
                 if !self.editor().has_table() {
                     return self.notify(fl!("table-not-a-table"));
@@ -3868,10 +3895,73 @@ impl App {
                 if let Some(CodeActionChoice(i)) = chosen.downcast_ref::<CodeActionChoice>() {
                     return self.choose_code_action(*i);
                 }
+                if let Some(choice) = chosen.downcast_ref::<EncodingChoice>() {
+                    return self.choose_encoding(*choice);
+                }
                 match chosen.downcast_ref::<tasks::TaskDef>() {
                     Some(task) => self.run_task(task.clone()),
                     None => Task::none(),
                 }
+            }
+        }
+    }
+
+    /// O menu do encoding da aba (clique na barra de status, ou `file.encoding`). `then`: a segunda etapa, a lista
+    /// dos encodings para reabrir ou salvar.
+    fn encoding_menu(&mut self, then: Option<EncodingChoice>) -> Task<Message> {
+        let ed = self.editor();
+        if ed.path().is_none() || ed.is_image() || ed.is_new_file() {
+            return self.notify(fl!("encoding-no-file"));
+        }
+        let current = ed.encoding();
+        let pick = match then {
+            None => tea_core::pick::Pick::new(fl!("encoding-placeholder", encoding = current.label()))
+                .item(None, fl!("encoding-reopen"), String::new(), EncodingChoice::Reopen)
+                .item(None, fl!("encoding-save"), String::new(), EncodingChoice::Save),
+            Some(step) => {
+                let reopen = matches!(step, EncodingChoice::Reopen);
+                let mut pick =
+                    tea_core::pick::Pick::new(if reopen { fl!("encoding-reopen") } else { fl!("encoding-save") });
+                for e in tea_core::encoding::TextEncoding::choices() {
+                    let detail = if e == current { fl!("encoding-current") } else { String::new() };
+                    let choice = if reopen { EncodingChoice::ReopenAs(e) } else { EncodingChoice::SaveAs(e) };
+                    pick = pick.item(None, e.label(), detail, choice);
+                }
+                pick
+            }
+        };
+        self.editor_mut().lose_focus();
+        self.open_palette(Palette::pick(None, pick))
+    }
+
+    fn choose_encoding(&mut self, choice: EncodingChoice) -> Task<Message> {
+        let Some(path) = self.active_path().map(Path::to_path_buf) else { return Task::none() };
+        let i = self.active;
+        match choice {
+            EncodingChoice::Reopen | EncodingChoice::Save => self.encoding_menu(Some(choice)),
+            EncodingChoice::ReopenAs(enc) => {
+                // Reabrir joga fora o que não foi salvo: só sem alterações.
+                if self.tabs[i].editor.is_modified() {
+                    return self.notify(fl!("encoding-reopen-modified"));
+                }
+                match Editor::open_as(&path, enc) {
+                    Ok(mut editor) => {
+                        self.style_editor(&mut editor);
+                        self.tabs[i].editor = editor;
+                        let lsp = self.ensure_lsp(i);
+                        let note = self.notify(fl!("encoding-reopened", encoding = enc.label()));
+                        Task::batch([lsp, self.set_active(i), note])
+                    }
+                    Err(e) => self.notify(fl!("file-open-error", path = display_rel(&path, &self.root), error = e.to_string())),
+                }
+            }
+            EncodingChoice::SaveAs(enc) => {
+                let note = match self.tabs[i].editor.save_with_encoding(enc) {
+                    Ok(()) => fl!("encoding-saved", encoding = enc.label()),
+                    Err(e) => fl!("write-error", path = display_rel(&path, &self.root), error = e.to_string()),
+                };
+                let status = self.emit_status(true);
+                Task::batch([status, self.notify(note)])
             }
         }
     }

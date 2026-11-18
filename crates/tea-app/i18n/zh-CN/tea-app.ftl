@@ -781,6 +781,7 @@ code-action-kind-refactor = 重构
 code-action-kind-source = 文件
 cmd-lsp-toggle-inlay-hints = LSP：切换内联提示（类型和参数名）
 cmd-table-toggle = 表格：在文本和表格之间切换（CSV、TSV、JSONL）
+cmd-file-encoding = 文件：用其他编码重新打开或保存
 inlay-hints-on = 内联提示：开
 inlay-hints-off = 内联提示：关
 guide-lsp-11 = 代码操作：把光标放在错误或警告上（或选中一段代码），按 { $lsp-code_actions } 列出服务器提供的修复和重构，例如缺少的 import；推荐的一项排在最前，带 ✓。更改留在标签页中，尚未保存（Ctrl+Z 可撤销）。
@@ -789,3 +790,13 @@ guide-lsp-12 = 内联提示：服务器在代码中用灰色显示变量推断�
 ## Tabela (RFC 0020)
 table-not-a-table = 此文件没有表格视图（CSV、TSV 或 JSONL）。
 table-toggle-tip = 表格或文本
+
+## Encodings (RFC 0021)
+encoding-placeholder = 编码：{ $encoding }
+encoding-reopen = 用编码重新打开…
+encoding-save = 用编码保存…
+encoding-current = 当前
+encoding-no-file = 此标签页没有磁盘上的文件，无法用其他编码重新打开或保存。
+encoding-reopen-modified = 用其他编码重新打开前，请先保存或撤销更改。
+encoding-reopened = 已用 { $encoding } 重新打开。
+encoding-saved = 已保存为 { $encoding }。

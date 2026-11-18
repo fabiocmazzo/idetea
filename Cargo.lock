@@ -5690,6 +5690,7 @@ dependencies = [
 name = "tea-core"
 version = "0.13.0"
 dependencies = [
+ "encoding_rs",
  "fluent-syntax",
  "i18n-embed",
  "i18n-embed-fl",
@@ -5731,6 +5732,7 @@ dependencies = [
 name = "tea-editor"
 version = "0.13.0"
 dependencies = [
+ "encoding_rs",
  "hayro",
  "iced",
  "iced-code-editor",

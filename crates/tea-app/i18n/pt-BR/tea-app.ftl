@@ -786,6 +786,7 @@ code-action-kind-refactor = refatoração
 code-action-kind-source = arquivo
 cmd-lsp-toggle-inlay-hints = LSP: ligar/desligar inlay hints (tipos e nomes de parâmetro no código)
 cmd-table-toggle = Tabela: alternar entre o texto e a tabela (CSV, TSV, JSONL)
+cmd-file-encoding = Arquivo: reabrir ou salvar com outro encoding
 inlay-hints-on = Inlay hints ligados
 inlay-hints-off = Inlay hints desligados
 guide-lsp-11 = Ações de código: { $lsp-code_actions } com o cursor num erro ou aviso (ou com um trecho selecionado) lista as correções e refatorações que o servidor oferece, como o import que falta; a recomendada vem primeiro, com ✓. As mudanças ficam nas abas, sem salvar (Ctrl+Z desfaz).
@@ -794,3 +795,13 @@ guide-lsp-12 = Inlay hints: o servidor mostra, em cinza dentro do código, o tip
 ## Tabela (RFC 0020)
 table-not-a-table = Este arquivo não tem vista de tabela (CSV, TSV ou JSONL).
 table-toggle-tip = Tabela ou texto
+
+## Encodings (RFC 0021)
+encoding-placeholder = Encoding: { $encoding }
+encoding-reopen = Reabrir com o encoding…
+encoding-save = Salvar com o encoding…
+encoding-current = atual
+encoding-no-file = Esta aba não tem arquivo no disco para reabrir ou salvar com outro encoding.
+encoding-reopen-modified = Salve ou desfaça as alterações antes de reabrir com outro encoding.
+encoding-reopened = Reaberto como { $encoding }.
+encoding-saved = Salvo como { $encoding }.

@@ -1,5 +1,7 @@
 ## 编辑器、图像与PDF
-not-utf8 = 文件不是UTF-8（暂不支持）
+binary-file = 这是二进制文件，不是文本
+not-valid-in = 文件不是有效的 { $encoding }
+not-in-encoding = “{ $ch }”（第 { $line } 行第 { $column } 列）在 { $encoding } 中不存在；另存为 UTF-8 才能保留
 untitled = 未命名
 image-info = { $width } × { $height } px · { $size } · 滚轮缩放，拖动平移
 image-error = 无法读取图像：{ $error }

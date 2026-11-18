@@ -21,6 +21,8 @@ ignore = "0.4"
 globset = "0.4"
 similar = { version = "2", default-features = false }
 regex = "1"
+# Encodings além de UTF-8 (RFC 0021); já vinha no lock pelo rust-i18n.
+encoding_rs = "0.8"
 serde_json = "1"
 i18n-embed = { version = "0.16", features = ["fluent-system"] }
 i18n-embed-fl = "0.10"

@@ -25,7 +25,10 @@ L'elenco completo, per chi vuole il dettaglio tecnico. Per la versione breve, ve
   mantenute, `Ctrl+Z` la annulla). In JSONL una cella accetta JSON, e un valore non valido viene rifiutato.
   Trascinare il bordo di una colonna ne cambia la larghezza; cliccare i numeri di riga (Maiusc estende), `Ctrl+C`
   le copia come TSV, `Ctrl+Maiusc+C` come CSV. `[table] max_mb` (50 di default) fissa il limite di dimensione.
-- Conserva i CRLF. Un file che non è UTF-8 non viene aperto (con un avviso), invece di essere corrotto.
+- Conserva i CRLF. I file in altre codifiche si aprono e si salvano nella loro (BOM, UTF-16, `charset` di
+  `.editorconfig`, altrimenti `[editor] fallback_encoding`, `windows-1252` di default); un clic sulla codifica nella
+  barra di stato riapre o salva con un'altra. Un carattere che non ci sta viene rifiutato al salvataggio, mai
+  cambiato in `?`. I file binari non si aprono.
 - File grandi: un file da 50 MB si apre in meno di 0,1 s. Un file con una riga enorme (JSON o JS minificato) si apre in una
   modalità leggera, senza colori e con a capo automatico, così la finestra non si blocca.
 - Facoltativo al salvataggio: taglia gli spazi in fondo, newline finale, formatta con il server di linguaggio. Un `.editorconfig`
@@ -235,6 +238,7 @@ terminale, `idetea .` apre l'IDE e restituisce il prompt; `idetea -f .` resta at
 - [x] Agenti: pannello Interfacce, terminali di agente, elenco consentiti, aiutanti nei worktree, progetto nuovo con le skill.
 - [ ] Plugin di terze parti in WASM, senza ricompilare l'IDE (esiste un prototipo dietro la feature `plugins`).
 - [ ] Altri adattatori di debug (codelldb, debugpy, delve…).
-- [ ] Codifiche diverse da UTF-8; una vista di merge a 3 vie; lo stash dall'interfaccia.
+- [x] Codifiche diverse da UTF-8.
+- [ ] Una vista di merge a 3 vie; lo stash dall'interfaccia.
 
 Il piano dettagliato, fase per fase, è in [SPEC.md](../SPEC.md) (in portoghese).

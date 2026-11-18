@@ -103,7 +103,7 @@ IDE TEA parte dal fatto che **i migliori agenti girano già nel terminale** (Cla
 ### Quel che manca nell'editor rispetto a VS Code, Zed e JetBrains
 1. **Snippet:** non c'è un motore di snippet (tab-stop `$1`, `$2`) per espandere blocchi rapidi di codice.
 2. **Selezioni strutturali per AST (Expand/Shrink Selection):** in Zed, Helix e JetBrains una scelta rapida espande la selezione da parola → espressione → blocco `if` → funzione intera, tramite `tree-sitter`/AST.
-3. **Codifiche legacy:** apre solo UTF-8 (conservando LF/CRLF). Chi lavora con file `ISO-8859-1` / `Windows-1252` non può modificarli in IDE TEA.
+3. ~~Codifiche legacy~~ — **fatto:** i file in Windows-1252, ISO-8859-*, UTF-16, Shift_JIS, GBK e altri si aprono e si salvano nella loro codifica; la barra di stato la mostra e riapre o salva con un'altra.
 4. **Più finestre / più progetti nella stessa istanza:** ogni progetto è un processo `idetea` separato; non ci sono «Multi-root Workspaces» nella stessa finestra.
 
 ---

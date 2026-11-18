@@ -12,6 +12,8 @@ mod image_file;
 mod key_gate;
 mod pdf_file;
 mod table_view;
+
+pub use tea_core::encoding::TextEncoding;
 pub mod syntaxes;
 mod lsp;
 mod marks;
@@ -223,6 +225,8 @@ pub struct Editor {
     pdf: Option<pdf_file::PdfFile>,
     /// CSV, TSV ou JSONL: a vista de tabela (RFC 0020), outra vista deste texto.
     table: Option<table_view::TableView>,
+    /// O encoding do arquivo (RFC 0021): lido ao abrir, usado ao salvar.
+    encoding: TextEncoding,
     /// O limite de tamanho da vista de tabela com que a aba abriu (ver [`Editor::set_table_limit`]).
     table_limit: usize,
     /// Abas de imagem e PDF: tamanho e data do arquivo quando foi lido (para perceber que mudou no disco).
@@ -275,16 +279,57 @@ impl Editor {
             editor.pdf = Some(pdf_file::PdfFile::read(path)?);
             return Ok(editor);
         }
+        Self::open_with(path, None, encoding_rs::WINDOWS_1252)
+    }
+
+    /// Abre no encoding do arquivo (RFC 0021): o BOM, o `hint` (o `charset` do `.editorconfig`, ou o encoding com que
+    /// a aba estava, ao recarregar), UTF-8, e por fim `fallback` (`[editor] fallback_encoding`). Binário é recusado.
+    pub fn open_with(path: &Path, hint: Option<TextEncoding>, fallback: &'static encoding_rs::Encoding) -> io::Result<Self> {
+        if (image_file::is_image(path) || pdf_file::is_pdf(path)) && path.is_file() {
+            return Self::open(path);
+        }
         match std::fs::read(path) {
             Ok(bytes) => {
-                let text = String::from_utf8(bytes).map_err(|_| {
-                    io::Error::new(io::ErrorKind::InvalidData, fl!("not-utf8"))
-                })?;
-                Ok(Self::from_text(path, &text))
+                let (text, encoding) = tea_core::encoding::decode(&bytes, hint, fallback).map_err(decode_error)?;
+                let mut editor = Self::from_text(path, &text);
+                editor.encoding = encoding;
+                Ok(editor)
             }
-            Err(e) if e.kind() == io::ErrorKind::NotFound => Ok(Self::build(Some(path), "", true)),
+            Err(e) if e.kind() == io::ErrorKind::NotFound => {
+                let mut editor = Self::build(Some(path), "", true);
+                editor.encoding = hint.unwrap_or_default();
+                Ok(editor)
+            }
             Err(e) => Err(e),
         }
+    }
+
+    /// "Reabrir com…": lê o arquivo neste encoding. Bytes que não valem nele são erro (nada de `�`, que corromperia
+    /// o arquivo ao salvar). Um BOM do próprio encoding fica (salvar não o tira).
+    pub fn open_as(path: &Path, encoding: TextEncoding) -> io::Result<Self> {
+        let bytes = std::fs::read(path)?;
+        let bom = matches!(encoding_rs::Encoding::for_bom(&bytes), Some((e, _)) if e == encoding.encoding);
+        let encoding = TextEncoding { bom, ..encoding };
+        let text = tea_core::encoding::decode_as(&bytes, encoding).map_err(decode_error)?;
+        let mut editor = Self::from_text(path, &text);
+        editor.encoding = encoding;
+        Ok(editor)
+    }
+
+    /// O encoding em que o arquivo foi lido e será gravado.
+    pub fn encoding(&self) -> TextEncoding {
+        self.encoding
+    }
+
+    /// "Salvar com…": grava no encoding escolhido, que passa a ser o da aba. Se um caractere não cabe, nada muda.
+    pub fn save_with_encoding(&mut self, encoding: TextEncoding) -> io::Result<()> {
+        let before = self.encoding;
+        self.encoding = encoding;
+        let saved = self.save();
+        if saved.is_err() {
+            self.encoding = before;
+        }
+        saved
     }
 
     /// Cria o editor a partir de um texto já lido (útil para medir sem I/O).
@@ -354,6 +399,7 @@ impl Editor {
             pdf: None,
             table: None,
             table_limit: TABLE_MAX_BYTES,
+            encoding: TextEncoding::UTF8,
             file_stamp: None,
             signature_open: false,
             signature: None,
@@ -582,7 +628,20 @@ impl Editor {
         if self.line_ending == LineEnding::CrLf {
             text = text.replace('\n', "\r\n");
         }
-        std::fs::write(path, text)?;
+        // No encoding da aba; um caractere que não cabe recusa o salvar (nada de `?` no lugar).
+        let bytes = tea_core::encoding::encode(&text, self.encoding).map_err(|u| {
+            io::Error::new(
+                io::ErrorKind::InvalidData,
+                fl!(
+                    "not-in-encoding",
+                    ch = u.ch.to_string(),
+                    line = u.line,
+                    column = u.column,
+                    encoding = self.encoding.label()
+                ),
+            )
+        })?;
+        std::fs::write(path, bytes)?;
         self.inner.mark_saved();
         self.is_new = false;
         if self.lsp.is_some() {
@@ -1783,6 +1842,17 @@ fn common_suffix(a: &str, b: &str) -> usize {
 }
 
 /// Posição (linha, coluna em caracteres, como o widget usa) de um byte do texto.
+/// O erro de leitura de um arquivo que não virou texto, para o aviso.
+fn decode_error(e: tea_core::encoding::DecodeError) -> io::Error {
+    io::Error::new(
+        io::ErrorKind::InvalidData,
+        match e {
+            tea_core::encoding::DecodeError::Binary => fl!("binary-file"),
+            tea_core::encoding::DecodeError::Invalid(name) => fl!("not-valid-in", encoding = name),
+        },
+    )
+}
+
 /// O byte da linha e coluna (em caracteres, começando em 0) do texto; além do fim da linha, o fim dela.
 fn byte_at(text: &str, line: usize, column: usize) -> usize {
     let start = if line == 0 {
@@ -2299,10 +2369,47 @@ mod tests {
     }
 
     #[test]
-    fn non_utf8_is_an_error() {
+    fn binary_is_still_an_error() {
         let path = tmp("bin.dat");
+        std::fs::write(&path, [0x89, b'P', b'N', b'G', 0x00, 0x00, 0xff]).unwrap();
+        assert!(Editor::open(&path).is_err());
+        // Um BOM de UTF-16 com um byte sobrando também não é texto.
         std::fs::write(&path, [0xff, 0xfe, 0x00]).unwrap();
         assert!(Editor::open(&path).is_err());
+    }
+
+    /// RFC 0021: um Latin-1 abre, salva igual byte a byte, e um caractere que não cabe recusa o salvar.
+    #[test]
+    fn legacy_encoding_opens_and_saves_the_same_bytes() {
+        let path = tmp("latin1.txt");
+        let bytes = b"a\xe7\xe3o\r\nfim\r\n";
+        std::fs::write(&path, bytes).unwrap();
+        let mut ed = Editor::open(&path).unwrap();
+        assert_eq!(ed.text(), "ação\nfim\n");
+        assert_eq!(ed.encoding().label(), "windows-1252");
+        ed.save().unwrap();
+        assert_eq!(std::fs::read(&path).unwrap(), bytes, "o mesmo arquivo");
+        ed.replace_text("ação 🙂\n");
+        let err = ed.save().unwrap_err();
+        assert!(err.to_string().contains("🙂"), "{err}");
+        assert_eq!(std::fs::read(&path).unwrap(), bytes, "recusado: o arquivo não mudou");
+        ed.save_with_encoding(TextEncoding::UTF8).unwrap();
+        assert_eq!(std::fs::read(&path).unwrap(), "ação 🙂\r\n".as_bytes());
+        assert!(ed.encoding().is_utf8());
+        // A sequência do teste manual: o emoji recusado, tirado, e então Salvar com UTF-8.
+        std::fs::write(&path, bytes).unwrap();
+        let mut ed = Editor::open(&path).unwrap();
+        ed.replace_text("ação 🙂\nfim\n");
+        assert!(ed.save().is_err());
+        ed.replace_text("ação\nfim\n");
+        ed.save_with_encoding(TextEncoding::UTF8).unwrap();
+        assert_eq!(std::fs::read(&path).unwrap(), "ação\r\nfim\r\n".as_bytes());
+        // UTF-8 com BOM mantém o BOM.
+        std::fs::write(&path, b"\xef\xbb\xbfoi\n").unwrap();
+        let mut ed = Editor::open(&path).unwrap();
+        assert_eq!(ed.text(), "oi\n");
+        ed.save().unwrap();
+        assert_eq!(std::fs::read(&path).unwrap(), b"\xef\xbb\xbfoi\n");
     }
 
     #[test]

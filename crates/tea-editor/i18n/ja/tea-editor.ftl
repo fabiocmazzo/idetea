@@ -1,5 +1,7 @@
 ## エディター、画像、PDF
-not-utf8 = ファイルは UTF-8 ではありません (まだサポートしていません)
+binary-file = バイナリ ファイルです (テキストではありません)
+not-valid-in = ファイルは正しい { $encoding } ではありません
+not-in-encoding = 「{ $ch }」({ $line } 行 { $column } 列) は { $encoding } にありません。残すには UTF-8 で保存してください
 untitled = 無題
 image-info = { $width } × { $height } px · { $size } · ホイールで拡大縮小、ドラッグで移動
 image-error = 画像を読み取れませんでした: { $error }

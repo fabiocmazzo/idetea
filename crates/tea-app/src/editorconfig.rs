@@ -15,6 +15,8 @@ pub struct Props {
     pub tab_size: Option<u8>,
     pub trim_trailing_whitespace: Option<bool>,
     pub insert_final_newline: Option<bool>,
+    /// `charset` (`latin1`, `utf-8`, `utf-8-bom`, `utf-16le`, `utf-16be`): o encoding ao abrir (RFC 0021).
+    pub charset: Option<tea_core::encoding::TextEncoding>,
 }
 
 impl Props {
@@ -77,6 +79,7 @@ impl Props {
                 "tab_width" => tab_width = value.parse::<u8>().ok().filter(|n| *n > 0),
                 "trim_trailing_whitespace" => self.trim_trailing_whitespace = flag(),
                 "insert_final_newline" => self.insert_final_newline = flag(),
+                "charset" => self.charset = tea_core::encoding::TextEncoding::from_label(&value),
                 _ => {}
             }
         }
@@ -146,7 +149,8 @@ mod tests {
                 insert_spaces: Some(true),
                 tab_size: Some(4),
                 trim_trailing_whitespace: Some(true),
-                insert_final_newline: Some(true)
+                insert_final_newline: Some(true),
+                charset: None,
             },
             "root = true: o de cima (indent_size = 8) não conta"
         );
@@ -155,6 +159,9 @@ mod tests {
         assert_eq!((make.insert_spaces, make.tab_size), (Some(false), Some(8)));
         assert_eq!(Props::for_file(&dir.join("proj/web/a/b.js")).tab_size, Some(2), "padrão com / é da pasta");
         assert_eq!(Props::for_file(&dir.join("proj/x/web/b.js")).tab_size, Some(4));
+        std::fs::write(sub.join(".editorconfig"), "[*.css]\nindent_size = 3\n[*.txt]\ncharset = latin1\n").unwrap();
+        let txt = Props::for_file(&sub.join("velho.txt")).charset.unwrap();
+        assert_eq!(txt.label(), "windows-1252", "latin1 é o Windows-1252 (WHATWG)");
         assert_eq!(Props::for_file(&sub.join("x.css")).tab_size, Some(3), "o mais perto vence");
         assert_eq!(Props::for_file(&dir.join("solto.rs")).tab_size, Some(8));
         let _ = std::fs::remove_dir_all(&dir);

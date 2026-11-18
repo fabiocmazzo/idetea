@@ -33,6 +33,8 @@ const NOTIFICATION_TTL: Duration = Duration::from_secs(5);
 #[derive(Debug, Clone)]
 pub enum Message {
     OpenProblems,
+    /// Clique no encoding: Reabrir com… / Salvar com… (RFC 0021).
+    Encoding,
 }
 
 #[derive(Default)]
@@ -108,6 +110,7 @@ impl Extension for StatusBarExtension {
     fn update(&mut self, message: Message, ctx: &mut Context) -> Task<Message> {
         match message {
             Message::OpenProblems => ctx.run_command("problems.focus"),
+            Message::Encoding => ctx.run_command("file.encoding"),
         }
         Task::none()
     }
@@ -154,7 +157,7 @@ impl Extension for StatusBarExtension {
             problems,
             text(fl!("status-position", line = s.line, column = s.column)).size(size),
             text(&s.language).size(size),
-            text(s.encoding).size(size),
+            button(text(&s.encoding).size(size)).on_press(Message::Encoding).style(button::text).padding([0, 4]),
             text(s.line_ending).size(size),
         ]
         .spacing(16)

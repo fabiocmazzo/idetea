@@ -1,5 +1,7 @@
 ## Éditeur, images et PDF
-not-utf8 = le fichier n'est pas en UTF-8 (pas encore pris en charge)
+binary-file = c’est un fichier binaire, pas du texte
+not-valid-in = le fichier n’est pas du { $encoding } valide
+not-in-encoding = « { $ch } » (ligne { $line }, colonne { $column }) n’existe pas en { $encoding } ; enregistrez en UTF-8 pour le garder
 untitled = sans titre
 image-info = { $width } × { $height } px · { $size } · la molette zoome, glisser pour déplacer
 image-error = Impossible de lire l'image : { $error }

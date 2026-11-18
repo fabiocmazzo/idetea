@@ -192,7 +192,7 @@ Extensões registram os delas com o próprio prefixo (`filetree.*`).
   Se alguma não puder ser salva (erro ou aba sem nome), a IDE não sai.
 - Apagar na árvore: diálogo de confirmação e **move para a lixeira** (crate `trash`), sem apagar de vez.
 - Arquivo apagado ou renomeado pela árvore: as abas são atualizadas. Aba com alterações nunca é fechada sozinha.
-- CRLF é preservado ao salvar. Arquivos que não são UTF-8 não abrem (com aviso), em vez de serem corrompidos.
+- CRLF é preservado ao salvar. Arquivos em outros encodings abrem e salvam no deles (RFC 0021); binário não abre.
 
 ## Roadmap
 
@@ -237,7 +237,7 @@ O binário release sem símbolos tem ~22 MB (iced/wgpu + dados do syntect + font
 - [x] Teste manual de tudo acima na tela: aprovado.
 
 Fora do MVP (anotado para depois): abrir arquivo rápido por nome (`Ctrl+P`), observar mudanças no disco (`notify`),
-arrastar painéis, encodings além de UTF-8.
+arrastar painéis, encodings além de UTF-8 (feito depois: RFC 0021).
 
 ### Fase 2 — IDE
 - [x] Busca no projeto (extensão `search`, painel inferior): busca enquanto digita, respeita `.gitignore`,

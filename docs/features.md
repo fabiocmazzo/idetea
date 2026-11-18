@@ -23,7 +23,9 @@ The full list, for the technical reader. For the short version, see the [README]
   JSONL a cell takes JSON, and an invalid value is refused.
   Drag a column border to resize it; click row numbers (Shift extends) and `Ctrl+C` copies them as TSV,
   `Ctrl+Shift+C` as CSV. `[table] max_mb` (default 50) sets the size limit.
-- Keeps CRLF. A file that is not UTF-8 is not opened (with a warning) instead of being corrupted.
+- Keeps CRLF. Files in other encodings open and save in their own encoding (BOM, UTF-16, `.editorconfig` `charset`,
+  else `[editor] fallback_encoding`, default `windows-1252`); click the encoding on the status bar to reopen or save
+  with another one. A character that does not fit is refused on save, never turned into `?`. Binary files are not opened.
 - Big files: a 50 MB file opens in under 0.1 s. A file with one giant line (minified JSON or JS) opens in a light
   mode, without colors and with wrapping, so the window does not freeze.
 - Optional on save: trim trailing whitespace, final newline, format with the language server. An `.editorconfig`
@@ -230,6 +232,7 @@ terminal, `idetea .` opens the IDE and gives the prompt back; `idetea -f .` stay
 - [x] Agents: Interfaces panel, agent terminals, allow list, helpers in worktrees, new project with skills.
 - [ ] Third-party plugins in WASM, without rebuilding the IDE (a prototype exists behind the `plugins` feature).
 - [ ] More debug adapters (codelldb, debugpy, delve…).
-- [ ] Encodings other than UTF-8; a 3-way merge view; stash from the UI.
+- [x] Encodings other than UTF-8.
+- [ ] A 3-way merge view; stash from the UI.
 
 The detailed plan, phase by phase, is in [SPEC.md](../SPEC.md) (in Portuguese).

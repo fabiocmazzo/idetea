@@ -1,5 +1,7 @@
 ## Editor, imagens e PDF
-not-utf8 = file is not UTF-8 (not supported yet)
+binary-file = this is a binary file, not text
+not-valid-in = the file is not valid { $encoding }
+not-in-encoding = “{ $ch }” (line { $line }, column { $column }) does not exist in { $encoding }; save as UTF-8 to keep it
 untitled = untitled
 image-info = { $width } × { $height } px · { $size } · mouse wheel zooms, drag to move
 image-error = Could not read the image: { $error }
