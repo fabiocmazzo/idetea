@@ -806,3 +806,5 @@ encoding-no-file = Esta aba não tem arquivo no disco para reabrir ou salvar com
 encoding-reopen-modified = Salve ou desfaça as alterações antes de reabrir com outro encoding.
 encoding-reopened = Reaberto como { $encoding }.
 encoding-saved = Salvo como { $encoding }.
+encoding-unmappable-title = Este caractere não cabe no encoding do arquivo
+encoding-save-utf8 = Salvar como UTF-8

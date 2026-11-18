@@ -806,3 +806,5 @@ encoding-no-file = Esta pestaña no tiene archivo en disco para reabrir o guarda
 encoding-reopen-modified = Guarda o deshaz los cambios antes de reabrir con otra codificación.
 encoding-reopened = Reabierto como { $encoding }.
 encoding-saved = Guardado como { $encoding }.
+encoding-unmappable-title = Este carácter no cabe en la codificación del archivo
+encoding-save-utf8 = Guardar como UTF-8

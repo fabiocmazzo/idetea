@@ -801,3 +801,5 @@ encoding-no-file = 此标签页没有磁盘上的文件，无法用其他编码�
 encoding-reopen-modified = 用其他编码重新打开前，请先保存或撤销更改。
 encoding-reopened = 已用 { $encoding } 重新打开。
 encoding-saved = 已保存为 { $encoding }。
+encoding-unmappable-title = 这个字符不在文件的编码里
+encoding-save-utf8 = 保存为 UTF-8

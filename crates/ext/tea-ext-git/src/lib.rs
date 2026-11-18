@@ -72,7 +72,7 @@ pub enum Message {
     /// Fetch/pull/push terminou. `bool`: era um pull (arquivos podem ter mudado no disco).
     RemoteDone(bool, Arc<Result<Option<String>, String>>),
     /// Versões do último commit dos arquivos abertos, para as marcas na margem.
-    Bases(Arc<Vec<(PathBuf, Option<String>)>>),
+    Bases(Arc<Vec<(PathBuf, Option<Vec<u8>>)>>),
     /// Abre a lista de branches (carrega e mostra na paleta).
     Checkout,
     Branches(Arc<Result<Vec<git::Branch>, String>>),
@@ -184,7 +184,7 @@ impl GitExtension {
             return Task::none();
         }
         spawn(
-            move || paths.into_iter().map(|p| { let t = git::head_text(&repo, &p); (p, t) }).collect(),
+            move || paths.into_iter().map(|p| { let b = git::head_bytes(&repo, &p); (p, b) }).collect(),
             |bases| Message::Bases(Arc::new(bases)),
         )
     }
@@ -450,8 +450,8 @@ impl Extension for GitExtension {
                 );
             }
             Message::Bases(bases) => {
-                for (path, text) in bases.iter() {
-                    ctx.diff_base(path.clone(), text.as_deref().map(Arc::from));
+                for (path, bytes) in bases.iter() {
+                    ctx.diff_base(path.clone(), bytes.as_deref().map(Arc::from));
                 }
             }
             Message::Select { path, staged } => return self.load_diff(path, staged),

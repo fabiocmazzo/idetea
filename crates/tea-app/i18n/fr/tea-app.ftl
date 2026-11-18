@@ -806,3 +806,5 @@ encoding-no-file = Cet onglet n’a pas de fichier sur le disque à rouvrir ou e
 encoding-reopen-modified = Enregistrez ou annulez les modifications avant de rouvrir avec un autre encodage.
 encoding-reopened = Rouvert en { $encoding }.
 encoding-saved = Enregistré en { $encoding }.
+encoding-unmappable-title = Ce caractère n'existe pas dans l'encodage du fichier
+encoding-save-utf8 = Enregistrer en UTF-8

@@ -20,6 +20,11 @@ pub struct Repo {
 
 /// Roda `git` na pasta e devolve a saída. Códigos de saída em `ok_codes` contam como sucesso.
 pub fn run(dir: &Path, args: &[&str], ok_codes: &[i32]) -> Result<String, String> {
+    run_bytes(dir, args, ok_codes).map(|out| String::from_utf8_lossy(&out).into_owned())
+}
+
+/// Como [`run`], com a saída em bytes (o conteúdo de um arquivo, que pode não ser UTF-8).
+fn run_bytes(dir: &Path, args: &[&str], ok_codes: &[i32]) -> Result<Vec<u8>, String> {
     let mut cmd = Command::new("git");
     let out = tea_core::os::hide_console(&mut cmd)
         .arg("-C")
@@ -35,7 +40,7 @@ pub fn run(dir: &Path, args: &[&str], ok_codes: &[i32]) -> Result<String, String
         .map_err(|e| fl!("git-run-error", error = e.to_string()))?;
     let code = out.status.code().unwrap_or(-1);
     if code == 0 || ok_codes.contains(&code) {
-        Ok(String::from_utf8_lossy(&out.stdout).into_owned())
+        Ok(out.stdout)
     } else {
         let err = String::from_utf8_lossy(&out.stderr);
         match err.lines().rfind(|l| !l.trim().is_empty()) {
@@ -62,12 +67,15 @@ fn rel_path(repo: &Repo, path: &Path) -> Option<String> {
     Some(rel.to_string_lossy().replace('\\', "/"))
 }
 
-/// O arquivo como está no último commit. `None`: fora do repositório, ainda sem commit, binário ou grande.
-pub fn head_text(repo: &Repo, path: &Path) -> Option<String> {
+/// Os bytes do arquivo como está no último commit (quem decodifica é o app, com o encoding da aba).
+/// `None`: fora do repositório, ainda sem commit, binário ou grande.
+pub fn head_bytes(repo: &Repo, path: &Path) -> Option<Vec<u8>> {
     let rel = rel_path(repo, path)?;
-    let text = run(&repo.root, &["show", &format!("HEAD:{rel}")], &[]).ok()?;
-    let binary = text.as_bytes().iter().take(8192).any(|&b| b == 0);
-    (!binary && text.len() <= 4 * 1024 * 1024).then_some(text)
+    let bytes = run_bytes(&repo.root, &["show", &format!("HEAD:{rel}")], &[]).ok()?;
+    // Um UTF-16 tem zeros, mas começa com o BOM: não é binário.
+    let utf16 = bytes.starts_with(&[0xFF, 0xFE]) || bytes.starts_with(&[0xFE, 0xFF]);
+    let binary = !utf16 && bytes.iter().take(8192).any(|&b| b == 0);
+    (!binary && bytes.len() <= 4 * 1024 * 1024).then_some(bytes)
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -817,7 +825,7 @@ u UU N... 100644 100644 100644 100644 a b c conflito.rs\0\
         run(&dir, &["config", "core.autocrlf", "false"], &[]).unwrap();
         let repo = discover(&dir).expect("repositório");
         std::fs::write(dir.join("a.txt"), "um\n").unwrap();
-        assert_eq!(head_text(&repo, &dir.join("a.txt")), None, "ainda sem commit");
+        assert_eq!(head_bytes(&repo, &dir.join("a.txt")), None, "ainda sem commit");
 
         let st = status(&repo).unwrap();
         assert!(st.entries[0].untracked);
@@ -830,9 +838,9 @@ u UU N... 100644 100644 100644 100644 a b c conflito.rs\0\
         assert_eq!(status(&repo).unwrap().entries[0].staged, Some('A'));
         assert!(commit(&repo, "primeiro").unwrap().ends_with("primeiro"));
         assert!(status(&repo).unwrap().entries.is_empty());
-        assert_eq!(head_text(&repo, &repo.root.join("a.txt")).as_deref(), Some("um\n"));
-        assert_eq!(head_text(&repo, &repo.root.join("novo.txt")), None, "fora do commit");
-        assert_eq!(head_text(&repo, Path::new("/etc/hosts")), None, "fora do repositório");
+        assert_eq!(head_bytes(&repo, &repo.root.join("a.txt")).as_deref(), Some(&b"um\n"[..]));
+        assert_eq!(head_bytes(&repo, &repo.root.join("novo.txt")), None, "fora do commit");
+        assert_eq!(head_bytes(&repo, Path::new("/etc/hosts")), None, "fora do repositório");
 
         std::fs::write(dir.join("a.txt"), "um\ndois\n").unwrap();
         let st = status(&repo).unwrap();
