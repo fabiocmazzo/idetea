@@ -214,7 +214,11 @@ Die Teetasse in der Ecke hat für jede Stimmung mehrere Sätze. Die Tasse bemerk
 den Build des Debuggers und nennt ab und zu ein Tastenkürzel, das wirklich belegt ist. `[mascot] chatty` ist `quiet`, `normal` oder
 `chatty`; `[mascot] tips` schaltet die Hinweise an oder aus. Die ganze Oberfläche, Tea eingeschlossen, gibt es auf Portugiesisch, Englisch,
 Spanisch, Französisch, Deutsch, Italienisch, Japanisch und vereinfachtem Chinesisch (`[ui] language` oder die Systemsprache). Sie
-nimmt den Fokus nicht.
+spricht außerdem einmal über einen Plattenkonflikt bei ungespeicherten Änderungen, einen Git-Konflikt, das Ende
+einer Aufgabe oder Debug-Sitzung, ein Zeichen, das die Kodierung nicht hält, und ein Ersetzen in mehreren
+Dateien. Warnungen und Fehler, die auf null gehen, bleiben im Modus chatty. Dieselben Schalter liegen in den
+Einstellungen. `idetea mascot setup-hooks` ergänzt Claude-Code-Hooks und lässt die stehen, die schon in der
+Datei sind. Sie nimmt den Fokus nicht.
 
 ## Dem Repository einen Stern geben
 

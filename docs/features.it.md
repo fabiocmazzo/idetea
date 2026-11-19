@@ -163,7 +163,11 @@ Tutto sono file in chiaro nella cartella `.idetea/` del progetto, così qualsias
   o a un colpetto). Ogni situazione ha diverse frasi brevi; la stessa frase non compare due volte di seguito. Nota anche un
   salvataggio, la compilazione del debugger che finisce o fallisce, un'inattività lunga (si appisola, e si sveglia quando torni) e l'ora
   del giorno, compreso un accenno gentile a riposare a notte fonda. Un clic sul fumetto apre il pannello Interfacce, Terminale o
-  Problemi e non ruba mai il focus. Con `[mascot] tips = true` (e `chatty` diverso da `quiet`) ogni tanto
+  Problemi e non ruba mai il focus. Parla anche una volta di un conflitto sul disco con modifiche non salvate, di
+  un conflitto git, della fine di un'attività nel terminale, di una sessione di debug conclusa, di un carattere
+  che la codifica non regge e di una sostituzione in più file. Avvisi ed errori appena azzerati compaiono solo
+  con `chatty`. Le Impostazioni scrivono gli stessi interruttori. `idetea mascot setup-hooks` installa gli hook
+  di Claude Code nel progetto e lascia quelli già presenti. Con `[mascot] tips = true` (e `chatty` diverso da `quiet`) ogni tanto
   cita una scelta rapida che esiste davvero. `[mascot] chatty` vale `quiet`, `normal` o `chatty`. Anche gli agenti o gli hook possono guidarla
   direttamente con `idetea mascot <state> [--text "…"] [--source <name>] [--ttl <secs>]`, e i pacchetti di sprite personalizzati funzionano tramite
   `.idetea/mascot/mascot.toml` o `~/.config/idetea/mascots/<pack>/mascot.toml` (`[mascot] enabled = true`).
@@ -183,7 +187,7 @@ Dettagli dei terminali di agente (per ora in portoghese): [terminais-de-agente.m
 
 - Riquadro comandi con ogni comando e la sua scelta rapida (`Ctrl+Shift+P`).
 - Guida (`F1`) con tutte le scelte rapide attuali e una guida breve.
-- Impostazioni (`Ctrl+,`): aspetto, estensioni, scelte rapide (registra il tasto che premi) e server di linguaggio.
+- Impostazioni (`Ctrl+,`): aspetto (mascotte compresa), estensioni, scelte rapide (registra il tasto che premi) e server di linguaggio.
 - Barra attività per mostrare e nascondere i pannelli; i pannelli si ridimensionano con il mouse.
 - Schermata di benvenuto quando non c'è nessun file aperto: nuovo file, apri file o cartella, file e progetti recenti, e le scelte
   rapide principali. Scrivere o `Ctrl+N` riporta un editor senza nome.

@@ -322,7 +322,7 @@ cli-usage =
       status [--json]  このプロジェクトで開いている IDE の表示 (タブ、変更、カーソル)
       open <file[:line[:column]]>  開いている IDE がファイルを表示し、カーソルを置く
       history [--json]  インターフェース パネルでの回答 (--name、--since、--last N、--all)
-      mascot <state> [--text "…"]  IDE のマスコットを更新 (idle、working、thinking、attention、celebrating、error、sleeping、clear、status)
+      mascot <state> [--text "…"]  IDE のマスコットを更新 (idle、working、thinking、attention、celebrating、error、sleeping、clear、status)。setup-hooks は Claude Code のフックを入れる
       -h, --help     このヘルプを表示
       -V, --version  バージョンを表示
 cli-unknown-option = 不明なオプションを無視しました: { $option }
@@ -383,6 +383,16 @@ guide-config-4 = 言語: 設定 → 外観 → 言語 (自動はシステムに�
 ## セッション
 settings-restore-session = 前回の状態で開き直す
 settings-restore-session-detail = プロジェクトを開くと、タブ、カーソル、パネルが戻ります。idetea ファイル... は、そのファイルだけを開きます。
+settings-mascot = マスコット
+settings-mascot-enabled = マスコットを表示
+settings-mascot-enabled-detail = 隅のティーカップです。オフにするとカードとステータスのボタンが隠れます。
+settings-mascot-chatty = どのくらい話すか
+settings-mascot-chatty-detail = Quiet は衝突とエラーだけ。Normal は保存と挨拶も。Chatty は警告と、エラーが消えたことにも触れます。
+settings-mascot-quiet = 静か
+settings-mascot-normal = 普通
+settings-mascot-chatty-level = おしゃべり
+settings-mascot-tips = ショートカットのヒント
+settings-mascot-tips-detail = 実在するショートカットを時々。Quiet では出ません。
 
 ## 最近使った項目
 cmd-file-open-recent = ファイル: 最近使った項目を開く…
@@ -701,15 +711,78 @@ mascot-error-5 = 見る価値はあります。気が向いたら。
 mascot-open-interfaces = Interfaces パネルを開く →
 mascot-open-terminal = ターミナルパネルを開く →
 mascot-open-problems = 問題パネルを開く →
+mascot-disk-1 = { $name } がディスク上で変わりました。こちらのコピーはまだ保存していません。
+mascot-disk-2 = { $name } に外からの編集です。あなたの分はここにあります。
+mascot-disk-3 = カップが持っているあいだに { $name } が動きました。
+mascot-disk-4 = 上書きする前に { $name } を見てください。
+mascot-disk-many-1 = 外で { $count } ファイルが変わりました。{ $name } を含みます。未保存の編集は残っています。
+mascot-disk-many-2 = { $count } ファイルが手元のコピーと違います。その一つが { $name } です。
+mascot-disk-many-3 = 外からまとめて届きました。{ $count } ファイル。{ $name } が待っています。
+mascot-git-1 = git にコンフリクトがあります。マージには入りません。
+mascot-git-2 = コンフリクトが出ました。見たくなったら、どうぞ。
+mascot-git-3 = 二つの版、一つのファイル。コンフリクトです。
+mascot-git-4 = 茶葉の意見が割れました。git のコンフリクトです。
+mascot-debug-ok-1 = セッションはきれいに終わりました。
+mascot-debug-ok-2 = デバッガが終わりました。カップは落ち着いています。
+mascot-debug-ok-3 = セッション終了。こぼれていません。
+mascot-debug-ok-4 = 自分で止まりました。問題ありません。
+mascot-debug-err-1 = セッションは { $code } で終了しました。
+mascot-debug-err-2 = デバッガが止まりました ({ $code })。
+mascot-debug-err-3 = セッションの終了コードは { $code } です。
+mascot-debug-fail-1 = デバッガが不意に止まりました。
+mascot-debug-fail-2 = セッションが失敗しました。私はここにいます。
+mascot-debug-fail-3 = デバッガのどこかが壊れました。
+mascot-cleared-1 = エラーが消えました。カップは賛成です。
+mascot-cleared-2 = エラーはありません。茶葉は静かです。
+mascot-cleared-3 = きれいです。最後のエラーでした。
+mascot-cleared-4 = エラーはゼロ。湯気は弱めておきます。
+mascot-warnings-1 = 警告が { $count } 件。エラーはありません。気が向いたら。
+mascot-warnings-2 = 茶葉が警告を { $count } 件残しました。急ぐものはありません。
+mascot-warnings-3 = 受け皿に警告が { $count } 件。指させます。
+mascot-binary-1 = 新しい IDE がディスクにあります。できるときに再起動を。
+mascot-binary-2 = バイナリが変わりました。急がなくて大丈夫です。
+mascot-binary-3 = 新しいビルドです。都合のいいときに再起動を。
+mascot-binary-4 = 待ちます。新しい方が欲しいときに再起動を。
+mascot-unsaved-1 = 未保存のファイルが { $count } 件あります。
+mascot-unsaved-2 = 席を外す前に。未保存が { $count } 件。
+mascot-unsaved-3 = { $count } 件の編集はカップの中だけです。
+mascot-unsaved-4 = 未保存のファイルを { $count } 件、まだ持っています。
+mascot-encoding-1 = { $name } に、このエンコーディングでは書けない文字があります。
+mascot-encoding-2 = { $name } はこのまま書けません。質問が画面に出ています。
+mascot-encoding-3 = { $name } に入らない文字があります。
+mascot-encoding-4 = { $name } は別のエンコーディングが要ります。指しています。
+mascot-replaced-1 = { $files } ファイルで { $count } 件置き換えました。
+mascot-replaced-2 = { $count } 件の置換、{ $files } ファイル。終わりです。
+mascot-replaced-3 = 検索の置換が終わりました。{ $files } ファイルに { $count } 件。
+mascot-replaced-failed-1 = { $count } 件置き換えました。{ $failed } ファイルはそのままです。
+mascot-replaced-failed-2 = { $failed } ファイルは変わりませんでした。{ $count } 件は { $files } ファイルで変わりました。
+mascot-replaced-failed-3 = 途中までの置換です。{ $count } 件済み、{ $failed } 件は残しました。
+mascot-open-git = Git パネルを開く →
+mascot-open-debug = デバッグパネルを開く →
+mascot-open-file = ファイルを表示 →
+mascot-hooks-where = { $path }
+mascot-hooks-added = { $event }: 追加しました
+mascot-hooks-would-add = { $event }: 追加します
+mascot-hooks-present = { $event }: すでにあります
+mascot-hooks-skipped = { $event }: そのままにしました (フックの一覧ではありません)
+mascot-hooks-created = ファイルを書きました。
+mascot-hooks-updated = ファイルを更新しました。
+mascot-hooks-unchanged = 変えるものはありません。
+mascot-hooks-dry = 予行です。何も書きませんでした。
+mascot-hooks-bad-json = { $path } は編集できる JSON ではありません: { $error }
+mascot-hooks-not-object = ファイルは JSON ですが、オブジェクトではありません
+mascot-hooks-note = このプロジェクトの Claude Code のフックです。ファイル内の他のフックはそのままです。idetea が PATH にある必要があります。
 mascot-idle-hint = エージェントとタスクを見守っています
 mascot-bad-state = マスコットの状態が不明です: { $state }
 mascot-usage =
     使い方: idetea mascot <状態> [--text "…"] [--source <名前>] [--ttl <秒>]
             idetea mascot clear
             idetea mascot status [--json]
+            idetea mascot setup-hooks [--dry-run]
 
     状態: idle, working, thinking, attention, celebrating, error, sleeping, curious, annoyed。
     ファイル .idetea/mascot.json を書き、IDE のマスコットがすぐ反応します (--ttl で期限、既定は 30 秒)。
+    setup-hooks は .claude/settings.local.json に Claude Code のフックを入れます (PreToolUse、Notification、Stop)。すでにあるフックは残します。変えた内容を表示します。--dry-run は表示だけです。
 ## ようこそ画面
 welcome-start = 開始
 welcome-new-file = 新しいファイル

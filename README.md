@@ -214,7 +214,10 @@ The teacup in the corner has several lines for each mood. It notices a save, a l
 the debugger's build, and it can mention a real shortcut now and then. `[mascot] chatty` is `quiet`, `normal` or
 `chatty`; `[mascot] tips` turns the hints on or off. The whole interface, including Tea, is in Portuguese, English,
 Spanish, French, German, Italian, Japanese and Simplified Chinese (`[ui] language`, or the system language). It
-does not take focus.
+also speaks once about a disk conflict with unsaved edits, a git conflict, a finished task or debug session, a
+character the encoding can't hold, and a replace-all. Warnings and cleared errors stay in chatty mode. The same
+switches are in Settings. `idetea mascot setup-hooks` adds Claude Code hooks and leaves the ones already in the
+file. It does not take focus.
 
 ## Star the repository
 

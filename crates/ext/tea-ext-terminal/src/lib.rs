@@ -36,12 +36,16 @@ const PANEL: PanelId = PanelId("terminal");
 
 /// Roda a tarefa (`$1`), mostra o fim (`$2` código `$3`) e espera o Enter. O `trap` faz o `Ctrl+C` parar só o
 /// comando: o shell do script continua para mostrar o código. O comando vai como argumento (sem aspas para
-/// escapar) e o `eval` deixa usar `&&`, pipes e variáveis.
+/// escapar) e o `eval` deixa usar `&&`, pipes e variáveis. Se `$4` for um caminho, grava o código ali antes do
+/// `read` (o processo não sai, então a IDE lê o arquivo).
 #[cfg(unix)]
 const TASK_SCRIPT: &str = r#"trap true INT
 printf '\033[1m$ %s\033[0m\n' "$1"
 ( eval "$1" )
 c=$?
+if [ -n "$4" ]; then
+printf '{"format":"idetea-task-status","version":1,"state":"exited","code":%s}\n' "$c" > "$4.tmp" && mv -f "$4.tmp" "$4"
+fi
 printf '\n\033[2m%s%s%s\033[0m\n' "$2" "$c" "$3"
 read _"#;
 
@@ -61,6 +65,11 @@ read _"#;
 const WINDOWS_TASK_SCRIPT: &str = r#"Write-Host "`e[1m$ $($env:IDETEA_CMD)`e[0m"
 cmd.exe /C $env:IDETEA_CMD
 $c = $LASTEXITCODE
+if ($env:IDETEA_STATUS) {
+  $json = "{`"format`":`"idetea-task-status`",`"version`":1,`"state`":`"exited`",`"code`":$c}`n"
+  [IO.File]::WriteAllText("$($env:IDETEA_STATUS).tmp", $json)
+  Move-Item -Force "$($env:IDETEA_STATUS).tmp" $env:IDETEA_STATUS
+}
 Write-Host "`n`e[2m$($env:IDETEA_BEFORE)$c$($env:IDETEA_AFTER)`e[0m"
 [void][Console]::ReadLine()"#;
 
@@ -114,11 +123,19 @@ pub enum Message {
     Refuse(String),
     /// Hora de ver se a aba de agente que acabou de abrir já pode receber a colagem do `Ctrl+L`.
     PasteTick,
+    /// A tarefa pode ter gravado o código de saída (o script ainda espera o Enter).
+    TaskPoll,
 }
+
+/// De quanto em quanto tempo olhar o arquivo de código da tarefa.
+const TASK_POLL: Duration = Duration::from_millis(400);
 
 struct TaskTerm {
     term: Terminal,
     name: String,
+    /// Onde o script grava o código, antes de esperar o Enter.
+    status_path: PathBuf,
+    reported: bool,
 }
 
 /// Um shell numa aba: o número fica o mesmo enquanto a aba existir ("Terminal 2").
@@ -367,9 +384,12 @@ impl TerminalExtension {
         self.next_id += 1;
         self.task = None;
         let (before, after) = done.split_once("{code}").unwrap_or((done, ""));
+        let status_path = std::env::temp_dir().join(format!("idetea-task-{}-{}.json", std::process::id(), self.next_id));
+        let _ = std::fs::remove_file(&status_path);
         #[cfg(unix)]
         let settings = {
-            let args = ["-c", TASK_SCRIPT, "sh", command, before, after].map(str::to_string).to_vec();
+            let status = status_path.to_string_lossy().into_owned();
+            let args = ["-c", TASK_SCRIPT, "sh", command, before, after, &status].map(str::to_string).to_vec();
             self.settings("/bin/sh".into(), args, cwd)
         };
         #[cfg(windows)]
@@ -383,19 +403,47 @@ impl TerminalExtension {
             s.backend.env.insert("IDETEA_CMD".into(), command.to_string());
             s.backend.env.insert("IDETEA_BEFORE".into(), before.to_string());
             s.backend.env.insert("IDETEA_AFTER".into(), after.to_string());
+            s.backend.env.insert("IDETEA_STATUS".into(), status_path.to_string_lossy().into_owned());
             s
         };
         match self.new_terminal(settings) {
             Ok(term) => {
-                self.task = Some(TaskTerm { term, name: name.to_string() });
+                self.task = Some(TaskTerm { term, name: name.to_string(), status_path, reported: false });
                 self.shown = Shown::Task;
                 ctx.show_panel(PANEL);
-                self.focus_current()
+                Task::batch([self.focus_current(), later(TASK_POLL, Message::TaskPoll)])
             }
             Err(e) => {
                 ctx.notify(fl!("terminal-task-error", error = e.to_string()));
                 Task::none()
             }
+        }
+    }
+
+    /// O script gravou o código e ainda espera o Enter: avisa a IDE uma vez e para de olhar.
+    fn poll_task(&mut self, ctx: &mut Context) -> Task<Message> {
+        let (path, name, reported) = match self.task.as_ref() {
+            Some(task) => (task.status_path.clone(), task.name.clone(), task.reported),
+            None => return Task::none(),
+        };
+        if reported {
+            return Task::none();
+        }
+        match std::fs::read_to_string(&path) {
+            Ok(text) => {
+                let code = serde_json::from_str::<serde_json::Value>(&text)
+                    .ok()
+                    .and_then(|v| v.get("code").and_then(serde_json::Value::as_i64))
+                    .and_then(|n| i32::try_from(n).ok())
+                    .unwrap_or(1);
+                if let Some(task) = self.task.as_mut() {
+                    task.reported = true;
+                }
+                let _ = std::fs::remove_file(&path);
+                ctx.task_finished(name, code);
+                Task::none()
+            }
+            Err(_) => later(TASK_POLL, Message::TaskPoll),
         }
     }
 
@@ -966,6 +1014,7 @@ impl TerminalExtension {
                     return later(Duration::from_millis(250), Message::PasteTick);
                 }
             }
+            Message::TaskPoll => return self.poll_task(ctx),
             Message::ShowRequest => {
                 if !self.pending.is_empty() {
                     self.shown = Shown::Request;
@@ -1213,6 +1262,36 @@ mod tests {
         assert!(text.contains("$ X=oi; echo $X && exit 3"), "{text}");
         assert!(text.contains("oi\n"), "{text}");
         assert!(text.contains("[fim: 3]"), "{text}");
+    }
+
+    /// O script grava o código num arquivo antes de esperar o Enter, para a IDE saber que a tarefa acabou.
+    #[cfg(unix)]
+    #[test]
+    fn task_script_writes_the_exit_code_before_waiting() {
+        let dir = std::env::temp_dir().join(format!("idetea-task-status-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let status = dir.join("task.json");
+        let mut child = std::process::Command::new("/bin/sh")
+            .args(["-c", TASK_SCRIPT, "sh", "echo oi; exit 3", "[fim: ", "]", status.to_str().unwrap()])
+            .stdin(std::process::Stdio::piped())
+            .stdout(std::process::Stdio::null())
+            .spawn()
+            .unwrap();
+        let _stdin = child.stdin.take();
+        let deadline = std::time::Instant::now() + Duration::from_secs(5);
+        while !status.exists() && std::time::Instant::now() < deadline {
+            std::thread::sleep(Duration::from_millis(30));
+        }
+        let v: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(&status).unwrap()).unwrap();
+        assert_eq!(v["code"], 3);
+        assert_eq!(v["state"], "exited");
+        assert!(!dir.join("task.json.tmp").exists());
+        // Ainda espera o Enter: o processo não saiu.
+        assert!(child.try_wait().unwrap().is_none(), "o script continua no read");
+        let _ = child.kill();
+        let _ = child.wait();
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     fn status(root: &Path, name: &str) -> String {

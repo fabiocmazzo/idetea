@@ -56,6 +56,9 @@ pub enum Msg {
     ExtSlot(String, SlotChoice),
     LspEnabled(bool),
     LspServer(String, bool),
+    MascotEnabled(bool),
+    MascotChatty(ChattyChoice),
+    MascotTips(bool),
     RestartLsp,
     Filter(String),
     Record(String),
@@ -263,6 +266,25 @@ impl Settings {
     }
 }
 
+/// Nível de conversa do mascote, como aparece na lista.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ChattyChoice(pub tea_core::config::MascotChatty);
+
+impl fmt::Display for ChattyChoice {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(&match self.0 {
+            tea_core::config::MascotChatty::Quiet => fl!("settings-mascot-quiet"),
+            tea_core::config::MascotChatty::Normal => fl!("settings-mascot-normal"),
+            tea_core::config::MascotChatty::Chatty => fl!("settings-mascot-chatty-level"),
+        })
+    }
+}
+
+fn chatty_choices() -> Vec<ChattyChoice> {
+    use tea_core::config::MascotChatty::{Chatty, Normal, Quiet};
+    vec![ChattyChoice(Quiet), ChattyChoice(Normal), ChattyChoice(Chatty)]
+}
+
 /// Tema na lista: o valor gravado e o nome mostrado.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ThemeChoice(pub String);
@@ -416,6 +438,25 @@ fn appearance(config: &Config) -> Element<'_, Msg> {
             fl!("settings-restore-session"),
             fl!("settings-restore-session-detail"),
             toggler(config.ui.restore_session).on_toggle(Msg::RestoreSession).into()
+        ),
+        section_title(fl!("settings-mascot")),
+        setting_owned(
+            fl!("settings-mascot-enabled"),
+            fl!("settings-mascot-enabled-detail"),
+            toggler(config.mascot.enabled).on_toggle(Msg::MascotEnabled).into(),
+        ),
+        setting_owned(
+            fl!("settings-mascot-chatty"),
+            fl!("settings-mascot-chatty-detail"),
+            pick_list(chatty_choices(), Some(ChattyChoice(config.mascot.chatty)), Msg::MascotChatty)
+                .text_size(13)
+                .width(220)
+                .into(),
+        ),
+        setting_owned(
+            fl!("settings-mascot-tips"),
+            fl!("settings-mascot-tips-detail"),
+            toggler(config.mascot.tips).on_toggle(Msg::MascotTips).into(),
         ),
     ]
     .spacing(4)

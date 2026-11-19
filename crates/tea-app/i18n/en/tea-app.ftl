@@ -326,7 +326,7 @@ cli-usage =
       status [--json]  what the IDE open in this project shows (tabs, changes, cursor)
       open <file[:line[:column]]>  the open IDE shows the file, with the cursor in place
       history [--json]  what you answered in the Interfaces panel (--name, --since, --last N, --all)
-      mascot <state> [--text "…"]  updates the IDE mascot (idle, working, thinking, attention, celebrating, error, sleeping, clear, status)
+      mascot <state> [--text "…"]  updates the IDE mascot (idle, working, thinking, attention, celebrating, error, sleeping, clear, status); setup-hooks installs Claude Code hooks
       -h, --help     show this help
       -V, --version  show the version
 cli-unknown-option = unknown option ignored: { $option }
@@ -387,6 +387,16 @@ guide-config-4 = Language: Settings → Appearance → Language (Automatic follo
 ## Sessão
 settings-restore-session = Reopen as it was
 settings-restore-session-detail = When a project opens, its tabs, cursor and panels come back. idetea file... opens just the file.
+settings-mascot = Mascot
+settings-mascot-enabled = Show the mascot
+settings-mascot-enabled-detail = The teacup in the corner. Off hides the card and the status button.
+settings-mascot-chatty = How much it talks
+settings-mascot-chatty-detail = Quiet keeps conflicts and errors. Normal adds saves and greetings. Chatty also mentions warnings and cleared errors.
+settings-mascot-quiet = Quiet
+settings-mascot-normal = Normal
+settings-mascot-chatty-level = Chatty
+settings-mascot-tips = Shortcut tips
+settings-mascot-tips-detail = Occasional real shortcuts. Quiet ignores this.
 
 ## Recentes
 cmd-file-open-recent = File: open recent…
@@ -719,15 +729,78 @@ mascot-error-5 = Worth a look, when you want.
 mascot-open-interfaces = Open Interfaces panel →
 mascot-open-terminal = Open Terminal panel →
 mascot-open-problems = Open Problems panel →
+mascot-disk-1 = { $name } changed on disk. This copy is still unsaved.
+mascot-disk-2 = An outside edit landed on { $name }. Yours is still here.
+mascot-disk-3 = { $name } moved while the cup was holding it.
+mascot-disk-4 = Look at { $name } before saving over it.
+mascot-disk-many-1 = { $count } files changed outside, including { $name }. Unsaved edits are still here.
+mascot-disk-many-2 = { $count } files on disk differ from your copies. { $name } is one.
+mascot-disk-many-3 = A batch arrived outside: { $count } files. { $name } is waiting.
+mascot-git-1 = Git has a conflict. I'll stay out of the merge.
+mascot-git-2 = A conflict showed up. Worth a look, when you want.
+mascot-git-3 = Two versions, one file. Conflict.
+mascot-git-4 = The leaves don't agree. Git conflict.
+mascot-debug-ok-1 = The session ended cleanly.
+mascot-debug-ok-2 = Debugger finished. The cup is calm.
+mascot-debug-ok-3 = Session over. Nothing spilled.
+mascot-debug-ok-4 = It stopped on its own. All well.
+mascot-debug-err-1 = The session exited with { $code }.
+mascot-debug-err-2 = Debugger stopped ({ $code }).
+mascot-debug-err-3 = Exit { $code } from the session.
+mascot-debug-fail-1 = The debugger stopped unexpectedly.
+mascot-debug-fail-2 = The session failed. I'm still here.
+mascot-debug-fail-3 = Something broke in the debugger.
+mascot-cleared-1 = Errors cleared. The cup approves.
+mascot-cleared-2 = No errors left. Quiet leaves.
+mascot-cleared-3 = Clean. That was the last error.
+mascot-cleared-4 = Zero errors. I'll keep the steam low.
+mascot-warnings-1 = { $count } warning(s). No errors. Whenever you want.
+mascot-warnings-2 = The leaves left { $count } warning(s). Nothing urgent.
+mascot-warnings-3 = { $count } warning(s) on the saucer. I can point.
+mascot-binary-1 = A new IDE is on disk. Restart when you can.
+mascot-binary-2 = The binary changed. No rush.
+mascot-binary-3 = Fresh build. Restart when it suits you.
+mascot-binary-4 = I can wait. Restart when you want the new one.
+mascot-unsaved-1 = { $count } file(s) still unsaved.
+mascot-unsaved-2 = Before you wander off: { $count } unsaved.
+mascot-unsaved-3 = { $count } edits are only in the cup.
+mascot-unsaved-4 = Still holding { $count } unsaved file(s).
+mascot-encoding-1 = { $name } has a character this encoding can't hold.
+mascot-encoding-2 = Can't write { $name } as it is. The question is up.
+mascot-encoding-3 = A glyph doesn't fit in { $name }.
+mascot-encoding-4 = { $name } needs another encoding. I'm pointing at it.
+mascot-replaced-1 = Replaced { $count } in { $files } file(s).
+mascot-replaced-2 = { $count } swaps, { $files } file(s). Done.
+mascot-replaced-3 = The search finished the swap: { $count } in { $files }.
+mascot-replaced-failed-1 = Replaced { $count }. { $failed } file(s) stayed put.
+mascot-replaced-failed-2 = { $failed } file(s) couldn't change. { $count } did, across { $files }.
+mascot-replaced-failed-3 = Partial swap: { $count } done, { $failed } left alone.
+mascot-open-git = Open Git panel →
+mascot-open-debug = Open Debug panel →
+mascot-open-file = Show the file →
+mascot-hooks-where = { $path }
+mascot-hooks-added = { $event }: added
+mascot-hooks-would-add = { $event }: would add
+mascot-hooks-present = { $event }: already present
+mascot-hooks-skipped = { $event }: left as it was (not a list of hooks)
+mascot-hooks-created = Wrote the file.
+mascot-hooks-updated = Updated the file.
+mascot-hooks-unchanged = Nothing to change.
+mascot-hooks-dry = Dry run: nothing written.
+mascot-hooks-bad-json = { $path } is not JSON I can edit: { $error }
+mascot-hooks-not-object = the file is JSON, but not an object
+mascot-hooks-note = Claude Code hooks in this project. Other hooks in the file stay. idetea needs to be on PATH.
 mascot-idle-hint = Watching agents and tasks
 mascot-bad-state = unknown mascot state: { $state }
 mascot-usage =
     Usage: idetea mascot <state> [--text "…"] [--source <name>] [--ttl <seconds>]
            idetea mascot clear
            idetea mascot status [--json]
+           idetea mascot setup-hooks [--dry-run]
     
     States: idle, working, thinking, attention, celebrating, error, sleeping, curious, annoyed.
     Writes .idetea/mascot.json so the IDE mascot reacts in real time (expires after --ttl, default 30s).
+    setup-hooks installs Claude Code hooks in .claude/settings.local.json (PreToolUse, Notification, Stop) and leaves the hooks already there. It prints every change. --dry-run only prints.
 
 ## Welcome screen
 welcome-start = Start

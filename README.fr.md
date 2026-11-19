@@ -216,7 +216,12 @@ La tasse dans le coin a plusieurs répliques pour chaque humeur. Elle remarque u
 l'heure de la journée et la compilation du débogueur, et elle peut citer de temps en temps un vrai raccourci.
 `[mascot] chatty` vaut `quiet`, `normal` ou `chatty` ; `[mascot] tips` active ou coupe les astuces. Toute l'interface,
 Tea compris, est en portugais, anglais, espagnol, français, allemand, italien, japonais et chinois simplifié
-(`[ui] language`, ou la langue du système). Elle ne prend pas le focus.
+(`[ui] language`, ou la langue du système). Elle parle aussi une fois d'un conflit sur disque avec des
+modifications non enregistrées, d'un conflit git, de la fin d'une tâche ou d'une session de débogage, d'un
+caractère que l'encodage ne peut pas garder et d'un remplacement dans plusieurs fichiers. Les avertissements et
+les erreurs qui disparaissent restent en mode chatty. Les mêmes interrupteurs sont dans les Paramètres.
+`idetea mascot setup-hooks` ajoute les hooks de Claude Code et laisse ceux qui sont déjà dans le fichier. Elle
+ne prend pas le focus.
 
 ## Mettre une étoile au dépôt
 

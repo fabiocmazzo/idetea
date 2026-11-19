@@ -14,11 +14,17 @@
 //! Por cima disso, sem roubar o foco: salvar um arquivo, o build do depurador, sono depois de
 //! um tempo parado, cumprimento conforme a hora e, se `[mascot] tips` estiver ligado, uma dica
 //! ocasional de atalho que existe de verdade. `chatty = "quiet"` fica só com o estado.
+//!
+//! Também, um aviso por vez e sem abrir o card se ele estiver recolhido: conflito com o disco,
+//! conflito do git, fim de tarefa do terminal, fim da sessão de debug, avisos do LSP (só
+//! `chatty`), binário novo, arquivos sem salvar depois do sono, caractere que não cabe no
+//! encoding e o resultado de uma troca em vários arquivos.
 
+mod hooks;
 mod lines;
 
 use std::cell::RefCell;
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::io::Cursor;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -49,6 +55,16 @@ const ASIDE_TIP: Duration = Duration::from_secs(8);
 const TIP_EVERY: Duration = Duration::from_secs(180);
 const TIP_EVERY_CHATTY: Duration = Duration::from_secs(70);
 const IDLE_ROLL: Duration = Duration::from_secs(40);
+/// A mesma rajada do observador não vira vários balões.
+const DISK_REPEAT: Duration = Duration::from_secs(15);
+/// Vários `git status` seguidos contam como um conflito só.
+const GIT_COALESCE: Duration = Duration::from_secs(8);
+/// "Erros zeraram" não repete se o contador oscila.
+const LSP_CLEAR_EVERY: Duration = Duration::from_secs(90);
+/// O lembrete de avisos fica parado por um bom tempo.
+const WARN_EVERY: Duration = Duration::from_secs(600);
+/// "N arquivos sem salvar" no máximo uma vez a cada meia hora.
+const UNSAVED_EVERY: Duration = Duration::from_secs(30 * 60);
 
 const EXIT_OK: i32 = 0;
 const EXIT_INVALID: i32 = 2;
@@ -141,15 +157,21 @@ pub enum Target {
     Interfaces,
     Terminal,
     Problems,
+    Git,
+    Debug,
+    /// Aba já aberta (o clique só foca; não abre arquivo novo).
+    File(PathBuf),
 }
 
 impl Target {
     pub fn command(&self) -> Option<&'static str> {
         match self {
-            Self::None => None,
+            Self::None | Self::File(_) => None,
             Self::Interfaces => Some("interfaces.show"),
             Self::Terminal => Some("terminal.focus"),
             Self::Problems => Some("problems.focus"),
+            Self::Git => Some("git.focus"),
+            Self::Debug => Some("debug.focus"),
         }
     }
 }
@@ -248,6 +270,7 @@ impl Eq for LoadedPack {}
 struct Aside {
     mood: Mood,
     text: String,
+    target: Target,
     until: Instant,
 }
 
@@ -288,6 +311,22 @@ pub struct Mascot {
     lsp_activity: BTreeMap<String, String>,
     /// Quantidade de erros do LSP no projeto.
     lsp_errors: usize,
+    /// Avisos do LSP, somados. O lembrete só existe no modo `chatty`.
+    lsp_warnings: usize,
+    /// Último balão de arquivo alterado por fora (para não repetir a rajada).
+    disk_note: Option<Instant>,
+    /// Caminhos em conflito que já foram ditos. Some da lista quando o conflito some.
+    git_announced: BTreeSet<String>,
+    git_note_at: Option<Instant>,
+    /// Já falou do fim desta sessão de debug.
+    debug_noted: bool,
+    last_clear: Option<Instant>,
+    last_warn: Option<Instant>,
+    /// Abas com alterações, para o lembrete depois do sono.
+    unsaved: usize,
+    last_unsaved: Option<Instant>,
+    /// O binário novo já foi comentado nesta execução.
+    binary_noted: bool,
     /// Última interação do usuário ou mudança de estado de agente.
     last_active: Instant,
     /// Quadro atual da animação.
@@ -322,6 +361,16 @@ impl Mascot {
             last_idle_roll: Instant::now(),
             lsp_activity: BTreeMap::new(),
             lsp_errors: 0,
+            lsp_warnings: 0,
+            disk_note: None,
+            git_announced: BTreeSet::new(),
+            git_note_at: None,
+            debug_noted: false,
+            last_clear: None,
+            last_warn: None,
+            unsaved: 0,
+            last_unsaved: None,
+            binary_noted: false,
             last_active: Instant::now(),
             frame: 0,
         }
@@ -350,8 +399,13 @@ impl Mascot {
             && self.chatty != tea_core::config::MascotChatty::Quiet
             && !self.aside_active()
         {
-            let text = self.pick_text(lines::WAKE);
-            self.show_aside(Mood::Idle, text, ASIDE_WAKE);
+            let due = self.unsaved > 0 && self.last_unsaved.is_none_or(|t| t.elapsed() >= UNSAVED_EVERY);
+            if due {
+                self.say_unsaved();
+            } else {
+                let text = self.pick_text(lines::WAKE);
+                self.show_aside(Mood::Idle, text, ASIDE_WAKE);
+            }
         }
     }
 
@@ -445,7 +499,7 @@ impl Mascot {
         self.show_aside(Mood::Celebrating, text, ASIDE_SAVE);
     }
 
-    /// Resultado do build que o depurador já conhece (não há evento de fim para as tarefas do terminal).
+    /// Resultado do build que o depurador já conhece. O fim da tarefa do terminal chega por `notify_task_finished`.
     pub fn notify_build(&mut self, ok: bool) {
         self.last_active = Instant::now();
         if ok {
@@ -478,10 +532,6 @@ impl Mascot {
         }
     }
 
-    pub fn set_lsp_errors(&mut self, total_errors: usize) {
-        self.lsp_errors = total_errors;
-    }
-
     pub fn notify_task_started(&mut self, name: &str) {
         self.last_active = Instant::now();
         let text = self.format_fresh(lines::TASK, &[("name", name)]);
@@ -491,6 +541,193 @@ impl Mascot {
             Target::Terminal,
             Instant::now() + Duration::from_secs(6),
         ));
+    }
+
+    /// O comando da tarefa terminou (o terminal ainda espera o Enter). Vale em `quiet`.
+    pub fn notify_task_finished(&mut self, name: &str, code: i32) {
+        if code == 0 {
+            let text = self.format_fresh(lines::TERM_OK, &[("title", name)]);
+            self.show_transient(Mood::Celebrating, text, Target::Terminal);
+        } else {
+            let c = code.to_string();
+            let text = self.format_fresh(lines::TERM_ERR, &[("title", name), ("code", c.as_str())]);
+            self.show_transient(Mood::Error, text, Target::Terminal);
+        }
+    }
+
+    /// Um lote do observador: só quando a mudança de fora briga com edição não salva. Uma fala por lote.
+    pub fn notify_disk_conflict(&mut self, names: &[String], focus: PathBuf) {
+        if names.is_empty() {
+            return;
+        }
+        if self.disk_note.is_some_and(|t| t.elapsed() < DISK_REPEAT) {
+            return;
+        }
+        self.disk_note = Some(Instant::now());
+        let text = if names.len() == 1 {
+            self.format_fresh(lines::DISK, &[("name", names[0].as_str())])
+        } else {
+            let count = names.len().to_string();
+            self.format_fresh(lines::DISK_MANY, &[("count", count.as_str()), ("name", names[0].as_str())])
+        };
+        self.show_transient(Mood::Attention, text, Target::File(focus));
+    }
+
+    /// Caminhos em `Conflict` agora. Fala uma vez quando um conflito aparece; contagem de modificados não entra.
+    pub fn notify_conflicts(&mut self, paths: &[String]) {
+        let current: BTreeSet<&str> = paths.iter().map(String::as_str).collect();
+        self.git_announced.retain(|p| current.contains(p.as_str()));
+        let fresh: Vec<&str> = current.iter().copied().filter(|p| !self.git_announced.contains(*p)).collect();
+        if fresh.is_empty() {
+            return;
+        }
+        for p in &fresh {
+            self.git_announced.insert((*p).to_string());
+        }
+        if self.git_note_at.is_some_and(|t| t.elapsed() < GIT_COALESCE) {
+            return;
+        }
+        self.git_note_at = Some(Instant::now());
+        let text = self.pick_text(lines::GIT_CONFLICT);
+        self.show_transient(Mood::Attention, text, Target::Git);
+    }
+
+    /// Sessão nova: o próximo fim pode falar de novo.
+    pub fn debug_session_began(&mut self) {
+        self.debug_noted = false;
+    }
+
+    /// O programa depurado saiu. `None` e `0` são um fim calmo. Uma vez por sessão.
+    pub fn notify_debug_exit(&mut self, code: Option<i64>) {
+        if self.debug_noted {
+            return;
+        }
+        self.debug_noted = true;
+        if code.unwrap_or(0) == 0 {
+            let text = self.pick_text(lines::DEBUG_OK);
+            self.show_transient(Mood::Celebrating, text, Target::Debug);
+        } else {
+            let c = code.unwrap_or(0).to_string();
+            let text = self.format_fresh(lines::DEBUG_ERR, &[("code", c.as_str())]);
+            self.show_transient(Mood::Error, text, Target::Debug);
+        }
+    }
+
+    /// O adaptador caiu ou um comando do depurador falhou. Uma vez por sessão.
+    pub fn notify_debug_failed(&mut self) {
+        if self.debug_noted {
+            return;
+        }
+        self.debug_noted = true;
+        let text = self.pick_text(lines::DEBUG_FAIL);
+        self.show_transient(Mood::Error, text, Target::Debug);
+    }
+
+    /// Erros e avisos do projeto. A comemoração e o lembrete de avisos só no modo `chatty`, com intervalo.
+    pub fn set_diagnostics(&mut self, errors: usize, warnings: usize) {
+        let prev = self.lsp_errors;
+        self.lsp_errors = errors;
+        self.lsp_warnings = warnings;
+        if prev > 0 && errors == 0 {
+            self.maybe_celebrate_clear();
+        } else if errors == 0 {
+            self.maybe_warn();
+        }
+    }
+
+    /// Quantas abas têm alterações. Depois do sono (ou ao acordar), no máximo um lembrete por meia hora.
+    pub fn note_unsaved(&mut self, count: usize) {
+        self.unsaved = count;
+        self.consider_unsaved();
+    }
+
+    /// O executável da IDE mudou. Um aparte, em `normal` e `chatty`.
+    pub fn notify_binary_rebuilt(&mut self) {
+        if self.binary_noted || self.chatty == tea_core::config::MascotChatty::Quiet {
+            return;
+        }
+        self.binary_noted = true;
+        let text = self.pick_text(lines::BINARY);
+        self.show_aside(Mood::Idle, text, ASIDE_GREET);
+    }
+
+    /// Caractere que não cabe no encoding: o diálogo já está na tela. Vale em `quiet`.
+    pub fn notify_unmappable(&mut self, name: &str) {
+        if name.is_empty() {
+            return;
+        }
+        let text = self.format_fresh(lines::ENCODING, &[("name", name)]);
+        self.show_transient(Mood::Attention, text, Target::None);
+    }
+
+    /// Resultado de substituir em vários arquivos. Uma busca não chega aqui.
+    pub fn notify_replaced(&mut self, count: usize, files: usize, failed: usize) {
+        if count == 0 && failed == 0 {
+            return;
+        }
+        if failed > 0 {
+            let c = count.to_string();
+            let f = files.to_string();
+            let bad = failed.to_string();
+            let text = self.format_fresh(
+                lines::REPLACED_FAILED,
+                &[("count", c.as_str()), ("files", f.as_str()), ("failed", bad.as_str())],
+            );
+            self.show_transient(Mood::Attention, text, Target::None);
+            return;
+        }
+        if self.chatty == tea_core::config::MascotChatty::Quiet {
+            return;
+        }
+        let c = count.to_string();
+        let f = files.to_string();
+        let text = self.format_fresh(lines::REPLACED, &[("count", c.as_str()), ("files", f.as_str())]);
+        self.show_aside(Mood::Celebrating, text, ASIDE_SAVE);
+    }
+
+    fn maybe_celebrate_clear(&mut self) {
+        if self.chatty != tea_core::config::MascotChatty::Chatty {
+            return;
+        }
+        if self.last_clear.is_some_and(|t| t.elapsed() < LSP_CLEAR_EVERY) {
+            return;
+        }
+        self.last_clear = Some(Instant::now());
+        let text = self.pick_text(lines::CLEARED);
+        self.show_aside_at(Mood::Celebrating, text, ASIDE_SAVE, Target::Problems);
+    }
+
+    fn maybe_warn(&mut self) {
+        if self.chatty != tea_core::config::MascotChatty::Chatty || self.lsp_warnings == 0 || self.lsp_errors > 0 {
+            return;
+        }
+        if self.last_warn.is_some_and(|t| t.elapsed() < WARN_EVERY) || self.aside_active() {
+            return;
+        }
+        self.last_warn = Some(Instant::now());
+        let n = self.lsp_warnings.to_string();
+        let text = self.format_fresh(lines::WARNINGS, &[("count", n.as_str())]);
+        self.show_aside_at(Mood::Idle, text, ASIDE_TIP, Target::Problems);
+    }
+
+    fn say_unsaved(&mut self) {
+        self.last_unsaved = Some(Instant::now());
+        let n = self.unsaved.to_string();
+        let text = self.format_fresh(lines::UNSAVED, &[("count", n.as_str())]);
+        self.show_aside(Mood::Idle, text, ASIDE_WAKE);
+    }
+
+    fn consider_unsaved(&mut self) {
+        if self.chatty == tea_core::config::MascotChatty::Quiet || self.unsaved == 0 || self.aside_active() {
+            return;
+        }
+        if self.last_active.elapsed() < SLEEP_AFTER_IDLE {
+            return;
+        }
+        if self.last_unsaved.is_some_and(|t| t.elapsed() < UNSAVED_EVERY) {
+            return;
+        }
+        self.say_unsaved();
     }
 
     pub fn apply_snapshot(&mut self, mut snap: DiskSnapshot) {
@@ -536,6 +773,7 @@ impl Mascot {
         self.consider_greeting(local_hour());
         self.consider_tip();
         self.consider_idle_refresh();
+        self.consider_unsaved();
     }
 
     fn fallback_target(&self) -> Target {
@@ -570,7 +808,7 @@ impl Mascot {
             && Instant::now() < aside.until
             && matches!(base.0, Mood::Idle | Mood::Sleeping | Mood::Thinking)
         {
-            return (aside.mood, Some(aside.text.clone()), Target::None);
+            return (aside.mood, Some(aside.text.clone()), aside.target.clone());
         }
         base
     }
@@ -680,11 +918,21 @@ impl Mascot {
     }
 
     fn show_aside(&mut self, mood: Mood, text: String, ttl: Duration) {
-        self.aside = Some(Aside {
-            mood,
-            text,
-            until: Instant::now() + ttl,
-        });
+        self.show_aside_at(mood, text, ttl, Target::None);
+    }
+
+    fn show_aside_at(&mut self, mood: Mood, text: String, ttl: Duration, target: Target) {
+        self.aside = Some(Aside { mood, text, target, until: Instant::now() + ttl });
+    }
+
+    fn show_transient(&mut self, mood: Mood, text: String, target: Target) {
+        let dur = match mood {
+            Mood::Error | Mood::Attention => ERROR_DURATION,
+            Mood::Celebrating => CELEBRATE_DURATION,
+            _ => Duration::from_secs(6),
+        };
+        self.last_active = Instant::now();
+        self.transient = Some((mood, text, target, Instant::now() + dur));
     }
 
     fn pick_text(&self, pool: &[&'static str]) -> String {
@@ -928,6 +1176,9 @@ impl Mascot {
                     Target::Interfaces => fl!("mascot-open-interfaces"),
                     Target::Terminal => fl!("mascot-open-terminal"),
                     Target::Problems => fl!("mascot-open-problems"),
+                    Target::Git => fl!("mascot-open-git"),
+                    Target::Debug => fl!("mascot-open-debug"),
+                    Target::File(_) => fl!("mascot-open-file"),
                     Target::None => String::new(),
                 };
                 let bubble_btn = button(
@@ -1826,6 +2077,32 @@ pub fn run_cli(args: &[String], cwd: &Path) -> i32 {
     let root = project_root(cwd);
     let sub = args[0].as_str();
 
+    if sub == "setup-hooks" {
+        let mut dry_run = false;
+        for arg in &args[1..] {
+            match arg.as_str() {
+                "--dry-run" => dry_run = true,
+                other => {
+                    eprintln!("{}", fl!("status-bad-arg", arg = other.to_string()));
+                    eprintln!("{}", fl!("mascot-usage"));
+                    return EXIT_INVALID;
+                }
+            }
+        }
+        return match hooks::apply(&root, dry_run) {
+            Ok(lines) => {
+                for line in lines {
+                    println!("{line}");
+                }
+                EXIT_OK
+            }
+            Err(e) => {
+                eprintln!("{e}");
+                EXIT_INVALID
+            }
+        };
+    }
+
     if sub == "clear" || sub == "off" || sub == "reset" {
         let _ = std::fs::remove_file(mascot_state_path(&root));
         return EXIT_OK;
@@ -2255,5 +2532,139 @@ fps = 5
         let text = lines::with_shortcuts(&marked, &keymap);
         assert!(text.contains("Ctrl+Shift+P"), "{text}");
         assert!(!text.contains('$') && !text.contains('{'), "{text}");
+    }
+
+    fn bubble(mascot: &Mascot) -> String {
+        mascot.resolved().1.unwrap_or_default()
+    }
+
+    #[test]
+    fn new_reactions_stay_quiet_and_rate_limited() {
+        tea_core::i18n::init("en");
+        let path = PathBuf::from("/tmp/a.rs");
+
+        let mut mascot = Mascot::new(false);
+        mascot.chatty = tea_core::config::MascotChatty::Quiet;
+        mascot.notify_disk_conflict(&["a.rs".into()], path.clone());
+        assert_eq!(mascot.resolved().0, Mood::Attention);
+        assert_eq!(mascot.resolved().2, Target::File(path.clone()));
+        let until = mascot.transient.as_ref().unwrap().3;
+        mascot.notify_disk_conflict(&["a.rs".into()], path.clone());
+        assert_eq!(mascot.transient.as_ref().unwrap().3, until, "a rajada do disco não repete");
+        mascot.notify_disk_conflict(&[], path);
+
+        mascot.transient = None;
+        mascot.notify_conflicts(&[]);
+        assert!(mascot.transient.is_none(), "arquivo modificado não é conflito");
+        mascot.notify_conflicts(&["/r/a.rs".into()]);
+        assert_eq!(mascot.resolved().2, Target::Git);
+        let until = mascot.transient.as_ref().unwrap().3;
+        mascot.notify_conflicts(&["/r/a.rs".into(), "/r/b.rs".into()]);
+        assert_eq!(mascot.transient.as_ref().unwrap().3, until, "o refresh do git não fala de novo");
+        mascot.notify_conflicts(&[]);
+        assert!(mascot.git_announced.is_empty());
+        mascot.git_note_at = Some(Instant::now().checked_sub(GIT_COALESCE + Duration::from_secs(1)).unwrap());
+        mascot.notify_conflicts(&["/r/a.rs".into()]);
+        assert_ne!(mascot.transient.as_ref().unwrap().3, until);
+
+        mascot.chatty = tea_core::config::MascotChatty::Normal;
+        mascot.transient = None;
+        mascot.aside = None;
+        mascot.set_diagnostics(2, 4);
+        mascot.set_diagnostics(0, 4);
+        assert!(mascot.aside.is_none(), "zerar erros só no modo chatty");
+        mascot.chatty = tea_core::config::MascotChatty::Chatty;
+        mascot.set_diagnostics(2, 4);
+        mascot.set_diagnostics(0, 1);
+        assert_eq!(mascot.resolved().0, Mood::Celebrating);
+        assert_eq!(mascot.resolved().2, Target::Problems);
+        mascot.aside = None;
+        mascot.set_diagnostics(1, 0);
+        mascot.set_diagnostics(0, 3);
+        assert!(mascot.aside.is_none(), "a comemoração tem intervalo");
+        mascot.last_clear = Some(Instant::now().checked_sub(LSP_CLEAR_EVERY + Duration::from_secs(1)).unwrap());
+        mascot.set_diagnostics(1, 0);
+        mascot.set_diagnostics(0, 3);
+        let warned = bubble(&mascot);
+        assert!(warned.contains('3') || mascot.resolved().0 == Mood::Celebrating);
+        // Com a comemoração na tela, o aviso espera. Sem aparte, o lembrete sai uma vez e fica estável.
+        mascot.aside = None;
+        mascot.last_warn = None;
+        mascot.lsp_errors = 0;
+        mascot.maybe_warn();
+        let first = bubble(&mascot);
+        assert!(first.contains('3'), "{first}");
+        assert_eq!(mascot.resolved().2, Target::Problems);
+        mascot.lsp_warnings = 9;
+        mascot.maybe_warn();
+        assert_eq!(bubble(&mascot), first, "o lembrete de avisos não troca no meio");
+
+        mascot.aside = None;
+        mascot.chatty = tea_core::config::MascotChatty::Quiet;
+        mascot.binary_noted = false;
+        mascot.notify_binary_rebuilt();
+        assert!(mascot.aside.is_none());
+        mascot.chatty = tea_core::config::MascotChatty::Normal;
+        mascot.notify_binary_rebuilt();
+        assert!(mascot.aside.is_some());
+        mascot.aside = None;
+        mascot.notify_binary_rebuilt();
+        assert!(mascot.aside.is_none(), "o binário novo é dito uma vez");
+
+        mascot.chatty = tea_core::config::MascotChatty::Normal;
+        mascot.unsaved = 2;
+        mascot.last_unsaved = None;
+        mascot.last_active = Instant::now().checked_sub(SLEEP_AFTER_IDLE + Duration::from_secs(1)).unwrap();
+        mascot.consider_unsaved();
+        assert!(bubble(&mascot).contains('2'), "{}", bubble(&mascot));
+        mascot.aside = None;
+        mascot.consider_unsaved();
+        assert!(mascot.aside.is_none(), "o lembrete de não salvos tem intervalo longo");
+        mascot.chatty = tea_core::config::MascotChatty::Quiet;
+        mascot.last_unsaved = None;
+        mascot.consider_unsaved();
+        assert!(mascot.aside.is_none());
+
+        mascot.chatty = tea_core::config::MascotChatty::Normal;
+        mascot.last_unsaved = None;
+        mascot.unsaved = 4;
+        mascot.last_active = Instant::now().checked_sub(SLEEP_AFTER_IDLE + Duration::from_secs(1)).unwrap();
+        mascot.touch_user_activity();
+        assert!(bubble(&mascot).contains('4'), "ao acordar, um aviso só, com a contagem");
+
+        mascot.chatty = tea_core::config::MascotChatty::Quiet;
+        mascot.aside = None;
+        mascot.transient = None;
+        mascot.notify_replaced(3, 1, 0);
+        assert!(mascot.aside.is_none() && mascot.transient.is_none());
+        mascot.notify_replaced(0, 0, 0);
+        mascot.notify_replaced(2, 1, 1);
+        assert_eq!(mascot.resolved().0, Mood::Attention);
+        mascot.chatty = tea_core::config::MascotChatty::Normal;
+        mascot.transient = None;
+        mascot.notify_replaced(5, 2, 0);
+        assert_eq!(mascot.resolved().0, Mood::Celebrating);
+
+        mascot.chatty = tea_core::config::MascotChatty::Quiet;
+        mascot.notify_unmappable("notas.txt");
+        assert_eq!(mascot.resolved().0, Mood::Attention);
+
+        mascot.transient = None;
+        mascot.notify_debug_exit(Some(0));
+        assert_eq!(mascot.resolved().0, Mood::Celebrating);
+        assert_eq!(mascot.resolved().2, Target::Debug);
+        let until = mascot.transient.as_ref().unwrap().3;
+        mascot.notify_debug_failed();
+        assert_eq!(mascot.transient.as_ref().unwrap().3, until, "uma reação por sessão");
+        mascot.debug_session_began();
+        mascot.notify_debug_exit(Some(9));
+        assert_eq!(mascot.resolved().0, Mood::Error);
+
+        mascot.notify_task_finished("cargo test", 0);
+        assert_eq!(mascot.resolved().0, Mood::Celebrating);
+        assert_eq!(mascot.resolved().2, Target::Terminal);
+        mascot.notify_task_finished("cargo test", 2);
+        assert_eq!(mascot.resolved().0, Mood::Error);
+        assert!(bubble(&mascot).contains('2'));
     }
 }
