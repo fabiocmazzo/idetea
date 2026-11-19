@@ -187,7 +187,12 @@ et `CLAUDE.md`.
   n'est pas montrée deux fois de suite. Elle remarque aussi un enregistrement de fichier, la fin ou l'échec de la
   compilation du débogueur, une longue inactivité (elle s'assoupit, et se réveille à votre retour) et l'heure de la
   journée, y compris une douce invitation à se reposer tard le soir. Cliquer sur la bulle ouvre le panneau Interfaces,
-  Terminal ou Problèmes et ne prend jamais le focus. Avec `[mascot] tips = true` (et `chatty` différent de `quiet`),
+  Terminal ou Problèmes et ne prend jamais le focus. Elle parle aussi une fois d'un conflit sur disque avec des
+  modifications non enregistrées, d'un conflit git, de la fin d'une tâche du terminal, d'une session de débogage
+  terminée, d'un caractère que l'encodage ne garde pas et d'un remplacement dans plusieurs fichiers. Les
+  avertissements et les erreurs qui viennent de disparaître n'apparaissent qu'en mode `chatty`. Les Paramètres
+  écrivent les mêmes interrupteurs. `idetea mascot setup-hooks` installe les hooks de Claude Code dans le projet
+  et laisse ceux qui sont déjà là. Avec `[mascot] tips = true` (et `chatty` différent de `quiet`),
   elle mentionne de temps en temps un vrai raccourci. `[mascot] chatty` vaut `quiet`, `normal` ou `chatty`. Les agents
   ou les hooks peuvent aussi la piloter directement via
   `idetea mascot <state> [--text "…"] [--source <name>] [--ttl <secs>]`, et des packs de sprites personnalisés
@@ -211,7 +216,7 @@ Détails (en portugais pour l'instant) : [terminais-de-agente.md](terminais-de-a
 
 - Palette de commandes avec chaque commande et son raccourci (`Ctrl+Shift+P`).
 - Aide (`F1`) avec tous les raccourcis actuels et un court guide.
-- Paramètres (`Ctrl+,`) : apparence, extensions, raccourcis (enregistre la touche que vous pressez) et serveurs de
+- Paramètres (`Ctrl+,`) : apparence (mascotte comprise), extensions, raccourcis (enregistre la touche que vous pressez) et serveurs de
   langage.
 - Barre d'activités pour afficher et masquer les panneaux ; les panneaux se redimensionnent à la souris.
 - Écran d'accueil quand aucun fichier n'est ouvert : nouveau fichier, ouvrir un fichier ou un dossier, fichiers et

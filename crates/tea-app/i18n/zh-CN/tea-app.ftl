@@ -325,7 +325,7 @@ cli-usage =
       status [--json]  本项目里打开的IDE正在显示什么（选项卡、更改、光标）
       open <file[:line[:column]]>  已打开的IDE显示该文件，并把光标放到位
       history [--json]  你在界面面板里回答过的内容（--name、--since、--last N、--all）
-      mascot <状态> [--text "…"]  更新IDE吉祥物（idle、working、thinking、attention、celebrating、error、sleeping、clear、status）
+      mascot <状态> [--text "…"]  更新IDE吉祥物（idle、working、thinking、attention、celebrating、error、sleeping、clear、status）；setup-hooks 安装 Claude Code 钩子
       -h, --help     显示此帮助
       -V, --version  显示版本
 cli-unknown-option = 已忽略未知选项：{ $option }
@@ -386,6 +386,16 @@ guide-config-4 = 语言：设置 → 外观 → 语言（“自动”跟着系�
 ## 会话
 settings-restore-session = 按上次的样子重新打开
 settings-restore-session-detail = 打开项目时，把它的选项卡、光标和面板找回来。idetea file...只打开那个文件。
+settings-mascot = 吉祥物
+settings-mascot-enabled = 显示吉祥物
+settings-mascot-enabled-detail = 角落里的茶杯。关掉后，卡片和状态栏按钮都会藏起来。
+settings-mascot-chatty = 它说多少话
+settings-mascot-chatty-detail = Quiet 只留冲突和错误。Normal 加上保存和问候。Chatty 也会提到警告，以及错误清零。
+settings-mascot-quiet = 安静
+settings-mascot-normal = 普通
+settings-mascot-chatty-level = 健谈
+settings-mascot-tips = 快捷键提示
+settings-mascot-tips-detail = 偶尔提起一条真实存在的快捷键。Quiet 会忽略。
 
 ## 最近使用
 cmd-file-open-recent = 文件: 打开最近使用的项…
@@ -713,15 +723,78 @@ mascot-error-5 = 值得看一眼，你想看的时候。
 mascot-open-interfaces = 打开界面面板 →
 mascot-open-terminal = 打开终端面板 →
 mascot-open-problems = 打开问题面板 →
+mascot-disk-1 = { $name } 在磁盘上变了。这份副本还没保存。
+mascot-disk-2 = { $name } 有一处外来的修改。你的那份还在这里。
+mascot-disk-3 = 杯子还端着的时候，{ $name } 动了。
+mascot-disk-4 = 覆盖保存之前，先看一眼 { $name }。
+mascot-disk-many-1 = 外面改了 { $count } 个文件，其中包括 { $name }。这里没保存的修改还在。
+mascot-disk-many-2 = 磁盘上有 { $count } 个文件和你的副本不一样。{ $name } 是其中一个。
+mascot-disk-many-3 = 外面来了一批：{ $count } 个文件。{ $name } 在等。
+mascot-git-1 = Git 有一处冲突。我不插手这次合并。
+mascot-git-2 = 出现了冲突。你想看的时候，看一眼就好。
+mascot-git-3 = 两个版本，一个文件。冲突。
+mascot-git-4 = 茶叶意见不一致。Git 冲突。
+mascot-debug-ok-1 = 这次调试干净地结束了。
+mascot-debug-ok-2 = 调试器结束了。杯子很平静。
+mascot-debug-ok-3 = 会话结束。没有洒出来。
+mascot-debug-ok-4 = 它自己停了。没事。
+mascot-debug-err-1 = 会话以 { $code } 退出。
+mascot-debug-err-2 = 调试器停了（{ $code }）。
+mascot-debug-err-3 = 会话的退出码是 { $code }。
+mascot-debug-fail-1 = 调试器突然停了。
+mascot-debug-fail-2 = 会话失败了。我还在。
+mascot-debug-fail-3 = 调试器里有东西坏了。
+mascot-cleared-1 = 错误清零了。杯子认可。
+mascot-cleared-2 = 没有错误了。茶叶很安静。
+mascot-cleared-3 = 干净了。那是最后一个错误。
+mascot-cleared-4 = 零个错误。我把蒸汽调低。
+mascot-warnings-1 = { $count } 条警告。没有错误。你想看的时候再看。
+mascot-warnings-2 = 茶叶留下了 { $count } 条警告。没有急事。
+mascot-warnings-3 = 托盘上有 { $count } 条警告。我可以指给你。
+mascot-binary-1 = 磁盘上有一个新的 IDE。你方便的时候再重启。
+mascot-binary-2 = 二进制变了。不着急。
+mascot-binary-3 = 新的构建好了。合适的时候再重启。
+mascot-binary-4 = 我等着。你想用新的时候再重启。
+mascot-unsaved-1 = 还有 { $count } 个文件没保存。
+mascot-unsaved-2 = 离开之前：{ $count } 个还没保存。
+mascot-unsaved-3 = { $count } 处修改只在杯子里。
+mascot-unsaved-4 = 我还拿着 { $count } 个没保存的文件。
+mascot-encoding-1 = { $name } 里有这个编码写不下的字符。
+mascot-encoding-2 = { $name } 不能就这样写下去。问题已经在屏幕上。
+mascot-encoding-3 = 有一个字形放不进 { $name }。
+mascot-encoding-4 = { $name } 需要另一种编码。我指着它。
+mascot-replaced-1 = 在 { $files } 个文件里替换了 { $count } 处。
+mascot-replaced-2 = { $count } 处替换，{ $files } 个文件。好了。
+mascot-replaced-3 = 搜索把替换做完了：{ $files } 个文件里的 { $count } 处。
+mascot-replaced-failed-1 = 替换了 { $count } 处。{ $failed } 个文件保持原样。
+mascot-replaced-failed-2 = { $failed } 个文件没能改。{ $count } 处改了，分布在 { $files } 个文件里。
+mascot-replaced-failed-3 = 替换做了一半：{ $count } 处完成，{ $failed } 处留着。
+mascot-open-git = 打开 Git 面板 →
+mascot-open-debug = 打开调试面板 →
+mascot-open-file = 显示这个文件 →
+mascot-hooks-where = { $path }
+mascot-hooks-added = { $event }：已添加
+mascot-hooks-would-add = { $event }：将会添加
+mascot-hooks-present = { $event }：已经有了
+mascot-hooks-skipped = { $event }：保持原样（它不是钩子列表）
+mascot-hooks-created = 已写入文件。
+mascot-hooks-updated = 已更新文件。
+mascot-hooks-unchanged = 没有需要改的。
+mascot-hooks-dry = 预演：没有写入。
+mascot-hooks-bad-json = { $path } 不是我能编辑的 JSON：{ $error }
+mascot-hooks-not-object = 文件是 JSON，但不是对象
+mascot-hooks-note = 这是本项目里 Claude Code 的钩子。文件里的其他钩子不动。idetea 需要在 PATH 里。
 mascot-idle-hint = 看着智能体和任务
 mascot-bad-state = 不认识的吉祥物状态: { $state }
 mascot-usage =
     用法: idetea mascot <状态> [--text "…"] [--source <名字>] [--ttl <秒>]
           idetea mascot clear
           idetea mascot status [--json]
+          idetea mascot setup-hooks [--dry-run]
 
     状态: idle, working, thinking, attention, celebrating, error, sleeping, curious, annoyed。
     写入 .idetea/mascot.json，让 IDE 里的吉祥物马上有反应（--ttl 之后过期，默认 30 秒）。
+    setup-hooks 在 .claude/settings.local.json 里安装 Claude Code 的钩子（PreToolUse、Notification、Stop），已有的钩子留着。它会打印每一处改动。--dry-run 只打印。
 
 
 ## 欢迎屏幕

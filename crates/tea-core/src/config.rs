@@ -140,8 +140,8 @@ max_mb = 50
 context_lines = 0
 
 # Mascote reativo no canto da IDE (RFC 0012): acompanha perguntas no painel, terminais de agentes,
-# salvar, o build do depurador e `idetea mascot`. Não rouba o foco: o balão some sozinho e o card
-# recolhido continua recolhido.
+# salvar, tarefas, conflitos, o build do depurador e `idetea mascot`. Não rouba o foco: o balão some
+# sozinho e o card recolhido continua recolhido. A tela de configurações grava enabled, chatty e tips.
 [mascot]
 enabled = true
 # pack = "" # caminho para uma pasta com mascot.toml (vazio = a xícara de chá embutida)

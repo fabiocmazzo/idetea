@@ -97,6 +97,9 @@ pub enum CoreEvent {
     /// Resposta de [`Request::Replace`]: quantas trocas, em quais arquivos, e os que não deu para mudar
     /// (sem permissão, não é UTF-8...).
     Replaced { count: usize, files: Vec<PathBuf>, failed: Vec<PathBuf> },
+    /// Uma tarefa do terminal terminou (`Ctrl+Shift+B`, teste no cursor). O script espera o Enter e o
+    /// processo não sai: a extensão grava o código e avisa por aqui. `code` é o do comando, não o do `read`.
+    TaskFinished { name: String, code: i32 },
     /// Rodar uma tarefa no terminal (quem cuida é a extensão do terminal): `name` para mostrar, `command`
     /// para o shell, na pasta `cwd`. `done` é o texto do fim, com `{code}` no lugar do código de saída.
     RunTask { name: String, command: String, cwd: PathBuf, done: String },
@@ -232,6 +235,8 @@ pub enum Request {
     FileStatuses(Arc<HashMap<PathBuf, FileStatus>>),
     /// Repassa [`CoreEvent::FilesChanged`] às outras extensões.
     FilesChanged,
+    /// A tarefa do terminal terminou (ver [`CoreEvent::TaskFinished`]).
+    TaskFinished { name: String, code: i32 },
     /// Debug: seleciona um quadro da pilha (índice): abre o arquivo e manda as variáveis dele.
     DebugSelectFrame(usize),
     /// Debug: pede os filhos de uma variável ou grupo (resposta em [`debug::Event::Variables`]).
@@ -470,6 +475,11 @@ impl<'a> Context<'a> {
 
     pub fn replace(&mut self, replace: replace::Replace) {
         self.requests.push(Request::Replace(replace));
+    }
+
+    /// Avisa que a tarefa do terminal terminou, com o código de saída do comando.
+    pub fn task_finished(&mut self, name: impl Into<String>, code: i32) {
+        self.requests.push(Request::TaskFinished { name: name.into(), code });
     }
 
     /// Abre a busca no projeto limitada a este arquivo ou pasta.

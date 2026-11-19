@@ -164,6 +164,19 @@ pub fn all_pools() -> &'static [&'static [&'static str]] {
         THINKING,
         CELEBRATE,
         ERROR_MOOD,
+        DISK,
+        DISK_MANY,
+        GIT_CONFLICT,
+        DEBUG_OK,
+        DEBUG_ERR,
+        DEBUG_FAIL,
+        CLEARED,
+        WARNINGS,
+        BINARY,
+        UNSAVED,
+        ENCODING,
+        REPLACED,
+        REPLACED_FAILED,
     ]
 }
 
@@ -385,6 +398,86 @@ pub const ERROR_MOOD: &[&str] = &[
     "mascot-error-3",
     "mascot-error-4",
     "mascot-error-5",
+];
+/// Arquivo mudou no disco e a aba ainda tem alterações. `{name}`.
+pub const DISK: &[&str] = &[
+    "mascot-disk-1",
+    "mascot-disk-2",
+    "mascot-disk-3",
+    "mascot-disk-4",
+];
+/// Vários arquivos na mesma rajada. `{count}` e `{name}` (o primeiro).
+pub const DISK_MANY: &[&str] = &[
+    "mascot-disk-many-1",
+    "mascot-disk-many-2",
+    "mascot-disk-many-3",
+];
+pub const GIT_CONFLICT: &[&str] = &[
+    "mascot-git-1",
+    "mascot-git-2",
+    "mascot-git-3",
+    "mascot-git-4",
+];
+pub const DEBUG_OK: &[&str] = &[
+    "mascot-debug-ok-1",
+    "mascot-debug-ok-2",
+    "mascot-debug-ok-3",
+    "mascot-debug-ok-4",
+];
+/// Sessão saiu com código diferente de zero. `{code}`.
+pub const DEBUG_ERR: &[&str] = &[
+    "mascot-debug-err-1",
+    "mascot-debug-err-2",
+    "mascot-debug-err-3",
+];
+pub const DEBUG_FAIL: &[&str] = &[
+    "mascot-debug-fail-1",
+    "mascot-debug-fail-2",
+    "mascot-debug-fail-3",
+];
+pub const CLEARED: &[&str] = &[
+    "mascot-cleared-1",
+    "mascot-cleared-2",
+    "mascot-cleared-3",
+    "mascot-cleared-4",
+];
+/// Avisos, sem erros. `{count}`.
+pub const WARNINGS: &[&str] = &[
+    "mascot-warnings-1",
+    "mascot-warnings-2",
+    "mascot-warnings-3",
+];
+pub const BINARY: &[&str] = &[
+    "mascot-binary-1",
+    "mascot-binary-2",
+    "mascot-binary-3",
+    "mascot-binary-4",
+];
+/// Arquivos sem salvar depois de um tempo parado. `{count}`.
+pub const UNSAVED: &[&str] = &[
+    "mascot-unsaved-1",
+    "mascot-unsaved-2",
+    "mascot-unsaved-3",
+    "mascot-unsaved-4",
+];
+/// Caractere que não cabe no encoding. `{name}`.
+pub const ENCODING: &[&str] = &[
+    "mascot-encoding-1",
+    "mascot-encoding-2",
+    "mascot-encoding-3",
+    "mascot-encoding-4",
+];
+/// Troca em vários arquivos, sem falha. `{count}` e `{files}`.
+pub const REPLACED: &[&str] = &[
+    "mascot-replaced-1",
+    "mascot-replaced-2",
+    "mascot-replaced-3",
+];
+/// Troca com arquivos que não mudaram. `{count}`, `{files}` e `{failed}`.
+pub const REPLACED_FAILED: &[&str] = &[
+    "mascot-replaced-failed-1",
+    "mascot-replaced-failed-2",
+    "mascot-replaced-failed-3",
 ];
 
 /// Atalhos citados nas dicas. O teste confere que o config padrão liga cada um.

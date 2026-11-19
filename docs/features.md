@@ -157,7 +157,11 @@ All of it is plain files in the project's `.idetea/` folder, so any agent that r
   or poked). Each situation has several short lines; the same line is not shown twice in a row. It also notices a file
   save, the debugger's build finishing or failing, a long idle (it dozes, and wakes when you come back) and the time
   of day, including a gentle late-night hint to rest. Clicking the speech bubble opens the Interfaces, Terminal or
-  Problems panel and never steals focus. With `[mascot] tips = true` (and `chatty` not `quiet`) it occasionally
+  Problems panel and never steals focus. It also speaks once about a disk conflict with unsaved edits, a git
+  conflict, a finished terminal task, a debug session that ended, a character the encoding can't hold, and a
+  replace-all. Warnings and errors that just cleared show only when `chatty` is `chatty`. Settings writes the
+  same switches. `idetea mascot setup-hooks` installs Claude Code hooks in the project and leaves hooks already
+  there. With `[mascot] tips = true` (and `chatty` not `quiet`) it occasionally
   mentions a real shortcut. `[mascot] chatty` is `quiet`, `normal` or `chatty`. Agents or hooks can also drive it
   directly via `idetea mascot <state> [--text "…"] [--source <name>] [--ttl <secs>]`, and custom sprite packs work via
   `.idetea/mascot/mascot.toml` or `~/.config/idetea/mascots/<pack>/mascot.toml` (`[mascot] enabled = true`).
@@ -177,7 +181,7 @@ Details (in Portuguese for now): [terminais-de-agente.md](terminais-de-agente.md
 
 - Command palette with every command and its shortcut (`Ctrl+Shift+P`).
 - Help (`F1`) with all current shortcuts and a short guide.
-- Settings (`Ctrl+,`): appearance, extensions, shortcuts (records the key you press) and language servers.
+- Settings (`Ctrl+,`): appearance (including the mascot), extensions, shortcuts (records the key you press) and language servers.
 - Activity bar to show and hide panels; panels resize with the mouse.
 - Welcome screen when no file is open: new file, open file or folder, recent files and projects, and the main
   shortcuts. Typing or `Ctrl+N` brings back an untitled editor.

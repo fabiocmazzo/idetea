@@ -142,6 +142,19 @@ impl ConfigFile {
         self.section("lsp")["enabled"] = value(on);
     }
 
+    pub fn set_mascot_enabled(&mut self, on: bool) {
+        self.section("mascot")["enabled"] = value(on);
+    }
+
+    /// `quiet`, `normal` ou `chatty`.
+    pub fn set_mascot_chatty(&mut self, level: &str) {
+        self.section("mascot")["chatty"] = value(level);
+    }
+
+    pub fn set_mascot_tips(&mut self, on: bool) {
+        self.section("mascot")["tips"] = value(on);
+    }
+
     pub fn set_lsp_server_enabled(&mut self, name: &str, on: bool) {
         let lsp = self.section("lsp");
         if lsp.get("servers").is_none_or(Item::is_none) {
@@ -196,6 +209,9 @@ mod tests {
         f.set_extension_slot("search", Slot::Right);
         f.set_extension_enabled("nova", true);
         f.set_lsp_server_enabled("clangd", false);
+        f.set_mascot_enabled(false);
+        f.set_mascot_chatty("chatty");
+        f.set_mascot_tips(false);
         f.bind("ctrl+alt+t", "terminal.focus");
         f.save().unwrap();
 
@@ -210,6 +226,9 @@ mod tests {
         assert_eq!(c.extension("search").slot, Some(Slot::Right));
         assert!(c.extension("nova").enabled);
         assert_eq!(c.lsp.servers["clangd"].enabled, Some(false));
+        assert!(!c.mascot.enabled);
+        assert_eq!(c.mascot.chatty, crate::config::MascotChatty::Chatty);
+        assert!(!c.mascot.tips);
         assert!(c.keys.contains(&("ctrl+alt+t".into(), "terminal.focus".into())));
         let _ = std::fs::remove_dir_all(&dir);
     }

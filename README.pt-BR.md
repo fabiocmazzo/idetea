@@ -214,7 +214,11 @@ A xícara no canto tem várias falas para cada humor. Ela nota um arquivo salvo,
 o build do depurador, e de vez em quando cita um atalho que existe de verdade. `[mascot] chatty` é `quiet`,
 `normal` ou `chatty`; `[mascot] tips` liga ou desliga as dicas. A interface inteira, inclusive o Tea, está em
 português, inglês, espanhol, francês, alemão, italiano, japonês e chinês simplificado (`[ui] language`, ou o
-idioma do sistema). Não rouba o foco.
+idioma do sistema). Também fala uma vez de um conflito com o disco e edições não salvas, de um conflito do git,
+do fim de uma tarefa ou da sessão de debug, de um caractere que o encoding não segura e de uma troca em vários
+arquivos. Avisos e erros que zeraram ficam no modo chatty. Os mesmos interruptores estão na tela de
+configurações. `idetea mascot setup-hooks` acrescenta hooks do Claude Code e deixa os que já estavam no arquivo.
+Não rouba o foco.
 
 ## Deixa uma estrela
 

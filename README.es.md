@@ -216,7 +216,11 @@ La taza de la esquina tiene varias frases para cada humor. Nota un archivo guard
 del día y el build del depurador, y de vez en cuando cita un atajo que de verdad existe. `[mascot] chatty` es
 `quiet`, `normal` o `chatty`; `[mascot] tips` enciende o apaga las pistas. Toda la interfaz, Tea incluido, está en
 portugués, inglés, español, francés, alemán, italiano, japonés y chino simplificado (`[ui] language`, o el idioma
-del sistema). No roba el foco.
+del sistema). También habla una vez de un conflicto en disco con ediciones sin guardar, de un conflicto de git,
+del fin de una tarea o de la sesión de depuración, de un carácter que la codificación no admite y de un
+reemplazo en varios archivos. Los avisos y los errores que llegan a cero quedan en el modo chatty. Los mismos
+interruptores están en Ajustes. `idetea mascot setup-hooks` añade hooks de Claude Code y deja los que ya estaban
+en el archivo. No roba el foco.
 
 ## Dale una estrella
 

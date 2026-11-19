@@ -685,7 +685,7 @@ struct App {
     ide_state_at: Option<Instant>,
     ide_state_due: bool,
     mascot: mascot::Mascot,
-    mascot_diag: std::collections::HashMap<(PathBuf, String), usize>,
+    mascot_diag: std::collections::HashMap<(PathBuf, String), (usize, usize)>,
 }
 
 #[derive(Debug, Clone)]
@@ -1036,6 +1036,9 @@ impl App {
                     tasks.push(self.broadcast(CoreEvent::FilesChanged));
                 }
                 Request::FileStatuses(statuses) => tasks.push(self.broadcast(CoreEvent::FileStatuses(statuses))),
+                Request::TaskFinished { name, code } => {
+                    tasks.push(self.broadcast(CoreEvent::TaskFinished { name, code }));
+                }
                 Request::FilesChanged => {
                     tasks.push(self.reload_changed_tabs());
                     tasks.push(self.broadcast(CoreEvent::FilesChanged));
@@ -1099,12 +1102,28 @@ impl App {
             }
             CoreEvent::Diagnostics { source, path, items } => {
                 let errs = items.iter().filter(|d| d.severity == Severity::Error).count();
-                if errs == 0 {
+                let warns = items.iter().filter(|d| d.severity == Severity::Warning).count();
+                if errs == 0 && warns == 0 {
                     self.mascot_diag.remove(&(path.clone(), source.clone()));
                 } else {
-                    self.mascot_diag.insert((path.clone(), source.clone()), errs);
+                    self.mascot_diag.insert((path.clone(), source.clone()), (errs, warns));
                 }
-                self.mascot.set_lsp_errors(self.mascot_diag.values().sum());
+                let errors = self.mascot_diag.values().map(|(e, _)| *e).sum();
+                let warnings = self.mascot_diag.values().map(|(_, w)| *w).sum();
+                self.mascot.set_diagnostics(errors, warnings);
+            }
+            CoreEvent::FileStatuses(statuses) => {
+                let conflicts: Vec<String> = statuses
+                    .iter()
+                    .filter(|(_, status)| **status == tea_core::FileStatus::Conflict)
+                    .map(|(path, _)| path.to_string_lossy().into_owned())
+                    .collect();
+                self.mascot.notify_conflicts(&conflicts);
+            }
+            CoreEvent::TaskFinished { name, code } => self.mascot.notify_task_finished(name, *code),
+            CoreEvent::BinaryChanged => self.mascot.notify_binary_rebuilt(),
+            CoreEvent::Replaced { count, files, failed } => {
+                self.mascot.notify_replaced(*count, files.len(), failed.len());
             }
             CoreEvent::EditorStatus(_) => self.mascot.touch_user_activity(),
             _ => {}
@@ -1412,7 +1431,10 @@ impl App {
         let cfg = &self.config.debug;
         let cwd = cfg.cwd.as_deref().map_or_else(|| self.root.clone(), |c| self.root.join(c));
         let (status, note) = match self.debug.start(program.clone(), cfg.args.clone(), cwd, breakpoints) {
-            Ok(()) => (DebugStatus::Running, fl!("debug-running", program = display_rel(&program, &self.root))),
+            Ok(()) => {
+                self.mascot.debug_session_began();
+                (DebugStatus::Running, fl!("debug-running", program = display_rel(&program, &self.root)))
+            }
             Err(e) => (DebugStatus::Idle, fl!("debug-error", error = e.to_string())),
         };
         Task::batch([self.debug_event(DebugEvent::Status(status)), self.notify(note)])
@@ -1519,6 +1541,7 @@ impl App {
                 self.debug_event(DebugEvent::Variables { reference, variables })
             }
             E::Exited { code } => {
+                self.mascot.notify_debug_exit(code);
                 self.notify(match code {
                     Some(c) => fl!("debug-exited-code", code = c),
                     None => fl!("debug-exited"),
@@ -1529,8 +1552,12 @@ impl App {
                 self.clear_exec_lines();
                 self.debug_event(DebugEvent::Status(DebugStatus::Idle))
             }
-            E::Error { command, message } => self.notify(fl!("debug-command-failed", command = command, message = message)),
+            E::Error { command, message } => {
+                self.mascot.notify_debug_failed();
+                self.notify(fl!("debug-command-failed", command = command, message = message))
+            }
             E::AdapterExited { reason } => {
+                self.mascot.notify_debug_failed();
                 self.debug.ended();
                 self.clear_exec_lines();
                 let idle = self.debug_event(DebugEvent::Status(DebugStatus::Idle));
@@ -1555,16 +1582,23 @@ impl App {
             .map(Path::to_path_buf)
             .collect();
         tasks.extend(images.iter().map(|p| self.reload_from_disk(p)).collect::<Vec<_>>());
-        let conflicts: Vec<String> = self
+        let conflicts: Vec<(PathBuf, String)> = self
             .tabs
             .iter()
             .filter(|t| t.editor.is_modified())
-            .filter_map(|t| t.editor.path())
-            .filter(|p| paths.iter().any(|c| c == p) && !self.own_saves.contains_key(*p))
-            .map(|p| display_rel(p, &self.root))
+            .filter_map(|t| t.editor.path().map(Path::to_path_buf))
+            .filter(|p| paths.iter().any(|c| c == p) && !self.own_saves.contains_key(p))
+            .map(|p| {
+                let name = display_rel(&p, &self.root);
+                (p, name)
+            })
             .collect();
-        for name in conflicts {
-            tasks.push(self.notify(fl!("file-changed-on-disk-overwrite", name = name)));
+        if let Some((path, _)) = conflicts.first() {
+            let names: Vec<String> = conflicts.iter().map(|(_, name)| name.clone()).collect();
+            self.mascot.notify_disk_conflict(&names, path.clone());
+        }
+        for (_, name) in &conflicts {
+            tasks.push(self.notify(fl!("file-changed-on-disk-overwrite", name = name.clone())));
         }
         tasks.push(self.broadcast(CoreEvent::FilesChanged));
         Task::batch(tasks)
@@ -2804,6 +2838,8 @@ impl App {
                 let enc = self.editor().encoding();
                 if err.kind() == std::io::ErrorKind::InvalidData && !enc.is_utf8() {
                     let id = self.tabs[self.active].id;
+                    let name = self.editor().file_name();
+                    self.mascot.notify_unmappable(&name);
                     let dialog = Dialog::new(fl!("encoding-unmappable-title"), err.to_string())
                         .button(fl!("encoding-save-utf8"), ButtonKind::Primary, CoreDialog::SaveAsUtf8(id))
                         .cancel(fl!("cancel"));
@@ -3676,6 +3712,16 @@ impl App {
             M::ExtSlot(id, slot) => self.edit_config(|f| f.set_extension_slot(&id, slot.0)),
             M::LspEnabled(on) => self.edit_config(|f| f.set_lsp_enabled(on)),
             M::LspServer(name, on) => self.edit_config(|f| f.set_lsp_server_enabled(&name, on)),
+            M::MascotEnabled(on) => self.edit_config(|f| f.set_mascot_enabled(on)),
+            M::MascotChatty(choice) => {
+                let level = match choice.0 {
+                    tea_core::config::MascotChatty::Quiet => "quiet",
+                    tea_core::config::MascotChatty::Normal => "normal",
+                    tea_core::config::MascotChatty::Chatty => "chatty",
+                };
+                self.edit_config(|f| f.set_mascot_chatty(level))
+            }
+            M::MascotTips(on) => self.edit_config(|f| f.set_mascot_tips(on)),
             M::RestartLsp => self.run_command("lsp.restart"),
             M::Unbind { chord, command } => self.unbind(chord, command),
             M::OpenFile => {
@@ -4540,6 +4586,8 @@ impl App {
             }
             Message::BackupTick => {
                 self.backup_tick();
+                let unsaved = self.tabs.iter().filter(|t| t.editor.is_modified() && !t.editor.is_image()).count();
+                self.mascot.note_unsaved(unsaved);
                 Task::none()
             }
             // `update` grava o estado depois de cada mensagem.
@@ -4636,6 +4684,9 @@ impl App {
                 }
                 mascot::Msg::ActivateTarget => {
                     let (_, _, target) = self.mascot.resolved();
+                    if let mascot::Target::File(path) = &target {
+                        return self.open_file(path.clone());
+                    }
                     match target.command() {
                         Some(cmd) => self.run_command(cmd),
                         None => Task::none(),

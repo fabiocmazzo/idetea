@@ -163,7 +163,11 @@ Alles davon sind schlichte Dateien im Ordner `.idetea/` des Projekts, also kann 
   oder Anstupsen). Jede Situation hat mehrere kurze Sätze; derselbe Satz kommt nicht zweimal hintereinander. Tea bemerkt auch ein
   Speichern, das Ende oder Scheitern des Builds im Debugger, ein langes Verweilen (sie döst und wacht auf, wenn Sie zurückkommen) und die
   Tageszeit, einschließlich eines leisen Hinweises spätabends, sich auszuruhen. Ein Klick auf die Sprechblase öffnet den Bereich Interfaces, Terminal oder
-  Probleme und nimmt nie den Fokus. Mit `[mascot] tips = true` (und `chatty` nicht `quiet`) nennt sie ab und zu
+  Probleme und nimmt nie den Fokus. Sie spricht außerdem einmal über einen Plattenkonflikt bei ungespeicherten
+  Änderungen, einen Git-Konflikt, das Ende einer Terminal-Aufgabe, eine beendete Debug-Sitzung, ein Zeichen, das
+  die Kodierung nicht hält, und ein Ersetzen in mehreren Dateien. Warnungen und Fehler, die gerade auf null
+  gingen, nur bei `chatty`. Die Einstellungen schreiben dieselben Schalter. `idetea mascot setup-hooks`
+  richtet Claude-Code-Hooks im Projekt ein und lässt vorhandene Hooks stehen. Mit `[mascot] tips = true` (und `chatty` nicht `quiet`) nennt sie ab und zu
   ein Tastenkürzel, das es wirklich gibt. `[mascot] chatty` ist `quiet`, `normal` oder `chatty`. Agenten oder Hooks können sie auch
   direkt steuern über `idetea mascot <Zustand> [--text "…"] [--source <Name>] [--ttl <Sekunden>]`, und eigene Sprite-Pakete funktionieren über
   `.idetea/mascot/mascot.toml` oder `~/.config/idetea/mascots/<Paket>/mascot.toml` (`[mascot] enabled = true`).
@@ -183,7 +187,7 @@ Einzelheiten: [terminais-de-agente.md](terminais-de-agente.md) (vorerst auf Port
 
 - Befehlspalette mit jedem Befehl und seinem Tastenkürzel (`Ctrl+Shift+P`).
 - Hilfe (`F1`) mit allen aktuellen Tastenkürzeln und einer kurzen Anleitung.
-- Einstellungen (`Ctrl+,`): Darstellung, Erweiterungen, Tastenkürzel (zeichnet die Taste auf, die Sie drücken) und Sprachserver.
+- Einstellungen (`Ctrl+,`): Darstellung (einschließlich des Maskottchens), Erweiterungen, Tastenkürzel (zeichnet die Taste auf, die Sie drücken) und Sprachserver.
 - Aktivitätsleiste, um Bereiche zu zeigen und zu verbergen; Bereiche ändern die Größe mit der Maus.
 - Willkommensbildschirm, wenn keine Datei offen ist: neue Datei, Datei oder Ordner öffnen, letzte Dateien und Projekte und die wichtigsten
   Tastenkürzel. Tippen oder `Ctrl+N` holt einen unbenannten Editor zurück.

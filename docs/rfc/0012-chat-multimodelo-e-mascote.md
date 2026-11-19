@@ -265,6 +265,14 @@ IDE TEA, um gatinho, um robô, etc.):
   recolhido. Francês, alemão, italiano, japonês e chinês simplificado traduzem todas as falas do mascote; o resto
   da interface desses idiomas cai no inglês. Um recorte pequeno da Droid Sans Fallback (Apache-2.0) cobre os
   glifos dessas falas quando o sistema não tem fonte CJK.
+- **2026-11-19 — mais eventos da IDE, ganchos e a tela de configurações.** O mascote fala uma vez de arquivo mudado
+  no disco com edição local não salva (clique foca a aba), de conflito do git (clique foca o git; contagem de
+  modificados não), do fim de uma tarefa do terminal, do fim ou da falha de uma sessão de debug, de caractere que
+  não cabe no encoding e do resultado de substituir em vários arquivos. Avisos do LSP e erros que acabaram de
+  zerar só no modo `chatty`, com intervalo. Binário novo da IDE e arquivos sem salvar depois do sono são apartes
+  em `normal`/`chatty`. Nada disso rouba o foco nem abre o card recolhido. `idetea mascot setup-hooks` grava os
+  hooks do Claude Code em `.claude/settings.local.json` (PreToolUse, Notification, Stop) sem apagar os que já
+  estavam, e imprime o que mudou. A tela de configurações grava `[mascot] enabled`, `chatty` e `tips`.
 
 ### 2.6 Falas, reações extras e idiomas
 
@@ -275,9 +283,10 @@ IDE TEA, um gatinho, um robô, etc.):
   só quando o estado de base é calmo, dormindo ou pensando. Erro, pergunta e terminal não são cobertos.
 - `chatty = "quiet"` desliga cumprimento, dica, comentário ao salvar e a fala de acordar. O sono, o erro e a
   pergunta continuam. `tips = false` desliga só as dicas. O padrão é `normal` e `tips = true`.
-- Tarefas do terminal (`Ctrl+Shift+B`, teste no cursor) avisam quando começam. O fim delas não é um evento da IDE:
-  o script espera o Enter e não devolve o código. O que a IDE já sabe — terminal de agente que saiu, e o build do
-  depurador — muda o mascote.
+- Tarefas do terminal (`Ctrl+Shift+B`, teste no cursor) avisam quando começam e quando o comando termina. O script
+  continua esperando o Enter (a aba não fecha sozinha) e, antes disso, grava o código num arquivo que a extensão lê.
+  O mascote usa as falas de sucesso e de erro que já tinha. Terminal de agente que saiu e o build do depurador
+  continuam valendo.
 - Idiomas parciais (`fr`, `de`, `it`, `ja`, `zh-CN`) carregam o inglês por baixo. Chinês tradicional não vira
   simplificado.
 

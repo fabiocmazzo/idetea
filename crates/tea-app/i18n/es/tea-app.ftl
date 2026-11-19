@@ -326,7 +326,7 @@ cli-usage =
       status [--json]  lo que muestra el IDE abierto en este proyecto (pestañas, cambios, cursor)
       open <archivo[:línea[:columna]]>  el IDE abierto muestra el archivo, con el cursor en su lugar
       history [--json]  lo que respondiste en el panel Interfaces (--name, --since, --last N, --all)
-      mascot <estado> [--text "…"]  actualiza la mascota del IDE (idle, working, thinking, attention, celebrating, error, sleeping, clear, status)
+      mascot <estado> [--text "…"]  actualiza la mascota del IDE (idle, working, thinking, attention, celebrating, error, sleeping, clear, status); setup-hooks instala hooks de Claude Code
       -h, --help     muestra esta ayuda
       -V, --version  muestra la versión
 cli-unknown-option = opción desconocida ignorada: { $option }
@@ -387,6 +387,16 @@ guide-config-4 = Idioma: Configuración → Apariencia → Idioma (Automático s
 ## Sessão
 settings-restore-session = Reabrir como estaba
 settings-restore-session-detail = Al abrir un proyecto, vuelven las pestañas, el cursor y los paneles. idetea archivo... abre solo el archivo.
+settings-mascot = Mascota
+settings-mascot-enabled = Mostrar la mascota
+settings-mascot-enabled-detail = La taza en la esquina. Apagado oculta la tarjeta y el botón de la barra de estado.
+settings-mascot-chatty = Cuánto habla
+settings-mascot-chatty-detail = Quiet se queda con conflictos y errores. Normal añade guardados y saludos. Chatty también comenta avisos y errores que llegaron a cero.
+settings-mascot-quiet = Quieto
+settings-mascot-normal = Normal
+settings-mascot-chatty-level = Parlanchín
+settings-mascot-tips = Pistas de atajo
+settings-mascot-tips-detail = Atajos que existen de verdad, de vez en cuando. Quiet lo ignora.
 
 ## Recentes
 cmd-file-open-recent = Archivo: abrir reciente…
@@ -719,15 +729,78 @@ mascot-error-5 = Merece una mirada, cuando quieras.
 mascot-open-interfaces = Abrir panel Interfaces →
 mascot-open-terminal = Abrir panel Terminal →
 mascot-open-problems = Abrir panel Problemas →
+mascot-disk-1 = { $name } cambió en el disco. Esta copia sigue sin guardar.
+mascot-disk-2 = Una edición de fuera cayó en { $name }. La tuya sigue aquí.
+mascot-disk-3 = { $name } se movió mientras la taza lo sostenía.
+mascot-disk-4 = Mira { $name } antes de guardar encima.
+mascot-disk-many-1 = { $count } archivos cambiaron fuera, { $name } entre ellos. Tus ediciones siguen aquí.
+mascot-disk-many-2 = { $count } archivos en disco no coinciden con tus copias. { $name } es uno.
+mascot-disk-many-3 = Llegó un lote de fuera: { $count } archivos. { $name } espera.
+mascot-git-1 = Git tiene un conflicto. Me quedo fuera del merge.
+mascot-git-2 = Apareció un conflicto. Vale una mirada, cuando quieras.
+mascot-git-3 = Dos versiones, un archivo. Conflicto.
+mascot-git-4 = Las hojas no se ponen de acuerdo. Conflicto en git.
+mascot-debug-ok-1 = La sesión terminó limpia.
+mascot-debug-ok-2 = El depurador acabó. La taza está en calma.
+mascot-debug-ok-3 = Sesión cerrada. No se derramó nada.
+mascot-debug-ok-4 = Se detuvo solo. Todo bien.
+mascot-debug-err-1 = La sesión salió con { $code }.
+mascot-debug-err-2 = El depurador se detuvo ({ $code }).
+mascot-debug-err-3 = Salida { $code } de la sesión.
+mascot-debug-fail-1 = El depurador se detuvo sin avisar.
+mascot-debug-fail-2 = La sesión falló. Sigo aquí.
+mascot-debug-fail-3 = Algo se rompió en el depurador.
+mascot-cleared-1 = Los errores se fueron. La taza aprueba.
+mascot-cleared-2 = Sin errores. Hojas en calma.
+mascot-cleared-3 = Limpio. Era el último error.
+mascot-cleared-4 = Cero errores. Bajo el vapor.
+mascot-warnings-1 = { $count } aviso(s). Sin errores. Cuando quieras.
+mascot-warnings-2 = Las hojas dejaron { $count } aviso(s). Nada urgente.
+mascot-warnings-3 = { $count } aviso(s) en el platillo. Puedo señalar.
+mascot-binary-1 = Hay un IDE nuevo en el disco. Reinicia cuando puedas.
+mascot-binary-2 = El binario cambió. Sin prisa.
+mascot-binary-3 = Compilación fresca. Reinicia cuando te venga bien.
+mascot-binary-4 = Espero. Reinicia cuando quieras el nuevo.
+mascot-unsaved-1 = { $count } archivo(s) siguen sin guardar.
+mascot-unsaved-2 = Antes de alejarte: { $count } sin guardar.
+mascot-unsaved-3 = { $count } ediciones están solo en la taza.
+mascot-unsaved-4 = Sigo sosteniendo { $count } archivo(s) sin guardar.
+mascot-encoding-1 = { $name } tiene un carácter que esta codificación no admite.
+mascot-encoding-2 = No puedo escribir { $name } así. La pregunta está en pantalla.
+mascot-encoding-3 = Un glifo no cabe en { $name }.
+mascot-encoding-4 = { $name } pide otra codificación. Estoy señalando.
+mascot-replaced-1 = Reemplacé { $count } en { $files } archivo(s).
+mascot-replaced-2 = { $count } cambios, { $files } archivo(s). Listo.
+mascot-replaced-3 = La búsqueda terminó el cambio: { $count } en { $files }.
+mascot-replaced-failed-1 = Reemplacé { $count }. { $failed } archivo(s) se quedaron igual.
+mascot-replaced-failed-2 = { $failed } archivo(s) no cambiaron. { $count } sí, en { $files }.
+mascot-replaced-failed-3 = Cambio a medias: { $count } hechos, { $failed } aparte.
+mascot-open-git = Abrir panel Git →
+mascot-open-debug = Abrir panel Depurar →
+mascot-open-file = Mostrar el archivo →
+mascot-hooks-where = { $path }
+mascot-hooks-added = { $event }: añadido
+mascot-hooks-would-add = { $event }: lo añadiría
+mascot-hooks-present = { $event }: ya estaba
+mascot-hooks-skipped = { $event }: lo dejé como está (no es una lista de hooks)
+mascot-hooks-created = Archivo escrito.
+mascot-hooks-updated = Archivo actualizado.
+mascot-hooks-unchanged = Nada que cambiar.
+mascot-hooks-dry = Simulación: no escribí nada.
+mascot-hooks-bad-json = { $path } no es un JSON que pueda editar: { $error }
+mascot-hooks-not-object = el archivo es JSON, pero no es un objeto
+mascot-hooks-note = Hooks de Claude Code en este proyecto. Los demás hooks del archivo se quedan. idetea tiene que estar en el PATH.
 mascot-idle-hint = Acompañando agentes y tareas
 mascot-bad-state = estado desconocido para la mascota: { $state }
 mascot-usage =
     Uso: idetea mascot <estado> [--text "…"] [--source <nombre>] [--ttl <segundos>]
          idetea mascot clear
          idetea mascot status [--json]
+         idetea mascot setup-hooks [--dry-run]
     
     Estados: idle, working, thinking, attention, celebrating, error, sleeping, curious, annoyed.
     Escribe .idetea/mascot.json para que la mascota del IDE reaccione en tiempo real (expira tras --ttl, por defecto 30s).
+    setup-hooks instala hooks de Claude Code en .claude/settings.local.json (PreToolUse, Notification, Stop) y deja los hooks que ya estaban. Imprime lo que cambia. --dry-run solo imprime.
 
 ## Pantalla de inicio
 welcome-start = Empezar
