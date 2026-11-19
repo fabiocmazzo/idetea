@@ -52,27 +52,41 @@
 
 <section id="install">
   <h2>1. インストール</h2>
+  <p>現在のリリースは <a href="https://github.com/fabiocmazzo/idetea/releases/tag/v0.15.0">v0.15.0</a> です。
+    そのページの <code>SHA256SUMS</code> にチェックサムがあります。新しい版が出たら <code>VERSION</code> を変えるか、
+    <a href="https://github.com/fabiocmazzo/idetea/releases/latest">最新リリース</a> からファイルを選んでください。</p>
   <ol class="steps">
-    <li>プラットフォーム用のパッケージをダウンロードします (Linux x86_64/aarch64 は <code>.tar.gz</code> または <code>.AppImage</code>、
-      macOS aarch64 は <code>IDE TEA.app</code> 入りの <code>.tar.gz</code>、Windows x86_64 は <code>-setup.exe</code> インストーラーまたは
-      ポータブルな <code>.zip</code>)。入手先は
-      <a href="https://github.com/fabiocmazzo/idetea/releases/latest">最新リリース</a>です。
-      <code>SHA256SUMS</code> にチェックサムがあります。</li>
-    <li>Linux では、展開してインストーラーを実行します。<code>idetea</code> を <code>~/.local/bin</code> に置き、IDE TEA を
-      アプリ メニューに追加します。
-<pre><code>tar -xzf idetea-*-linux.tar.gz
-cd idetea-*-linux
-./install.sh</code></pre></li>
-    <li>インストーラーが、<code>~/.local/bin</code> は <code>PATH</code> にないと言うときは、追加します (例は
-      <code>~/.profile</code>)。ターミナルから <code>idetea</code> を実行でき、エージェントも実行できます。</li>
+    <li><strong>Linux (x86_64).</strong> 展開してインストーラーを実行します。<code>idetea</code> を <code>~/.local/bin</code> に置き、IDE TEA をアプリ メニューに追加します:
+<pre><code>VERSION=0.15.0
+curl -fsSL -O "https://github.com/fabiocmazzo/idetea/releases/download/v${VERSION}/idetea-${VERSION}-x86_64-linux.tar.gz"
+tar -xzf idetea-${VERSION}-x86_64-linux.tar.gz
+cd idetea-${VERSION}-x86_64-linux
+./install.sh</code></pre>
+      ARM では <code>idetea-${VERSION}-aarch64-linux.tar.gz</code> を使います。単一ファイルがよい場合は
+      <code>IDE_TEA-${VERSION}-x86_64.AppImage</code>（または <code>IDE_TEA-${VERSION}-aarch64.AppImage</code>）をダウンロードし、<code>chmod +x</code> して開きます。
+      <code>--install-desktop</code> でメニューに追加します。</li>
+    <li><strong>macOS (Apple Silicon).</strong> アーカイブに <code>IDE TEA.app</code> が入っています:
+<pre><code>VERSION=0.15.0
+curl -fsSL -O "https://github.com/fabiocmazzo/idetea/releases/download/v${VERSION}/idetea-${VERSION}-aarch64-macos.tar.gz"
+tar -xzf idetea-${VERSION}-aarch64-macos.tar.gz
+cd idetea-${VERSION}-aarch64-macos
+./idetea --install-desktop</code></pre>
+      <code>--install-desktop</code> が <code>~/Applications/IDE TEA.app</code> を作ります。Intel Mac 向けのビルドはまだありません。</li>
+    <li><strong>Windows (x86_64).</strong>
+      <a href="https://github.com/fabiocmazzo/idetea/releases/download/v0.15.0/IDE_TEA-0.15.0-x86_64-setup.exe">IDE_TEA-0.15.0-x86_64-setup.exe</a>
+      をダウンロードして実行するか、ポータブルな
+      <a href="https://github.com/fabiocmazzo/idetea/releases/download/v0.15.0/idetea-0.15.0-x86_64-windows.zip">idetea-0.15.0-x86_64-windows.zip</a>
+      を展開します（中に <code>idetea.exe</code> があります）。PowerShell では:
+<pre><code>$Version = "0.15.0"
+Invoke-WebRequest -Uri "https://github.com/fabiocmazzo/idetea/releases/download/v$Version/IDE_TEA-$Version-x86_64-setup.exe" -OutFile "IDE_TEA-$Version-x86_64-setup.exe"
+Start-Process ".\IDE_TEA-$Version-x86_64-setup.exe"</code></pre></li>
+    <li>Linux のインストーラーが <code>~/.local/bin</code> が <code>PATH</code> にないと表示したら、追加してください（例: <code>~/.profile</code>）。
+      そうすれば、あなたもエージェントもターミナルから <code>idetea</code> を実行できます。</li>
   </ol>
-  <p>Linux で 1 ファイルがよいときは、AppImage をそのまま実行します。<code>chmod +x IDE_TEA-*.AppImage</code> して開きます。
-    <code>--install-desktop</code> でメニューに追加します。macOS では、<code>idetea --install-desktop</code> が
-    <code>~/Applications/IDE TEA.app</code> を作ります。ソースからのビルドは 1 コマンドです。
+  <p>ソースからのビルドは 1 つのコマンドです（<a href="https://rustup.rs">Rust</a> stable が必要）。パッケージ名は <code>tea-app</code>、バイナリ名は <code>idetea</code> です:
     <code>cargo install --locked --git https://github.com/fabiocmazzo/idetea tea-app</code>。</p>
-  <p class="note">Windows インストーラーにはまだコード署名がないため、初回実行時に SmartScreen が警告を出すことがあります（<a href="https://github.com/fabiocmazzo/idetea/blob/main/CODE_SIGNING_POLICY.md">コード署名とプライバシーの方針</a>）。</p>
-  <div class="callout">任意のもの: git パネル用の <code>git</code>、デバッグ用の <code>gdb</code> 14 以降 (macOS では <code>lldb-dap</code>)、
-    使う言語サーバー (次の手順)。</div>
+  <p class="note">Windows のインストーラーはまだコード署名されていないため、初回実行時に SmartScreen が警告することがあります（<a href="https://github.com/fabiocmazzo/idetea/blob/main/CODE_SIGNING_POLICY.md">コード署名とプライバシー</a>）。</p>
+  <div class="callout">任意: git パネル用の <code>git</code>、デバッグ用の <code>gdb</code> 14 以降（macOS では <code>lldb-dap</code>）、使う言語サーバー（次の手順）です。</div>
 </section>
 
 <section id="open">

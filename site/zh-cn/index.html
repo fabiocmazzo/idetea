@@ -179,13 +179,31 @@
 
 <section id="install"><div class="wrap">
   <h2>安装</h2>
-  <p><strong>下载就能跑</strong>，从<a href="https://github.com/fabiocmazzo/idetea/releases/latest">最新版本</a>获取。<code>SHA256SUMS</code>里是校验和。</p>
+  <p><strong>下载就能跑。</strong>当前版本是<a href="https://github.com/fabiocmazzo/idetea/releases/tag/v0.15.0">v0.15.0</a>。
+    该页的<code>SHA256SUMS</code>里是校验和。有更新版本时请改<code>VERSION</code>，或到<a href="https://github.com/fabiocmazzo/idetea/releases">Releases</a>里选文件。</p>
   <div class="cards">
-    <article class="card"><h3>Linux</h3><p>x86_64和aarch64，<code>.tar.gz</code>或<code>.AppImage</code>。<code>./install.sh</code>把<code>idetea</code>放到<code>~/.local/bin</code>，并加入应用菜单。AppImage需要<code>chmod +x</code>；<code>--install-desktop</code>会加入菜单项。</p></article>
-    <article class="card"><h3>macOS</h3><p>Apple Silicon，带<code>IDE TEA.app</code>的<code>.tar.gz</code>。<code>idetea --install-desktop</code>会创建<code>~/Applications/IDE TEA.app</code>。</p></article>
-    <article class="card"><h3>Windows</h3><p>x86_64，<code>-setup.exe</code>安装程序或便携<code>.zip</code>。尚无代码签名：首次运行时SmartScreen可能会警告。</p></article>
+    <article class="card"><h3>Linux</h3><p>x86_64和aarch64，<code>.tar.gz</code>或<code>.AppImage</code>。<code>./install.sh</code>会把<code>idetea</code>放到<code>~/.local/bin</code>，并加入应用菜单。AppImage需要先<code>chmod +x</code>；<code>--install-desktop</code>会把它加进菜单。</p></article>
+    <article class="card"><h3>macOS</h3><p>Apple Silicon，带<code>IDE TEA.app</code>的<code>.tar.gz</code>。<code>idetea --install-desktop</code>会创建<code>~/Applications/IDE TEA.app</code>。目前还没有Intel Mac的包。</p></article>
+    <article class="card"><h3>Windows</h3><p>x86_64，<a href="https://github.com/fabiocmazzo/idetea/releases/download/v0.15.0/IDE_TEA-0.15.0-x86_64-setup.exe"><code>-setup.exe</code></a>安装程序或便携<a href="https://github.com/fabiocmazzo/idetea/releases/download/v0.15.0/idetea-0.15.0-x86_64-windows.zip"><code>.zip</code></a>（里面是<code>idetea.exe</code>）。尚未代码签名：首次运行时SmartScreen可能会发出警告。</p></article>
   </div>
-  <p><strong>从源码安装</strong>（需要稳定版<a href="https://rustup.rs">Rust</a>）：</p>
+  <p><strong>Linux (x86_64)</strong></p>
+<pre><code>VERSION=0.15.0
+curl -fsSL -O "https://github.com/fabiocmazzo/idetea/releases/download/v${VERSION}/idetea-${VERSION}-x86_64-linux.tar.gz"
+tar -xzf idetea-${VERSION}-x86_64-linux.tar.gz
+cd idetea-${VERSION}-x86_64-linux
+./install.sh</code></pre>
+  <p>ARM请改用<code>idetea-${VERSION}-aarch64-linux.tar.gz</code>。AppImage是<code>IDE_TEA-${VERSION}-x86_64.AppImage</code>（或<code>…-aarch64.AppImage</code>）。</p>
+  <p><strong>macOS (Apple Silicon)</strong></p>
+<pre><code>VERSION=0.15.0
+curl -fsSL -O "https://github.com/fabiocmazzo/idetea/releases/download/v${VERSION}/idetea-${VERSION}-aarch64-macos.tar.gz"
+tar -xzf idetea-${VERSION}-aarch64-macos.tar.gz
+cd idetea-${VERSION}-aarch64-macos
+./idetea --install-desktop</code></pre>
+  <p><strong>Windows (x86_64)，在PowerShell中</strong></p>
+<pre><code>$Version = "0.15.0"
+Invoke-WebRequest -Uri "https://github.com/fabiocmazzo/idetea/releases/download/v$Version/IDE_TEA-$Version-x86_64-setup.exe" -OutFile "IDE_TEA-$Version-x86_64-setup.exe"
+Start-Process ".\IDE_TEA-$Version-x86_64-setup.exe"</code></pre>
+  <p><strong>从源码安装</strong>（需要<a href="https://rustup.rs">Rust</a> stable）。包名是<code>tea-app</code>，二进制名是<code>idetea</code>：</p>
 <pre><code>cargo install --locked --git https://github.com/fabiocmazzo/idetea tea-app
 idetea --install-desktop</code></pre>
   <p class="note">可选：git面板需要<code>git</code>，调试需要<code>gdb</code> 14+（macOS上可用<code>lldb-dap</code>），以及你要用的语言服务器。rust-analyzer、clangd、pyright、typescript-language-server、gopls、lua-language-server、zls、<code>zx lsp</code>、<code>hare-lsp</code>（Hare）和<code>moon lsp</code>（MoonBit）已经配好。</p>
