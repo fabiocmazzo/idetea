@@ -127,16 +127,50 @@ dentro il README. I poster aprono il clip sul sito, con l'audio. I file sono in 
 
 ## Installazione
 
-**Linux, macOS e Windows, pronto all'uso.** Scarica il pacchetto per la tua piattaforma dalle
-[Release](https://github.com/fabiocmazzo/idetea/releases): `.tar.gz` o `.AppImage` per Linux x86_64/aarch64,
-`.tar.gz` con `IDE TEA.app` per macOS aarch64, oppure l'installer `-setup.exe` / lo `.zip` portatile per Windows x86_64.
-`SHA256SUMS` ha le somme di controllo.
+**Linux, macOS e Windows, pronto all'uso.** La versione attuale è
+[v0.15.0](https://github.com/fabiocmazzo/idetea/releases/tag/v0.15.0).
+`SHA256SUMS` in quella pagina ha le somme di controllo. Cambia `VERSION` quando ne esce una più nuova, oppure scegli
+il file dalle [Release](https://github.com/fabiocmazzo/idetea/releases).
 
-Su Linux, `./install.sh` mette `idetea` in `~/.local/bin` e lo aggiunge al menu delle applicazioni. L'AppImage parte
-così com'è (`chmod +x` prima) e `--install-desktop` lo aggiunge al menu. Su macOS, `--install-desktop` crea
-`~/Applications/IDE TEA.app`.
+**Linux (x86_64).** Decomprimi ed esegui `install.sh`. Mette `idetea` in `~/.local/bin` e nel menu delle applicazioni:
 
-**Dal codice sorgente.** Serve [Rust](https://rustup.rs) (stable). Poi:
+```sh
+VERSION=0.15.0
+curl -fsSL -O "https://github.com/fabiocmazzo/idetea/releases/download/v${VERSION}/idetea-${VERSION}-x86_64-linux.tar.gz"
+tar -xzf idetea-${VERSION}-x86_64-linux.tar.gz
+cd idetea-${VERSION}-x86_64-linux
+./install.sh
+```
+
+Su ARM usa `idetea-${VERSION}-aarch64-linux.tar.gz`. Se preferisci un solo file, scarica
+`IDE_TEA-${VERSION}-x86_64.AppImage` (o `IDE_TEA-${VERSION}-aarch64.AppImage`), poi `chmod +x` ed eseguilo.
+`--install-desktop` lo aggiunge al menu.
+
+**macOS (Apple Silicon).** L'archivio contiene `IDE TEA.app`:
+
+```sh
+VERSION=0.15.0
+curl -fsSL -O "https://github.com/fabiocmazzo/idetea/releases/download/v${VERSION}/idetea-${VERSION}-aarch64-macos.tar.gz"
+tar -xzf idetea-${VERSION}-aarch64-macos.tar.gz
+cd idetea-${VERSION}-aarch64-macos
+./idetea --install-desktop   # crea ~/Applications/IDE TEA.app
+```
+
+Non c'è ancora un pacchetto per i Mac Intel.
+
+**Windows (x86_64).** Scarica ed esegui
+[IDE_TEA-0.15.0-x86_64-setup.exe](https://github.com/fabiocmazzo/idetea/releases/download/v0.15.0/IDE_TEA-0.15.0-x86_64-setup.exe),
+oppure decomprimi lo
+[idetea-0.15.0-x86_64-windows.zip](https://github.com/fabiocmazzo/idetea/releases/download/v0.15.0/idetea-0.15.0-x86_64-windows.zip)
+portatile (`idetea.exe` è dentro). In PowerShell:
+
+```powershell
+$Version = "0.15.0"
+Invoke-WebRequest -Uri "https://github.com/fabiocmazzo/idetea/releases/download/v$Version/IDE_TEA-$Version-x86_64-setup.exe" -OutFile "IDE_TEA-$Version-x86_64-setup.exe"
+Start-Process ".\IDE_TEA-$Version-x86_64-setup.exe"
+```
+
+**Dal codice sorgente.** Serve [Rust](https://rustup.rs) (stable). Il pacchetto è `tea-app`; il binario si chiama `idetea`:
 
 ```sh
 cargo install --locked --git https://github.com/fabiocmazzo/idetea tea-app
@@ -203,6 +237,7 @@ Il resto è nel [manifesto](MANIFESTO.it.md).
 
 - [Manifesto](MANIFESTO.it.md): in che cosa crede IDE TEA, e che cosa non farà.
 - [Sito](https://idetea.belabs.cloud/it/): la demo, l'installazione e le guide.
+- [Contributing](CONTRIBUTING.md): come compilare, provare e aprire una pull request (in inglese).
 - [Funzionalità e scelte rapide](docs/features.it.md): l'elenco completo.
 - [Linguaggi](docs/languages.it.md): che cosa fa l'IDE per ogni linguaggio, Hare e MoonBit compresi, con
   [esempi](examples/languages) da provare.

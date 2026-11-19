@@ -52,27 +52,42 @@
 
 <section id="install">
   <h2>1. Instalar</h2>
+  <p>A versão atual é a <a href="https://github.com/fabiocmazzo/idetea/releases/tag/v0.15.0">v0.15.0</a>.
+    O <code>SHA256SUMS</code> nessa página tem as somas de verificação. Troque o <code>VERSION</code> quando sair uma mais nova, ou pegue o arquivo na
+    <a href="https://github.com/fabiocmazzo/idetea/releases/latest">versão mais recente</a>.</p>
   <ol class="steps">
-    <li>Baixe o pacote do seu sistema (<code>.tar.gz</code> ou <code>.AppImage</code> para Linux x86_64/aarch64,
-      <code>.tar.gz</code> com <code>IDE TEA.app</code> para macOS aarch64, ou o instalador <code>-setup.exe</code> /
-      <code>.zip</code> portátil para Windows x86_64) na
-      <a href="https://github.com/fabiocmazzo/idetea/releases/latest">versão mais recente</a>.
-      O <code>SHA256SUMS</code> tem as somas de verificação.</li>
-    <li>No Linux, descompacte e rode o instalador. Ele põe o <code>idetea</code> em <code>~/.local/bin</code> e a IDE TEA no
-      menu de aplicativos:
-<pre><code>tar -xzf idetea-*-linux.tar.gz
-cd idetea-*-linux
-./install.sh</code></pre></li>
-    <li>Se o instalador avisar que <code>~/.local/bin</code> não está no <code>PATH</code>, acrescente (por exemplo no
-      <code>~/.profile</code>), para você e os seus agentes rodarem o <code>idetea</code> de um terminal.</li>
+    <li><strong>Linux (x86_64).</strong> Descompacte e rode o instalador. Ele põe o <code>idetea</code> em <code>~/.local/bin</code> e a IDE TEA no menu de aplicativos:
+<pre><code>VERSION=0.15.0
+curl -fsSL -O "https://github.com/fabiocmazzo/idetea/releases/download/v${VERSION}/idetea-${VERSION}-x86_64-linux.tar.gz"
+tar -xzf idetea-${VERSION}-x86_64-linux.tar.gz
+cd idetea-${VERSION}-x86_64-linux
+./install.sh</code></pre>
+      No ARM, use <code>idetea-${VERSION}-aarch64-linux.tar.gz</code>. Prefere um arquivo só? Baixe
+      <code>IDE_TEA-${VERSION}-x86_64.AppImage</code> (ou <code>IDE_TEA-${VERSION}-aarch64.AppImage</code>), dê <code>chmod +x</code> e execute;
+      <code>--install-desktop</code> põe no menu.</li>
+    <li><strong>macOS (Apple Silicon).</strong> O arquivo traz o <code>IDE TEA.app</code>:
+<pre><code>VERSION=0.15.0
+curl -fsSL -O "https://github.com/fabiocmazzo/idetea/releases/download/v${VERSION}/idetea-${VERSION}-aarch64-macos.tar.gz"
+tar -xzf idetea-${VERSION}-aarch64-macos.tar.gz
+cd idetea-${VERSION}-aarch64-macos
+./idetea --install-desktop</code></pre>
+      <code>--install-desktop</code> cria <code>~/Applications/IDE TEA.app</code>. Ainda não há pacote para Mac com Intel.</li>
+    <li><strong>Windows (x86_64).</strong> Baixe e execute o
+      <a href="https://github.com/fabiocmazzo/idetea/releases/download/v0.15.0/IDE_TEA-0.15.0-x86_64-setup.exe">IDE_TEA-0.15.0-x86_64-setup.exe</a>,
+      ou descompacte o
+      <a href="https://github.com/fabiocmazzo/idetea/releases/download/v0.15.0/idetea-0.15.0-x86_64-windows.zip">idetea-0.15.0-x86_64-windows.zip</a>
+      portátil (o <code>idetea.exe</code> está dentro). No PowerShell:
+<pre><code>$Version = "0.15.0"
+Invoke-WebRequest -Uri "https://github.com/fabiocmazzo/idetea/releases/download/v$Version/IDE_TEA-$Version-x86_64-setup.exe" -OutFile "IDE_TEA-$Version-x86_64-setup.exe"
+Start-Process ".\IDE_TEA-$Version-x86_64-setup.exe"</code></pre></li>
+    <li>Se o instalador do Linux disser que <code>~/.local/bin</code> não está no <code>PATH</code>, adicione-o (por exemplo no
+      <code>~/.profile</code>), para você e os agentes rodarem o <code>idetea</code> no terminal.</li>
   </ol>
-  <p>Prefere um arquivo só no Linux? O AppImage roda como está: <code>chmod +x IDE_TEA-*.AppImage</code> e abra;
-    <code>--install-desktop</code> põe no menu. No macOS, <code>idetea --install-desktop</code> cria
-    <code>~/Applications/IDE TEA.app</code>. Compilar pelo código é um comando:
+  <p>Compilar pelo código-fonte é um comando (precisa do <a href="https://rustup.rs">Rust</a> estável). O pacote é <code>tea-app</code>; o binário se chama <code>idetea</code>:
     <code>cargo install --locked --git https://github.com/fabiocmazzo/idetea tea-app</code>.</p>
   <p class="note">O instalador do Windows ainda não tem assinatura de código, então o SmartScreen pode avisar na primeira execução (<a href="https://github.com/fabiocmazzo/idetea/blob/main/CODE_SIGNING_POLICY.md">política de assinatura e privacidade</a>).</p>
-  <div class="callout">Extras opcionais: <code>git</code> para o painel do git, <code>gdb</code> 14+ (ou <code>lldb-dap</code> no macOS) para depurar, e
-    os servidores de linguagem que você usa (próximos passos).</div>
+  <div class="callout">Opcionais: <code>git</code> para o painel git, <code>gdb</code> 14+ (ou <code>lldb-dap</code> no macOS) para o debug, e os
+    servidores de linguagem que você usa (próximos passos).</div>
 </section>
 
 <section id="open">

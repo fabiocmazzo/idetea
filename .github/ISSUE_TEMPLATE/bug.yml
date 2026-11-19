@@ -1,0 +1,24 @@
+name: Bug
+description: Something isn't working
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what you expected, and what happened instead.
+    validations:
+      required: true
+  - type: textarea
+    id: version
+    attributes:
+      label: Version and system
+      description: IDE TEA version (`idetea --version`), operating system, and whether you used a release package or built from source.
+      placeholder: "idetea 0.15.0, Linux x86_64, package from the GitHub release"
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs or screenshots
+      description: Optional. If it crashed, paste the terminal output.

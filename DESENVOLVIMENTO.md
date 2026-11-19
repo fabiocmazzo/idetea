@@ -47,9 +47,10 @@ app id dela (`idetea`), procurando um `idetea.desktop` com o mesmo nome. Depois 
 
 1. Suba a versão em `[workspace.package]` no `Cargo.toml` (e rode `cargo build` para o `Cargo.lock` acompanhar).
 2. Commit, `git tag v<versão>` e `git push origin main v<versão>`.
-3. O workflow "Versão" (`.github/workflows/release.yml`) testa, roda `packaging/dist.sh` no Ubuntu 22.04 (glibc mais
-   antiga, para rodar em mais distros) e publica a versão com o `.tar.gz` e o AppImage. Tag diferente da versão do
-   `Cargo.toml` falha.
+3. O workflow "Versão" (`.github/workflows/release.yml`) testa, gera os pacotes para Linux (x86_64 e aarch64),
+   macOS (Apple Silicon) e Windows (x86_64) e publica a versão. Tag diferente da versão do `Cargo.toml` falha.
+4. Atualize o `VERSION=` e os nomes dos pacotes na seção Install dos 8 READMEs e nas páginas de instalação do site
+   (`site/index.html`, `site/start.html` e as traduções em `site/<idioma>/`).
 
 O CI (`ci.yml`) roda clippy (avisos viram erro) e os testes a cada push na main e em cada pull request.
 

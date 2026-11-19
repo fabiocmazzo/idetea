@@ -179,13 +179,32 @@
 
 <section id="install"><div class="wrap">
   <h2>Installation</h2>
-  <p><strong>Prêt à l'emploi</strong> depuis <a href="https://github.com/fabiocmazzo/idetea/releases/latest">la dernière version</a>. <code>SHA256SUMS</code> contient les sommes de contrôle.</p>
+  <p><strong>Prêt à l'emploi.</strong> La version actuelle est <a href="https://github.com/fabiocmazzo/idetea/releases/tag/v0.15.0">v0.15.0</a>.
+    <code>SHA256SUMS</code> sur cette page contient les sommes de contrôle. Changez <code>VERSION</code> quand une plus récente sort, ou prenez le fichier depuis les
+    <a href="https://github.com/fabiocmazzo/idetea/releases">Releases</a>.</p>
   <div class="cards">
-    <article class="card"><h3>Linux</h3><p>x86_64 et aarch64, <code>.tar.gz</code> ou <code>.AppImage</code>. <code>./install.sh</code> place <code>idetea</code> dans <code>~/.local/bin</code> et dans le menu des applications. L'AppImage a besoin de <code>chmod +x</code> ; <code>--install-desktop</code> ajoute l'entrée de menu.</p></article>
-    <article class="card"><h3>macOS</h3><p>Apple Silicon, un <code>.tar.gz</code> avec <code>IDE TEA.app</code>. <code>idetea --install-desktop</code> crée <code>~/Applications/IDE TEA.app</code>.</p></article>
-    <article class="card"><h3>Windows</h3><p>x86_64, l'installateur <code>-setup.exe</code> ou un <code>.zip</code> portable. Pas encore signé : SmartScreen peut avertir au premier lancement.</p></article>
+    <article class="card"><h3>Linux</h3><p>x86_64 et aarch64, <code>.tar.gz</code> ou <code>.AppImage</code>. <code>./install.sh</code> place <code>idetea</code> dans <code>~/.local/bin</code> et dans le menu des applications. L'AppImage a besoin de <code>chmod +x</code> ; <code>--install-desktop</code> l'ajoute au menu.</p></article>
+    <article class="card"><h3>macOS</h3><p>Apple Silicon, un <code>.tar.gz</code> avec <code>IDE TEA.app</code>. <code>idetea --install-desktop</code> crée <code>~/Applications/IDE TEA.app</code>. Il n'y a pas encore de paquet pour Mac Intel.</p></article>
+    <article class="card"><h3>Windows</h3><p>x86_64, l'installateur <a href="https://github.com/fabiocmazzo/idetea/releases/download/v0.15.0/IDE_TEA-0.15.0-x86_64-setup.exe"><code>-setup.exe</code></a> ou le <a href="https://github.com/fabiocmazzo/idetea/releases/download/v0.15.0/idetea-0.15.0-x86_64-windows.zip"><code>.zip</code></a> portable (<code>idetea.exe</code> est à l'intérieur). Pas encore signé : SmartScreen peut avertir la première fois.</p></article>
   </div>
-  <p><strong>Depuis les sources</strong> (il faut <a href="https://rustup.rs">Rust</a> stable) :</p>
+  <p><strong>Linux (x86_64)</strong></p>
+<pre><code>VERSION=0.15.0
+curl -fsSL -O "https://github.com/fabiocmazzo/idetea/releases/download/v${VERSION}/idetea-${VERSION}-x86_64-linux.tar.gz"
+tar -xzf idetea-${VERSION}-x86_64-linux.tar.gz
+cd idetea-${VERSION}-x86_64-linux
+./install.sh</code></pre>
+  <p>Pour ARM, utilisez <code>idetea-${VERSION}-aarch64-linux.tar.gz</code>. L'AppImage est <code>IDE_TEA-${VERSION}-x86_64.AppImage</code> (ou <code>…-aarch64.AppImage</code>).</p>
+  <p><strong>macOS (Apple Silicon)</strong></p>
+<pre><code>VERSION=0.15.0
+curl -fsSL -O "https://github.com/fabiocmazzo/idetea/releases/download/v${VERSION}/idetea-${VERSION}-aarch64-macos.tar.gz"
+tar -xzf idetea-${VERSION}-aarch64-macos.tar.gz
+cd idetea-${VERSION}-aarch64-macos
+./idetea --install-desktop</code></pre>
+  <p><strong>Windows (x86_64), dans PowerShell</strong></p>
+<pre><code>$Version = "0.15.0"
+Invoke-WebRequest -Uri "https://github.com/fabiocmazzo/idetea/releases/download/v$Version/IDE_TEA-$Version-x86_64-setup.exe" -OutFile "IDE_TEA-$Version-x86_64-setup.exe"
+Start-Process ".\IDE_TEA-$Version-x86_64-setup.exe"</code></pre>
+  <p><strong>Depuis les sources</strong> (il faut <a href="https://rustup.rs">Rust</a> stable). Le paquet s'appelle <code>tea-app</code> ; le binaire s'appelle <code>idetea</code> :</p>
 <pre><code>cargo install --locked --git https://github.com/fabiocmazzo/idetea tea-app
 idetea --install-desktop</code></pre>
   <p class="note">Facultatif : <code>git</code> pour le panneau git, <code>gdb</code> 14+ (ou <code>lldb-dap</code> sous macOS) pour le débogage, et les serveurs de langage que vous utilisez. rust-analyzer, clangd, pyright, typescript-language-server, gopls, lua-language-server, zls, <code>zx lsp</code>, <code>hare-lsp</code> (Hare) et <code>moon lsp</code> (MoonBit) sont déjà configurés.</p>

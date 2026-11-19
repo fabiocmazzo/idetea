@@ -113,11 +113,47 @@
 
 ## 安装
 
-**Linux、macOS和Windows，下载就能跑。**从[Releases](https://github.com/fabiocmazzo/idetea/releases)下载你平台的包：Linux x86_64/aarch64用`.tar.gz`或`.AppImage`，macOS aarch64用带`IDE TEA.app`的`.tar.gz`，Windows x86_64用`-setup.exe`安装程序或便携`.zip`。`SHA256SUMS`里是校验和。
+**Linux、macOS和Windows，下载就能跑。**当前版本是
+[v0.15.0](https://github.com/fabiocmazzo/idetea/releases/tag/v0.15.0)。
+该页的`SHA256SUMS`里是校验和。有更新版本时请改`VERSION`，或到[Releases](https://github.com/fabiocmazzo/idetea/releases)里选文件。
 
-在Linux上，`./install.sh`会把`idetea`放到`~/.local/bin`，并加入应用菜单。AppImage可以直接运行（先`chmod +x`），`--install-desktop`会把它加进菜单。在macOS上，`--install-desktop`会创建`~/Applications/IDE TEA.app`。
+**Linux (x86_64).** 解压并运行`install.sh`。它会把`idetea`放到`~/.local/bin`，并加入应用菜单：
 
-**从源码安装。**需要[Rust](https://rustup.rs)（stable）。然后：
+```sh
+VERSION=0.15.0
+curl -fsSL -O "https://github.com/fabiocmazzo/idetea/releases/download/v${VERSION}/idetea-${VERSION}-x86_64-linux.tar.gz"
+tar -xzf idetea-${VERSION}-x86_64-linux.tar.gz
+cd idetea-${VERSION}-x86_64-linux
+./install.sh
+```
+
+ARM请改用`idetea-${VERSION}-aarch64-linux.tar.gz`。如果更想要单个文件，下载`IDE_TEA-${VERSION}-x86_64.AppImage`（或`IDE_TEA-${VERSION}-aarch64.AppImage`），先`chmod +x`再运行。`--install-desktop`会把它加进菜单。
+
+**macOS (Apple Silicon).** 压缩包里有`IDE TEA.app`：
+
+```sh
+VERSION=0.15.0
+curl -fsSL -O "https://github.com/fabiocmazzo/idetea/releases/download/v${VERSION}/idetea-${VERSION}-aarch64-macos.tar.gz"
+tar -xzf idetea-${VERSION}-aarch64-macos.tar.gz
+cd idetea-${VERSION}-aarch64-macos
+./idetea --install-desktop   # 创建 ~/Applications/IDE TEA.app
+```
+
+目前还没有Intel Mac的包。
+
+**Windows (x86_64).** 下载并运行
+[IDE_TEA-0.15.0-x86_64-setup.exe](https://github.com/fabiocmazzo/idetea/releases/download/v0.15.0/IDE_TEA-0.15.0-x86_64-setup.exe)，
+或解压便携版
+[idetea-0.15.0-x86_64-windows.zip](https://github.com/fabiocmazzo/idetea/releases/download/v0.15.0/idetea-0.15.0-x86_64-windows.zip)
+（里面是`idetea.exe`）。在PowerShell中：
+
+```powershell
+$Version = "0.15.0"
+Invoke-WebRequest -Uri "https://github.com/fabiocmazzo/idetea/releases/download/v$Version/IDE_TEA-$Version-x86_64-setup.exe" -OutFile "IDE_TEA-$Version-x86_64-setup.exe"
+Start-Process ".\IDE_TEA-$Version-x86_64-setup.exe"
+```
+
+**从源码安装。**需要[Rust](https://rustup.rs)（stable）。包名是`tea-app`，二进制名是`idetea`：
 
 ```sh
 cargo install --locked --git https://github.com/fabiocmazzo/idetea tea-app
@@ -169,6 +205,7 @@ idetea new my-app --model rust --agent claude     # 新建项目，智能体可�
 
 - [宣言](MANIFESTO.zh-CN.md)：IDE TEA相信什么，以及它不会做什么。
 - [网站](https://idetea.belabs.cloud/zh-cn/)：演示、安装和指南。
+- [Contributing](CONTRIBUTING.md)：如何构建、测试并提交pull request（英文）。
 - [功能与快捷键](docs/features.zh-CN.md)：完整清单。
 - [语言](docs/languages.zh-CN.md)：IDE为每种语言做了什么，包括Hare和MoonBit，并附有可试的[示例](examples/languages)。
 - [给智能体的界面](docs/interfaces/formato.md)和[智能体终端](docs/terminais-de-agente.md)（暂时为葡萄牙语）。

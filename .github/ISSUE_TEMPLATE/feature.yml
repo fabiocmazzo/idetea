@@ -1,0 +1,16 @@
+name: Feature
+description: A new feature, or a change to an existing one
+labels: [enhancement]
+body:
+  - type: textarea
+    id: want
+    attributes:
+      label: What you want
+      description: The problem this would solve, and the behavior you have in mind.
+    validations:
+      required: true
+  - type: textarea
+    id: today
+    attributes:
+      label: What happens today
+      description: Optional. What you do now, or why the current behavior falls short.

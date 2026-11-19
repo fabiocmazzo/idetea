@@ -52,15 +52,37 @@
 
 <section id="install">
   <h2>1. 安装</h2>
+  <p>当前版本是<a href="https://github.com/fabiocmazzo/idetea/releases/tag/v0.15.0">v0.15.0</a>。
+    该页的<code>SHA256SUMS</code>里是校验和。有更新版本时请改<code>VERSION</code>，或到<a href="https://github.com/fabiocmazzo/idetea/releases/latest">最新版本</a>里选文件。</p>
   <ol class="steps">
-    <li>下载你平台的包（Linux x86_64/aarch64用<code>.tar.gz</code>或<code>.AppImage</code>，macOS aarch64用带<code>IDE TEA.app</code>的<code>.tar.gz</code>，Windows x86_64用<code>-setup.exe</code>安装程序或便携<code>.zip</code>），从<a href="https://github.com/fabiocmazzo/idetea/releases/latest">最新版本</a>获取。<code>SHA256SUMS</code>里是校验和。</li>
-    <li>在Linux上，解压并运行安装脚本。它把<code>idetea</code>放到<code>~/.local/bin</code>，并把IDE TEA加进应用菜单：
-<pre><code>tar -xzf idetea-*-linux.tar.gz
-cd idetea-*-linux
-./install.sh</code></pre></li>
-    <li>如果安装脚本说<code>~/.local/bin</code>不在<code>PATH</code>里，把它加进去（例如写在<code>~/.profile</code>），这样你和你的智能体都能从终端运行<code>idetea</code>。</li>
+    <li><strong>Linux (x86_64).</strong> 解压并运行安装脚本。它把<code>idetea</code>放到<code>~/.local/bin</code>，并把IDE TEA加进应用菜单：
+<pre><code>VERSION=0.15.0
+curl -fsSL -O "https://github.com/fabiocmazzo/idetea/releases/download/v${VERSION}/idetea-${VERSION}-x86_64-linux.tar.gz"
+tar -xzf idetea-${VERSION}-x86_64-linux.tar.gz
+cd idetea-${VERSION}-x86_64-linux
+./install.sh</code></pre>
+      ARM请改用<code>idetea-${VERSION}-aarch64-linux.tar.gz</code>。更想要单个文件？下载
+      <code>IDE_TEA-${VERSION}-x86_64.AppImage</code>（或<code>IDE_TEA-${VERSION}-aarch64.AppImage</code>），先<code>chmod +x</code>再打开；
+      <code>--install-desktop</code>会把它加进菜单。</li>
+    <li><strong>macOS (Apple Silicon).</strong> 压缩包里有<code>IDE TEA.app</code>：
+<pre><code>VERSION=0.15.0
+curl -fsSL -O "https://github.com/fabiocmazzo/idetea/releases/download/v${VERSION}/idetea-${VERSION}-aarch64-macos.tar.gz"
+tar -xzf idetea-${VERSION}-aarch64-macos.tar.gz
+cd idetea-${VERSION}-aarch64-macos
+./idetea --install-desktop</code></pre>
+      <code>--install-desktop</code>会创建<code>~/Applications/IDE TEA.app</code>。目前还没有Intel Mac的包。</li>
+    <li><strong>Windows (x86_64).</strong> 下载并运行
+      <a href="https://github.com/fabiocmazzo/idetea/releases/download/v0.15.0/IDE_TEA-0.15.0-x86_64-setup.exe">IDE_TEA-0.15.0-x86_64-setup.exe</a>，
+      或解压便携版
+      <a href="https://github.com/fabiocmazzo/idetea/releases/download/v0.15.0/idetea-0.15.0-x86_64-windows.zip">idetea-0.15.0-x86_64-windows.zip</a>
+      （里面是<code>idetea.exe</code>）。在PowerShell中：
+<pre><code>$Version = "0.15.0"
+Invoke-WebRequest -Uri "https://github.com/fabiocmazzo/idetea/releases/download/v$Version/IDE_TEA-$Version-x86_64-setup.exe" -OutFile "IDE_TEA-$Version-x86_64-setup.exe"
+Start-Process ".\IDE_TEA-$Version-x86_64-setup.exe"</code></pre></li>
+    <li>如果Linux安装脚本说<code>~/.local/bin</code>不在<code>PATH</code>里，把它加进去（例如写在<code>~/.profile</code>），这样你和你的智能体都能从终端运行<code>idetea</code>。</li>
   </ol>
-  <p>在Linux上更想要单个文件？AppImage可以直接运行：<code>chmod +x IDE_TEA-*.AppImage</code>然后打开；<code>--install-desktop</code>会把它加进菜单。在macOS上，<code>idetea --install-desktop</code>会创建<code>~/Applications/IDE TEA.app</code>。从源码构建只要一条命令：<code>cargo install --locked --git https://github.com/fabiocmazzo/idetea tea-app</code>。</p>
+  <p>从源码构建只要一条命令（需要<a href="https://rustup.rs">Rust</a> stable）。包名是<code>tea-app</code>，二进制名是<code>idetea</code>：
+    <code>cargo install --locked --git https://github.com/fabiocmazzo/idetea tea-app</code>。</p>
   <p class="note">Windows安装程序还没有代码签名，首次运行时SmartScreen可能会发出警告（<a href="https://github.com/fabiocmazzo/idetea/blob/main/CODE_SIGNING_POLICY.md">代码签名与隐私政策</a>）。</p>
   <div class="callout">可选的额外部分：git面板需要<code>git</code>，调试需要<code>gdb</code> 14+（macOS上可用<code>lldb-dap</code>），以及你要用的语言服务器（下一步）。</div>
 </section>

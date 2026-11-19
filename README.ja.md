@@ -116,16 +116,50 @@
 
 ## インストール
 
-**Linux、macOS、Windows。すぐに実行できます。** プラットフォーム用のパッケージを
-[Releases](https://github.com/fabiocmazzo/idetea/releases) からダウンロードします。Linux x86_64/aarch64 は `.tar.gz` または `.AppImage`、
-macOS aarch64 は `IDE TEA.app` 入りの `.tar.gz`、Windows x86_64 は `-setup.exe` インストーラーまたはポータブルな `.zip` です。
-`SHA256SUMS` にチェックサムがあります。
+**Linux、macOS、Windows。すぐに実行できます。** 現在のリリースは
+[v0.15.0](https://github.com/fabiocmazzo/idetea/releases/tag/v0.15.0) です。
+そのページの `SHA256SUMS` にチェックサムがあります。新しい版が出たら `VERSION` を変えるか、
+[Releases](https://github.com/fabiocmazzo/idetea/releases) からファイルを選んでください。
 
-Linux では、`./install.sh` が `idetea` を `~/.local/bin` に置き、アプリ メニューに追加します。AppImage はそのまま実行します
-(先に `chmod +x`)。`--install-desktop` でメニューに追加します。macOS では、`--install-desktop` が
-`~/Applications/IDE TEA.app` を作ります。
+**Linux (x86_64).** 展開して `install.sh` を実行します。`idetea` を `~/.local/bin` に置き、アプリ メニューに追加します:
 
-**ソースから。** [Rust](https://rustup.rs) (stable) が必要です。そのあと:
+```sh
+VERSION=0.15.0
+curl -fsSL -O "https://github.com/fabiocmazzo/idetea/releases/download/v${VERSION}/idetea-${VERSION}-x86_64-linux.tar.gz"
+tar -xzf idetea-${VERSION}-x86_64-linux.tar.gz
+cd idetea-${VERSION}-x86_64-linux
+./install.sh
+```
+
+ARM では `idetea-${VERSION}-aarch64-linux.tar.gz` を使います。単一ファイルがよい場合は
+`IDE_TEA-${VERSION}-x86_64.AppImage`（または `IDE_TEA-${VERSION}-aarch64.AppImage`）をダウンロードし、`chmod +x` して実行します。
+`--install-desktop` でメニューに追加します。
+
+**macOS (Apple Silicon).** アーカイブに `IDE TEA.app` が入っています:
+
+```sh
+VERSION=0.15.0
+curl -fsSL -O "https://github.com/fabiocmazzo/idetea/releases/download/v${VERSION}/idetea-${VERSION}-aarch64-macos.tar.gz"
+tar -xzf idetea-${VERSION}-aarch64-macos.tar.gz
+cd idetea-${VERSION}-aarch64-macos
+./idetea --install-desktop   # ~/Applications/IDE TEA.app を作ります
+```
+
+Intel Mac 向けのビルドはまだありません。
+
+**Windows (x86_64).**
+[IDE_TEA-0.15.0-x86_64-setup.exe](https://github.com/fabiocmazzo/idetea/releases/download/v0.15.0/IDE_TEA-0.15.0-x86_64-setup.exe)
+をダウンロードして実行するか、ポータブルな
+[idetea-0.15.0-x86_64-windows.zip](https://github.com/fabiocmazzo/idetea/releases/download/v0.15.0/idetea-0.15.0-x86_64-windows.zip)
+を展開します（中に `idetea.exe` があります）。PowerShell では:
+
+```powershell
+$Version = "0.15.0"
+Invoke-WebRequest -Uri "https://github.com/fabiocmazzo/idetea/releases/download/v$Version/IDE_TEA-$Version-x86_64-setup.exe" -OutFile "IDE_TEA-$Version-x86_64-setup.exe"
+Start-Process ".\IDE_TEA-$Version-x86_64-setup.exe"
+```
+
+**ソースから。** [Rust](https://rustup.rs) (stable) が必要です。パッケージ名は `tea-app`、バイナリ名は `idetea` です:
 
 ```sh
 cargo install --locked --git https://github.com/fabiocmazzo/idetea tea-app
@@ -187,6 +221,7 @@ Helix との率直な比較で、0.8.0 に合わせて更新しています。�
 
 - [マニフェスト](MANIFESTO.ja.md): IDE TEA が信じることと、しないこと。
 - [Web サイト](https://idetea.belabs.cloud/ja/): デモ、インストール、ガイド。
+- [Contributing](CONTRIBUTING.md): ビルド、テスト、プル リクエストの出し方（英語）。
 - [機能とショートカット](docs/features.ja.md): 一覧。
 - [言語](docs/languages.ja.md): 各言語で IDE がすること。Hare と MoonBit を含み、
   試す [例](examples/languages) があります。
