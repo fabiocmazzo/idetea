@@ -171,6 +171,13 @@ et `CLAUDE.md`.
   s'ouvrir dans un onglet de terminal. Un binaire autonome se règle avec `[agents] claude_acp` dans la config
   utilisateur. Chaque commande ouvre une nouvelle session dans son propre onglet ; fermer un onglet ne termine que
   cette session.
+- **Conversation ACP** : la réponse est en Markdown, avec Copier sur chaque bloc de code et sur la réponse. La zone
+  de message prend plusieurs lignes (Entrée envoie, Maj+Entrée va à la ligne, ↑ dans la zone vide reprend le dernier).
+  Un message envoyé pendant un tour attend dans la file de l'onglet (✕ le retire) : l'agent ne reçoit jamais deux
+  prompts à la fois. Une demande de permission montre la commande, le diff ou le chemin au lieu du JSON ; une ligne
+  d'outil ouvre son fichier et déplie sa sortie ou son diff. Un onglet terminé peut redémarrer. `Ctrl+Alt+L` envoie
+  la sélection (ou le buffer non enregistré) à la session, et `@` joint un fichier du projet. Mascotte éteinte, l'état
+  s'affiche au-dessus de la zone de message.
 - **Envoyer le contexte à l'agent** (`Ctrl+L` dans l'éditeur) : l'emplacement du curseur (ou la sélection, avec le
   texte dans un bloc de code) et les problèmes de ces lignes, collés dans l'onglet d'agent à l'écran ou le dernier
   utilisé, sans être envoyés. Sans onglet d'agent, le lanceur s'ouvre d'abord. Un clic droit dans le panneau des

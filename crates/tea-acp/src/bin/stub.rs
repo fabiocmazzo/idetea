@@ -1,8 +1,9 @@
 //! Agente ACP mínimo, só para os testes: stdio, uma mensagem JSON por linha.
 //!
 //! Não fala com a rede nem precisa de conta. O modo é o primeiro argumento:
-//! `session` (texto e ferramenta), `permission` (pede permissão) ou `auth`
-//! (`authRequired`). O segundo argumento, se houver, é um arquivo onde o stub
+//! `session` (texto e ferramenta), `permission` (pede permissão), `auth`
+//! (`authRequired`) ou `queue` (responde cada prompt depois de 300 ms, grava no arquivo
+//! um prompt por linha e `overlap` se chegar um com outro ainda aberto). O segundo argumento, se houver, é um arquivo onde o stub
 //! grava o que o teste precisa ler (o stderr fica com o cliente).
 
 use std::io::{BufRead, Write};
@@ -54,12 +55,27 @@ fn main() {
                     serde_json::json!({
                         "protocolVersion": 1,
                         "agentCapabilities": {},
+                        "agentInfo": { "name": "tea-acp-stub", "title": "Stub", "version": "0.0.1" },
                         "authMethods": if mode == "auth" { auth_methods() } else { serde_json::json!([]) }
                     }),
                 )
             }
             "session/new" if mode == "auth" => err(id.as_ref().unwrap_or(&serde_json::Value::Null), -32000, "Authentication required"),
             "session/new" => ok(id.as_ref().unwrap_or(&serde_json::Value::Null), serde_json::json!({ "sessionId": "stub-1" })),
+            "session/prompt" if mode == "queue" => {
+                let open = std::sync::Arc::clone(&OPEN);
+                if open.fetch_add(1, std::sync::atomic::Ordering::SeqCst) > 0 {
+                    append(log_path.as_ref(), "overlap");
+                }
+                append(log_path.as_ref(), &serde_json::to_string(&msg["params"]["prompt"]).unwrap_or_default());
+                let id = id.clone().unwrap_or(serde_json::Value::Null);
+                std::thread::spawn(move || {
+                    std::thread::sleep(std::time::Duration::from_millis(300));
+                    open.fetch_sub(1, std::sync::atomic::Ordering::SeqCst);
+                    let _ = write_line(&mut std::io::stdout(), &ok(&id, serde_json::json!({ "stopReason": "end_turn" })));
+                });
+                continue;
+            }
             "session/prompt" => {
                 prompt_id = id.clone();
                 if mode == "permission" {
@@ -110,6 +126,17 @@ fn main() {
         if write_line(&mut stdout, &response).is_err() {
             break;
         }
+    }
+}
+
+static OPEN: std::sync::LazyLock<std::sync::Arc<std::sync::atomic::AtomicUsize>> =
+    std::sync::LazyLock::new(|| std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0)));
+
+fn append(path: Option<&PathBuf>, line: &str) {
+    if let Some(path) = path
+        && let Ok(mut file) = std::fs::OpenOptions::new().create(true).append(true).open(path)
+    {
+        let _ = writeln!(file, "{line}");
     }
 }
 

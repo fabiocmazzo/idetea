@@ -144,6 +144,12 @@ All of it is plain files in the project's `.idetea/` folder, so any agent that r
   mascot setup-hooks` stay as they are. A missing binary, Node.js older than 22, or a signed-out Claude account is a
   message, not a hung session; sign-in can open in a terminal tab. A standalone adapter binary can be set with
   `[agents] claude_acp` in the user config. See [acp.md](acp.md).
+- **ACP conversation**: the answer is Markdown, with Copy on each code block and on the answer. The message box
+  takes several lines (Enter sends, Shift+Enter breaks the line, ↑ on an empty box brings the last one). A message sent
+  while a turn runs waits in the tab's queue (✕ removes it): the agent never gets two prompts at once. A permission
+  request shows the command, the diff or the path instead of JSON; a tool line opens its file and expands its output
+  or diff. An ended tab can restart. `Ctrl+Alt+L` sends the selection (or the unsaved buffer) to the session, and `@`
+  attaches a project file. With the mascot off, the state shows above the message box.
 - **Send context to the agent** (`Ctrl+L` in the editor): the cursor location (or the selection, with the text in
   a code block) and the problems on those lines, pasted into the agent tab on screen or the last one used, not sent.
   With no agent tab, it opens the launcher first. A right click in the Problems panel sends one problem.

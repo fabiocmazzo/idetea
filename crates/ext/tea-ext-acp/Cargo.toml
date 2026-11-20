@@ -5,7 +5,10 @@ edition.workspace = true
 license.workspace = true
 
 [dependencies]
-iced.workspace = true
+iced = { workspace = true, features = ["markdown"] }
 tea-core.workspace = true
 tea-acp.workspace = true
 futures = "0.3"
+ignore.workspace = true
+similar.workspace = true
+tea-declarative-ui.workspace = true
