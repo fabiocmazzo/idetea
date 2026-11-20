@@ -145,7 +145,8 @@ Tutto sono file in chiaro nella cartella `.idetea/` del progetto, così qualsias
   `Ctrl+Shift+A`, il pannello Interfacce, i terminali degli agenti e `idetea mascot setup-hooks` restano. Un
   binario assente, Node.js più vecchio della 22, o un account Claude non connesso, è un messaggio, non una
   sessione bloccata; l'accesso può aprirsi in una scheda di terminale. Un binario autonomo si indica con
-  `[agents] claude_acp` nella config utente.
+  `[agents] claude_acp` nella config utente. Ogni comando apre una nuova sessione in una scheda sua; chiudere una
+  scheda termina solo quella sessione.
 - **Inviare il contesto all'agente** (`Ctrl+L` nell'editor): la posizione del cursore (o la selezione, con il testo
   in un blocco di codice) e i problemi di quelle righe, incollati nella scheda dell'agente sullo schermo o
   nell'ultima usata, senza inviarli. Senza scheda di agente, si apre prima il lanciatore. Un clic destro nel pannello

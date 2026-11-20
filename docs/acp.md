@@ -45,12 +45,20 @@ os métodos de terminal que o adaptador anuncia (`claude-ai-login`, `console-log
 ambiente remoto) ganham um botão que abre o login numa aba de terminal. A IDE não chama `authenticate` para
 esses métodos: o adaptador recusa.
 
+## Várias sessões
+
+Cada comando da paleta abre uma sessão **nova**, numa aba do painel; as outras continuam rodando. Duas do
+mesmo agente ficam numeradas ("Claude Code", "Claude Code 2"). Os botões `+ OpenCode` e `+ Claude Code` ao
+lado das abas fazem o mesmo. Fechar a aba (✕) encerra só aquela sessão. Quando o processo acaba, a aba fica
+com a conversa, marcada como encerrada, até você fechar. "Cancelar o turno" vale para a aba à frente.
+
 ## Permissão
 
 Quando o agente manda `session/request_permission`, a IDE mostra um diálogo e o mesmo pedido no painel.
 Permitir ou recusar é um clique na opção que o agente ofereceu. Esc, clique fora e fechar **não** permitem a
 ação: o pedido continua no painel até uma escolha. Cancelar o turno manda `session/cancel` e responde
-`cancelled`. Não há aprovação automática.
+`cancelled`. Não há aprovação automática. O diálogo diz de qual sessão vem o pedido; se ela não está à
+frente, a aba ganha um `●` até você escolher.
 
 ## Testes
 

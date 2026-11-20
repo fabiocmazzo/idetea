@@ -35,3 +35,5 @@ acp-stop-end = 本轮结束
 acp-stop-cancelled = 已取消
 acp-stop-refusal = 已拒绝
 acp-stop-error = 错误
+acp-tab-ended = { $name }（已结束）
+acp-permission-session = 会话：{ $session }

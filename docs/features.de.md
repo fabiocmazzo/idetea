@@ -145,7 +145,8 @@ Alles davon sind schlichte Dateien im Ordner `.idetea/` des Projekts, also kann 
   erlaubt. `Ctrl+Shift+A`, das Feld Interfaces, Agenten-Terminals und `idetea mascot setup-hooks` bleiben. Eine
   fehlende Datei, Node.js älter als 22 oder ein abgemeldetes Claude-Konto ist eine Meldung, keine hängende
   Sitzung; die Anmeldung kann in einem Terminal-Tab laufen. Eine eigenständige Adapter-Datei steht in
-  `[agents] claude_acp` der Benutzerkonfiguration.
+  `[agents] claude_acp` der Benutzerkonfiguration. Jeder Befehl öffnet eine neue Sitzung in einem eigenen Tab; einen
+  Tab zu schließen beendet nur diese Sitzung.
 - **Kontext an den Agenten senden** (`Ctrl+L` im Editor): der Ort des Cursors (oder die Auswahl, mit dem Text in
   einem Codeblock) und die Probleme dieser Zeilen, eingefügt in den Agenten-Tab auf dem Bildschirm oder den zuletzt
   benutzten, nicht abgeschickt. Ohne Agenten-Tab öffnet sich zuerst der Starter. Ein Rechtsklick im Problem-Panel

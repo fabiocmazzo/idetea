@@ -146,3 +146,19 @@ fn unauthenticated_stub_does_not_hang() {
     let init = h.log();
     assert!(init.contains("\"terminal\":true") || init.contains("\"terminal\": true"), "o cliente anuncia auth.terminal: {init}");
 }
+
+#[test]
+fn two_sessions_run_side_by_side() {
+    let a = start("session");
+    let b = start("session");
+    let _ = a.until(|e| matches!(e, SessionEvent::Ready { .. }));
+    let _ = b.until(|e| matches!(e, SessionEvent::Ready { .. }));
+    // Encerrar uma não encerra a outra: é o que o painel faz ao fechar uma aba.
+    a.cmd.unbounded_send(Command::Shutdown).unwrap();
+    let _ = a.until(|e| matches!(e, SessionEvent::Closed));
+    b.cmd.unbounded_send(Command::Prompt("oi".into())).unwrap();
+    let turn = b.until(|e| matches!(e, SessionEvent::Turn { .. }));
+    assert!(matches!(turn, SessionEvent::Turn { stop } if stop == "end_turn"));
+    b.cmd.unbounded_send(Command::Shutdown).unwrap();
+    let _ = b.until(|e| matches!(e, SessionEvent::Closed));
+}

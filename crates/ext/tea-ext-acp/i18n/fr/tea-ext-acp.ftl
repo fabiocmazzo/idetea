@@ -35,3 +35,5 @@ acp-stop-end = fin du tour
 acp-stop-cancelled = annulé
 acp-stop-refusal = refusé
 acp-stop-error = erreur
+acp-tab-ended = { $name } (terminée)
+acp-permission-session = Session : { $session }

@@ -167,7 +167,8 @@ et `CLAUDE.md`.
   `Ctrl+Shift+A`, le panneau Interfaces, les terminaux d'agent et `idetea mascot setup-hooks` restent. Un binaire
   absent, un Node.js plus ancien que 22, ou un compte Claude non connecté, est un message, pas une session
   bloquée ; la connexion peut s'ouvrir dans un onglet de terminal. Un binaire autonome se règle avec
-  `[agents] claude_acp` dans la config utilisateur.
+  `[agents] claude_acp` dans la config utilisateur. Chaque commande ouvre une nouvelle session dans son propre
+  onglet ; fermer un onglet ne termine que cette session.
 - **Envoyer le contexte à l'agent** (`Ctrl+L` dans l'éditeur) : l'emplacement du curseur (ou la sélection, avec le
   texte dans un bloc de code) et les problèmes de ces lignes, collés dans l'onglet d'agent à l'écran ou le dernier
   utilisé, sans être envoyés. Sans onglet d'agent, le lanceur s'ouvre d'abord. Un clic droit dans le panneau des
