@@ -463,7 +463,7 @@ impl Extension for AcpExtension {
     fn activate(&mut self, ctx: &mut Context) -> Task<Message> {
         self.root = ctx.root().to_path_buf();
         ctx.register_panel_hidden(PANEL, fl!("acp-panel"), Slot::Right);
-        ctx.panel_icon(PANEL, Icon::CommentDiscussion);
+        ctx.panel_icon(PANEL, Icon::Hubot);
         ctx.register_command("acp.focus", fl!("cmd-acp-focus"));
         ctx.register_command("acp.opencode", fl!("cmd-acp-opencode"));
         ctx.register_command("acp.claude", fl!("cmd-acp-claude"));
