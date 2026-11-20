@@ -348,6 +348,8 @@ fn builtin_extensions() -> Vec<Box<dyn AnyExtension>> {
     list.push(Box::new(tea_ext_ui::UiExtension::new()));
     #[cfg(feature = "ext-memory")]
     list.push(Box::new(tea_ext_memory::MemoryExtension::new()));
+    #[cfg(feature = "ext-acp")]
+    list.push(Box::new(tea_ext_acp::AcpExtension::new()));
     list
 }
 
@@ -1039,6 +1041,9 @@ impl App {
                 Request::TaskFinished { name, code } => {
                     tasks.push(self.broadcast(CoreEvent::TaskFinished { name, code }));
                 }
+                Request::AgentCue { session, cue } => {
+                    tasks.push(self.broadcast(CoreEvent::AgentCue { session, cue }));
+                }
                 Request::FilesChanged => {
                     tasks.push(self.reload_changed_tabs());
                     tasks.push(self.broadcast(CoreEvent::FilesChanged));
@@ -1070,6 +1075,9 @@ impl App {
                 }
                 Request::Replace(replace) => tasks.push(self.replace_in_files(&replace)),
                 Request::SearchIn(path) => tasks.push(self.broadcast(CoreEvent::SearchIn(path))),
+                Request::RunTask { name, command, cwd, done } => {
+                    tasks.push(self.broadcast(CoreEvent::RunTask { name, command, cwd, done }));
+                }
                 Request::DiffBase { path, bytes } => {
                     for t in self.tabs.iter_mut().filter(|t| t.editor.path() == Some(path.as_path())) {
                         t.editor.set_diff_base(bytes.as_deref().map(|b| diff_base_text(b, t.editor.encoding())));
@@ -1121,6 +1129,7 @@ impl App {
                 self.mascot.notify_conflicts(&conflicts);
             }
             CoreEvent::TaskFinished { name, code } => self.mascot.notify_task_finished(name, *code),
+            CoreEvent::AgentCue { session, cue } => self.mascot.notify_agent(session, cue),
             CoreEvent::BinaryChanged => self.mascot.notify_binary_rebuilt(),
             CoreEvent::Replaced { count, files, failed } => {
                 self.mascot.notify_replaced(*count, files.len(), failed.len());

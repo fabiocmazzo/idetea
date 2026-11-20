@@ -1,0 +1,5 @@
+# Textos da interface: i18n/<idioma>/tea-ext-acp.ftl. O português é a origem.
+fallback_language = "pt-BR"
+
+[fluent]
+assets_dir = "i18n"

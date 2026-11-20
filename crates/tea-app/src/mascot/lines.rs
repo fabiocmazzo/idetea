@@ -177,6 +177,12 @@ pub fn all_pools() -> &'static [&'static [&'static str]] {
         ENCODING,
         REPLACED,
         REPLACED_FAILED,
+        ACP_READY,
+        ACP_PERMISSION,
+        ACP_DONE,
+        ACP_REFUSED,
+        ACP_FAILED,
+        ACP_ENDED,
     ]
 }
 
@@ -493,6 +499,14 @@ pub const TIP_COMMANDS: &[&str] = &[
     "problems.next",
     "lsp.definition",
 ];
+
+/// Sessão ACP: `{session}` é o nome da aba.
+pub const ACP_READY: &[&str] = &["mascot-acp-ready-1", "mascot-acp-ready-2"];
+pub const ACP_PERMISSION: &[&str] = &["mascot-acp-permission-1", "mascot-acp-permission-2"];
+pub const ACP_DONE: &[&str] = &["mascot-acp-done-1", "mascot-acp-done-2", "mascot-acp-done-3"];
+pub const ACP_REFUSED: &[&str] = &["mascot-acp-refused-1"];
+pub const ACP_FAILED: &[&str] = &["mascot-acp-failed-1", "mascot-acp-failed-2"];
+pub const ACP_ENDED: &[&str] = &["mascot-acp-ended-1"];
 
 #[cfg(test)]
 mod tests {

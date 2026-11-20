@@ -103,6 +103,7 @@ crates/
 ├── tea-editor/    fachada sobre o iced-code-editor (nenhuma outra crate usa o widget direto)
 ├── tea-lsp/       cliente LSP (processo + JSON-RPC), sem UI
 ├── tea-dap/       cliente DAP (debug), sem UI
+├── tea-acp/       cliente ACP v1 (stdio), sem UI; o stub dos testes é o binário tea-acp-stub
 ├── tea-app/       o binário: janela, layout, paleta, diálogos, ajuda, configurações, LSP
 └── ext/
     ├── tea-ext-filetree/   árvore de arquivos
@@ -116,7 +117,8 @@ crates/
     ├── tea-ext-outline/    painel Estrutura (símbolos do arquivo; a visibilidade vem de tea-app/src/outline.rs)
     ├── tea-ext-calls/      painel Chamadas (quem chama / o que chama, vindo do LSP)
     ├── tea-ext-preview/    painel Prévia (Markdown e SVG do arquivo ativo; recebe CoreEvent::ActiveText)
-    └── tea-ext-ui/         painel Interfaces (lê .idetea/ui/, grava as respostas; desligado por padrão)
+    ├── tea-ext-ui/         painel Interfaces (lê .idetea/ui/, grava as respostas; desligado por padrão)
+    └── tea-ext-acp/        sessão ACP (OpenCode e Claude Code pelo adaptador; permissão explícita)
 ```
 
 Regra de ouro: **as extensões internas usam só a API pública de `tea-core`**, a mesma que um plugin usaria.

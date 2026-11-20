@@ -106,7 +106,11 @@ fn pack_project(root: &Path, active: Option<&Path>, markers: &[String]) -> Optio
 
 fn package_scripts(text: &str) -> Vec<String> {
     let Ok(json) = serde_json::from_str::<serde_json::Value>(text) else { return Vec::new() };
-    json.get("scripts").and_then(|s| s.as_object()).map(|o| o.keys().cloned().collect()).unwrap_or_default()
+    // Ordem alfabética: o `serde_json` pode preservar a ordem do arquivo quando alguma dependência liga
+    // `preserve_order`, e a lista da IDE não deve mudar por causa disso.
+    let mut names: Vec<String> = json.get("scripts").and_then(|s| s.as_object()).map(|o| o.keys().cloned().collect()).unwrap_or_default();
+    names.sort();
+    names
 }
 
 /// Passos do `build.zig`: `b.step("nome", "descrição")`, na ordem do arquivo. Lê o texto em vez de rodar
