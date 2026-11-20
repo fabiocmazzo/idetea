@@ -140,13 +140,15 @@ Alles davon sind schlichte Dateien im Ordner `.idetea/` des Projekts, also kann 
   sie vorher: schreiben, nur öffnen oder in diesem Projekt nicht mehr fragen.
 - **ACP-Sitzung** (Befehlspalette: „Agent (ACP): OpenCode“ oder „Agent (ACP): Claude Code“): die IDE startet
   `opencode acp` oder Claude Code über den festgelegten Adapter `claude-agent-acp` 0.109.0 und spricht ACP v1 über
-  stdio. Antworttext und der Status von Werkzeugaufrufen laufen in ein Sitzungsfeld. Ein Werkzeugaufruf wartet auf
-  ausdrückliches Erlauben oder Ablehnen; den Dialog zu schließen erlaubt ihn nicht. Nichts wird automatisch
-  erlaubt. `Ctrl+Shift+A`, das Feld Interfaces, Agenten-Terminals und `idetea mascot setup-hooks` bleiben. Eine
-  fehlende Datei, Node.js älter als 22 oder ein abgemeldetes Claude-Konto ist eine Meldung, keine hängende
-  Sitzung; die Anmeldung kann in einem Terminal-Tab laufen. Eine eigenständige Adapter-Datei steht in
-  `[agents] claude_acp` der Benutzerkonfiguration. Jeder Befehl öffnet eine neue Sitzung in einem eigenen Tab; einen
-  Tab zu schließen beendet nur diese Sitzung.
+  stdio. Das Feld hält das Gespräch (deine Nachrichten, die Antwort, eine Zeile pro Werkzeugaufruf, die sich an Ort
+  und Stelle aktualisiert) und folgt dem Ende, außer du hast zum Lesen nach oben gescrollt. Was der Agent gerade tut
+  (denkt nach, welches Werkzeug, wartet auf Erlaubnis, Ende des Zugs, ein Fehler), zeigt das Maskottchen; ein Klick
+  auf die Sprechblase öffnet die Sitzung. Ein Werkzeugaufruf wartet auf ausdrückliches Erlauben oder Ablehnen; den
+  Dialog zu schließen erlaubt ihn nicht. Nichts wird automatisch erlaubt. `Ctrl+Shift+A`, das Feld Interfaces,
+  Agenten-Terminals und `idetea mascot setup-hooks` bleiben. Eine fehlende Datei, Node.js älter als 22 oder ein
+  abgemeldetes Claude-Konto ist eine Meldung, keine hängende Sitzung; die Anmeldung kann in einem Terminal-Tab
+  laufen. Eine eigenständige Adapter-Datei steht in `[agents] claude_acp` der Benutzerkonfiguration. Jeder Befehl
+  öffnet eine neue Sitzung in einem eigenen Tab; einen Tab zu schließen beendet nur diese Sitzung.
 - **Kontext an den Agenten senden** (`Ctrl+L` im Editor): der Ort des Cursors (oder die Auswahl, mit dem Text in
   einem Codeblock) und die Probleme dieser Zeilen, eingefügt in den Agenten-Tab auf dem Bildschirm oder den zuletzt
   benutzten, nicht abgeschickt. Ohne Agenten-Tab öffnet sich zuerst der Starter. Ein Rechtsklick im Problem-Panel

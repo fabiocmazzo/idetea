@@ -2,6 +2,7 @@
 //! que acompanha o estado dos agentes e do projeto em tempo real.
 //!
 //! Fontes de estado (da maior prioridade para a menor):
+//! 0. Ação nova de uma sessão ACP (ferramenta, pensando, escrevendo) → `Working` por 4 s, depois volta;
 //! 1. Pergunta aberta em `.idetea/ui/<nome>.json` sem resposta e com `<nome>.wait` recente → `Attention` (clicar abre Interfaces);
 //! 2. Pedido de terminal em `.idetea/agents/<nome>.status.json` com `state = "pending"` → `Attention` (clicar abre Terminal);
 //! 3. Estado explícito gravado por `idetea mascot <estado> [--text "…"]` em `.idetea/mascot.json` (com TTL);
@@ -65,6 +66,9 @@ const LSP_CLEAR_EVERY: Duration = Duration::from_secs(90);
 const WARN_EVERY: Duration = Duration::from_secs(600);
 /// "N arquivos sem salvar" no máximo uma vez a cada meia hora.
 const UNSAVED_EVERY: Duration = Duration::from_secs(30 * 60);
+
+/// Uma ação nova de uma sessão ACP aparece por este tempo por cima de uma pergunta aberta.
+const AGENT_FLASH: Duration = Duration::from_secs(4);
 
 const EXIT_OK: i32 = 0;
 const EXIT_INVALID: i32 = 2;
@@ -159,6 +163,8 @@ pub enum Target {
     Problems,
     Git,
     Debug,
+    /// Painel das sessões ACP.
+    Acp,
     /// Aba já aberta (o clique só foca; não abre arquivo novo).
     File(PathBuf),
 }
@@ -172,6 +178,7 @@ impl Target {
             Self::Problems => Some("problems.focus"),
             Self::Git => Some("git.focus"),
             Self::Debug => Some("debug.focus"),
+            Self::Acp => Some("acp.focus"),
         }
     }
 }
@@ -309,6 +316,12 @@ pub struct Mascot {
     last_idle_roll: Instant,
     /// Atividade de LSP em segundo plano (fonte → texto).
     lsp_activity: BTreeMap<String, String>,
+    /// Sessões ACP trabalhando (aba → o que fazem).
+    agent_busy: BTreeMap<String, String>,
+    /// Sessões ACP esperando uma permissão (nome da aba).
+    agent_waiting: BTreeSet<String>,
+    /// A última ação nova de uma sessão ACP `(aba, texto, até)`: passa na frente da atenção por um instante.
+    agent_flash: Option<(String, String, Instant)>,
     /// Quantidade de erros do LSP no projeto.
     lsp_errors: usize,
     /// Avisos do LSP, somados. O lembrete só existe no modo `chatty`.
@@ -360,6 +373,9 @@ impl Mascot {
             last_tip: Instant::now(),
             last_idle_roll: Instant::now(),
             lsp_activity: BTreeMap::new(),
+            agent_busy: BTreeMap::new(),
+            agent_waiting: BTreeSet::new(),
+            agent_flash: None,
             lsp_errors: 0,
             lsp_warnings: 0,
             disk_note: None,
@@ -590,6 +606,53 @@ impl Mascot {
         self.git_note_at = Some(Instant::now());
         let text = self.pick_text(lines::GIT_CONFLICT);
         self.show_transient(Mood::Attention, text, Target::Git);
+    }
+
+    /// Marco de uma sessão ACP. A conversa fica no painel; aqui só o estado. Fim do turno, erro e
+    /// permissão valem em `quiet`; "conectado" e "encerrada" são apartes.
+    pub fn notify_agent(&mut self, session: &str, cue: &tea_core::AgentCue) {
+        use tea_core::AgentCue;
+        self.last_active = Instant::now();
+        if !matches!(cue, AgentCue::Busy(Some(_))) {
+            self.agent_busy.remove(session);
+            if self.agent_flash.as_ref().is_some_and(|(s, _, _)| s == session) {
+                self.agent_flash = None;
+            }
+        }
+        if *cue != AgentCue::Permission {
+            self.agent_waiting.remove(session);
+        }
+        let pairs = [("session", session)];
+        match cue {
+            AgentCue::Busy(Some(text)) => {
+                self.agent_busy.insert(session.to_string(), text.clone());
+                self.agent_flash =
+                    Some((session.to_string(), text.clone(), Instant::now() + AGENT_FLASH));
+            }
+            AgentCue::Busy(None) => {}
+            AgentCue::Permission => {
+                self.agent_waiting.insert(session.to_string());
+            }
+            AgentCue::Ready | AgentCue::Ended => {
+                if self.chatty != tea_core::config::MascotChatty::Quiet {
+                    let pool = if *cue == AgentCue::Ready { lines::ACP_READY } else { lines::ACP_ENDED };
+                    let text = self.format_fresh(pool, &pairs);
+                    self.show_aside_at(Mood::Idle, text, ASIDE_SAVE, Target::Acp);
+                }
+            }
+            AgentCue::Done => {
+                let text = self.format_fresh(lines::ACP_DONE, &pairs);
+                self.show_transient(Mood::Celebrating, text, Target::Acp);
+            }
+            AgentCue::Refused => {
+                let text = self.format_fresh(lines::ACP_REFUSED, &pairs);
+                self.show_transient(Mood::Error, text, Target::Acp);
+            }
+            AgentCue::Failed => {
+                let text = self.format_fresh(lines::ACP_FAILED, &pairs);
+                self.show_transient(Mood::Error, text, Target::Acp);
+            }
+        }
     }
 
     /// Sessão nova: o próximo fim pode falar de novo.
@@ -837,6 +900,16 @@ impl Mascot {
             .map(|(_, _, _, ts)| *ts)
             .unwrap_or(0);
 
+        // 0. Ação nova de uma sessão ACP: aparece um instante e devolve a vez à pergunta ou ao terminal
+        //    pendente. Uma permissão esperando continua na frente.
+        if let Some((session, what, until)) = &self.agent_flash
+            && Instant::now() < *until
+            && self.agent_waiting.is_empty()
+            && self.agent_busy.contains_key(session)
+        {
+            return (Mood::Working, Some(format!("{session}: {what}")), Target::Acp);
+        }
+
         // 1. Pergunta aberta no painel Interfaces com `.wait` ativo que chegou depois do último `idetea mascot`.
         if let Some((_, title, source, true, ui_mtime)) = &self.snapshot.ui_waiting
             && (self.snapshot.external.is_none() || *ui_mtime > ext_ts)
@@ -857,6 +930,15 @@ impl Mascot {
                 &[("title", title.as_str())],
             );
             return (Mood::Attention, Some(text), Target::Terminal);
+        }
+        // 2b. Sessão ACP esperando uma permissão (o diálogo e o cartão do painel também mostram).
+        if let Some(session) = self.agent_waiting.iter().next() {
+            let text = self.format_cached(
+                &format!("acp-perm:{session}"),
+                lines::ACP_PERMISSION,
+                &[("session", session.as_str())],
+            );
+            return (Mood::Attention, Some(text), Target::Acp);
         }
         // 3. Estado explícito ativo enviado por `idetea mascot` (dentro do TTL).
         if let Some((mood, text, source, _)) = &self.snapshot.external {
@@ -880,6 +962,10 @@ impl Mascot {
                 &[("title", title.as_str())],
             );
             return (Mood::Working, Some(text), Target::Terminal);
+        }
+        // 5b. Sessão ACP trabalhando.
+        if let Some((session, what)) = self.agent_busy.iter().next() {
+            return (Mood::Working, Some(format!("{session}: {what}")), Target::Acp);
         }
         // 6. Atividade de LSP em segundo plano.
         if let Some((src, act)) = self.lsp_activity.iter().next() {
@@ -1178,6 +1264,7 @@ impl Mascot {
                     Target::Problems => fl!("mascot-open-problems"),
                     Target::Git => fl!("mascot-open-git"),
                     Target::Debug => fl!("mascot-open-debug"),
+                    Target::Acp => fl!("mascot-open-acp"),
                     Target::File(_) => fl!("mascot-open-file"),
                     Target::None => String::new(),
                 };
@@ -2666,5 +2753,48 @@ fps = 5
         mascot.notify_task_finished("cargo test", 2);
         assert_eq!(mascot.resolved().0, Mood::Error);
         assert!(bubble(&mascot).contains('2'));
+    }
+
+    #[test]
+    fn acp_session_drives_the_mascot() {
+        use tea_core::AgentCue;
+        tea_core::i18n::init("en");
+        let mut mascot = Mascot::new(false);
+        mascot.notify_agent("Claude Code", &AgentCue::Busy(Some("Read README.md".into())));
+        let (mood, text, target) = mascot.resolved();
+        assert_eq!((mood, target), (Mood::Working, Target::Acp));
+        assert_eq!(text.as_deref(), Some("Claude Code: Read README.md"));
+
+        mascot.notify_agent("Claude Code", &AgentCue::Permission);
+        assert_eq!(mascot.resolved().0, Mood::Attention);
+        assert!(mascot.agent_busy.is_empty(), "esperando não é trabalhando");
+        mascot.notify_agent("Claude Code", &AgentCue::Busy(Some("working…".into())));
+        assert!(mascot.agent_waiting.is_empty(), "a escolha tira a espera");
+
+        mascot.notify_agent("Claude Code", &AgentCue::Done);
+        assert_eq!(mascot.resolved().0, Mood::Celebrating);
+        assert!(bubble(&mascot).contains("Claude Code"));
+        assert!(mascot.agent_busy.is_empty());
+
+        // Com uma pergunta aberta, cada ação nova aparece um instante e devolve a vez à atenção.
+        mascot.transient = None;
+        mascot.snapshot.ui_waiting =
+            Some(("q".into(), "Pergunta".into(), None, true, 0));
+        mascot.notify_agent("Claude Code", &AgentCue::Busy(Some("Bash git status".into())));
+        assert_eq!(mascot.resolved().0, Mood::Working, "a ferramenta passa na frente");
+        assert_eq!(mascot.resolved().2, Target::Acp);
+        mascot.agent_flash.as_mut().unwrap().2 = Instant::now();
+        assert_eq!(mascot.resolved().0, Mood::Attention, "e depois volta para a pergunta");
+        mascot.notify_agent("Claude Code", &AgentCue::Busy(Some("Read a.rs".into())));
+        mascot.notify_agent("Claude Code", &AgentCue::Busy(None));
+        assert_eq!(mascot.resolved().0, Mood::Attention, "parou: nada de flash velho");
+        mascot.snapshot.ui_waiting = None;
+
+        mascot.transient = None;
+        mascot.chatty = tea_core::config::MascotChatty::Quiet;
+        mascot.notify_agent("OpenCode", &AgentCue::Ready);
+        assert!(mascot.aside.is_none(), "conectado é aparte: fica quieto em quiet");
+        mascot.notify_agent("OpenCode", &AgentCue::Failed);
+        assert_eq!(mascot.resolved(), (Mood::Error, mascot.resolved().1, Target::Acp));
     }
 }

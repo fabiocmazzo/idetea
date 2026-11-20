@@ -134,13 +134,16 @@ All of it is plain files in the project's `.idetea/` folder, so any agent that r
   clean; the branch stays). `[agents] default` comes first. Launchers only count in your user config. If
   `AGENTS.md`/`CLAUDE.md` lacks this IDE's instructions, it asks first: write them, just open, or don't ask again
   in this project.
-- **ACP session** (command palette: "Agent (ACP): OpenCode" or "Agent (ACP): Claude Code"): the IDE starts
-  `opencode acp`, or Claude Code through the pinned adapter `claude-agent-acp` 0.109.0, and speaks ACP v1 over
-  stdio. Assistant text and tool-call status stream into a session panel. Each command opens a new session in its
-  own tab; closing a tab ends only that session. A tool call waits for an explicit allow or reject; closing the
-  dialog does not approve it. Nothing is auto-approved. `Ctrl+Shift+A`, the Interfaces panel, agent terminals and
-  `idetea mascot setup-hooks` stay as they are. A missing binary, Node.js older than 22, or a signed-out Claude
-  account is a message, not a hung session; sign-in can open in a terminal tab. A standalone adapter binary can be set with `[agents] claude_acp` in the user config. See [acp.md](acp.md).
+- **ACP session** (command palette: "Agent (ACP): OpenCode" or "Agent (ACP): Claude Code"): the IDE starts `opencode
+  acp`, or Claude Code through the pinned adapter `claude-agent-acp` 0.109.0, and speaks ACP v1 over stdio. The panel
+  keeps the conversation (your messages, the answer, one line per tool call, updated in place) and follows the end
+  unless you scrolled up to read. What the agent is doing (thinking, which tool, waiting for permission, end of turn,
+  an error) goes to the mascot; a click on the balloon opens the session. Each command opens a new session in its own
+  tab; closing a tab ends only that session. A tool call waits for an explicit allow or reject; closing the dialog
+  does not approve it. Nothing is auto-approved. `Ctrl+Shift+A`, the Interfaces panel, agent terminals and `idetea
+  mascot setup-hooks` stay as they are. A missing binary, Node.js older than 22, or a signed-out Claude account is a
+  message, not a hung session; sign-in can open in a terminal tab. A standalone adapter binary can be set with
+  `[agents] claude_acp` in the user config. See [acp.md](acp.md).
 - **Send context to the agent** (`Ctrl+L` in the editor): the cursor location (or the selection, with the text in
   a code block) and the problems on those lines, pasted into the agent tab on screen or the last one used, not sent.
   With no agent tab, it opens the launcher first. A right click in the Problems panel sends one problem.

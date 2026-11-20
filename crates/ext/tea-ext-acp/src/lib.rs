@@ -3,6 +3,10 @@
 //!
 //! Várias sessões convivem, uma aba cada. Abrir uma sessão nova não encerra as outras;
 //! só fechar a aba (ou o processo cair) encerra aquela sessão.
+//!
+//! A aba guarda a conversa: o que você mandou, a resposta, uma linha por ferramenta e o pedido de
+//! permissão. O estado (pensando, qual ferramenta, fim do turno, erro) vai para o mascote, por
+//! [`AgentCue`]. A conversa rola sozinha até o fim, a não ser que você tenha subido para ler.
 
 tea_core::i18n_loader!();
 macro_rules! fl {
@@ -19,9 +23,13 @@ use tea_acp::permission::{Kind, ShownOption, UserChoice};
 use tea_acp::session::{Command, LoginMethod, SessionEvent};
 use tea_acp::target::{self, Launch, Missing, NodeReport, Target};
 use tea_core::icons::{self, Icon};
-use tea_core::{ButtonKind, Context, Dialog, Extension, PanelId, Slot};
+use tea_core::{AgentCue, ButtonKind, Context, Dialog, Extension, PanelId, Slot};
 
 const PANEL: PanelId = PanelId("acp");
+/// A conversa da aba à frente.
+const TRANSCRIPT: &str = "acp-transcript";
+/// Até quantos pixels do fim ainda conta como "no fim" (segue o texto novo).
+const FOLLOW_SLACK: f32 = 24.0;
 
 /// Identifica uma sessão enquanto a extensão vive; nunca é reaproveitado.
 pub type SessionId = u64;
@@ -38,6 +46,8 @@ pub enum Message {
     Cancel(SessionId),
     Choose(SessionId, u32),
     Login(SessionId, usize),
+    /// A conversa rolou; `true` quando está no fim.
+    Scrolled(bool),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -52,9 +62,8 @@ struct SessionKey {
 enum Line {
     You(String),
     Assistant(String),
-    Thought(String),
-    Tool { title: String, status: String },
-    Note(String),
+    /// Uma ferramenta: as atualizações mudam a mesma linha (pelo `id`).
+    Tool { id: String, title: String, status: String },
 }
 
 #[derive(Debug, Clone)]
@@ -79,6 +88,8 @@ struct Session {
     busy: bool,
     /// Algo pede o usuário (permissão) numa aba que não está à frente.
     attention: bool,
+    /// O último "trabalhando" contado ao mascote, para não repetir a cada pedaço de texto.
+    doing: Option<String>,
 }
 
 impl Session {
@@ -91,6 +102,20 @@ impl Session {
     fn alive(&self) -> bool {
         self.key.is_some()
     }
+
+    /// Conta ao mascote o que a sessão está fazendo, só quando muda.
+    fn busy_with(&mut self, what: String, ctx: &mut Context) {
+        if self.doing.as_deref() != Some(what.as_str()) {
+            self.doing = Some(what.clone());
+            ctx.agent_cue(self.label.clone(), AgentCue::Busy(Some(what)));
+        }
+    }
+
+    /// Um marco que não é "trabalhando": o próximo "trabalhando" é contado de novo.
+    fn cue(&mut self, cue: AgentCue, ctx: &mut Context) {
+        self.doing = None;
+        ctx.agent_cue(self.label.clone(), cue);
+    }
 }
 
 #[derive(Default)]
@@ -101,6 +126,8 @@ pub struct AcpExtension {
     active: Option<SessionId>,
     /// Aviso fora de qualquer sessão (binário ausente, Node velho...).
     notice: Option<String>,
+    /// Você subiu na conversa para ler: o texto novo não puxa a rolagem.
+    reading_back: bool,
 }
 
 impl AcpExtension {
@@ -151,8 +178,10 @@ impl AcpExtension {
             notice: None,
             busy: false,
             attention: false,
+            doing: None,
         });
         self.active = Some(id);
+        self.reading_back = false;
         self.notice = None;
         ctx.show_panel(PANEL);
         id
@@ -172,46 +201,75 @@ impl AcpExtension {
         }
     }
 
-    fn select(&mut self, id: SessionId) {
-        if let Some(session) = self.session_mut(id) {
-            session.attention = false;
-            self.active = Some(id);
-        }
+    fn select(&mut self, id: SessionId) -> Task<Message> {
+        let Some(session) = self.session_mut(id) else { return Task::none() };
+        session.attention = false;
+        self.active = Some(id);
+        self.reading_back = false;
+        follow()
     }
 
-    /// Fecha a aba e encerra só aquela sessão.
-    fn close(&mut self, id: SessionId) {
+    /// Fecha a aba e encerra só aquela sessão. O mascote esquece o que ela fazia.
+    fn close(&mut self, id: SessionId, ctx: &mut Context) {
         let Some(index) = self.sessions.iter().position(|s| s.id == id) else { return };
         let session = self.sessions.remove(index);
         session.send(Command::Shutdown);
+        if session.alive() {
+            ctx.agent_cue(session.label, AgentCue::Busy(None));
+        }
         if self.active == Some(id) {
             let next = index.min(self.sessions.len().saturating_sub(1));
             self.active = self.sessions.get(next).map(|s| s.id);
         }
     }
 
-    /// O mascote continua pelos hooks (`idetea mascot setup-hooks`). `mascot_cue` é o gancho
-    /// para um marco seguinte, sem gravar o estado daqui e duplicar o que o hook já faz.
-    fn on_event_msg(&mut self, id: SessionId, event: SessionEvent, ctx: &mut Context) {
+    /// A conversa vai para a aba; o estado, para o mascote. Devolve a rolagem até o fim quando
+    /// a aba é a da frente, chegou texto novo e você não subiu para ler.
+    fn on_event_msg(&mut self, id: SessionId, event: SessionEvent, ctx: &mut Context) -> Task<Message> {
         let front = self.active == Some(id);
-        let Some(s) = self.session_mut(id) else { return };
+        let Some(s) = self.session_mut(id) else { return Task::none() };
+        let mut grew = false;
         match event {
-            SessionEvent::Ready { agent } => {
-                s.lines.push(Line::Note(fl!("acp-ready", id = agent)));
+            SessionEvent::Ready { .. } => s.cue(AgentCue::Ready, ctx),
+            SessionEvent::Assistant { text } => {
+                grew = append_text(&mut s.lines, text);
+                if grew {
+                    s.busy_with(fl!("acp-doing-writing"), ctx);
+                }
             }
-            SessionEvent::Assistant { text } => append_text(&mut s.lines, true, text),
-            SessionEvent::Thought { text } => append_text(&mut s.lines, false, text),
-            SessionEvent::Tool { title, status, .. } => {
-                s.lines.push(Line::Tool { title, status });
+            SessionEvent::Thought { text } => {
+                if !text.is_empty() {
+                    s.busy_with(fl!("acp-doing-thinking"), ctx);
+                }
+            }
+            SessionEvent::Tool { id: tool, title, status } => {
+                grew = upsert_tool(&mut s.lines, tool.clone(), title, status);
+                let running = s.lines.iter().rev().find_map(|l| match l {
+                    Line::Tool { id, title, status } if *id == tool && (status == "pending" || status == "in_progress") && !title.is_empty() => {
+                        Some(title.clone())
+                    }
+                    _ => None,
+                });
+                if let Some(title) = running {
+                    s.busy_with(title, ctx);
+                }
             }
             SessionEvent::Permission { title, detail, options } => {
                 s.pending = Some(Pending { title: title.clone(), detail: detail.clone(), options: options.clone() });
                 s.attention = !front;
+                grew = true;
+                s.cue(AgentCue::Permission, ctx);
                 ctx.show_dialog(permission_dialog(id, &s.label, &title, &detail, &options));
             }
             SessionEvent::Turn { stop } => {
                 s.busy = false;
-                s.lines.push(Line::Note(fl!("acp-turn", stop = stop_text(&stop))));
+                let cue = match stop.as_str() {
+                    "end_turn" | "max_tokens" | "max_turn_requests" => AgentCue::Done,
+                    "refusal" => AgentCue::Refused,
+                    "error" => AgentCue::Failed,
+                    _ => AgentCue::Busy(None),
+                };
+                s.cue(cue, ctx);
             }
             SessionEvent::AuthRequired { message, logins } => {
                 s.busy = false;
@@ -219,40 +277,48 @@ impl AcpExtension {
                 s.logins = logins;
                 s.notice = Some(fl!("acp-auth", message = message));
                 s.key = None;
+                s.cue(AgentCue::Busy(None), ctx);
             }
             SessionEvent::Failed { message } => {
                 s.busy = false;
                 if message != "shutdown" {
                     s.notice = Some(fl!("acp-failed", error = message));
+                    s.cue(AgentCue::Failed, ctx);
                 }
             }
             SessionEvent::Closed => {
+                let quiet_end = s.notice.is_some() || !s.logins.is_empty();
                 s.busy = false;
                 s.cmd = None;
-                s.key = None;
                 s.pending = None;
-                if s.notice.is_none() && s.logins.is_empty() {
-                    s.lines.push(Line::Note(fl!("acp-closed")));
+                if s.key.take().is_some() && !quiet_end {
+                    s.cue(AgentCue::Ended, ctx);
                 }
             }
         }
+        if grew && front && !self.reading_back { follow() } else { Task::none() }
     }
 
-    fn choose(&mut self, id: SessionId, index: u32) {
+    fn choose(&mut self, id: SessionId, index: u32, ctx: &mut Context) {
         let Some(s) = self.session_mut(id) else { return };
         if s.pending.as_ref().is_some_and(|p| (index as usize) < p.options.len()) {
             s.send(Command::Permission(UserChoice::Option(index)));
             s.pending = None;
             s.attention = false;
+            s.cue(AgentCue::Busy(None), ctx);
+            s.busy_with(fl!("acp-doing-working"), ctx);
         }
     }
 
-    fn cancel(&mut self, id: SessionId) {
+    fn cancel(&mut self, id: SessionId, ctx: &mut Context) {
         if let Some(s) = self.session_mut(id) {
             s.busy = false;
             s.pending = None;
             s.attention = false;
             s.send(Command::Cancel);
+            if s.alive() {
+                s.cue(AgentCue::Busy(None), ctx);
+            }
         }
     }
 
@@ -310,7 +376,10 @@ impl AcpExtension {
         for line in &s.lines {
             transcript = transcript.push(line_view(line));
         }
-        let scroll = tea_core::style::scrollable(transcript).height(Fill);
+        let scroll = tea_core::style::scrollable(transcript)
+            .id(TRANSCRIPT)
+            .on_scroll(|v| Message::Scrolled(v.absolute_offset_reversed().y <= FOLLOW_SLACK))
+            .height(Fill);
         let mut bottom = column![].spacing(8).width(Fill);
         if let Some(pending) = &s.pending {
             bottom = bottom.push(permission_card(s.id, pending));
@@ -333,25 +402,48 @@ impl AcpExtension {
     }
 }
 
-fn append_text(lines: &mut Vec<Line>, assistant: bool, text: String) {
+/// Rola a conversa até o fim.
+fn follow() -> Task<Message> {
+    iced::widget::operation::snap_to_end(TRANSCRIPT)
+}
+
+/// Junta o pedaço de resposta ao último bloco dela. `true` se a conversa cresceu.
+fn append_text(lines: &mut Vec<Line>, text: String) -> bool {
     if text.is_empty() {
-        return;
+        return false;
     }
     match lines.last_mut() {
-        Some(Line::Assistant(prev)) if assistant => prev.push_str(&text),
-        Some(Line::Thought(prev)) if !assistant => prev.push_str(&text),
-        _ if assistant => lines.push(Line::Assistant(text)),
-        _ => lines.push(Line::Thought(text)),
+        Some(Line::Assistant(prev)) => prev.push_str(&text),
+        _ => lines.push(Line::Assistant(text)),
     }
+    true
+}
+
+/// Uma linha por ferramenta: a atualização muda a linha que já existe. Título vazio ou status
+/// "update" não apagam o que já se sabia. `true` se apareceu uma linha nova.
+fn upsert_tool(lines: &mut Vec<Line>, id: String, title: String, status: String) -> bool {
+    let existing = lines.iter_mut().rev().find_map(|l| match l {
+        Line::Tool { id: known, title, status } if *known == id => Some((title, status)),
+        _ => None,
+    });
+    if let Some((known_title, known_status)) = existing {
+        if !title.is_empty() {
+            *known_title = title;
+        }
+        if status != "update" {
+            *known_status = status;
+        }
+        return false;
+    }
+    lines.push(Line::Tool { id, title, status });
+    true
 }
 
 fn line_view(line: &Line) -> Element<'_, Message> {
     match line {
         Line::You(text_value) => text(format!("{}  {text_value}", fl!("acp-you"))).size(13).width(Fill).into(),
         Line::Assistant(text_value) => text(text_value.clone()).size(13).width(Fill).into(),
-        Line::Thought(text_value) => text(format!("{}  {text_value}", fl!("acp-thought"))).size(12).style(text::secondary).width(Fill).into(),
-        Line::Tool { title, status } => text(format!("{title}  {}", status_text(status))).size(12).style(text::secondary).width(Fill).into(),
-        Line::Note(text_value) => text(text_value.clone()).size(12).style(text::secondary).width(Fill).into(),
+        Line::Tool { title, status, .. } => text(format!("{title}  {}", status_text(status))).size(12).style(text::secondary).width(Fill).into(),
     }
 }
 
@@ -401,16 +493,6 @@ fn status_text(status: &str) -> String {
         "completed" => fl!("acp-status-completed"),
         "failed" => fl!("acp-status-failed"),
         "update" => fl!("acp-status-update"),
-        other => other.to_string(),
-    }
-}
-
-fn stop_text(stop: &str) -> String {
-    match stop {
-        "end_turn" => fl!("acp-stop-end"),
-        "cancelled" => fl!("acp-stop-cancelled"),
-        "refusal" => fl!("acp-stop-refusal"),
-        "error" => fl!("acp-stop-error"),
         other => other.to_string(),
     }
 }
@@ -478,7 +560,7 @@ impl Extension for AcpExtension {
             "acp.claude" => self.launch(Target::Claude, ctx),
             "acp.cancel" => {
                 if let Some(id) = self.active {
-                    self.cancel(id);
+                    self.cancel(id, ctx);
                 }
             }
             _ => {}
@@ -494,9 +576,10 @@ impl Extension for AcpExtension {
                     s.cmd = Some(cmd);
                 }
             }
-            Message::Event(id, event) => self.on_event_msg(id, event, ctx),
-            Message::Select(id) => self.select(id),
-            Message::Close(id) => self.close(id),
+            Message::Event(id, event) => return self.on_event_msg(id, event, ctx),
+            Message::Select(id) => return self.select(id),
+            Message::Close(id) => self.close(id, ctx),
+            Message::Scrolled(at_end) => self.reading_back = !at_end,
             Message::Prompt(text) => {
                 if let Some(s) = self.active_mut() {
                     s.prompt = text;
@@ -510,11 +593,14 @@ impl Extension for AcpExtension {
                         s.prompt.clear();
                         s.busy = true;
                         s.send(Command::Prompt(text));
+                        s.busy_with(fl!("acp-doing-thinking"), ctx);
+                        self.reading_back = false;
+                        return follow();
                     }
                 }
             }
-            Message::Cancel(id) => self.cancel(id),
-            Message::Choose(id, index) => self.choose(id, index),
+            Message::Cancel(id) => self.cancel(id, ctx),
+            Message::Choose(id, index) => self.choose(id, index, ctx),
             Message::Login(id, index) => {
                 if let Some(s) = self.session(id)
                     && let Some(method) = s.logins.get(index)
@@ -584,13 +670,14 @@ mod tests {
         let (mut ext, ids) = ext_with(&[Target::OpenCode, Target::Claude, Target::OpenCode]);
         let (tx, mut rx) = mpsc::unbounded();
         ext.session_mut(ids[0]).unwrap().cmd = Some(tx);
-        ext.select(ids[1]);
-        ext.close(ids[1]);
+        let mut ctx = Context::new(Path::new("/tmp"), None);
+        let _ = ext.select(ids[1]);
+        ext.close(ids[1], &mut ctx);
         assert_eq!(ext.sessions.iter().map(|s| s.id).collect::<Vec<_>>(), [ids[0], ids[2]]);
         assert_eq!(ext.active, Some(ids[2]), "a aba ao lado fica à frente");
         assert!(matches!(rx.try_recv(), Err(TryRecvError::Empty)), "a outra sessão não recebeu nada");
-        ext.close(ids[2]);
-        ext.close(ids[0]);
+        ext.close(ids[2], &mut ctx);
+        ext.close(ids[0], &mut ctx);
         assert!(matches!(rx.try_recv(), Ok(Command::Shutdown)));
         assert_eq!(ext.active, None);
     }
@@ -605,17 +692,76 @@ mod tests {
         let root = Path::new("/tmp");
         let mut ctx = Context::new(root, None);
         let options = vec![ShownOption { id: "allow".into(), name: "Permitir".into(), kind: Kind::AllowOnce }];
-        ext.on_event_msg(ids[0], SessionEvent::Permission { title: "echo oi".into(), detail: String::new(), options }, &mut ctx);
+        let _ = ext.on_event_msg(ids[0], SessionEvent::Permission { title: "echo oi".into(), detail: String::new(), options }, &mut ctx);
         let first = ext.session(ids[0]).unwrap();
         assert!(first.pending.is_some());
         assert!(first.attention, "a aba de trás fica marcada");
         assert!(ext.session(ids[1]).unwrap().pending.is_none());
-        ext.on_event_msg(ids[1], SessionEvent::Closed, &mut ctx);
+        let _ = ext.on_event_msg(ids[1], SessionEvent::Closed, &mut ctx);
         assert!(!ext.session(ids[1]).unwrap().alive());
         assert!(ext.session(ids[0]).unwrap().alive());
-        ext.choose(ids[0], 0);
+        ext.choose(ids[0], 0, &mut ctx);
         assert!(matches!(rx0.try_recv(), Ok(Command::Permission(UserChoice::Option(0)))));
         assert!(matches!(rx1.try_recv(), Err(TryRecvError::Closed)), "a sessão encerrada não recebe a escolha");
         assert!(!ext.session(ids[0]).unwrap().attention);
+    }
+
+    fn cues(ctx: Context) -> Vec<AgentCue> {
+        ctx.into_requests()
+            .into_iter()
+            .filter_map(|r| match r {
+                tea_core::Request::AgentCue { cue, .. } => Some(cue),
+                _ => None,
+            })
+            .collect()
+    }
+
+    #[test]
+    fn tool_updates_change_the_same_line() {
+        let mut lines = Vec::new();
+        assert!(upsert_tool(&mut lines, "t1".into(), "Read a.rs".into(), "pending".into()));
+        assert!(!upsert_tool(&mut lines, "t1".into(), String::new(), "in_progress".into()));
+        assert!(!upsert_tool(&mut lines, "t1".into(), String::new(), "update".into()));
+        assert!(upsert_tool(&mut lines, "t2".into(), "Edit b.rs".into(), "pending".into()));
+        assert!(!upsert_tool(&mut lines, "t1".into(), String::new(), "completed".into()));
+        assert_eq!(lines.len(), 2);
+        assert!(matches!(&lines[0], Line::Tool { title, status, .. } if title == "Read a.rs" && status == "completed"));
+    }
+
+    #[test]
+    fn state_goes_to_the_mascot_and_text_to_the_tab() {
+        let (mut ext, ids) = ext_with(&[Target::Claude]);
+        let mut ctx = Context::new(Path::new("/tmp"), None);
+        let id = ids[0];
+        for event in [
+            SessionEvent::Ready { agent: "claude".into() },
+            SessionEvent::Thought { text: "hmm".into() },
+            SessionEvent::Thought { text: " more".into() },
+            SessionEvent::Assistant { text: "Oi".into() },
+            SessionEvent::Assistant { text: "!".into() },
+            SessionEvent::Tool { id: "t".into(), title: "Read a.rs".into(), status: "in_progress".into() },
+            SessionEvent::Tool { id: "t".into(), title: String::new(), status: "completed".into() },
+            SessionEvent::Turn { stop: "end_turn".into() },
+            SessionEvent::Closed,
+        ] {
+            let _ = ext.on_event_msg(id, event, &mut ctx);
+        }
+        let thinking = fl!("acp-doing-thinking");
+        let writing = fl!("acp-doing-writing");
+        assert_eq!(
+            cues(ctx),
+            [
+                AgentCue::Ready,
+                AgentCue::Busy(Some(thinking)),
+                AgentCue::Busy(Some(writing)),
+                AgentCue::Busy(Some("Read a.rs".into())),
+                AgentCue::Done,
+                AgentCue::Ended,
+            ],
+            "um aviso por mudança, não um por pedaço de texto"
+        );
+        let s = ext.session(id).unwrap();
+        assert_eq!(s.lines.len(), 2, "a resposta e a ferramenta; pensamento e fim de turno não entram na aba");
+        assert!(matches!(&s.lines[0], Line::Assistant(t) if t == "Oi!"));
     }
 }

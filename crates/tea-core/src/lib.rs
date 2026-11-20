@@ -112,6 +112,28 @@ pub enum CoreEvent {
     SendToAgent { text: String },
     /// Abre a busca no projeto limitada a este caminho (arquivo ou pasta). Quem mostra é a extensão de busca.
     SearchIn(PathBuf),
+    /// Marco de uma sessão de agente (ACP) para o mascote. `session` é o nome da aba.
+    AgentCue { session: String, cue: AgentCue },
+}
+
+/// O que uma sessão de agente conta ao mascote ([`CoreEvent::AgentCue`]). A conversa fica no painel;
+/// o estado (pensando, ferramenta, permissão, fim do turno) vai para o mascote.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum AgentCue {
+    /// A sessão abriu e o agente respondeu.
+    Ready,
+    /// O agente está trabalhando nisto (pensando, uma ferramenta...). `None`: parou sem fim de turno.
+    Busy(Option<String>),
+    /// Um pedido de permissão espera uma escolha.
+    Permission,
+    /// O turno acabou bem.
+    Done,
+    /// O agente recusou o pedido.
+    Refused,
+    /// O turno ou a sessão falhou.
+    Failed,
+    /// O processo acabou.
+    Ended,
 }
 
 /// O que uma lista de lugares ([`CoreEvent::Locations`]) mostra.
@@ -257,6 +279,8 @@ pub enum Request {
     DiffBase { path: PathBuf, bytes: Option<Arc<[u8]>> },
     /// Mostra uma lista para escolher na paleta (ver [`pick`]).
     Pick(pick::Pick),
+    /// Repassa [`CoreEvent::AgentCue`] (o mascote e as outras extensões).
+    AgentCue { session: String, cue: AgentCue },
 }
 
 /// Botão no canto da barra de abas, que aparece só quando o arquivo ativo é de certos tipos
@@ -477,6 +501,11 @@ impl<'a> Context<'a> {
 
     pub fn replace(&mut self, replace: replace::Replace) {
         self.requests.push(Request::Replace(replace));
+    }
+
+    /// Conta ao mascote um marco da sessão de agente `session` (ver [`AgentCue`]).
+    pub fn agent_cue(&mut self, session: impl Into<String>, cue: AgentCue) {
+        self.requests.push(Request::AgentCue { session: session.into(), cue });
     }
 
     /// Avisa que a tarefa do terminal terminou, com o código de saída do comando.

@@ -52,6 +52,22 @@ mesmo agente ficam numeradas ("Claude Code", "Claude Code 2"). Os botões `+ Ope
 lado das abas fazem o mesmo. Fechar a aba (✕) encerra só aquela sessão. Quando o processo acaba, a aba fica
 com a conversa, marcada como encerrada, até você fechar. "Cancelar o turno" vale para a aba à frente.
 
+## Painel e mascote
+
+A aba guarda a conversa: o que você mandou, a resposta do agente e uma linha por ferramenta, que muda no
+lugar quando o status muda (não aparece uma linha nova a cada atualização). A conversa rola sozinha até o fim
+enquanto o texto chega; se você subiu para ler, ela fica onde você está até você voltar ao fim, trocar de aba
+ou mandar outra mensagem.
+
+O estado vai para o mascote, com o nome da aba: "pensando…", "escrevendo…", a ferramenta em andamento, o
+pedido de permissão (com prioridade, até você escolher), o fim do turno, a recusa, o erro, e os apartes
+"pronto" e "encerrou" (estes dois somem em `chatty = "quiet"`). O pensamento do agente não entra na aba. Um
+clique no balão abre o painel da sessão. Com uma pergunta aberta no painel Interfaces (ou um terminal esperando
+confirmação), cada ação nova da sessão aparece por 4 s e o mascote volta para a atenção.
+
+Se os hooks do Claude Code (`idetea mascot setup-hooks`) também rodarem dentro da sessão ACP, o estado que
+eles gravam em `.idetea/mascot.json` tem prioridade sobre o da sessão; o mascote mostra um só.
+
 ## Permissão
 
 Quando o agente manda `session/request_permission`, a IDE mostra um diálogo e o mesmo pedido no painel.
