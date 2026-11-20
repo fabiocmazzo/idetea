@@ -138,6 +138,14 @@ Alles davon sind schlichte Dateien im Ordner `.idetea/` des Projekts, also kann 
   Schließen des Tabs entfernt, wenn er sauber ist; der Branch bleibt). `[agents] default` steht oben. Launcher
   zählen nur in deiner Benutzerkonfiguration. Fehlen in `AGENTS.md`/`CLAUDE.md` die Anweisungen dieser IDE, fragt
   sie vorher: schreiben, nur öffnen oder in diesem Projekt nicht mehr fragen.
+- **ACP-Sitzung** (Befehlspalette: „Agent (ACP): OpenCode“ oder „Agent (ACP): Claude Code“): die IDE startet
+  `opencode acp` oder Claude Code über den festgelegten Adapter `claude-agent-acp` 0.109.0 und spricht ACP v1 über
+  stdio. Antworttext und der Status von Werkzeugaufrufen laufen in ein Sitzungsfeld. Ein Werkzeugaufruf wartet auf
+  ausdrückliches Erlauben oder Ablehnen; den Dialog zu schließen erlaubt ihn nicht. Nichts wird automatisch
+  erlaubt. `Ctrl+Shift+A`, das Feld Interfaces, Agenten-Terminals und `idetea mascot setup-hooks` bleiben. Eine
+  fehlende Datei, Node.js älter als 22 oder ein abgemeldetes Claude-Konto ist eine Meldung, keine hängende
+  Sitzung; die Anmeldung kann in einem Terminal-Tab laufen. Eine eigenständige Adapter-Datei steht in
+  `[agents] claude_acp` der Benutzerkonfiguration.
 - **Kontext an den Agenten senden** (`Ctrl+L` im Editor): der Ort des Cursors (oder die Auswahl, mit dem Text in
   einem Codeblock) und die Probleme dieser Zeilen, eingefügt in den Agenten-Tab auf dem Bildschirm oder den zuletzt
   benutzten, nicht abgeschickt. Ohne Agenten-Tab öffnet sich zuerst der Starter. Ein Rechtsklick im Problem-Panel

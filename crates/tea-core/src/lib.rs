@@ -250,6 +250,8 @@ pub enum Request {
     /// Substitui em vários arquivos: abas abertas mudam na memória (dá para desfazer), os outros são
     /// gravados no disco. A resposta chega em [`CoreEvent::Replaced`].
     Replace(replace::Replace),
+    /// Pede à extensão do terminal uma aba de tarefa (`CoreEvent::RunTask`). `done` leva `{code}`.
+    RunTask { name: String, command: String, cwd: PathBuf, done: String },
     /// Versão de referência de um arquivo para as marcas na margem (o git manda a do último commit), em bytes:
     /// o app decodifica com o encoding de cada aba. `None`: sem marcas (arquivo novo, fora do repositório).
     DiffBase { path: PathBuf, bytes: Option<Arc<[u8]>> },
@@ -485,6 +487,11 @@ impl<'a> Context<'a> {
     /// Abre a busca no projeto limitada a este arquivo ou pasta.
     pub fn search_in(&mut self, path: impl Into<PathBuf>) {
         self.requests.push(Request::SearchIn(path.into()));
+    }
+
+    /// Abre uma aba de terminal com este comando (a extensão do terminal executa).
+    pub fn run_task(&mut self, name: impl Into<String>, command: impl Into<String>, cwd: impl Into<PathBuf>, done: impl Into<String>) {
+        self.requests.push(Request::RunTask { name: name.into(), command: command.into(), cwd: cwd.into(), done: done.into() });
     }
 
     pub fn into_requests(self) -> Vec<Request> {

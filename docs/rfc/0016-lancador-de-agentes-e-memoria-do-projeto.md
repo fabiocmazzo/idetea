@@ -217,3 +217,6 @@ Cada etapa com teste manual pelo painel antes do commit, como nas RFCs anteriore
   segundo). No histórico do Interfaces, "Registrar como decisão" cria `docs/decisions/NNNN-….md` (`status:
   proposed`) com o contexto, as opções, a escolha e o comentário, e abre. Os títulos do ADR saem no idioma da IDE.
   No chinês, "记忆" e "决策" não têm glifo na fonte embutida: o painel é "项目记录" e as decisões, "决定".
+- **2026-11-20 — a sessão ACP não raspa o terminal.** A [RFC 0022](0022-cliente-acp.md) adota o ACP v1 como
+  canal estruturado, ao lado deste lançador. `Ctrl+Shift+A` e `idetea agent` continuam abrindo a aba de
+  terminal. Ler o texto do TUI continua fora.

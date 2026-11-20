@@ -128,6 +128,9 @@ allow = []
 
 [agents.launchers]
 # "Claude (Opus)" = "claude --model opus"
+# Binário standalone do adaptador ACP do Claude (uma release, sem Node), se `claude-agent-acp`
+# não estiver no PATH. Só neste arquivo. Não esconde o login da assinatura.
+# claude_acp = "/opt/claude-agent-acp/claude-agent-acp"
 
 # CSV, TSV e JSONL abrem como tabela (RFC 0020) até este tamanho; acima dele, só o texto. 0 desliga a tabela.
 [table]
@@ -352,6 +355,8 @@ pub struct AgentsConfig {
     pub default: Option<String>,
     /// Lançadores a mais no "Agentes: iniciar…": nome mostrado → comando (RFC 0016).
     pub launchers: std::collections::BTreeMap<String, String>,
+    /// Binário standalone do `claude-agent-acp` (arquivo de release, sem Node), se não estiver no PATH.
+    pub claude_acp: Option<String>,
 }
 
 /// Quanto o mascote fala além do que o estado pede (`[mascot] chatty`).
@@ -671,6 +676,11 @@ mod tests {
         let c = Config::load(None, Some(&project));
         assert!(c.agents.allow.is_empty());
         assert!(layers(&[DEFAULT_CONFIG]).agents.allow.is_empty());
+        assert!(layers(&[DEFAULT_CONFIG]).agents.claude_acp.is_none());
+        assert_eq!(
+            layers(&["[agents]\nclaude_acp = \"/opt/claude-agent-acp\""]).agents.claude_acp.as_deref(),
+            Some("/opt/claude-agent-acp")
+        );
         assert!(!layers(&["[agents]\nallows = []"]).errors.is_empty(), "campo desconhecido avisa");
         let _ = std::fs::remove_dir_all(&dir);
     }

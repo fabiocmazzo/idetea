@@ -348,6 +348,8 @@ fn builtin_extensions() -> Vec<Box<dyn AnyExtension>> {
     list.push(Box::new(tea_ext_ui::UiExtension::new()));
     #[cfg(feature = "ext-memory")]
     list.push(Box::new(tea_ext_memory::MemoryExtension::new()));
+    #[cfg(feature = "ext-acp")]
+    list.push(Box::new(tea_ext_acp::AcpExtension::new()));
     list
 }
 
@@ -1070,6 +1072,9 @@ impl App {
                 }
                 Request::Replace(replace) => tasks.push(self.replace_in_files(&replace)),
                 Request::SearchIn(path) => tasks.push(self.broadcast(CoreEvent::SearchIn(path))),
+                Request::RunTask { name, command, cwd, done } => {
+                    tasks.push(self.broadcast(CoreEvent::RunTask { name, command, cwd, done }));
+                }
                 Request::DiffBase { path, bytes } => {
                     for t in self.tabs.iter_mut().filter(|t| t.editor.path() == Some(path.as_path())) {
                         t.editor.set_diff_base(bytes.as_deref().map(|b| diff_base_text(b, t.editor.encoding())));

@@ -1,0 +1,15 @@
+[package]
+name = "tea-acp"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Cliente ACP da IDE TEA (stdio, sem UI)"
+
+[dependencies]
+agent-client-protocol = { version = "=5.4.0", default-features = false, features = ["process"] }
+futures = "0.3"
+serde_json.workspace = true
+
+[[bin]]
+name = "tea-acp-stub"
+path = "src/bin/stub.rs"

@@ -1,0 +1,62 @@
+# Sessão ACP
+
+A IDE pode falar [ACP](https://agentclientprotocol.com/) (Agent Client Protocol) com um agente de código, em
+stdio. O agente continua com a conta, o modelo e as ferramentas dele. A IDE inicia o processo, mostra o texto
+e pede permissão antes de cada ação. Não é um chat que chama a API do modelo, e não lê o texto do terminal.
+
+A decisão está na [RFC 0022](rfc/0022-cliente-acp.md). O lançador de aba (`Ctrl+Shift+A`, `idetea agent`), o
+painel Interfaces, os terminais pedidos em `.idetea/agents/` e o `idetea mascot setup-hooks` continuam como
+estão.
+
+## Protocolo
+
+O cliente fala **ACP v1** (crate `agent-client-protocol` 5.4.0, fixada). O rascunho v2 fica de fora: o
+OpenCode ainda fala v1, e o adaptador do Claude só serve v2 quando o cliente pede a versão 2. A feature
+`unstable_protocol_v2` não entra neste marco.
+
+## Dois alvos
+
+Na paleta de comandos:
+
+- **Agente (ACP): OpenCode** — roda `opencode acp`.
+- **Agente (ACP): Claude Code** — roda `claude-agent-acp`, do pacote
+  `@agentclientprotocol/claude-agent-acp@0.109.0`.
+
+O Claude pelo npm precisa de **Node.js 22 ou mais novo**:
+
+```sh
+npm install -g @agentclientprotocol/claude-agent-acp@0.109.0
+```
+
+Cada release do adaptador também traz um arquivo só, com o `claude-agent-acp` e um `claude` junto, sem Node.
+Se ele não estiver no PATH, aponte o caminho no config **do usuário** (o do projeto é ignorado, como o resto
+de `[agents]`):
+
+```toml
+[agents]
+claude_acp = "/caminho/claude-agent-acp"
+```
+
+A IDE não passa `--hide-claude-auth`. Um login que você já fez com `claude`, ou `ANTHROPIC_API_KEY` no
+ambiente, vale: o processo herda `HOME` e `PATH`.
+
+Se faltar o binário, o Node 22, ou a conta, a IDE explica e não deixa a sessão pendurada. No caso da conta,
+os métodos de terminal que o adaptador anuncia (`claude-ai-login`, `console-login`, ou `claude-login` num
+ambiente remoto) ganham um botão que abre o login numa aba de terminal. A IDE não chama `authenticate` para
+esses métodos: o adaptador recusa.
+
+## Permissão
+
+Quando o agente manda `session/request_permission`, a IDE mostra um diálogo e o mesmo pedido no painel.
+Permitir ou recusar é um clique na opção que o agente ofereceu. Esc, clique fora e fechar **não** permitem a
+ação: o pedido continua no painel até uma escolha. Cancelar o turno manda `session/cancel` e responde
+`cancelled`. Não há aprovação automática.
+
+## Testes
+
+O CI fala com um agente de mentira (`tea-acp-stub`), em stdio, sem rede e sem conta. Um Claude de verdade
+precisa da sua conta ou de `ANTHROPIC_API_KEY`; isso não roda no CI.
+
+```sh
+cargo test -p tea-acp
+```
