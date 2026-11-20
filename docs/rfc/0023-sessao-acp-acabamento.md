@@ -135,8 +135,8 @@ a ferramenta, "terminou"). As abas de trás ganham um ponto animado enquanto tra
 
 **[Recomendação]**
 
-- Comando **"Agente (ACP): perguntar sobre a seleção"** (também no menu de contexto do editor): abre ou traz à
-  frente a sessão e põe na entrada um chip com o arquivo e o intervalo de linhas.
+- Comando **"Agente (ACP): perguntar sobre a seleção"** (`Ctrl+Alt+L`): abre ou traz à frente a sessão e põe na
+  entrada um chip com o arquivo e o intervalo de linhas. (O editor não tem menu de contexto; fica o atalho.)
 - Na entrada, `@` abre o seletor de arquivos do projeto (o mesmo do Ctrl+P); o escolhido vira chip.
 - Ao enviar, cada chip vira `ContentBlock::ResourceLink` (todo agente v1 aceita) ou, se o agente anunciou
   `promptCapabilities.embeddedContext`, `ContentBlock::Resource` com o texto **do buffer** (inclusive não salvo).
@@ -197,6 +197,17 @@ Escolhidas no painel em 2026-11-20, todas na recomendação:
 3. **`fs/write_text_file` edita o buffer e salva**, porque o agente espera ler do disco o que escreveu
    (ferramentas de terminal, testes).
 4. **O estado na aba (item 6) só aparece com o mascote desligado.**
+
+## Andamento
+
+- **2026-11-20 — marco 2a e item 8.** `tea-acp`: um turno por vez (a sessão também segura um `session/prompt`
+  enquanto outro está aberto), `ToolInfo` com `kind`, `locations` e `content`, permissão com `command`, `url` e o
+  JSON indentado, nome e versão do `agentInfo`, falhas com tipo, prompt em blocos (`resource_link`, ou `resource`
+  com `embeddedContext`). Painel: fila visível, Markdown com Copiar, caixa de várias linhas com histórico,
+  permissão legível, ferramentas com ícone, links e diff, Recomeçar, notas de parada, linha de estado com o mascote
+  desligado, ponto nas abas de trás, anexos por `Ctrl+Alt+L` e `@`. `tea-core`: `Context::request_editor_context` e
+  `CoreEvent::EditorContext`. O fim do stderr do agente aparece junto do aviso de falha (vem na mensagem de erro da
+  crate), não num bloco recolhido.
 
 ## Testes
 

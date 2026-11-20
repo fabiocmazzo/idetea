@@ -149,6 +149,13 @@ Tutto sono file in chiaro nella cartella `.idetea/` del progetto, così qualsias
   l'accesso può aprirsi in una scheda di terminale. Un binario autonomo si indica con `[agents] claude_acp` nella
   config utente. Ogni comando apre una nuova sessione in una scheda sua; chiudere una scheda termina solo quella
   sessione.
+- **Conversazione ACP**: la risposta è Markdown, con Copia su ogni blocco di codice e sulla risposta. La casella
+  del messaggio accetta più righe (Invio manda, Maiusc+Invio va a capo, ↑ nella casella vuota riprende l'ultimo). Un
+  messaggio mandato durante un turno aspetta nella coda della scheda (✕ lo toglie): l'agente non riceve mai due
+  prompt insieme. Una richiesta di permesso mostra il comando, il diff o il percorso invece del JSON; una riga di
+  strumento apre il suo file ed espande l'output o il diff. Una scheda chiusa può ricominciare. `Ctrl+Alt+L` manda la
+  selezione (o il buffer non salvato) alla sessione, e `@` allega un file del progetto. Con la mascotte spenta, lo
+  stato appare sopra la casella del messaggio.
 - **Inviare il contesto all'agente** (`Ctrl+L` nell'editor): la posizione del cursore (o la selezione, con il testo
   in un blocco di codice) e i problemi di quelle righe, incollati nella scheda dell'agente sullo schermo o
   nell'ultima usata, senza inviarli. Senza scheda di agente, si apre prima il lanciatore. Un clic destro nel pannello
