@@ -216,8 +216,6 @@ fn main() -> iced::Result {
 
 /// Digitou há menos que isso: um arquivo pedido por uma extensão não abre por cima (ver `OpenFileWhenIdle`).
 const TYPING_PAUSE: std::time::Duration = std::time::Duration::from_secs(2);
-/// Texto máximo do arquivo ativo que vai junto de uma mensagem ACP (o resto vai só como caminho).
-const EDITOR_CONTEXT_MAX: usize = 256 * 1024;
 /// Quantas abas fechadas o Ctrl+Shift+T lembra.
 const CLOSED_TABS_MAX: usize = 20;
 
@@ -350,8 +348,6 @@ fn builtin_extensions() -> Vec<Box<dyn AnyExtension>> {
     list.push(Box::new(tea_ext_ui::UiExtension::new()));
     #[cfg(feature = "ext-memory")]
     list.push(Box::new(tea_ext_memory::MemoryExtension::new()));
-    #[cfg(feature = "ext-acp")]
-    list.push(Box::new(tea_ext_acp::AcpExtension::new()));
     list
 }
 
@@ -1043,13 +1039,6 @@ impl App {
                 Request::TaskFinished { name, code } => {
                     tasks.push(self.broadcast(CoreEvent::TaskFinished { name, code }));
                 }
-                Request::AgentCue { session, cue } => {
-                    tasks.push(self.broadcast(CoreEvent::AgentCue { session, cue }));
-                }
-                Request::EditorContext => {
-                    let event = self.editor_context();
-                    tasks.push(self.broadcast(event));
-                }
                 Request::FilesChanged => {
                     tasks.push(self.reload_changed_tabs());
                     tasks.push(self.broadcast(CoreEvent::FilesChanged));
@@ -1081,9 +1070,6 @@ impl App {
                 }
                 Request::Replace(replace) => tasks.push(self.replace_in_files(&replace)),
                 Request::SearchIn(path) => tasks.push(self.broadcast(CoreEvent::SearchIn(path))),
-                Request::RunTask { name, command, cwd, done } => {
-                    tasks.push(self.broadcast(CoreEvent::RunTask { name, command, cwd, done }));
-                }
                 Request::DiffBase { path, bytes } => {
                     for t in self.tabs.iter_mut().filter(|t| t.editor.path() == Some(path.as_path())) {
                         t.editor.set_diff_base(bytes.as_deref().map(|b| diff_base_text(b, t.editor.encoding())));
@@ -1135,7 +1121,6 @@ impl App {
                 self.mascot.notify_conflicts(&conflicts);
             }
             CoreEvent::TaskFinished { name, code } => self.mascot.notify_task_finished(name, *code),
-            CoreEvent::AgentCue { session, cue } => self.mascot.notify_agent(session, cue),
             CoreEvent::BinaryChanged => self.mascot.notify_binary_rebuilt(),
             CoreEvent::Replaced { count, files, failed } => {
                 self.mascot.notify_replaced(*count, files.len(), failed.len());
@@ -4221,24 +4206,6 @@ impl App {
         sent
     }
 
-    /// O arquivo ativo para uma sessão de agente (ACP): a seleção, ou o buffer inteiro quando tem
-    /// mudanças não salvas (até [`EDITOR_CONTEXT_MAX`]; maior que isso, só o caminho).
-    fn editor_context(&self) -> CoreEvent {
-        let Some(tab) = self.tabs.get(self.active) else { return CoreEvent::EditorContext { path: None, lines: None, text: None } };
-        let editor = &tab.editor;
-        let Some(path) = editor.path().map(Path::to_path_buf) else {
-            return CoreEvent::EditorContext { path: None, lines: None, text: None };
-        };
-        let to_u32 = |n: usize| u32::try_from(n).unwrap_or(u32::MAX);
-        let (lines, text) = match editor.selection() {
-            Some((first, last, text)) => (Some((to_u32(first), to_u32(last))), Some(text)),
-            None if editor.is_modified() => (None, Some(editor.text())),
-            None => (None, None),
-        };
-        let text = text.filter(|t| t.len() <= EDITOR_CONTEXT_MAX);
-        CoreEvent::EditorContext { path: Some(path), lines, text }
-    }
-
     fn send_to_agent(&mut self, text: String) -> Task<Message> {
         if !self.extensions.iter().any(|e| e.id() == "terminal") {
             return self.notify(fl!("tasks-no-terminal"));
@@ -5488,7 +5455,7 @@ mod tests {
         ids.dedup();
         assert_eq!(ids.len(), CORE_COMMANDS.len(), "ids repetidos");
 
-        let ext_commands = ["filetree.toggle", "filetree.reveal", "search.focus", "search.replace", "search.next", "search.prev", "problems.focus", "problems.next", "terminal.focus", "git.focus", "outline.toggle", "preview.toggle", "tasks.run", "tasks.rerun", "acp.ask"];
+        let ext_commands = ["filetree.toggle", "filetree.reveal", "search.focus", "search.replace", "search.next", "search.prev", "problems.focus", "problems.next", "terminal.focus", "git.focus", "outline.toggle", "preview.toggle", "tasks.run", "tasks.rerun"];
         let cfg = Config::from_layers(&[("padrão".into(), config::DEFAULT_CONFIG.into())]);
         let (keymap, errors) = tea_core::keymap::Keymap::from_pairs(cfg.keys.iter().map(|(k, c)| (k.as_str(), c.as_str())));
         assert!(errors.is_empty(), "{errors:?}");

@@ -138,24 +138,6 @@ Tutto sono file in chiaro nella cartella `.idetea/` del progetto, così qualsias
   chiusura della scheda se è pulito; il ramo resta). `[agents] default` viene per primo. I lanciatori valgono solo
   nella tua config utente. Se `AGENTS.md`/`CLAUDE.md` non ha le istruzioni di questo IDE, chiede prima: scriverle,
   solo aprire, o non chiedere più in questo progetto.
-- **Sessione ACP** (tavolozza: «Agente (ACP): OpenCode» o «Agente (ACP): Claude Code»): l'IDE avvia `opencode acp`, o
-  Claude Code tramite l'adattatore fissato `claude-agent-acp` 0.109.0, e parla ACP v1 su stdio. Il pannello tiene la
-  conversazione (i tuoi messaggi, la risposta, una riga per chiamata a uno strumento, aggiornata sul posto) e segue
-  la fine, a meno che tu non sia risalito a leggere. Quello che l'agente sta facendo (pensa, quale strumento, attesa
-  di un permesso, fine del turno, un errore) va alla mascotte; un clic sul fumetto apre la sessione. Una chiamata
-  attende un permesso o un rifiuto esplicito; chiudere la finestra non la consente. Niente è approvato da solo.
-  `Ctrl+Shift+A`, il pannello Interfacce, i terminali degli agenti e `idetea mascot setup-hooks` restano. Un binario
-  assente, Node.js più vecchio della 22, o un account Claude non connesso, è un messaggio, non una sessione bloccata;
-  l'accesso può aprirsi in una scheda di terminale. Un binario autonomo si indica con `[agents] claude_acp` nella
-  config utente. Ogni comando apre una nuova sessione in una scheda sua; chiudere una scheda termina solo quella
-  sessione.
-- **Conversazione ACP**: la risposta è Markdown, con Copia su ogni blocco di codice e sulla risposta. La casella
-  del messaggio accetta più righe (Invio manda, Maiusc+Invio va a capo, ↑ nella casella vuota riprende l'ultimo). Un
-  messaggio mandato durante un turno aspetta nella coda della scheda (✕ lo toglie): l'agente non riceve mai due
-  prompt insieme. Una richiesta di permesso mostra il comando, il diff o il percorso invece del JSON; una riga di
-  strumento apre il suo file ed espande l'output o il diff. Una scheda chiusa può ricominciare. `Ctrl+Alt+L` manda la
-  selezione (o il buffer non salvato) alla sessione, e `@` allega un file del progetto. Con la mascotte spenta, lo
-  stato appare sopra la casella del messaggio.
 - **Inviare il contesto all'agente** (`Ctrl+L` nell'editor): la posizione del cursore (o la selezione, con il testo
   in un blocco di codice) e i problemi di quelle righe, incollati nella scheda dell'agente sullo schermo o
   nell'ultima usata, senza inviarli. Senza scheda di agente, si apre prima il lanciatore. Un clic destro nel pannello

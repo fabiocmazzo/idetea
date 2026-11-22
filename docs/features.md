@@ -134,22 +134,6 @@ All of it is plain files in the project's `.idetea/` folder, so any agent that r
   clean; the branch stays). `[agents] default` comes first. Launchers only count in your user config. If
   `AGENTS.md`/`CLAUDE.md` lacks this IDE's instructions, it asks first: write them, just open, or don't ask again
   in this project.
-- **ACP session** (command palette: "Agent (ACP): OpenCode" or "Agent (ACP): Claude Code"): the IDE starts `opencode
-  acp`, or Claude Code through the pinned adapter `claude-agent-acp` 0.109.0, and speaks ACP v1 over stdio. The panel
-  keeps the conversation (your messages, the answer, one line per tool call, updated in place) and follows the end
-  unless you scrolled up to read. What the agent is doing (thinking, which tool, waiting for permission, end of turn,
-  an error) goes to the mascot; a click on the balloon opens the session. Each command opens a new session in its own
-  tab; closing a tab ends only that session. A tool call waits for an explicit allow or reject; closing the dialog
-  does not approve it. Nothing is auto-approved. `Ctrl+Shift+A`, the Interfaces panel, agent terminals and `idetea
-  mascot setup-hooks` stay as they are. A missing binary, Node.js older than 22, or a signed-out Claude account is a
-  message, not a hung session; sign-in can open in a terminal tab. A standalone adapter binary can be set with
-  `[agents] claude_acp` in the user config. See [acp.md](acp.md).
-- **ACP conversation**: the answer is Markdown, with Copy on each code block and on the answer. The message box
-  takes several lines (Enter sends, Shift+Enter breaks the line, ↑ on an empty box brings the last one). A message sent
-  while a turn runs waits in the tab's queue (✕ removes it): the agent never gets two prompts at once. A permission
-  request shows the command, the diff or the path instead of JSON; a tool line opens its file and expands its output
-  or diff. An ended tab can restart. `Ctrl+Alt+L` sends the selection (or the unsaved buffer) to the session, and `@`
-  attaches a project file. With the mascot off, the state shows above the message box.
 - **Send context to the agent** (`Ctrl+L` in the editor): the cursor location (or the selection, with the text in
   a code block) and the problems on those lines, pasted into the agent tab on screen or the last one used, not sent.
   With no agent tab, it opens the launcher first. A right click in the Problems panel sends one problem.
