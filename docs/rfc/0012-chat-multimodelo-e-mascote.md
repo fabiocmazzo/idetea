@@ -270,12 +270,9 @@ IDE TEA, um gatinho, um robô, etc.):
   modificados não), do fim de uma tarefa do terminal, do fim ou da falha de uma sessão de debug, de caractere que
   não cabe no encoding e do resultado de substituir em vários arquivos. Avisos do LSP e erros que acabaram de
   zerar só no modo `chatty`, com intervalo. Binário novo da IDE e arquivos sem salvar depois do sono são apartes
-  em `normal`/`chatty`. Nada disso rouba o foco nem abre o card recolhido.   `idetea mascot setup-hooks` grava os
+  em `normal`/`chatty`. Nada disso rouba o foco nem abre o card recolhido. `idetea mascot setup-hooks` grava os
   hooks do Claude Code em `.claude/settings.local.json` (PreToolUse, Notification, Stop) sem apagar os que já
   estavam, e imprime o que mudou. A tela de configurações grava `[mascot] enabled`, `chatty` e `tips`.
-- **2026-11-20 — a opção B volta como protocolo de sessão, na [RFC 0022](0022-cliente-acp.md).** Não reabre a
-  opção A (chat que chama API de modelo). O mascote e o `idetea mascot setup-hooks` continuam; a sessão ACP
-  ainda não dirige o mascote, para não duplicar os hooks. O gancho é `tea_acp::session::mascot_cue`.
 
 ### 2.6 Falas, reações extras e idiomas
 

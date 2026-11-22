@@ -69,8 +69,6 @@ pub enum Icon {
     /// Vista de tabela de um CSV, TSV ou JSONL.
     Table,
     CommentDiscussion,
-    /// Sessões de agente (ACP).
-    Hubot,
     History,
     Book,
     Lock,
@@ -142,7 +140,6 @@ impl Icon {
             Icon::Preview => 0xEB2F,
             Icon::Table => 0xEBB7,
             Icon::CommentDiscussion => 0xEAC7,
-            Icon::Hubot => 0xEB08,
             Icon::History => 0xEA82,
             Icon::Book => 0xEAA4,
             Icon::Lock => 0xEA75,
