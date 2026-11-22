@@ -1,5 +1,7 @@
 # Desenvolvendo a IDE TEA
 
+[English](DEVELOPMENT.md) · **Português**
+
 Guia para quem vai compilar, testar ou mexer no código. A arquitetura completa, as decisões e o roadmap
 detalhado estão no [SPEC.md](SPEC.md).
 

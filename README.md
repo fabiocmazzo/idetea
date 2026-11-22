@@ -244,8 +244,8 @@ Read more in the [manifesto](MANIFESTO.md).
   [examples](examples/languages) to try.
 - [Interfaces for agents](docs/interfaces/formato.md) and [agent terminals](docs/terminais-de-agente.md) (in
   Portuguese for now).
-- [SPEC.md](SPEC.md) and [DESENVOLVIMENTO.md](DESENVOLVIMENTO.md): specification, architecture and how to build,
-  test and write an extension (in Portuguese for now).
+- [SPEC.md](SPEC.md) (in Portuguese for now) and [DEVELOPMENT.md](DEVELOPMENT.md): specification, architecture and how to build,
+  test and write an extension (the guide also exists in Portuguese: [DESENVOLVIMENTO.md](DESENVOLVIMENTO.md)).
 
 ## License
 
