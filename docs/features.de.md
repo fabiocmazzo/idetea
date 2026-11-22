@@ -149,13 +149,6 @@ Alles davon sind schlichte Dateien im Ordner `.idetea/` des Projekts, also kann 
   abgemeldetes Claude-Konto ist eine Meldung, keine hängende Sitzung; die Anmeldung kann in einem Terminal-Tab
   laufen. Eine eigenständige Adapter-Datei steht in `[agents] claude_acp` der Benutzerkonfiguration. Jeder Befehl
   öffnet eine neue Sitzung in einem eigenen Tab; einen Tab zu schließen beendet nur diese Sitzung.
-- **ACP-Gespräch**: die Antwort ist Markdown, mit Kopieren an jedem Codeblock und an der Antwort. Das Nachrichtenfeld
-  nimmt mehrere Zeilen (Enter sendet, Umschalt+Enter bricht um, ↑ im leeren Feld holt die letzte). Eine Nachricht,
-  die während eines Zugs geschickt wird, wartet in der Warteschlange des Tabs (✕ nimmt sie heraus): der Agent bekommt
-  nie zwei Prompts zugleich. Eine Erlaubnisanfrage zeigt den Befehl, den Diff oder den Pfad statt JSON; eine
-  Werkzeugzeile öffnet ihre Datei und klappt Ausgabe oder Diff auf. Ein beendeter Tab kann neu starten.
-  `Ctrl+Alt+L` schickt die Auswahl (oder den ungespeicherten Puffer) an die Sitzung, `@` hängt eine Projektdatei an.
-  Mit ausgeschaltetem Maskottchen steht der Zustand über dem Nachrichtenfeld.
 - **Kontext an den Agenten senden** (`Ctrl+L` im Editor): der Ort des Cursors (oder die Auswahl, mit dem Text in
   einem Codeblock) und die Probleme dieser Zeilen, eingefügt in den Agenten-Tab auf dem Bildschirm oder den zuletzt
   benutzten, nicht abgeschickt. Ohne Agenten-Tab öffnet sich zuerst der Starter. Ein Rechtsklick im Problem-Panel

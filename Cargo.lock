@@ -6148,11 +6148,8 @@ version = "0.15.0"
 dependencies = [
  "futures",
  "iced",
- "ignore",
- "similar",
  "tea-acp",
  "tea-core",
- "tea-declarative-ui",
 ]
 
 [[package]]

@@ -6,7 +6,7 @@ use std::time::{Duration, Instant};
 
 use futures::channel::mpsc;
 use tea_acp::permission::UserChoice;
-use tea_acp::session::{self, Command, PromptPart, SessionEvent, ToolInfo};
+use tea_acp::session::{self, Command, SessionEvent};
 use tea_acp::target::{Launch, Target};
 
 struct Dir {
@@ -82,7 +82,7 @@ impl Harness {
             if pred(&event) {
                 return event;
             }
-            if matches!(event, SessionEvent::Failed(_) | SessionEvent::Closed) {
+            if matches!(event, SessionEvent::Failed { .. } | SessionEvent::Closed) {
                 panic!("a sessão acabou antes: {event:?}");
             }
         }
@@ -93,13 +93,12 @@ impl Harness {
 fn stub_session_streams_text_and_a_tool_call() {
     let h = start("session");
     let ready = h.next();
-    assert_eq!(ready, SessionEvent::Ready { agent: Some("Stub".into()), version: Some("0.0.1".into()) }, "o nome vem do agentInfo");
-    h.cmd.unbounded_send(Command::Prompt(PromptPart::text("oi"))).unwrap();
+    assert!(matches!(ready, SessionEvent::Ready { .. }), "{ready:?}");
+    h.cmd.unbounded_send(Command::Prompt("oi".into())).unwrap();
     let text = h.until(|e| matches!(e, SessionEvent::Assistant { .. }));
     assert!(matches!(text, SessionEvent::Assistant { text } if text == "olá do stub"));
-    let tool = h.until(|e| matches!(e, SessionEvent::Tool(_)));
-    let SessionEvent::Tool(ToolInfo { title, status, kind, .. }) = tool else { unreachable!() };
-    assert_eq!((title.as_deref(), status.as_deref(), kind.as_deref()), (Some("ler arquivo"), Some("in_progress"), Some("read")));
+    let tool = h.until(|e| matches!(e, SessionEvent::Tool { .. }));
+    assert!(matches!(tool, SessionEvent::Tool { title, status, .. } if title == "ler arquivo" && status == "in_progress"));
     let turn = h.until(|e| matches!(e, SessionEvent::Turn { .. }));
     assert!(matches!(turn, SessionEvent::Turn { stop } if stop == "end_turn"));
     h.cmd.unbounded_send(Command::Shutdown).unwrap();
@@ -116,11 +115,10 @@ fn permission_allow_reject_and_cancel() {
 fn assert_outcome(command: Command, needle: &str) {
     let h = start("permission");
     let _ = h.until(|e| matches!(e, SessionEvent::Ready { .. }));
-    h.cmd.unbounded_send(Command::Prompt(PromptPart::text("faz"))).unwrap();
+    h.cmd.unbounded_send(Command::Prompt("faz".into())).unwrap();
     let asked = h.until(|e| matches!(e, SessionEvent::Permission { .. }));
-    let SessionEvent::Permission { title, tool, options, .. } = asked else { unreachable!() };
+    let SessionEvent::Permission { title, options, .. } = asked else { unreachable!() };
     assert_eq!(title, "echo oi");
-    assert_eq!(tool.kind.as_deref(), Some("execute"));
     assert!(options.iter().any(|o| o.id == "allow" && o.kind.is_allow()));
     assert!(options.iter().any(|o| o.id == "reject" && o.kind.is_reject()));
     // Dispensar não responde: a próxima escolha é que vale, e não é uma permissão.
@@ -158,52 +156,9 @@ fn two_sessions_run_side_by_side() {
     // Encerrar uma não encerra a outra: é o que o painel faz ao fechar uma aba.
     a.cmd.unbounded_send(Command::Shutdown).unwrap();
     let _ = a.until(|e| matches!(e, SessionEvent::Closed));
-    b.cmd.unbounded_send(Command::Prompt(PromptPart::text("oi"))).unwrap();
+    b.cmd.unbounded_send(Command::Prompt("oi".into())).unwrap();
     let turn = b.until(|e| matches!(e, SessionEvent::Turn { .. }));
     assert!(matches!(turn, SessionEvent::Turn { stop } if stop == "end_turn"));
     b.cmd.unbounded_send(Command::Shutdown).unwrap();
     let _ = b.until(|e| matches!(e, SessionEvent::Closed));
-}
-
-#[test]
-fn prompts_wait_for_the_open_turn() {
-    let h = start("queue");
-    let _ = h.until(|e| matches!(e, SessionEvent::Ready { .. }));
-    // Três mensagens de uma vez: o agente recebe uma por turno, na ordem.
-    for text in ["um", "dois", "três"] {
-        h.cmd.unbounded_send(Command::Prompt(PromptPart::text(text))).unwrap();
-    }
-    let mut turns = 0;
-    let mut sent = 0;
-    while turns < 3 {
-        match h.until(|e| matches!(e, SessionEvent::Turn { .. } | SessionEvent::Sent)) {
-            SessionEvent::Sent => sent += 1,
-            _ => turns += 1,
-        }
-    }
-    assert_eq!(sent, 2, "as duas que esperaram saíram uma de cada vez");
-    let log = h.log();
-    assert!(!log.contains("overlap"), "dois session/prompt ao mesmo tempo: {log}");
-    let order: Vec<usize> = ["um", "dois", "três"].iter().map(|t| log.find(&format!("\"{t}\"")).unwrap()).collect();
-    assert!(order.windows(2).all(|w| w[0] < w[1]), "{log}");
-    h.cmd.unbounded_send(Command::Shutdown).unwrap();
-    let _ = h.until(|e| matches!(e, SessionEvent::Closed));
-}
-
-#[test]
-fn a_file_goes_as_a_resource_link_with_its_lines() {
-    let h = start("queue");
-    let _ = h.until(|e| matches!(e, SessionEvent::Ready { .. }));
-    let parts = vec![
-        PromptPart::Text("explica".into()),
-        PromptPart::File { path: PathBuf::from("/proj/src/meu arquivo.rs"), lines: Some((3, 9)), text: Some("fn x() {}".into()) },
-    ];
-    h.cmd.unbounded_send(Command::Prompt(parts)).unwrap();
-    let _ = h.until(|e| matches!(e, SessionEvent::Turn { .. }));
-    let log = h.log();
-    // O stub não anuncia embeddedContext: link e as linhas como texto.
-    assert!(log.contains(r#""type":"resource_link""#), "{log}");
-    assert!(log.contains("file:///proj/src/meu%20arquivo.rs#L3-L9"), "{log}");
-    assert!(log.contains("fn x() {}"), "{log}");
-    assert!(!log.contains(r#""type":"resource""#), "sem embeddedContext não vai resource: {log}");
 }

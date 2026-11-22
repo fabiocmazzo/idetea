@@ -114,11 +114,6 @@ pub enum CoreEvent {
     SearchIn(PathBuf),
     /// Marco de uma sessão de agente (ACP) para o mascote. `session` é o nome da aba.
     AgentCue { session: String, cue: AgentCue },
-    /// Resposta de [`Context::request_editor_context`]: o arquivo ativo, as linhas selecionadas
-    /// (começando em 1, inclusivas) e o texto. Com seleção, `text` é o selecionado; sem seleção,
-    /// é o buffer inteiro **só** se ele tem mudanças não salvas (senão o agente lê do disco).
-    /// `path: None`: não há arquivo ativo.
-    EditorContext { path: Option<PathBuf>, lines: Option<(u32, u32)>, text: Option<String> },
 }
 
 /// O que uma sessão de agente conta ao mascote ([`CoreEvent::AgentCue`]). A conversa fica no painel;
@@ -286,8 +281,6 @@ pub enum Request {
     Pick(pick::Pick),
     /// Repassa [`CoreEvent::AgentCue`] (o mascote e as outras extensões).
     AgentCue { session: String, cue: AgentCue },
-    /// Pede [`CoreEvent::EditorContext`].
-    EditorContext,
 }
 
 /// Botão no canto da barra de abas, que aparece só quando o arquivo ativo é de certos tipos
@@ -513,11 +506,6 @@ impl<'a> Context<'a> {
     /// Conta ao mascote um marco da sessão de agente `session` (ver [`AgentCue`]).
     pub fn agent_cue(&mut self, session: impl Into<String>, cue: AgentCue) {
         self.requests.push(Request::AgentCue { session: session.into(), cue });
-    }
-
-    /// Pede o arquivo ativo, a seleção e o texto não salvo; chega em [`CoreEvent::EditorContext`].
-    pub fn request_editor_context(&mut self) {
-        self.requests.push(Request::EditorContext);
     }
 
     /// Avisa que a tarefa do terminal terminou, com o código de saída do comando.

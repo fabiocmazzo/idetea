@@ -10,10 +10,9 @@ use std::sync::{Arc, Mutex};
 
 use agent_client_protocol::schema::ProtocolVersion;
 use agent_client_protocol::v1::schema::{
-    AuthCapabilities, AuthMethod, CancelNotification, ClientCapabilities, ContentBlock, EmbeddedResource,
-    EmbeddedResourceResource, Implementation, InitializeRequest, PromptResponse, RequestPermissionRequest,
-    RequestPermissionResponse, ResourceLink, SessionNotification, SessionUpdate, StopReason, TextContent,
-    TextResourceContents, ToolCallContent, ToolCallLocation, ToolCallStatus, ToolKind,
+    AuthCapabilities, AuthMethod, CancelNotification, ClientCapabilities, ContentBlock, Implementation,
+    InitializeRequest, PromptResponse, RequestPermissionRequest, RequestPermissionResponse, SessionNotification,
+    SessionUpdate, StopReason, TextContent, ToolCallStatus,
 };
 use agent_client_protocol::v1::{SessionMessage, SessionSetup};
 use agent_client_protocol::{AcpAgent, AcpAgentConfig, Client, Error, ErrorCode};
@@ -26,9 +25,7 @@ use crate::target::Launch;
 /// O que a interface manda para a sessão que já está no ar.
 #[derive(Debug, Clone)]
 pub enum Command {
-    /// Uma mensagem. Se um turno estiver aberto, ela espera o fim dele: nunca há dois
-    /// `session/prompt` ao mesmo tempo na mesma sessão.
-    Prompt(Vec<PromptPart>),
+    Prompt(String),
     /// Para o turno (`session/cancel`). Se houver um pedido de permissão aberto,
     /// a resposta é `cancelled`, nunca uma permissão.
     Cancel,
@@ -37,83 +34,26 @@ pub enum Command {
     Shutdown,
 }
 
-/// Um pedaço da mensagem: texto, ou um arquivo do projeto (inteiro ou umas linhas).
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum PromptPart {
-    Text(String),
-    /// `lines` começa em 1, inclusivo. `text` é o conteúdo que a pessoa vê (o buffer, com o que
-    /// não foi salvo); sem ele, vai só o link e o agente lê do disco.
-    File { path: PathBuf, lines: Option<(u32, u32)>, text: Option<String> },
-}
-
-impl PromptPart {
-    pub fn text(text: impl Into<String>) -> Vec<PromptPart> {
-        vec![PromptPart::Text(text.into())]
-    }
-}
-
-/// Uma ferramenta, como a interface mostra. Num `tool_call_update` só vêm os campos que
-/// mudaram; os outros ficam `None` e a interface guarda o que já sabia.
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
-pub struct ToolInfo {
-    pub id: String,
-    pub title: Option<String>,
-    /// `pending`, `in_progress`, `completed`, `failed`.
-    pub status: Option<String>,
-    /// `read`, `edit`, `delete`, `move`, `search`, `execute`, `think`, `fetch`, `other`.
-    pub kind: Option<String>,
-    pub locations: Option<Vec<ToolLocation>>,
-    pub content: Option<Vec<ToolContent>>,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ToolLocation {
-    pub path: PathBuf,
-    /// Começa em 1.
-    pub line: Option<u32>,
-}
-
-/// O que a ferramenta produziu (ou vai produzir, num pedido de permissão).
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum ToolContent {
-    Text(String),
-    Diff { path: PathBuf, old: Option<String>, new: String },
-    /// Um terminal do cliente; este cliente não anuncia `terminal`, então só o id.
-    Terminal(String),
-}
-
-/// Por que a sessão falhou, para a interface traduzir.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum Failure {
-    /// Erro do protocolo ou do processo, com a mensagem dele (e o fim do stderr, quando o processo saiu).
-    Message(String),
-    /// A thread da sessão entrou em pânico.
-    Panic,
-}
-
 /// O que a sessão conta para a interface, na ordem em que chega.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum SessionEvent {
-    /// `initialize` e `session/new` passaram. `agent` e `version` vêm do `agentInfo`, quando o agente manda.
-    Ready { agent: Option<String>, version: Option<String> },
+    /// `initialize` e `session/new` passaram.
+    Ready { agent: String },
     /// Texto do assistente, um pedaço de cada vez.
     Assistant { text: String },
     /// Pensamento do agente (não é a resposta).
     Thought { text: String },
     /// Estado de uma ferramenta (`tool_call` / `tool_call_update`).
-    Tool(ToolInfo),
-    /// O agente pediu permissão. A interface espera uma escolha explícita. `detail` é o
-    /// `rawInput` em JSON indentado (vazio sem ele); `command` e `url`, quando o `rawInput` os traz.
-    Permission { title: String, tool: ToolInfo, command: Option<String>, url: Option<String>, detail: String, options: Vec<ShownOption> },
-    /// Uma mensagem da fila saiu para o agente (o turno anterior acabou).
-    Sent,
+    Tool { id: String, title: String, status: String },
+    /// O agente pediu permissão. A interface espera uma escolha explícita.
+    Permission { title: String, detail: String, options: Vec<ShownOption> },
     /// O turno acabou.
     Turn { stop: String },
     /// O agente exigiu login (`authRequired`) ou anunciou métodos de terminal.
     /// A sessão não fica pendurada: isto encerra a tentativa.
     AuthRequired { message: String, logins: Vec<LoginMethod> },
     /// Falha que não é de autenticação.
-    Failed(Failure),
+    Failed { message: String },
     /// O processo saiu.
     Closed,
 }
@@ -147,11 +87,9 @@ pub enum MascotCue {
 pub fn mascot_cue(event: &SessionEvent) -> Option<MascotCue> {
     match event {
         SessionEvent::Permission { .. } | SessionEvent::AuthRequired { .. } => Some(MascotCue::Attention),
-        SessionEvent::Tool(ToolInfo { status: Some(status), .. }) if status == "in_progress" || status == "pending" => {
-            Some(MascotCue::Working)
-        }
+        SessionEvent::Tool { status, .. } if status == "in_progress" || status == "pending" => Some(MascotCue::Working),
         SessionEvent::Turn { stop } if stop != "error" && stop != "cancelled" => Some(MascotCue::Celebrating),
-        SessionEvent::Failed(_) => Some(MascotCue::Error),
+        SessionEvent::Failed { .. } => Some(MascotCue::Error),
         _ => None,
     }
 }
@@ -169,14 +107,12 @@ pub fn run(launch: &Launch, cwd: &Path, commands: mpsc::UnboundedReceiver<Comman
             emit(SessionEvent::AuthRequired { message: error.message, logins: methods });
             emit(SessionEvent::Closed);
         }
-        // O encerramento pedido pela aba (fechar) não é falha.
-        Ok(Err(error)) if error.message == "shutdown" => emit(SessionEvent::Closed),
         Ok(Err(error)) => {
-            emit(SessionEvent::Failed(Failure::Message(error.to_string())));
+            emit(SessionEvent::Failed { message: error.to_string() });
             emit(SessionEvent::Closed);
         }
         Err(_) => {
-            emit(SessionEvent::Failed(Failure::Panic));
+            emit(SessionEvent::Failed { message: "a sessão ACP entrou em pânico".into() });
             emit(SessionEvent::Closed);
         }
     }
@@ -200,24 +136,10 @@ async fn drive(
                 .client_info(Implementation::new("IDE TEA", env!("CARGO_PKG_VERSION")));
             let init = cx.send_request(request).block_task().await?;
             *logins.lock().unwrap_or_else(|p| p.into_inner()) = logins_from(&init.auth_methods);
-            let caps = &init.agent_capabilities.prompt_capabilities;
-            let info = Agent {
-                name: init.agent_info.as_ref().map(|i| i.title.clone().filter(|t| !t.is_empty()).unwrap_or_else(|| i.name.clone())),
-                version: init.agent_info.as_ref().map(|i| i.version.clone()).filter(|v| !v.is_empty()),
-                embedded_context: caps.embedded_context,
-            };
             let SessionSetup { mut session, .. } = cx.build_session(&cwd).block_task().start_session().await?;
-            run_session(&mut session, &info, &mut commands, emit).await
+            run_session(&mut session, &mut commands, emit).await
         })
         .await
-}
-
-/// O que o `initialize` disse do agente e serve à sessão.
-struct Agent {
-    name: Option<String>,
-    version: Option<String>,
-    /// `promptCapabilities.embeddedContext`: aceita o texto do arquivo dentro da mensagem.
-    embedded_context: bool,
 }
 
 fn absolute_cwd(cwd: &Path) -> PathBuf {
@@ -229,20 +151,20 @@ fn absolute_cwd(cwd: &Path) -> PathBuf {
 
 async fn run_session<Link>(
     session: &mut agent_client_protocol::v1::ActiveSession<'static, Link>,
-    agent: &Agent,
     commands: &mut mpsc::UnboundedReceiver<Command>,
     emit: &mut (dyn FnMut(SessionEvent) + Send),
 ) -> Result<(), Error>
 where
     Link: agent_client_protocol::role::HasPeer<agent_client_protocol::Agent> + Clone,
 {
-    emit(SessionEvent::Ready { agent: agent.name.clone(), version: agent.version.clone() });
-    let mut turn = Turn { open: false, queued: Vec::new(), embedded: agent.embedded_context };
+    let agent_name = session.session_id().0.to_string();
+    emit(SessionEvent::Ready { agent: agent_name });
+    let mut queued: Vec<String> = Vec::new();
     loop {
         let update = futures::select! {
             update = session.read_update().fuse() => update?,
             command = commands.next().fuse() => {
-                if apply_command(session, command, &mut turn)? == Step::Stop {
+                if apply_command(session, command)? == Step::Stop {
                     return Ok(());
                 }
                 continue;
@@ -250,49 +172,16 @@ where
         };
         match update {
             SessionMessage::PromptResponse(response) => {
-                turn.open = false;
                 emit(SessionEvent::Turn { stop: stop_label(&response) });
                 response?;
-                // Uma de cada vez: a próxima só sai quando esta acabar.
-                if !turn.queued.is_empty() {
-                    let next = turn.queued.remove(0);
-                    turn.send(session, next)?;
-                    emit(SessionEvent::Sent);
+                for text in queued.drain(..) {
+                    session.send_prompt(text)?;
                 }
             }
             SessionMessage::Message(dispatch) => {
-                handle_dispatch(session, dispatch, commands, emit, &mut turn).await?;
+                handle_dispatch(session, dispatch, commands, emit, &mut queued).await?;
             }
             _ => {}
-        }
-    }
-}
-
-/// O turno aberto e o que espera por ele.
-struct Turn {
-    open: bool,
-    queued: Vec<Vec<PromptPart>>,
-    embedded: bool,
-}
-
-impl Turn {
-    fn send<Link>(&mut self, session: &mut agent_client_protocol::v1::ActiveSession<'static, Link>, parts: Vec<PromptPart>) -> Result<(), Error>
-    where
-        Link: agent_client_protocol::role::HasPeer<agent_client_protocol::Agent> + Clone,
-    {
-        self.open = true;
-        session.send_prompt_blocks(prompt_blocks(parts, self.embedded))
-    }
-
-    fn prompt<Link>(&mut self, session: &mut agent_client_protocol::v1::ActiveSession<'static, Link>, parts: Vec<PromptPart>) -> Result<(), Error>
-    where
-        Link: agent_client_protocol::role::HasPeer<agent_client_protocol::Agent> + Clone,
-    {
-        if self.open {
-            self.queued.push(parts);
-            Ok(())
-        } else {
-            self.send(session, parts)
         }
     }
 }
@@ -306,13 +195,12 @@ enum Step {
 fn apply_command<Link>(
     session: &mut agent_client_protocol::v1::ActiveSession<'static, Link>,
     command: Option<Command>,
-    turn: &mut Turn,
 ) -> Result<Step, Error>
 where
     Link: agent_client_protocol::role::HasPeer<agent_client_protocol::Agent> + Clone,
 {
     match command {
-        Some(Command::Prompt(parts)) => turn.prompt(session, parts)?,
+        Some(Command::Prompt(text)) => session.send_prompt(text)?,
         Some(Command::Cancel) => {
             session.connection().send_notification_to(agent_client_protocol::Agent, CancelNotification::new(session.session_id().clone()))?;
         }
@@ -328,7 +216,7 @@ async fn handle_dispatch<Link>(
     dispatch: agent_client_protocol::v1::Dispatch,
     commands: &mut mpsc::UnboundedReceiver<Command>,
     emit: &mut (dyn FnMut(SessionEvent) + Send),
-    turn: &mut Turn,
+    queued: &mut Vec<String>,
 ) -> Result<(), Error>
 where
     Link: agent_client_protocol::role::HasPeer<agent_client_protocol::Agent> + Clone,
@@ -338,8 +226,9 @@ where
     let mut note: Option<SessionNotification> = None;
     agent_client_protocol::util::MatchDispatch::new(dispatch.into_raw())
         .if_request(async |req: RequestPermissionRequest, responder| {
-            emit(permission_event(&req));
-            let outcome = wait_permission(session, &req, commands, turn).await?;
+            let (title, detail) = permission_text(&req);
+            emit(SessionEvent::Permission { title, detail, options: permission::shown_options(&req.options) });
+            let outcome = wait_permission(session, &req, commands, queued).await?;
             responder.respond(RequestPermissionResponse::new(outcome))
         })
         .await
@@ -359,7 +248,7 @@ async fn wait_permission<Link>(
     session: &agent_client_protocol::v1::ActiveSession<'static, Link>,
     req: &RequestPermissionRequest,
     commands: &mut mpsc::UnboundedReceiver<Command>,
-    turn: &mut Turn,
+    queued: &mut Vec<String>,
 ) -> Result<agent_client_protocol::v1::schema::RequestPermissionOutcome, Error>
 where
     Link: agent_client_protocol::role::HasPeer<agent_client_protocol::Agent> + Clone,
@@ -381,21 +270,21 @@ where
                 session.connection().send_notification_to(agent_client_protocol::Agent, CancelNotification::new(session.session_id().clone()))?;
                 return Ok(permission::cancelled_outcome());
             }
-            // O turno está aberto (é ele que pede): a mensagem espera.
-            Some(Command::Prompt(parts)) => turn.queued.push(parts),
+            Some(Command::Prompt(text)) => queued.push(text),
         }
     }
 }
 
-fn permission_event(req: &RequestPermissionRequest) -> SessionEvent {
-    let fields = &req.tool_call.fields;
-    let mut tool = update_info(&req.tool_call.tool_call_id.0, fields);
-    let title = tool.title.clone().filter(|t| !t.is_empty()).unwrap_or_else(|| tool.id.clone());
-    tool.title = Some(title.clone());
-    let input = fields.raw_input.as_ref();
-    let field = |name: &str| input.and_then(|v| v.get(name)).and_then(|v| v.as_str()).map(str::to_string).filter(|s| !s.is_empty());
-    let detail = input.map(|v| serde_json::to_string_pretty(v).unwrap_or_else(|_| v.to_string())).unwrap_or_default();
-    SessionEvent::Permission { title, command: field("command"), url: field("url"), detail, tool, options: permission::shown_options(&req.options) }
+fn permission_text(req: &RequestPermissionRequest) -> (String, String) {
+    let title = req
+        .tool_call
+        .fields
+        .title
+        .clone()
+        .filter(|t| !t.is_empty())
+        .unwrap_or_else(|| req.tool_call.tool_call_id.0.to_string());
+    let detail = req.tool_call.fields.raw_input.as_ref().map(|v| v.to_string()).unwrap_or_default();
+    (title, detail)
 }
 
 fn apply_update(update: &SessionUpdate, emit: &mut dyn FnMut(SessionEvent)) {
@@ -410,106 +299,16 @@ fn apply_update(update: &SessionUpdate, emit: &mut dyn FnMut(SessionEvent)) {
                 emit(SessionEvent::Thought { text });
             }
         }
-        SessionUpdate::ToolCall(call) => emit(SessionEvent::Tool(ToolInfo {
-            id: call.tool_call_id.0.to_string(),
-            title: Some(call.title.clone()),
-            status: Some(status_label(call.status)),
-            kind: Some(kind_label(call.kind)),
-            locations: Some(locations(&call.locations)),
-            content: Some(contents(&call.content)),
-        })),
-        SessionUpdate::ToolCallUpdate(update) => emit(SessionEvent::Tool(update_info(&update.tool_call_id.0, &update.fields))),
+        SessionUpdate::ToolCall(call) => {
+            emit(SessionEvent::Tool { id: call.tool_call_id.0.to_string(), title: call.title.clone(), status: status_label(call.status) });
+        }
+        SessionUpdate::ToolCallUpdate(update) => {
+            let title = update.fields.title.clone().unwrap_or_default();
+            let status = update.fields.status.map(status_label).unwrap_or_else(|| "update".into());
+            emit(SessionEvent::Tool { id: update.tool_call_id.0.to_string(), title, status });
+        }
         _ => {}
     }
-}
-
-fn update_info(id: &str, fields: &agent_client_protocol::v1::schema::ToolCallUpdateFields) -> ToolInfo {
-    ToolInfo {
-        id: id.to_string(),
-        title: fields.title.clone().filter(|t| !t.is_empty()),
-        status: fields.status.map(status_label),
-        kind: fields.kind.map(kind_label),
-        locations: fields.locations.as_deref().map(locations),
-        content: fields.content.as_deref().map(contents),
-    }
-}
-
-fn locations(list: &[ToolCallLocation]) -> Vec<ToolLocation> {
-    list.iter().map(|l| ToolLocation { path: l.path.clone(), line: l.line }).collect()
-}
-
-fn contents(list: &[ToolCallContent]) -> Vec<ToolContent> {
-    list.iter()
-        .filter_map(|c| match c {
-            ToolCallContent::Content(c) => block_text(&c.content).map(ToolContent::Text),
-            ToolCallContent::Diff(d) => Some(ToolContent::Diff { path: d.path.clone(), old: d.old_text.clone(), new: d.new_text.clone() }),
-            ToolCallContent::Terminal(t) => Some(ToolContent::Terminal(t.terminal_id.0.to_string())),
-            _ => None,
-        })
-        .collect()
-}
-
-fn kind_label(kind: ToolKind) -> String {
-    match kind {
-        ToolKind::Read => "read",
-        ToolKind::Edit => "edit",
-        ToolKind::Delete => "delete",
-        ToolKind::Move => "move",
-        ToolKind::Search => "search",
-        ToolKind::Execute => "execute",
-        ToolKind::Think => "think",
-        ToolKind::Fetch => "fetch",
-        _ => "other",
-    }
-    .into()
-}
-
-/// A mensagem em blocos ACP. Todo agente v1 aceita texto e `resource_link`; o texto do arquivo
-/// dentro da mensagem (`resource`) só vai quando o agente anunciou `embeddedContext`. Sem isso,
-/// as linhas escolhidas vão como texto, depois do link.
-fn prompt_blocks(parts: Vec<PromptPart>, embedded: bool) -> Vec<ContentBlock> {
-    let mut blocks = Vec::new();
-    for part in parts {
-        match part {
-            PromptPart::Text(text) => blocks.push(ContentBlock::Text(TextContent::new(text))),
-            PromptPart::File { path, lines, text } => {
-                let uri = file_uri(&path, lines);
-                match text {
-                    Some(text) if embedded => blocks.push(ContentBlock::Resource(EmbeddedResource::new(
-                        EmbeddedResourceResource::TextResourceContents(TextResourceContents::new(text, uri)),
-                    ))),
-                    Some(text) => {
-                        blocks.push(ContentBlock::ResourceLink(ResourceLink::new(file_name(&path), uri)));
-                        let fence = if text.contains("```") { "````" } else { "```" };
-                        blocks.push(ContentBlock::Text(TextContent::new(format!("{fence}\n{}\n{fence}", text.trim_end_matches('\n')))));
-                    }
-                    None => blocks.push(ContentBlock::ResourceLink(ResourceLink::new(file_name(&path), uri))),
-                }
-            }
-        }
-    }
-    blocks
-}
-
-fn file_name(path: &Path) -> String {
-    path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_else(|| path.display().to_string())
-}
-
-/// `file:///caminho#L3-L9`, com o caminho em percent-encoding (espaços, acentos).
-pub fn file_uri(path: &Path, lines: Option<(u32, u32)>) -> String {
-    let mut uri = String::from("file://");
-    for byte in path.to_string_lossy().as_bytes() {
-        match byte {
-            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'/' | b'-' | b'_' | b'.' | b'~' => uri.push(*byte as char),
-            other => uri.push_str(&format!("%{other:02X}")),
-        }
-    }
-    match lines {
-        Some((a, b)) if a == b => uri.push_str(&format!("#L{a}")),
-        Some((a, b)) => uri.push_str(&format!("#L{a}-L{b}")),
-        None => {}
-    }
-    uri
 }
 
 fn block_text(block: &ContentBlock) -> Option<String> {
@@ -566,36 +365,17 @@ mod tests {
     #[test]
     fn mascot_cues_follow_the_session_and_not_the_hooks_file() {
         assert_eq!(
-            mascot_cue(&SessionEvent::Permission {
-                title: "t".into(),
-                tool: ToolInfo::default(),
-                command: None,
-                url: None,
-                detail: String::new(),
-                options: vec![]
-            }),
+            mascot_cue(&SessionEvent::Permission { title: "t".into(), detail: String::new(), options: vec![] }),
             Some(MascotCue::Attention)
         );
         assert_eq!(
-            mascot_cue(&SessionEvent::Tool(ToolInfo { id: "1".into(), status: Some("in_progress".into()), ..Default::default() })),
+            mascot_cue(&SessionEvent::Tool { id: "1".into(), title: "bash".into(), status: "in_progress".into() }),
             Some(MascotCue::Working)
         );
-        assert_eq!(mascot_cue(&SessionEvent::Tool(ToolInfo { id: "1".into(), status: Some("completed".into()), ..Default::default() })), None);
+        assert_eq!(mascot_cue(&SessionEvent::Tool { id: "1".into(), title: "bash".into(), status: "completed".into() }), None);
         assert_eq!(mascot_cue(&SessionEvent::Turn { stop: "end_turn".into() }), Some(MascotCue::Celebrating));
         assert_eq!(mascot_cue(&SessionEvent::Turn { stop: "cancelled".into() }), None);
-        assert_eq!(mascot_cue(&SessionEvent::Failed(Failure::Panic)), Some(MascotCue::Error));
+        assert_eq!(mascot_cue(&SessionEvent::Failed { message: "x".into() }), Some(MascotCue::Error));
         assert_eq!(mascot_cue(&SessionEvent::Assistant { text: "oi".into() }), None);
-    }
-
-    #[test]
-    fn embedded_context_only_when_the_agent_accepts_it() {
-        let parts = || vec![PromptPart::File { path: PathBuf::from("/p/a.rs"), lines: Some((2, 2)), text: Some("x".into()) }];
-        let with = prompt_blocks(parts(), true);
-        assert!(matches!(with.as_slice(), [ContentBlock::Resource(_)]));
-        let without = prompt_blocks(parts(), false);
-        assert!(matches!(without.as_slice(), [ContentBlock::ResourceLink(_), ContentBlock::Text(_)]));
-        let link_only = prompt_blocks(vec![PromptPart::File { path: PathBuf::from("/p/a.rs"), lines: None, text: None }], true);
-        assert!(matches!(link_only.as_slice(), [ContentBlock::ResourceLink(_)]));
-        assert_eq!(file_uri(Path::new("/p/ação.rs"), Some((2, 2))), "file:///p/a%C3%A7%C3%A3o.rs#L2");
     }
 }

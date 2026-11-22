@@ -218,7 +218,6 @@ enabled = true
 "ctrl+shift+r" = "tasks.rerun"
 "ctrl+shift+a" = "agents.launch"
 "ctrl+l" = "agents.send_context"
-"ctrl+alt+l" = "acp.ask"
 "ctrl+shift+g" = "git.focus"
 "ctrl+," = "settings.open"
 "ctrl+q" = "app.quit"
