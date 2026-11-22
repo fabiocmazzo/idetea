@@ -1,6 +1,6 @@
 # Confronto onesto: IDE TEA e gli altri IDE sul mercato
 
-<p><a href="comparativo-ides.md">Português</a> · <a href="comparativo-ides.fr.md">Français</a> · <a href="comparativo-ides.de.md">Deutsch</a> · <b>Italiano</b> · <a href="comparativo-ides.ja.md">日本語</a> · <a href="comparativo-ides.zh-CN.md">中文（简体）</a></p>
+<p><a href="comparativo-ides.md">Português</a> · <a href="comparativo-ides.en.md">English</a> · <a href="comparativo-ides.fr.md">Français</a> · <a href="comparativo-ides.de.md">Deutsch</a> · <b>Italiano</b> · <a href="comparativo-ides.ja.md">日本語</a> · <a href="comparativo-ides.zh-CN.md">中文（简体）</a></p>
 
 Questo documento è una valutazione tecnica, diretta e senza infiocchettature di **IDE TEA** (stato attuale, `v0.8.0`) rispetto ai principali IDE ed editor sul mercato:
 

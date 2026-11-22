@@ -1,6 +1,6 @@
 # 率直な比較: IDE TEA と市場の他の IDE
 
-<p><a href="comparativo-ides.md">Português</a> · <a href="comparativo-ides.fr.md">Français</a> · <a href="comparativo-ides.de.md">Deutsch</a> ·
+<p><a href="comparativo-ides.md">Português</a> · <a href="comparativo-ides.en.md">English</a> · <a href="comparativo-ides.fr.md">Français</a> · <a href="comparativo-ides.de.md">Deutsch</a> ·
 <a href="comparativo-ides.it.md">Italiano</a> · <b>日本語</b> · <a href="comparativo-ides.zh-CN.md">中文（简体）</a></p>
 
 この文書は、**IDE TEA** (現在の状態、`v0.8.0`) を、市場の主な IDE とエディターに対して、技術的に、直接、飾らずに評価します。

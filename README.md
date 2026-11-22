@@ -199,7 +199,7 @@ The guides are on the [website](https://idetea.belabs.cloud/).
 
 ## Why IDE TEA, and when not
 
-[`docs/comparativo-ides.md`](docs/comparativo-ides.md) is an honest comparison with VS Code, Cursor, Zed, JetBrains
+[`docs/comparativo-ides.en.md`](docs/comparativo-ides.en.md) is an honest comparison with VS Code, Cursor, Zed, JetBrains
 and Helix, updated for 0.8.0. In short:
 
 - Terminal agents get a native, file-based protocol (forms, approved commands, worktrees, the Tea mascot). That is
