@@ -1,6 +1,6 @@
 # 诚实对比：IDE TEA与市面上的其他IDE
 
-[Português](comparativo-ides.md) · [Français](comparativo-ides.fr.md) · [Deutsch](comparativo-ides.de.md) · [Italiano](comparativo-ides.it.md) · [日本語](comparativo-ides.ja.md) · **中文（简体）**
+[Português](comparativo-ides.md) · [English](comparativo-ides.en.md) · [Français](comparativo-ides.fr.md) · [Deutsch](comparativo-ides.de.md) · [Italiano](comparativo-ides.it.md) · [日本語](comparativo-ides.ja.md) · **中文（简体）**
 
 本文档对**IDE TEA**（当前状态，`v0.15.0`）相对市面上主要IDE和编辑器做一次技术上直接、不加修饰的评估：
 

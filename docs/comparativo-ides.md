@@ -1,6 +1,6 @@
 # Comparativo Honesto: IDE TEA vs. Outras IDEs do Mercado
 
-[Français](comparativo-ides.fr.md) · [Deutsch](comparativo-ides.de.md) · [Italiano](comparativo-ides.it.md) · [日本語](comparativo-ides.ja.md) · [中文](comparativo-ides.zh-CN.md)
+[English](comparativo-ides.en.md) · [Français](comparativo-ides.fr.md) · [Deutsch](comparativo-ides.de.md) · [Italiano](comparativo-ides.it.md) · [日本語](comparativo-ides.ja.md) · [中文](comparativo-ides.zh-CN.md)
 
 Este documento faz uma avaliação técnica, direta e sem maquiagem da **IDE TEA** (estado atual, `v0.15.0`) frente às principais IDEs e editores do mercado:
 
