@@ -87,3 +87,6 @@ terminal-resume-all = Alle fortsetzen
 terminal-resume-pick = Auswählen…
 terminal-resume-none = Nein
 terminal-resume-pick-placeholder = Agent zum Fortsetzen…
+terminal-resume-same = dasselbe Gespräch
+terminal-resume-new = neues Gespräch
+terminal-resume-failed = Das Gespräch von { $title } ließ sich nicht fortsetzen (Code { $code }). Starte ein neues mit „Agenten: starten…“ (Ctrl+Shift+A).

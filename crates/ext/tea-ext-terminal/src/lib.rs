@@ -198,6 +198,8 @@ struct AgentTerm {
     branch: Option<String>,
     /// O id da conversa do agente, quando a IDE o escolheu (para retomar, RFC 0024 M2).
     session: Option<String>,
+    /// Aberta para retomar uma conversa, e quando: sair com erro logo em seguida é a retomada que falhou.
+    resumed_at: Option<Instant>,
     /// A última saída do processo: a colagem que espera o agente subir vai quando a tela para de mudar.
     last_output: Option<Instant>,
     /// Texto do `Ctrl+L` esperando o agente subir, e desde quando.
@@ -220,6 +222,7 @@ impl AgentTerm {
             paste: None,
             branch: None,
             session: None,
+            resumed_at: None,
         }
     }
 
@@ -247,6 +250,9 @@ impl AgentTerm {
             || self.last_output.is_some_and(|t| now.duration_since(t) >= PASTE_QUIET && now.duration_since(*since) >= PASTE_QUIET)
     }
 }
+
+/// Um agente retomado que sai com erro antes disto: a retomada falhou (a IDE avisa).
+const RESUME_FAILS_WITHIN: Duration = Duration::from_secs(15);
 
 /// A colagem do `Ctrl+L` numa aba recém-aberta vai quando o agente fica este tempo sem mudar a tela...
 const PASTE_QUIET: Duration = Duration::from_millis(1200);
@@ -1217,20 +1223,34 @@ impl TerminalExtension {
         let mut pick = tea_core::pick::Pick::new(fl!("terminal-resume-pick-placeholder"));
         for (i, tab) in self.to_resume.iter().enumerate() {
             let label = tab.name.clone().unwrap_or_else(|| tab.title.clone());
-            let detail = tab.worktree.clone().unwrap_or_default();
+            let how = if tea_core::coding_agents::resume_command(&tab.command, tab.session.as_deref()).is_some() {
+                fl!("terminal-resume-same")
+            } else {
+                fl!("terminal-resume-new")
+            };
+            let detail = match &tab.worktree {
+                Some(branch) => format!("{how} · {branch}"),
+                None => how,
+            };
             pick = pick.item(Some(Icon::Terminal), label, detail, Message::ResumeOne(i));
         }
         ctx.pick(pick);
     }
 
-    /// Abre de novo um agente da sessão anterior, na mesma pasta (ou worktree).
+    /// Abre de novo um agente da sessão anterior, na mesma pasta (ou worktree): na mesma conversa quando o agente
+    /// sabe retomar (Claude Code, Codex), senão numa conversa nova.
     fn resume(&mut self, tab: saved::Tab, ctx: &mut Context) -> Task<Message> {
         let before = self.agents.len();
-        let task = self.launch_agent(&tab.title, &tab.command, tab.worktree.as_deref(), ctx);
+        let resume = tea_core::coding_agents::resume_command(&tab.command, tab.session.as_deref());
+        let command = resume.clone().unwrap_or_else(|| tab.command.clone());
+        let task = self.launch_agent(&tab.title, &command, tab.worktree.as_deref(), ctx);
         if self.agents.len() > before
             && let Some(agent) = self.agents.last_mut()
         {
+            // Guarda o comando de abrir, não o de retomar: a próxima retomada parte dele.
+            agent.command = tab.command;
             agent.session = tab.session;
+            agent.resumed_at = resume.is_some().then(Instant::now);
             if let Some(name) = tab.name {
                 self.names.insert(agent.term.id, name);
             }
@@ -1304,7 +1324,7 @@ impl TerminalExtension {
     }
 
     /// Os agentes do lançador que já gravaram o código de saída (o script ainda espera o Enter).
-    fn poll_exits(&mut self) -> Task<Message> {
+    fn poll_exits(&mut self, ctx: &mut Context) -> Task<Message> {
         let mut done = Vec::new();
         for (id, path) in &self.exit_watch {
             let Ok(text) = std::fs::read_to_string(path) else { continue };
@@ -1322,6 +1342,10 @@ impl TerminalExtension {
             // Terminou: não recebe mais o `Ctrl+L`.
             if let Some(agent) = self.agents.iter_mut().find(|a| a.term.id == id) {
                 agent.ended = true;
+                // Saiu com erro logo depois de retomar: a conversa provavelmente não existe mais.
+                if code != 0 && agent.resumed_at.is_some_and(|t| t.elapsed() < RESUME_FAILS_WITHIN) {
+                    ctx.notify(fl!("terminal-resume-failed", title = agent.title.as_str(), code = code));
+                }
             }
         }
         if self.exit_watch.is_empty() { Task::none() } else { later(TASK_POLL, Message::ExitPoll) }
@@ -1404,7 +1428,19 @@ impl TerminalExtension {
             return self.run_task(name, command, cwd, done, ctx);
         }
         if let CoreEvent::LaunchAgent { title, command, worktree } = event {
-            return self.launch_agent(title, command, worktree.as_deref(), ctx);
+            // O Claude Code abre numa conversa com id escolhido aqui: é ela que volta ao reabrir (RFC 0024, M2).
+            let (command, session) = match tea_core::coding_agents::with_new_session(command) {
+                Some((with_id, id)) => (with_id, Some(id)),
+                None => (command.clone(), None),
+            };
+            let before = self.agents.len();
+            let task = self.launch_agent(title, &command, worktree.as_deref(), ctx);
+            if self.agents.len() > before
+                && let Some(agent) = self.agents.last_mut()
+            {
+                agent.session = session;
+            }
+            return task;
         }
         if let CoreEvent::SendToAgent { text } = event {
             return self.send_to_agent(text, ctx);
@@ -1579,7 +1615,7 @@ impl TerminalExtension {
             Message::TaskPoll => return self.poll_task(ctx),
             // O `after_update` decide se precisa de outro.
             Message::ActivityTick => self.ticking = false,
-            Message::ExitPoll => return self.poll_exits(),
+            Message::ExitPoll => return self.poll_exits(ctx),
             Message::Signals(signals) => {
                 for (id, signal) in signals {
                     // Só abas que existem: um sinal atrasado de uma aba fechada não cria estado.

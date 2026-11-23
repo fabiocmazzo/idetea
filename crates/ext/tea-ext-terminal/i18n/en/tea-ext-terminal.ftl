@@ -87,3 +87,6 @@ terminal-resume-all = Resume all
 terminal-resume-pick = Choose…
 terminal-resume-none = No
 terminal-resume-pick-placeholder = Agent to resume…
+terminal-resume-same = same conversation
+terminal-resume-new = new conversation
+terminal-resume-failed = Could not resume the conversation of { $title } (code { $code }). Start a new one with "Agents: launch…" (Ctrl+Shift+A).

@@ -87,3 +87,6 @@ terminal-resume-all = Retomar todos
 terminal-resume-pick = Escolher…
 terminal-resume-none = Não
 terminal-resume-pick-placeholder = Agente para retomar…
+terminal-resume-same = mesma conversa
+terminal-resume-new = conversa nova
+terminal-resume-failed = Não deu para retomar a conversa de { $title } (código { $code }). Abra uma conversa nova em "Agentes: iniciar…" (Ctrl+Shift+A).
