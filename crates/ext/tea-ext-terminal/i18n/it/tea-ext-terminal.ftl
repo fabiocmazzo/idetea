@@ -47,3 +47,9 @@ run-invalid = idetea run: la richiesta "{ $name }" non è valida: { $error }
 run-ended = idetea run: "{ $name }" è terminato senza un codice ({ $state })
 run-branch = idetea run: il lavoro è sul ramo { $branch }
 run-timeout = idetea run: il tempo è scaduto e "{ $name }" è ancora nel terminale (idetea run --wait { $name } attende di nuovo; --stop lo chiude)
+
+## Stato delle schede (RFC 0024)
+terminal-state-running = In esecuzione
+terminal-state-unseen = Nuovo output dall'ultima volta che l'hai visto
+terminal-state-attention = Chiede la tua attenzione
+terminal-state-exited = Terminato con il codice { $code }

@@ -41,3 +41,9 @@ run-invalid = idetea run: 要求 "{ $name }" は無効です: { $error }
 run-ended = idetea run: "{ $name }" はコードなしで終了しました ({ $state })
 run-branch = idetea run: 作業はブランチ { $branch } にあります
 run-timeout = idetea run: 時間切れです。"{ $name }" はまだターミナルにあります (idetea run --wait { $name } でもう一度待ちます。--stop で終了します)
+
+## タブの状態 (RFC 0024)
+terminal-state-running = 実行中
+terminal-state-unseen = 前回見たあとに新しい出力
+terminal-state-attention = 対応を求めています
+terminal-state-exited = コード { $code } で終了

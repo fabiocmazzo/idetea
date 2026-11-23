@@ -47,3 +47,9 @@ run-invalid = idetea run: pedido "{ $name }" inválido: { $error }
 run-ended = idetea run: "{ $name }" acabou sem código ({ $state })
 run-branch = idetea run: o trabalho ficou no branch { $branch }
 run-timeout = idetea run: o prazo acabou e "{ $name }" segue no terminal (idetea run --wait { $name } volta a esperar; --stop encerra)
+
+## Estado das abas (RFC 0024)
+terminal-state-running = Rodando
+terminal-state-unseen = Saída nova desde a última vez que você viu
+terminal-state-attention = Pediu sua atenção
+terminal-state-exited = Terminou com o código { $code }

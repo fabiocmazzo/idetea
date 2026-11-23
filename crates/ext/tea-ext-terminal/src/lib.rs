@@ -15,6 +15,7 @@ macro_rules! fl {
     ($($t:tt)*) => { tea_core::i18n::fl!(crate::LOADER, $($t)*) };
 }
 
+mod activity;
 mod agents;
 pub mod cli;
 mod worktree;
@@ -125,6 +126,10 @@ pub enum Message {
     PasteTick,
     /// A tarefa pode ter gravado o código de saída (o script ainda espera o Enter).
     TaskPoll,
+    /// Hora de rever o "rodando" das abas (ele passa sem evento nenhum).
+    ActivityTick,
+    /// Um agente aberto pelo lançador pode ter gravado o código de saída.
+    ExitPoll,
 }
 
 /// De quanto em quanto tempo olhar o arquivo de código da tarefa.
@@ -263,6 +268,12 @@ pub struct TerminalExtension {
     waiting_paste: Option<(String, Instant)>,
     /// Contador para [`AgentTerm::used`].
     clock: u64,
+    /// O estado de cada aba, pelo id do terminal (RFC 0024, M1.1).
+    activity: BTreeMap<u64, activity::Activity>,
+    /// Já há um [`Message::ActivityTick`] a caminho.
+    ticking: bool,
+    /// Terminais de agentes do lançador e o arquivo onde o script grava o código de saída.
+    exit_watch: Vec<(u64, PathBuf)>,
 }
 
 /// A pasta da worktree de um agente aberto pelo lançador: o branch, com `/` trocado por `-` (`fix/login` →
@@ -306,6 +317,9 @@ impl Default for TerminalExtension {
             allow_list: user_allow_list,
             waiting_paste: None,
             clock: 0,
+            activity: BTreeMap::new(),
+            ticking: false,
+            exit_watch: Vec::new(),
         }
     }
 }
@@ -438,6 +452,7 @@ impl TerminalExtension {
                     .unwrap_or(1);
                 if let Some(task) = self.task.as_mut() {
                     task.reported = true;
+                    self.activity.entry(task.term.id).or_default().exited(code);
                 }
                 let _ = std::fs::remove_file(&path);
                 ctx.task_finished(name, code);
@@ -467,9 +482,13 @@ impl TerminalExtension {
         };
         let done = fl!("agent-done", code = "{code}");
         let (before, after) = done.split_once("{code}").unwrap_or((&done, ""));
+        // O script grava o código de saída aqui, como na tarefa: a aba mostra como terminou.
+        let status_path = std::env::temp_dir().join(format!("idetea-agent-{}-{}.json", std::process::id(), self.next_id));
+        let _ = std::fs::remove_file(&status_path);
         #[cfg(unix)]
         let settings = {
-            let args = ["-c", TASK_SCRIPT, "sh", command, before, after].map(str::to_string).to_vec();
+            let status = status_path.to_string_lossy().into_owned();
+            let args = ["-c", TASK_SCRIPT, "sh", command, before, after, &status].map(str::to_string).to_vec();
             self.settings("/bin/sh".into(), args, &cwd)
         };
         #[cfg(windows)]
@@ -483,10 +502,14 @@ impl TerminalExtension {
             s.backend.env.insert("IDETEA_CMD".into(), command.to_string());
             s.backend.env.insert("IDETEA_BEFORE".into(), before.to_string());
             s.backend.env.insert("IDETEA_AFTER".into(), after.to_string());
+            s.backend.env.insert("IDETEA_STATUS".into(), status_path.to_string_lossy().into_owned());
             s
         };
         match self.new_terminal(settings) {
             Ok(term) => {
+                let watching = !self.exit_watch.is_empty();
+                self.exit_watch.push((term.id, status_path));
+                let poll = if watching { Task::none() } else { later(TASK_POLL, Message::ExitPoll) };
                 self.clock += 1;
                 let mut agent = AgentTerm::new(term, name, title.to_string(), command.to_string(), true, self.clock);
                 agent.worktree_on_close = branch.is_some();
@@ -500,7 +523,7 @@ impl TerminalExtension {
                 self.agents.push(agent);
                 self.shown = Shown::Agent(self.agents.len() - 1);
                 ctx.show_panel(PANEL);
-                Task::batch([self.focus_current(), tick])
+                Task::batch([self.focus_current(), tick, poll])
             }
             Err(e) => {
                 ctx.notify(fl!("terminal-task-error", error = e.to_string()));
@@ -560,6 +583,10 @@ impl TerminalExtension {
     /// Há algo na tela (um terminal, ou um pedido esperando).
     fn showing(&self) -> bool {
         self.current().is_some() || (self.shown == Shown::Request && !self.pending.is_empty())
+    }
+
+    fn all_terms(&self) -> impl Iterator<Item = &Terminal> + '_ {
+        self.shells.iter().map(|s| &s.term).chain(self.task.iter().map(|t| &t.term)).chain(self.agents.iter().map(|a| &a.term))
     }
 
     fn all_terms_mut(&mut self) -> impl Iterator<Item = &mut Terminal> + '_ {
@@ -631,7 +658,9 @@ impl TerminalExtension {
         let mut removed = false;
         // Quem já terminou fica marcado antes de o pedido sumir (o `idetea run` apaga logo depois do `exited`).
         for agent in self.agents.iter_mut().filter(|a| !a.ended && !a.detached) {
-            agent.ended = agents::read_status(&self.root, &agent.name).is_some_and(|d| d.state == "exited");
+            let Some(status) = agents::read_status(&self.root, &agent.name).filter(|d| d.state == "exited") else { continue };
+            agent.ended = true;
+            self.activity.entry(agent.term.id).or_default().exited(status.code.unwrap_or(1));
         }
         // Apagar o pedido é o jeito de o agente encerrar o terminal; se o comando já terminou, a aba fica até o
         // usuário fechar (para ver a saída e o código).
@@ -899,6 +928,61 @@ impl TerminalExtension {
     }
 
     /// O que muda o lugar do terminal na tela: qual está à vista e se há barra de abas.
+    /// Um evento do alacritty de um terminal: saída, sino ou título mudam o estado da aba.
+    fn track(&mut self, id: u64, event: &iced_term::AlacrittyEvent) {
+        use iced_term::AlacrittyEvent as E;
+        match event {
+            E::Wakeup => self.activity.entry(id).or_default().output(Instant::now()),
+            E::Bell => self.activity.entry(id).or_default().bell(),
+            E::Title(title) => self.activity.entry(id).or_default().set_title(Some(title)),
+            E::ResetTitle => self.activity.entry(id).or_default().set_title(None),
+            _ => {}
+        }
+    }
+
+    /// Depois de cada mensagem: a aba na tela foi vista, os terminais que saíram deixam de ter estado, e o
+    /// "rodando" ganha uma revisão se ainda houver algum.
+    fn after_update(&mut self) -> Task<Message> {
+        if let Some(id) = self.current().map(|t| t.id) {
+            self.activity.entry(id).or_default().seen();
+        }
+        if self.activity.len() > self.shells.len() + self.agents.len() + usize::from(self.task.is_some()) {
+            let alive: Vec<u64> = self.all_terms().map(|t| t.id).collect();
+            self.activity.retain(|id, _| alive.contains(id));
+            self.exit_watch.retain(|(id, _)| alive.contains(id));
+        }
+        let now = Instant::now();
+        if self.ticking || !self.activity.values().any(|a| a.ticking(now)) {
+            return Task::none();
+        }
+        self.ticking = true;
+        later(Duration::from_millis(500), Message::ActivityTick)
+    }
+
+    /// Os agentes do lançador que já gravaram o código de saída (o script ainda espera o Enter).
+    fn poll_exits(&mut self) -> Task<Message> {
+        let mut done = Vec::new();
+        for (id, path) in &self.exit_watch {
+            let Ok(text) = std::fs::read_to_string(path) else { continue };
+            let code = serde_json::from_str::<serde_json::Value>(&text)
+                .ok()
+                .and_then(|v| v.get("code").and_then(serde_json::Value::as_i64))
+                .and_then(|n| i32::try_from(n).ok())
+                .unwrap_or(1);
+            let _ = std::fs::remove_file(path);
+            done.push((*id, code));
+        }
+        for (id, code) in done {
+            self.exit_watch.retain(|(i, _)| *i != id);
+            self.activity.entry(id).or_default().exited(code);
+            // Terminou: não recebe mais o `Ctrl+L`.
+            if let Some(agent) = self.agents.iter_mut().find(|a| a.term.id == id) {
+                agent.ended = true;
+            }
+        }
+        if self.exit_watch.is_empty() { Task::none() } else { later(TASK_POLL, Message::ExitPoll) }
+    }
+
     /// O que define onde o desenho de um terminal fica: qual terminal (pelo id, não pela posição: fechar uma aba
     /// põe outro terminal no mesmo índice), o que está na tela e se a barra aparece.
     fn layout(&self) -> (Option<u64>, Shown, bool) {
@@ -1029,6 +1113,9 @@ impl TerminalExtension {
                 }
             }
             Message::TaskPoll => return self.poll_task(ctx),
+            // O `after_update` decide se precisa de outro.
+            Message::ActivityTick => self.ticking = false,
+            Message::ExitPoll => return self.poll_exits(),
             Message::ShowRequest => {
                 if !self.pending.is_empty() {
                     self.shown = Shown::Request;
@@ -1039,6 +1126,9 @@ impl TerminalExtension {
             Message::Term(iced_term::Event::BackendCall(id, cmd)) => {
                 if let iced_term::BackendCommand::Resize(Some(size), _) = &cmd {
                     self.size = Some(*size);
+                }
+                if let iced_term::BackendCommand::ProcessAlacrittyEvent(event) = &cmd {
+                    self.track(id, event);
                 }
                 if let Some(task) = self.task.as_mut().filter(|t| t.term.id == id) {
                     // A tarefa terminou e o Enter fechou: volta para um shell.
@@ -1107,21 +1197,21 @@ impl Extension for TerminalExtension {
         let before = self.layout();
         let task = self.on_event_inner(event, ctx);
         self.redraw_if_moved(before);
-        task
+        Task::batch([task, self.after_update()])
     }
 
     fn on_command(&mut self, command: &str, ctx: &mut Context) -> Task<Message> {
         let before = self.layout();
         let task = self.on_command_inner(command, ctx);
         self.redraw_if_moved(before);
-        task
+        Task::batch([task, self.after_update()])
     }
 
     fn update(&mut self, message: Message, ctx: &mut Context) -> Task<Message> {
         let before = self.layout();
         let task = self.update_inner(message, ctx);
         self.redraw_if_moved(before);
-        task
+        Task::batch([task, self.after_update()])
     }
 
     fn view(&self, _panel: PanelId) -> Element<'_, Message> {
@@ -1145,23 +1235,53 @@ impl Extension for TerminalExtension {
         if !self.showing() {
             return body;
         }
-        let tab = |label: String, on: bool, msg: Message| -> Element<'_, Message> {
+        let now = Instant::now();
+        // Cada aba: o ponto do estado (RFC 0024, M1.1), o nome e, parando o mouse, o que o ponto quer dizer e o
+        // título que o programa mandou. Na aba da tela, só o fim aparece: o resto ela já mostra.
+        let tab = |label: String, id: u64, on: bool, msg: Message| -> Element<'_, Message> {
             let kind = if on { tea_core::style::Tab::Shown } else { tea_core::style::Tab::Idle };
-            button(text(label).size(12))
+            let act = self.activity.get(&id);
+            let state = act.map_or(activity::State::Idle, |a| a.state(now));
+            let state = match state {
+                activity::State::Running | activity::State::Unseen if on => activity::State::Idle,
+                s => s,
+            };
+            let mut content = row![].spacing(5).align_y(iced::Center);
+            if state != activity::State::Idle {
+                content = content.push(text("●").size(9).style(move |t: &Theme| text::Style { color: Some(state_color(t, state)) }));
+            }
+            content = content.push(text(label).size(12));
+            let b = button(content)
                 .on_press(msg)
                 .padding([2, 10])
-                .style(move |t: &iced::Theme, st| tea_core::style::tab(t, st, kind))
-                .into()
+                .style(move |t: &iced::Theme, st| tea_core::style::tab(t, st, kind));
+            let mut tip: Vec<String> = Vec::new();
+            match state {
+                activity::State::Idle => {}
+                activity::State::Running => tip.push(fl!("terminal-state-running")),
+                activity::State::Unseen => tip.push(fl!("terminal-state-unseen")),
+                activity::State::Attention => tip.push(fl!("terminal-state-attention")),
+                activity::State::Exited(code) => tip.push(fl!("terminal-state-exited", code = code)),
+            }
+            if let Some(title) = act.and_then(activity::Activity::title) {
+                tip.push(title.to_string());
+            }
+            if tip.is_empty() { b.into() } else { icons::with_tip(b, tip.join(" · ")) }
         };
         let mut bar = row![].spacing(4).align_y(iced::Center);
         for (i, s) in self.shells.iter().enumerate() {
-            bar = bar.push(tab(fl!("terminal-tab-n", number = s.number), self.shown == Shown::Shell(i), Message::ShowShell(i)));
+            // O título que o shell manda (pasta, comando) diz mais que o número, quando há.
+            let label = match self.activity.get(&s.term.id).and_then(activity::Activity::title) {
+                Some(title) => title.to_string(),
+                None => fl!("terminal-tab-n", number = s.number),
+            };
+            bar = bar.push(tab(label, s.term.id, self.shown == Shown::Shell(i), Message::ShowShell(i)));
         }
         if let Some(task) = &self.task {
-            bar = bar.push(tab(fl!("terminal-tab-task", name = task.name.as_str()), self.shown == Shown::Task, Message::ShowTask));
+            bar = bar.push(tab(fl!("terminal-tab-task", name = task.name.as_str()), task.term.id, self.shown == Shown::Task, Message::ShowTask));
         }
         for (i, a) in self.agents.iter().enumerate() {
-            bar = bar.push(tab(fl!("terminal-tab-agent", title = a.title.as_str()), self.shown == Shown::Agent(i), Message::ShowAgent(i)));
+            bar = bar.push(tab(fl!("terminal-tab-agent", title = a.title.as_str()), a.term.id, self.shown == Shown::Agent(i), Message::ShowAgent(i)));
         }
         if !self.pending.is_empty() {
             let on = self.shown == Shown::Request;
@@ -1214,6 +1334,18 @@ fn watch_requests(root: &PathBuf) -> mpsc::UnboundedReceiver<Message> {
         }
     });
     rx
+}
+
+/// A cor do ponto de cada estado, tirada do tema.
+fn state_color(theme: &Theme, state: activity::State) -> Color {
+    let p = theme.extended_palette();
+    match state {
+        activity::State::Idle | activity::State::Unseen => p.background.base.text.scale_alpha(0.55),
+        activity::State::Running => p.primary.base.color,
+        activity::State::Attention => p.warning.base.color,
+        activity::State::Exited(0) => p.success.base.color,
+        activity::State::Exited(_) => p.danger.base.color,
+    }
 }
 
 fn hex(c: Color) -> String {
@@ -1523,6 +1655,55 @@ mod tests {
         std::fs::write(root.join(agents::DIR).join("ruim.json"), bad.to_string()).unwrap();
         let _ = ext.update(Message::Requests(agents::scan(&root)), &mut Context::new(&root, None));
         assert_eq!(status(&root, "ruim"), "invalid");
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    /// RFC 0024, M1.1: uma tarefa que falha deixa a aba com o código.
+    #[cfg(unix)]
+    #[test]
+    fn a_failed_task_shows_its_exit_code() {
+        let root = std::env::temp_dir().join(format!("idetea-task-exit-{}", std::process::id()));
+        std::fs::create_dir_all(&root).unwrap();
+        let mut ext = TerminalExtension::new();
+        let _ = ext.activate(&mut Context::new(&root, None));
+        let _ = ext.run_task("falha", "exit 4", &root.clone(), "{code}", &mut Context::new(&root, None));
+        let path = ext.task.as_ref().unwrap().status_path.clone();
+        let deadline = std::time::Instant::now() + Duration::from_secs(10);
+        while !path.exists() && std::time::Instant::now() < deadline {
+            std::thread::sleep(Duration::from_millis(50));
+        }
+        let _ = ext.update(Message::TaskPoll, &mut Context::new(&root, None));
+        let id = ext.task.as_ref().unwrap().term.id;
+        assert_eq!(ext.activity[&id].state(Instant::now()), activity::State::Exited(4));
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    /// RFC 0024, M1.1: um pedido que falha deixa a aba com o código (vermelha), também depois de o pedido sumir.
+    #[cfg(unix)]
+    #[test]
+    fn a_failed_request_shows_its_exit_code() {
+        let root = std::env::temp_dir().join(format!("idetea-agent-exit-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        std::fs::create_dir_all(root.join(agents::DIR)).unwrap();
+        let doc = serde_json::json!({"format": agents::FORMAT, "version": 1, "title": "Falha", "command": "exit 3"});
+        std::fs::write(root.join(agents::DIR).join("falha.json"), doc.to_string()).unwrap();
+        let mut ext = TerminalExtension::new();
+        let _ = ext.activate(&mut Context::new(&root, None));
+        let _ = ext.update(Message::Requests(agents::scan(&root)), &mut Context::new(&root, None));
+        let request = ext.pending["falha"].clone();
+        let _ = ext.update(Message::Allow(Box::new(request)), &mut Context::new(&root, None));
+        let deadline = std::time::Instant::now() + Duration::from_secs(10);
+        while status(&root, "falha") != "exited" && std::time::Instant::now() < deadline {
+            std::thread::sleep(Duration::from_millis(50));
+        }
+        let _ = ext.update(Message::Requests(agents::scan(&root)), &mut Context::new(&root, None));
+        let id = ext.agents[0].term.id;
+        assert_eq!(ext.activity[&id].state(Instant::now()), activity::State::Exited(3));
+        // Como o `idetea run`: apaga o pedido e o status.
+        std::fs::remove_file(root.join(agents::DIR).join("falha.json")).unwrap();
+        std::fs::remove_file(agents::status_path(&root, "falha")).unwrap();
+        let _ = ext.update(Message::Requests(agents::scan(&root)), &mut Context::new(&root, None));
+        assert_eq!(ext.activity[&id].state(Instant::now()), activity::State::Exited(3));
         let _ = std::fs::remove_dir_all(&root);
     }
 

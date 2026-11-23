@@ -52,6 +52,8 @@ visível por vez, só no painel de baixo, e tudo some ao fechar a IDE.
 - **[Fato]** Uma aba visível por vez (`Shown`), no painel de baixo. A barra mostra só o rótulo: nada diz se o
   terminal escondido mudou, terminou ou espera uma resposta.
 - **[Fato]** O título que o programa manda (OSC 0/2) chega do `iced_term` como `Action::ChangeTitle` e é ignorado.
+- **[Fato]** Os agentes abertos pelo lançador rodam o script da tarefa sem arquivo de status: a IDE não sabe quando
+  nem como terminaram (e o `Ctrl+L` continua colando neles depois do fim).
 - **[Fato]** A cada troca de aba ou quando a barra aparece/some, `redraw_if_moved` manda `ChangeFont` para **todos**
   os terminais, para limpar o cache de desenho do `iced_term`. Com N terminais, cada troca recalcula N grades.
 - **[Fato]** O `iced_term` cria o backend com `term::Config::default()`: o histórico (scrollback) é o padrão do
@@ -84,7 +86,8 @@ Cada aba ganha um ponto à esquerda do nome:
 `IDETEA_TERMINAL=<id>` no ambiente de cada aba, e `idetea mascot attention` (e os outros) passa a gravar também
 `.idetea/terminals/<id>.state`. Sem o `IDETEA_TERMINAL`, nada muda (o mascote continua como hoje). Um agente sem
 hooks ainda dá o estado pelo BEL ou pela notificação OSC. **[Fato]** O `iced_term` 0.8 só trata `Exit`, `Title` e
-`PtyWrite` dos eventos do alacritty e descarta o `Bell`: repassá-lo é um patch pequeno (o mesmo do item 4).
+`PtyWrite` dos eventos do alacritty, mas entrega todos à extensão antes (`BackendCall(id, ProcessAlacrittyEvent(..))`):
+o `Bell`, o `Wakeup` (saída) e o `Title` chegam sem patch.
 
 O mascote, que hoje diz "um agente precisa de você", passa a dizer qual, e um clique leva à aba.
 
@@ -201,7 +204,7 @@ encerrar"); o `idetea status` mostra quais estão vivos.
 
 ## Riscos
 
-- **Patches no `iced_term`** (scrollback, busca, sino, backend por socket): mais um fork a manter. Mandar cada um
+- **Patches no `iced_term`** (scrollback, busca, backend por socket): mais um fork a manter. Mandar cada um
   como PR pequeno ao upstream e manter o `[patch]` só até entrar.
 - **Segredos:** o histórico gravado (item 7) e o buffer do `pty-host` (M3) guardam o que passou na tela. Fora do
   projeto, 0600, desligado por padrão, e nunca no git.
@@ -230,6 +233,6 @@ encerrar"); o `idetea status` mostra quais estão vivos.
 1. M1.4 desempenho: fonte reaplicada só no terminal que aparece.
 2. M1.1 estado em cada aba (saída, fim, título OSC; depois hooks com `IDETEA_TERMINAL` e sino).
 3. M1.2 nome, atalhos, paleta e confirmação ao fechar.
-4. Patch do `iced_term`: scrollback, busca, sino.
+4. Patch do `iced_term`: scrollback e busca.
 5. M1.3 divisão no painel; depois o terminal na área do editor.
 6. M2: abas na sessão, retomada dos agentes, `keep_scrollback`.

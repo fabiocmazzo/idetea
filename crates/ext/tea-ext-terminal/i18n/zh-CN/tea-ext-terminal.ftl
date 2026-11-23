@@ -45,3 +45,9 @@ run-invalid = idetea run：请求“{ $name }”无效：{ $error }
 run-ended = idetea run：“{ $name }”结束时没有代码（{ $state }）
 run-branch = idetea run：工作在分支 { $branch } 上
 run-timeout = idetea run：时间到了，“{ $name }”仍在终端里（idetea run --wait { $name } 会再等一次；--stop会结束它）
+
+## 标签页状态 (RFC 0024)
+terminal-state-running = 运行中
+terminal-state-unseen = 上次查看后有新输出
+terminal-state-attention = 需要你的注意
+terminal-state-exited = 已结束，代码 { $code }
