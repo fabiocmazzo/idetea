@@ -73,3 +73,4 @@ terminal-find-older = 更早（向上）
 terminal-find-newer = 更新（向下）
 terminal-find-none = 没有找到
 terminal-find-close = 关闭查找
+cmd-terminal-split = 终端：拆分（或合并）

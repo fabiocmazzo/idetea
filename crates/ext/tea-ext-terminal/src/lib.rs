@@ -143,6 +143,8 @@ pub enum Message {
     CloseId(u64),
     /// Abre (ou fecha) a busca no terminal da tela.
     FindToggle,
+    /// Divide o painel (ou volta a um lado só).
+    SplitToggle,
     /// O texto da busca mudou: procura de novo, da saída mais nova para trás.
     FindText(String),
     /// Próxima ocorrência: `true` sobe (mais antiga), `false` desce (mais nova).
@@ -299,6 +301,17 @@ pub struct TerminalExtension {
     find: Option<String>,
     /// A última busca não achou nada (o campo avisa).
     find_missing: bool,
+    /// Painel dividido (RFC 0024, M1.3): o terminal do lado sem foco. O lado com foco é o `shown`.
+    split: Option<Split>,
+}
+
+/// O outro lado do painel dividido.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct Split {
+    /// O terminal mostrado do lado sem foco.
+    other: u64,
+    /// Ele fica à direita (senão, à esquerda).
+    right: bool,
 }
 
 /// A pasta da worktree de um agente aberto pelo lançador: o branch, com `/` trocado por `-` (`fix/login` →
@@ -363,6 +376,7 @@ impl Default for TerminalExtension {
             scrollback: tea_core::config::TerminalConfig::default().scrollback,
             find: None,
             find_missing: false,
+            split: None,
         }
     }
 }
@@ -1017,7 +1031,11 @@ impl TerminalExtension {
     /// Mostra a aba do terminal `id` (se ainda existe) e abre o painel.
     fn show_id(&mut self, id: u64, ctx: &mut Context) -> Task<Message> {
         let Some((shown, _)) = self.tabs().into_iter().find(|(_, t)| *t == id) else { return Task::none() };
-        self.shown = shown;
+        if self.split.is_some_and(|sp| sp.other == id) {
+            self.focus_side(id);
+        } else {
+            self.shown = shown;
+        }
         if let Shown::Agent(i) = shown {
             self.clock += 1;
             self.agents[i].used = self.clock;
@@ -1137,6 +1155,15 @@ impl TerminalExtension {
         if let Some(id) = self.current().map(|t| t.id) {
             self.activity.entry(id).or_default().seen();
         }
+        // O outro lado sumiu, ou virou o mesmo terminal do lado com foco: um lado só.
+        if let Some(split) = self.split {
+            let current = self.current().map(|t| t.id);
+            if current.is_none() || current == Some(split.other) || !self.all_terms().any(|t| t.id == split.other) {
+                self.split = None;
+            } else {
+                self.activity.entry(split.other).or_default().seen();
+            }
+        }
         if self.activity.len() > self.shells.len() + self.agents.len() + usize::from(self.task.is_some()) {
             let alive: Vec<u64> = self.all_terms().map(|t| t.id).collect();
             self.activity.retain(|id, _| alive.contains(id));
@@ -1177,8 +1204,8 @@ impl TerminalExtension {
 
     /// O que define onde o desenho de um terminal fica: qual terminal (pelo id, não pela posição: fechar uma aba
     /// põe outro terminal no mesmo índice), o que está na tela e se a barra aparece.
-    fn layout(&self) -> (Option<u64>, Shown, bool) {
-        (self.current().map(|t| t.id), self.shown, self.showing())
+    fn layout(&self) -> (Option<u64>, Shown, bool, Option<Split>) {
+        (self.current().map(|t| t.id), self.shown, self.showing(), self.split)
     }
 
     /// O `iced_term` guarda o desenho com a posição na tela dentro; quando a barra aparece ou some, ou outra aba
@@ -1186,15 +1213,50 @@ impl TerminalExtension {
     ///
     /// Só no terminal que vai aparecer (RFC 0024, M1.4): os escondidos não desenham, e cada um passa por aqui quando
     /// volta para a tela. Trocar de aba custa uma grade, não uma por terminal aberto.
-    fn redraw_if_moved(&mut self, before: (Option<u64>, Shown, bool)) {
+    fn redraw_if_moved(&mut self, before: (Option<u64>, Shown, bool, Option<Split>)) {
         // Sem medida ainda, não há desenho velho; e reaplicar a fonte recalcularia o tamanho com o provisório.
         if self.layout() == before || self.size.is_none() {
             return;
         }
         let font = self.font();
         if let Some(term) = self.current_mut() {
+            term.handle(iced_term::Command::ChangeFont(font.clone()));
+        }
+        if let Some(other) = self.split.map(|s| s.other)
+            && let Some(term) = self.term_mut(other)
+        {
             term.handle(iced_term::Command::ChangeFont(font));
         }
+    }
+
+    fn term_mut(&mut self, id: u64) -> Option<&mut Terminal> {
+        self.all_terms_mut().find(|t| t.id == id)
+    }
+
+    /// Divide o painel: um shell novo ao lado, com o foco. Já dividido: volta a um lado só.
+    fn split_toggle(&mut self, ctx: &mut Context) -> Task<Message> {
+        if self.split.take().is_some() {
+            return self.focus_current();
+        }
+        let Some(before) = self.current().map(|t| t.id) else { return self.show_shell(ctx) };
+        if !self.start(ctx) {
+            return Task::none();
+        }
+        self.split = Some(Split { other: before, right: false });
+        ctx.show_panel(PANEL);
+        self.focus_current()
+    }
+
+    /// O usuário mexeu no terminal `id` (clicou, digitou, selecionou). Se é o do outro lado, o foco passa para lá.
+    fn focus_side(&mut self, id: u64) {
+        let Some(split) = self.split else { return };
+        if split.other != id {
+            return;
+        }
+        let Some(current) = self.current().map(|t| t.id) else { return };
+        let Some((shown, _)) = self.tabs().into_iter().find(|(_, t)| *t == id) else { return };
+        self.shown = shown;
+        self.split = Some(Split { other: current, right: !split.right });
     }
 
     fn on_event_inner(&mut self, event: &CoreEvent, ctx: &mut Context) -> Task<Message> {
@@ -1256,6 +1318,7 @@ impl TerminalExtension {
                 Task::none()
             }
             "terminal.next_attention" => self.next_attention(ctx),
+            "terminal.split" => self.split_toggle(ctx),
             "terminal.find" => {
                 ctx.show_panel(PANEL);
                 if self.find.is_some() {
@@ -1288,14 +1351,22 @@ impl TerminalExtension {
                 }
             }
             Message::ShowShell(i) => {
-                if i < self.shells.len() {
-                    self.shown = Shown::Shell(i);
+                if let Some(id) = self.shells.get(i).map(|s| s.term.id) {
+                    if self.split.is_some_and(|sp| sp.other == id) {
+                        self.focus_side(id);
+                    } else {
+                        self.shown = Shown::Shell(i);
+                    }
                 }
                 return self.focus_current();
             }
             Message::ShowTask => {
-                if self.task.is_some() {
-                    self.shown = Shown::Task;
+                if let Some(id) = self.task.as_ref().map(|t| t.term.id) {
+                    if self.split.is_some_and(|sp| sp.other == id) {
+                        self.focus_side(id);
+                    } else {
+                        self.shown = Shown::Task;
+                    }
                 }
                 return self.focus_current();
             }
@@ -1306,6 +1377,7 @@ impl TerminalExtension {
             }
             Message::CloseCurrent => return self.close_asking(ctx),
             Message::FindToggle => return self.find_toggle(),
+            Message::SplitToggle => return self.split_toggle(ctx),
             Message::FindText(text) => {
                 // Do começo de novo: tira a seleção da busca anterior e acha a ocorrência mais nova.
                 if let Some(term) = self.current_mut() {
@@ -1334,8 +1406,12 @@ impl TerminalExtension {
             }
             Message::Requests(found) => return self.requests(found, ctx),
             Message::ShowAgent(i) => {
-                if i < self.agents.len() {
-                    self.shown = Shown::Agent(i);
+                if let Some(id) = self.agents.get(i).map(|a| a.term.id) {
+                    if self.split.is_some_and(|sp| sp.other == id) {
+                        self.focus_side(id);
+                    } else {
+                        self.shown = Shown::Agent(i);
+                    }
                     self.clock += 1;
                     self.agents[i].used = self.clock;
                 }
@@ -1384,6 +1460,15 @@ impl TerminalExtension {
                 }
                 if let iced_term::BackendCommand::ProcessAlacrittyEvent(event) = &cmd {
                     self.track(id, event);
+                }
+                // Vem do widget (não do processo): o usuário mexeu neste terminal.
+                if matches!(
+                    cmd,
+                    iced_term::BackendCommand::Write(_)
+                        | iced_term::BackendCommand::SelectStart(..)
+                        | iced_term::BackendCommand::MouseReport(..)
+                ) {
+                    self.focus_side(id);
                 }
                 if let Some(task) = self.task.as_mut().filter(|t| t.term.id == id) {
                     // A tarefa terminou e o Enter fechou: volta para um shell.
@@ -1452,6 +1537,7 @@ impl Extension for TerminalExtension {
         ctx.register_command("terminal.next_attention", fl!("cmd-terminal-next-attention"));
         ctx.register_command("terminal.rename", fl!("cmd-terminal-rename"));
         ctx.register_command("terminal.find", fl!("cmd-terminal-find"));
+        ctx.register_command("terminal.split", fl!("cmd-terminal-split"));
         Task::none()
     }
 
@@ -1481,7 +1567,19 @@ impl Extension for TerminalExtension {
             None if self.showing() => self.request_view(),
             // Com chave: cada terminal tem o próprio estado no widget (o tamanho que já avisou ao shell). Sem ela,
             // o terminal que entra herdava o tamanho do anterior e nunca recebia o seu.
-            Some(term) => keyed_column([(term.id, TerminalView::show(term).map(Message::Term))]).height(Fill).into(),
+            Some(term) => {
+                let here = keyed_column([(term.id, TerminalView::show(term).map(Message::Term))]).height(Fill).width(Fill);
+                match self.split.and_then(|sp| self.all_terms().find(|t| t.id == sp.other).map(|t| (sp, t))) {
+                    None => here.into(),
+                    Some((sp, other)) => {
+                        let there = keyed_column([(other.id, TerminalView::show(other).map(Message::Term))]).height(Fill).width(Fill);
+                        let line = container(space::vertical()).width(1).height(Fill).style(|t: &Theme| {
+                            container::Style::default().background(t.extended_palette().background.strong.color)
+                        });
+                        if sp.right { row![here, line, there].into() } else { row![there, line, here].into() }
+                    }
+                }
+            }
             None => container(
                 column![
                     text(fl!("terminal-not-running")).size(13).style(text::secondary),
@@ -1503,8 +1601,13 @@ impl Extension for TerminalExtension {
         // renomeia.
         let mut bar = row![].spacing(4).align_y(iced::Center);
         for (shown, id) in self.tabs() {
-            let on = self.shown == shown;
-            let kind = if on { tea_core::style::Tab::Shown } else { tea_core::style::Tab::Idle };
+            let other = self.split.is_some_and(|sp| sp.other == id);
+            let on = self.shown == shown || other;
+            let kind = match (self.shown == shown, other) {
+                (true, _) if self.split.is_some() => tea_core::style::Tab::Active,
+                (true, _) | (_, true) => tea_core::style::Tab::Shown,
+                _ => tea_core::style::Tab::Idle,
+            };
             let state = match self.state_of(id, now) {
                 activity::State::Running | activity::State::Unseen if on => activity::State::Idle,
                 s => s,
@@ -1546,6 +1649,7 @@ impl Extension for TerminalExtension {
         if self.current().is_some() {
             bar = bar.push(icons::toggle_button(Icon::Search, fl!("cmd-terminal-find"), self.find.is_some(), Message::FindToggle));
         }
+        bar = bar.push(icons::toggle_button(Icon::SplitHorizontal, fl!("cmd-terminal-split"), self.split.is_some(), Message::SplitToggle));
         bar = bar.push(icons::icon_button(Icon::Add, fl!("cmd-terminal-new"), Some(Message::Start)));
         bar = bar.push(space::horizontal());
         // O pedido se recusa pelo botão dele, não pelo ×.
@@ -1945,6 +2049,39 @@ mod tests {
         std::fs::write(root.join(agents::DIR).join("ruim.json"), bad.to_string()).unwrap();
         let _ = ext.update(Message::Requests(agents::scan(&root)), &mut Context::new(&root, None));
         assert_eq!(status(&root, "ruim"), "invalid");
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    /// RFC 0024, M1.3: dividir abre um shell ao lado com o foco; mexer no outro lado traz o foco; fechar um lado junta.
+    #[cfg(unix)]
+    #[test]
+    fn split_keeps_two_terminals_on_screen() {
+        let root = std::env::temp_dir().join(format!("idetea-split-{}", std::process::id()));
+        std::fs::create_dir_all(&root).unwrap();
+        let mut ext = TerminalExtension::new();
+        let _ = ext.activate(&mut Context::new(&root, None));
+        assert!(ext.start(&mut Context::new(&root, None)));
+        let first = ext.shells[0].term.id;
+        let _ = ext.on_command("terminal.split", &mut Context::new(&root, None));
+        let second = ext.shells[1].term.id;
+        assert_eq!(ext.current().map(|t| t.id), Some(second), "o novo fica com o foco");
+        assert_eq!(ext.split, Some(Split { other: first, right: false }), "o antigo à esquerda");
+        // Clicar na aba do outro lado troca o foco de lado, sem mudar o que cada lado mostra.
+        let _ = ext.update(Message::ShowShell(0), &mut Context::new(&root, None));
+        assert_eq!(ext.current().map(|t| t.id), Some(first));
+        assert_eq!(ext.split, Some(Split { other: second, right: true }));
+        // Uma terceira aba vai para o lado com o foco; o outro continua.
+        assert!(ext.start(&mut Context::new(&root, None)));
+        let _ = ext.update(Message::ActivityTick, &mut Context::new(&root, None));
+        assert_eq!(ext.split.map(|s| s.other), Some(second));
+        // Fechar o terminal do outro lado: um lado só.
+        let _ = ext.update(Message::CloseId(second), &mut Context::new(&root, None));
+        assert_eq!(ext.split, None);
+        // E o comando de novo junta.
+        let _ = ext.on_command("terminal.split", &mut Context::new(&root, None));
+        assert!(ext.split.is_some());
+        let _ = ext.on_command("terminal.split", &mut Context::new(&root, None));
+        assert_eq!(ext.split, None);
         let _ = std::fs::remove_dir_all(&root);
     }
 

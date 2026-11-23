@@ -69,3 +69,4 @@ terminal-find-older = 古い方（上）
 terminal-find-newer = 新しい方（下）
 terminal-find-none = 見つかりません
 terminal-find-close = 検索を閉じる
+cmd-terminal-split = ターミナル: 分割（または結合）

@@ -75,3 +75,4 @@ terminal-find-older = Älter (oben)
 terminal-find-newer = Neuer (unten)
 terminal-find-none = Keine Treffer
 terminal-find-close = Suche schließen
+cmd-terminal-split = Terminal: teilen (oder zusammenführen)

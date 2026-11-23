@@ -214,6 +214,7 @@ enabled = true
 "ctrl+`" = "terminal.focus"
 "ctrl+shift+pagedown" = "terminal.next"
 "ctrl+shift+pageup" = "terminal.prev"
+"ctrl+shift+5" = "terminal.split"
 "ctrl+shift+t" = "tab.reopen"
 "ctrl+shift+[" = "editor.toggle_fold"
 "ctrl+shift+]" = "editor.toggle_fold"

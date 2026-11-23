@@ -75,3 +75,4 @@ terminal-find-older = Older (up)
 terminal-find-newer = Newer (down)
 terminal-find-none = No matches
 terminal-find-close = Close find
+cmd-terminal-split = Terminal: split (or unsplit)
