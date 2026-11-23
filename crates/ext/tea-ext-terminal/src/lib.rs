@@ -548,6 +548,15 @@ impl TerminalExtension {
         }
     }
 
+    fn current_mut(&mut self) -> Option<&mut Terminal> {
+        match self.shown {
+            Shown::Task => self.task.as_mut().map(|t| &mut t.term),
+            Shown::Shell(i) => self.shells.get_mut(i).map(|s| &mut s.term),
+            Shown::Agent(i) => self.agents.get_mut(i).map(|a| &mut a.term),
+            Shown::Request => None,
+        }
+    }
+
     /// Há algo na tela (um terminal, ou um pedido esperando).
     fn showing(&self) -> bool {
         self.current().is_some() || (self.shown == Shown::Request && !self.pending.is_empty())
@@ -890,20 +899,25 @@ impl TerminalExtension {
     }
 
     /// O que muda o lugar do terminal na tela: qual está à vista e se há barra de abas.
-    fn layout(&self) -> (Shown, bool) {
-        (self.shown, self.showing())
+    /// O que define onde o desenho de um terminal fica: qual terminal (pelo id, não pela posição: fechar uma aba
+    /// põe outro terminal no mesmo índice), o que está na tela e se a barra aparece.
+    fn layout(&self) -> (Option<u64>, Shown, bool) {
+        (self.current().map(|t| t.id), self.shown, self.showing())
     }
 
     /// O `iced_term` guarda o desenho com a posição na tela dentro; quando a barra aparece ou some, ou outra aba
     /// volta, o desenho velho sairia no lugar antigo (por cima da barra). Reaplicar a fonte limpa esse cache.
-    fn redraw_if_moved(&mut self, before: (Shown, bool)) {
+    ///
+    /// Só no terminal que vai aparecer (RFC 0024, M1.4): os escondidos não desenham, e cada um passa por aqui quando
+    /// volta para a tela. Trocar de aba custa uma grade, não uma por terminal aberto.
+    fn redraw_if_moved(&mut self, before: (Option<u64>, Shown, bool)) {
         // Sem medida ainda, não há desenho velho; e reaplicar a fonte recalcularia o tamanho com o provisório.
         if self.layout() == before || self.size.is_none() {
             return;
         }
         let font = self.font();
-        for term in self.all_terms_mut() {
-            term.handle(iced_term::Command::ChangeFont(font.clone()));
+        if let Some(term) = self.current_mut() {
+            term.handle(iced_term::Command::ChangeFont(font));
         }
     }
 
