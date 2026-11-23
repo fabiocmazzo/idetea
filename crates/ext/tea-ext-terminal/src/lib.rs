@@ -17,6 +17,7 @@ macro_rules! fl {
 
 mod activity;
 mod agents;
+mod saved;
 pub mod tab_hooks;
 pub mod cli;
 mod worktree;
@@ -145,6 +146,14 @@ pub enum Message {
     FindToggle,
     /// Divide o painel (ou volta a um lado só).
     SplitToggle,
+    /// Retoma todos os agentes da sessão anterior.
+    ResumeAll,
+    /// Não retoma nenhum (esquece a lista).
+    ResumeNone,
+    /// Mostra a lista para escolher um.
+    ResumePick,
+    /// Retoma este (posição em `to_resume`).
+    ResumeOne(usize),
     /// O texto da busca mudou: procura de novo, da saída mais nova para trás.
     FindText(String),
     /// Próxima ocorrência: `true` sobe (mais antiga), `false` desce (mais nova).
@@ -185,6 +194,10 @@ struct AgentTerm {
     launched: bool,
     /// Quando foi para a tela por último (maior = mais recente), para o `Ctrl+L` achar a aba de agente mais recente.
     used: u64,
+    /// Aberta pelo lançador numa worktree: o branch (para reabrir na mesma, RFC 0024 M2).
+    branch: Option<String>,
+    /// O id da conversa do agente, quando a IDE o escolheu (para retomar, RFC 0024 M2).
+    session: Option<String>,
     /// A última saída do processo: a colagem que espera o agente subir vai quando a tela para de mudar.
     last_output: Option<Instant>,
     /// Texto do `Ctrl+L` esperando o agente subir, e desde quando.
@@ -205,6 +218,8 @@ impl AgentTerm {
             used,
             last_output: None,
             paste: None,
+            branch: None,
+            session: None,
         }
     }
 
@@ -299,6 +314,12 @@ pub struct TerminalExtension {
     scrollback: usize,
     /// A busca no terminal (RFC 0024, M1.4): aberta, com este texto.
     find: Option<String>,
+    /// Onde ficam as abas deste projeto entre uma sessão e outra (RFC 0024, M2); `None` nos testes.
+    saved_path: Option<PathBuf>,
+    /// O que foi gravado por último (só grava quando muda).
+    last_saved: Option<saved::Saved>,
+    /// Agentes da sessão anterior esperando o usuário dizer se retoma.
+    to_resume: Vec<saved::Tab>,
     /// A última busca não achou nada (o campo avisa).
     find_missing: bool,
     /// Painel dividido (RFC 0024, M1.3): o terminal do lado sem foco. O lado com foco é o `shown`.
@@ -328,6 +349,17 @@ const SIZE_GUESS: iced::Size = iced::Size::new(900.0, 260.0);
 fn user_allow_list() -> Vec<String> {
     let Some(global) = tea_core::config::global_config_path() else { return Vec::new() };
     tea_core::config::Config::load(Some(&global), None).agents.allow
+}
+
+/// Onde ficam as abas do projeto. Nos testes, em lugar nenhum (o estado de quem roda os testes não entra).
+#[cfg(not(test))]
+fn saved_path(root: &Path) -> Option<PathBuf> {
+    saved::Saved::path(root)
+}
+
+#[cfg(test)]
+fn saved_path(_root: &Path) -> Option<PathBuf> {
+    None
 }
 
 /// O `[terminal]` do config (o do projeto vale por cima do do usuário).
@@ -376,6 +408,9 @@ impl Default for TerminalExtension {
             scrollback: tea_core::config::TerminalConfig::default().scrollback,
             find: None,
             find_missing: false,
+            saved_path: None,
+            last_saved: None,
+            to_resume: Vec::new(),
             split: None,
         }
     }
@@ -571,6 +606,7 @@ impl TerminalExtension {
                 self.clock += 1;
                 let mut agent = AgentTerm::new(term, name, title.to_string(), command.to_string(), true, self.clock);
                 agent.worktree_on_close = branch.is_some();
+                agent.branch = branch.map(str::to_string);
                 let tick = match self.waiting_paste.take().filter(|(_, at)| at.elapsed() < PASTE_KEEP) {
                     Some((text, _)) => {
                         agent.paste = Some((text, Instant::now()));
@@ -1114,6 +1150,94 @@ impl TerminalExtension {
         Task::none()
     }
 
+    /// As abas que valem a pena reabrir: os shells e os agentes do lançador ainda vivos, mais os da sessão anterior
+    /// que o usuário ainda não respondeu (fechar a IDE antes de responder não os perde).
+    fn snapshot(&self) -> saved::Saved {
+        let shells = self.shells.iter().map(|s| saved::Tab { name: self.names.get(&s.term.id).cloned(), ..saved::Tab::default() });
+        let agents = self.agents.iter().filter(|a| a.launched && !a.ended).map(|a| saved::Tab {
+            kind: saved::Kind::Agent,
+            name: self.names.get(&a.term.id).cloned(),
+            title: a.title.clone(),
+            command: a.command.clone(),
+            worktree: a.branch.clone(),
+            session: a.session.clone(),
+        });
+        saved::Saved { root: self.root.clone(), tabs: shells.chain(agents).chain(self.to_resume.iter().cloned()).collect() }
+    }
+
+    /// Grava as abas se mudaram desde a última vez.
+    fn save_tabs(&mut self) {
+        let Some(path) = self.saved_path.clone() else { return };
+        let now = self.snapshot();
+        if self.last_saved.as_ref() != Some(&now) {
+            now.save(&path);
+            self.last_saved = Some(now);
+        }
+    }
+
+    /// Reabre o que estava aberto: os shells voltam sozinhos; os agentes esperam o usuário (um agente roda comandos,
+    /// e nada roda sem ele ver).
+    fn restore(&mut self, saved: saved::Saved, ctx: &mut Context) {
+        for tab in saved.tabs {
+            match tab.kind {
+                saved::Kind::Shell => {
+                    if self.start(ctx)
+                        && let Some(name) = tab.name
+                        && let Some(id) = self.shells.last().map(|s| s.term.id)
+                    {
+                        self.names.insert(id, name);
+                    }
+                }
+                saved::Kind::Agent => self.to_resume.push(tab),
+            }
+        }
+        if !self.shells.is_empty() {
+            self.shown = Shown::Shell(0);
+        }
+        self.ask_resume(ctx);
+    }
+
+    fn ask_resume(&self, ctx: &mut Context) {
+        if self.to_resume.is_empty() {
+            return;
+        }
+        let names: Vec<String> = self.to_resume.iter().map(|t| t.name.clone().unwrap_or_else(|| t.title.clone())).collect();
+        ctx.show_dialog(
+            tea_core::Dialog::new(
+                fl!("terminal-resume-title"),
+                fl!("terminal-resume-message", count = names.len(), names = names.join(", ")),
+            )
+            .button(fl!("terminal-resume-all"), tea_core::ButtonKind::Primary, Message::ResumeAll)
+            .button(fl!("terminal-resume-pick"), tea_core::ButtonKind::Secondary, Message::ResumePick)
+            .button(fl!("terminal-resume-none"), tea_core::ButtonKind::Secondary, Message::ResumeNone),
+        );
+    }
+
+    fn pick_resume(&self, ctx: &mut Context) {
+        let mut pick = tea_core::pick::Pick::new(fl!("terminal-resume-pick-placeholder"));
+        for (i, tab) in self.to_resume.iter().enumerate() {
+            let label = tab.name.clone().unwrap_or_else(|| tab.title.clone());
+            let detail = tab.worktree.clone().unwrap_or_default();
+            pick = pick.item(Some(Icon::Terminal), label, detail, Message::ResumeOne(i));
+        }
+        ctx.pick(pick);
+    }
+
+    /// Abre de novo um agente da sessão anterior, na mesma pasta (ou worktree).
+    fn resume(&mut self, tab: saved::Tab, ctx: &mut Context) -> Task<Message> {
+        let before = self.agents.len();
+        let task = self.launch_agent(&tab.title, &tab.command, tab.worktree.as_deref(), ctx);
+        if self.agents.len() > before
+            && let Some(agent) = self.agents.last_mut()
+        {
+            agent.session = tab.session;
+            if let Some(name) = tab.name {
+                self.names.insert(agent.term.id, name);
+            }
+        }
+        task
+    }
+
     /// Procura no terminal da tela e marca se achou.
     fn find_in_current(&mut self, older: bool) {
         let Some(text) = self.find.clone() else { return };
@@ -1170,6 +1294,7 @@ impl TerminalExtension {
             self.exit_watch.retain(|(id, _)| alive.contains(id));
             self.names.retain(|id, _| alive.contains(id));
         }
+        self.save_tabs();
         let now = Instant::now();
         if self.ticking || !self.activity.values().any(|a| a.ticking(now)) {
             return Task::none();
@@ -1319,6 +1444,14 @@ impl TerminalExtension {
             }
             "terminal.next_attention" => self.next_attention(ctx),
             "terminal.split" => self.split_toggle(ctx),
+            "terminal.resume" => {
+                if self.to_resume.is_empty() {
+                    ctx.notify(fl!("terminal-resume-nothing"));
+                } else {
+                    self.pick_resume(ctx);
+                }
+                Task::none()
+            }
             "terminal.find" => {
                 ctx.show_panel(PANEL);
                 if self.find.is_some() {
@@ -1378,6 +1511,19 @@ impl TerminalExtension {
             Message::CloseCurrent => return self.close_asking(ctx),
             Message::FindToggle => return self.find_toggle(),
             Message::SplitToggle => return self.split_toggle(ctx),
+            Message::ResumeAll => {
+                let tabs = std::mem::take(&mut self.to_resume);
+                let tasks: Vec<_> = tabs.into_iter().map(|t| self.resume(t, ctx)).collect();
+                return Task::batch(tasks);
+            }
+            Message::ResumeNone => self.to_resume.clear(),
+            Message::ResumePick => self.pick_resume(ctx),
+            Message::ResumeOne(i) => {
+                if i < self.to_resume.len() {
+                    let tab = self.to_resume.remove(i);
+                    return self.resume(tab, ctx);
+                }
+            }
             Message::FindText(text) => {
                 // Do começo de novo: tira a seleção da busca anterior e acha a ocorrência mais nova.
                 if let Some(term) = self.current_mut() {
@@ -1525,6 +1671,11 @@ impl Extension for TerminalExtension {
     fn activate(&mut self, ctx: &mut Context) -> Task<Message> {
         self.root = ctx.root().to_path_buf();
         self.scrollback = terminal_config(&self.root).scrollback;
+        self.saved_path = saved_path(&self.root);
+        if let Some(saved) = self.saved_path.as_deref().and_then(|p| saved::Saved::load(p, &self.root)) {
+            self.last_saved = Some(saved.clone());
+            self.restore(saved, ctx);
+        }
         ctx.register_panel_hidden(PANEL, "Terminal", Slot::Bottom);
         ctx.panel_icon(PANEL, Icon::Terminal);
         ctx.register_command("terminal.focus", fl!("cmd-terminal-focus"));
@@ -1538,6 +1689,7 @@ impl Extension for TerminalExtension {
         ctx.register_command("terminal.rename", fl!("cmd-terminal-rename"));
         ctx.register_command("terminal.find", fl!("cmd-terminal-find"));
         ctx.register_command("terminal.split", fl!("cmd-terminal-split"));
+        ctx.register_command("terminal.resume", fl!("cmd-terminal-resume"));
         Task::none()
     }
 

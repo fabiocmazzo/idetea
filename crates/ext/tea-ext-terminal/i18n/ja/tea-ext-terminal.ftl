@@ -70,3 +70,13 @@ terminal-find-newer = 新しい方（下）
 terminal-find-none = 見つかりません
 terminal-find-close = 検索を閉じる
 cmd-terminal-split = ターミナル: 分割（または結合）
+cmd-terminal-resume = ターミナル: 前回のセッションのエージェントを再開
+terminal-resume-nothing = 待っている前回のセッションのエージェントはありません。
+terminal-resume-title = エージェントを再開しますか？
+terminal-resume-message = { $count ->
+   *[other] IDE を閉じたときに開いていたエージェント ({ $count }): { $names }。
+}
+terminal-resume-all = すべて再開
+terminal-resume-pick = 選ぶ…
+terminal-resume-none = いいえ
+terminal-resume-pick-placeholder = 再開するエージェント…

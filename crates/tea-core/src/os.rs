@@ -37,6 +37,21 @@ pub fn state_dir() -> Option<PathBuf> {
     home_dir().map(|h| h.join(".local").join("state"))
 }
 
+/// FNV-1a de 64 bits: estável entre versões do Rust (o `DefaultHasher` não promete isso).
+pub fn fnv1a(bytes: &[u8]) -> u64 {
+    bytes.iter().fold(0xcbf2_9ce4_8422_2325, |h, b| (h ^ u64::from(*b)).wrapping_mul(0x0000_0100_0000_01b3))
+}
+
+/// Um arquivo de estado de um projeto: `<estado>/idetea/<sub>/<pasta>-<hash da raiz>.toml`. O nome leva a pasta
+/// (para achar à mão) e um hash do caminho inteiro (duas pastas `app` em lugares diferentes não se misturam).
+pub fn project_state_file(sub: &str, root: &Path) -> Option<PathBuf> {
+    let name: String = root
+        .file_name()
+        .map(|n| n.to_string_lossy().chars().map(|c| if c.is_alphanumeric() || c == '-' || c == '_' { c } else { '_' }).collect())
+        .unwrap_or_default();
+    Some(state_dir()?.join("idetea").join(sub).join(format!("{name}-{:016x}.toml", fnv1a(root.as_os_str().as_encoded_bytes()))))
+}
+
 /// Pasta base de dados do usuário (`$XDG_DATA_HOME`, `%LOCALAPPDATA%` no Windows ou `~/.local/share`).
 pub fn data_dir() -> Option<PathBuf> {
     if let Some(xdg) = std::env::var_os("XDG_DATA_HOME").map(PathBuf::from).filter(|p| p.is_absolute()) {

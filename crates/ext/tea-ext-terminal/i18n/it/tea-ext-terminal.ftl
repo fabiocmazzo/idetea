@@ -76,3 +76,14 @@ terminal-find-newer = Più recente (giù)
 terminal-find-none = Nessun risultato
 terminal-find-close = Chiudi la ricerca
 cmd-terminal-split = Terminale: dividi (o unisci)
+cmd-terminal-resume = Terminale: riprendi gli agenti della sessione precedente
+terminal-resume-nothing = Nessun agente della sessione precedente in attesa.
+terminal-resume-title = Riprendere gli agenti?
+terminal-resume-message = { $count ->
+    [one] Un agente era aperto quando l’IDE si è chiuso: { $names }.
+   *[other] { $count } agenti erano aperti quando l’IDE si è chiuso: { $names }.
+}
+terminal-resume-all = Riprendi tutti
+terminal-resume-pick = Scegli…
+terminal-resume-none = No
+terminal-resume-pick-placeholder = Agente da riprendere…

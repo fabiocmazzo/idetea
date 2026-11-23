@@ -74,3 +74,13 @@ terminal-find-newer = 更新（向下）
 terminal-find-none = 没有找到
 terminal-find-close = 关闭查找
 cmd-terminal-split = 终端：拆分（或合并）
+cmd-terminal-resume = 终端：恢复上次会话的代理
+terminal-resume-nothing = 没有等待恢复的上次会话代理。
+terminal-resume-title = 恢复代理吗？
+terminal-resume-message = { $count ->
+   *[other] IDE关闭时有 { $count } 个代理打开：{ $names }。
+}
+terminal-resume-all = 全部恢复
+terminal-resume-pick = 选择…
+terminal-resume-none = 不
+terminal-resume-pick-placeholder = 要恢复的代理…

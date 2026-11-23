@@ -10,6 +10,7 @@ tea-core.workspace = true
 iced_term.workspace = true
 serde.workspace = true
 serde_json.workspace = true
+toml.workspace = true
 
 [dev-dependencies]
 iced_test = "0.14"
