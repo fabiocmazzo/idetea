@@ -4,7 +4,7 @@ Thanks for taking a look. The project is small, and careful changes help more th
 
 This repository follows the [Contributor Covenant](CODE_OF_CONDUCT.md).
 
-A longer guide (architecture, extensions, release process) is in [`DESENVOLVIMENTO.md`](DESENVOLVIMENTO.md), in Portuguese.
+A longer guide (architecture, extensions, release process) is in [`DEVELOPMENT.md`](DEVELOPMENT.md) (the Portuguese original is [`DESENVOLVIMENTO.md`](DESENVOLVIMENTO.md)).
 
 ## Build and run
 
