@@ -10,4 +10,9 @@ aqui, com o motivo, para dar para comparar com o upstream ou mandar a ele quando
 
 ## Mudanças
 
-(nenhuma ainda)
+- **`BackendSettings::scrollback`** (RFC 0024, M1.4): o número de linhas do histórico, que ia fixo no
+  `term::Config::default()` (10 000). O padrão continua 10 000.
+- **`BackendCommand::Search { text, older }`, `BackendCommand::ClearSelection` e `Action::SearchResult(bool)`**
+  (RFC 0024, M1.4): busca de texto literal (com o "smart case" do alacritty) no histórico, a partir da seleção ou
+  do fim, selecionando e rolando até a ocorrência. Usa o `RegexSearch`/`search_next` do alacritty, que o upstream
+  só usava para achar URLs. Com testes (`search_tests`).

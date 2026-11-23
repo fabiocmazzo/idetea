@@ -22,6 +22,18 @@ use std::ops::{Index, RangeInclusive};
 use std::sync::Arc;
 use tokio::sync::mpsc;
 
+/// `text` as a regex that matches it literally.
+fn escape_regex(text: &str) -> String {
+    let mut out = String::with_capacity(text.len());
+    for c in text.chars() {
+        if "\\.+*?()|[]{}^$#&-~".contains(c) {
+            out.push('\\');
+        }
+        out.push(c);
+    }
+    out
+}
+
 const URL_REGEX: &str = r#"(ipfs:|ipns:|magnet:|mailto:|gemini://|gopher://|https://|http://|news:|file://|git://|ssh:|ftp://)[^\u{0000}-\u{001F}\u{007F}-\u{009F}<>"\s{-}\^⟨⟩`]+"#;
 
 #[derive(Debug, Clone)]
@@ -34,6 +46,12 @@ pub enum Command {
     ProcessLink(LinkAction, Point),
     MouseReport(MouseButton, Modifiers, Point, bool),
     ProcessAlacrittyEvent(Event),
+    /// Find `text` (plain text, not a regex; smart case) from the current selection, or from the bottom of the
+    /// history when there is none: `older` goes up (towards older output), otherwise down. The match is selected
+    /// and scrolled into view.
+    Search { text: String, older: bool },
+    /// Drop the selection (e.g. when the search is closed).
+    ClearSelection,
 }
 
 #[derive(Debug, Clone)]
@@ -145,6 +163,7 @@ impl Backend {
         pty_event_proxy_sender: mpsc::Sender<Event>,
         settings: BackendSettings,
     ) -> Result<Self> {
+        let scrolling_history = settings.scrollback;
         let pty_config = tty::Options {
             shell: Some(tty::Shell::new(settings.program, settings.args)),
             working_directory: settings.working_directory,
@@ -152,7 +171,10 @@ impl Backend {
             ..tty::Options::default()
         };
 
-        let config = term::Config::default();
+        let config = term::Config {
+            scrolling_history,
+            ..term::Config::default()
+        };
         let terminal_size = TerminalSize::default();
         let pty = tty::new(&pty_config, terminal_size.into(), id)?;
 
@@ -230,9 +252,41 @@ impl Backend {
             Command::MouseReport(button, modifiers, point, pressed) => {
                 self.process_mouse_report(button, modifiers, point, pressed);
             },
+            Command::Search { text, older } => {
+                action = Action::SearchResult(Self::search(&mut term, &text, older));
+            },
+            Command::ClearSelection => {
+                term.selection = None;
+            },
         };
 
         action
+    }
+
+    fn search<T: EventListener>(terminal: &mut Term<T>, text: &str, older: bool) -> bool {
+        if text.is_empty() {
+            return false;
+        }
+        let Ok(mut regex) = RegexSearch::new(&escape_regex(text)) else {
+            return false;
+        };
+        let current = terminal.selection.as_ref().and_then(|s| s.to_range(terminal));
+        let last_column = Column(terminal.columns().saturating_sub(1));
+        let origin = match (current, older) {
+            (Some(range), true) => range.start.sub(terminal, alacritty_terminal::index::Boundary::None, 1),
+            (Some(range), false) => range.end.add(terminal, alacritty_terminal::index::Boundary::None, 1),
+            (None, true) => Point::new(terminal.bottommost_line(), last_column),
+            (None, false) => Point::new(terminal.topmost_line(), Column(0)),
+        };
+        let (direction, side) = if older { (Direction::Left, Side::Right) } else { (Direction::Right, Side::Left) };
+        let Some(found) = terminal.search_next(&mut regex, origin, direction, side, None) else {
+            return false;
+        };
+        terminal.scroll_to_point(*found.start());
+        let mut selection = Selection::new(SelectionType::Simple, *found.start(), Side::Left);
+        selection.update(*found.end(), Side::Right);
+        terminal.selection = Some(selection);
+        true
     }
 
     fn process_link_action(
@@ -581,5 +635,49 @@ pub struct EventProxy(mpsc::Sender<Event>);
 impl EventListener for EventProxy {
     fn send_event(&self, event: Event) {
         let _ = self.0.blocking_send(event);
+    }
+}
+
+#[cfg(test)]
+mod search_tests {
+    use super::*;
+    use alacritty_terminal::event::VoidListener;
+    use alacritty_terminal::vte::ansi::{Processor, StdSyncHandler};
+
+    fn term_with(lines: &[&str]) -> Term<VoidListener> {
+        let size = TermSize::new(20, 4);
+        let mut term = Term::new(term::Config::default(), &size, VoidListener);
+        let mut parser: Processor<StdSyncHandler> = Processor::new();
+        for line in lines {
+            parser.advance(&mut term, format!("{line}\r\n").as_bytes());
+        }
+        term
+    }
+
+    fn selected(term: &Term<VoidListener>) -> Option<String> {
+        term.selection_to_string()
+    }
+
+    #[test]
+    fn finds_newest_first_then_older_then_newer() {
+        let mut term = term_with(&["erro 1", "ok", "ok", "erro 2", "ok", "ok"]);
+        assert!(Backend::search(&mut term, "erro", true));
+        assert_eq!(selected(&term).as_deref(), Some("erro"));
+        let newest = term.selection.as_ref().unwrap().to_range(&term).unwrap().start;
+        assert!(Backend::search(&mut term, "erro", true));
+        let older = term.selection.as_ref().unwrap().to_range(&term).unwrap().start;
+        assert!(older.line < newest.line, "subiu para a mais antiga: {older:?} < {newest:?}");
+        assert!(Backend::search(&mut term, "erro", false));
+        assert_eq!(term.selection.as_ref().unwrap().to_range(&term).unwrap().start, newest);
+    }
+
+    #[test]
+    fn plain_text_and_smart_case() {
+        let mut term = term_with(&["a.b axb", "Foo"]);
+        assert!(Backend::search(&mut term, "a.b", true));
+        assert_eq!(selected(&term).as_deref(), Some("a.b"));
+        assert!(Backend::search(&mut term, "foo", true), "minúsculas: sem diferenciar");
+        assert!(!Backend::search(&mut term, "FOO", true), "com maiúscula: diferencia");
+        assert!(!Backend::search(&mut term, "", true));
     }
 }

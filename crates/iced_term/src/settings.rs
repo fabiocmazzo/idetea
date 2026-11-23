@@ -22,6 +22,8 @@ pub struct BackendSettings {
     pub args: Vec<String>,
     pub env: HashMap<String, String>,
     pub working_directory: Option<PathBuf>,
+    /// Lines kept above the screen (alacritty's `scrolling_history`).
+    pub scrollback: usize,
 }
 
 impl Default for BackendSettings {
@@ -31,6 +33,7 @@ impl Default for BackendSettings {
             args: vec![],
             env: HashMap::new(),
             working_directory: None,
+            scrollback: 10_000,
         }
     }
 }

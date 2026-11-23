@@ -26,7 +26,7 @@ use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
 use iced::futures::channel::mpsc;
-use iced::widget::{button, column, container, keyed_column, mouse_area, row, space, text};
+use iced::widget::{Id, button, column, container, keyed_column, mouse_area, operation, row, space, text, text_input};
 use iced::{Color, Element, Fill, Font, Subscription, Task, Theme};
 use iced_term::actions::Action;
 use iced_term::settings::{BackendSettings, FontSettings, Settings, ThemeSettings};
@@ -141,6 +141,12 @@ pub enum Message {
     Rename(u64, String),
     /// Fecha este terminal sem perguntar (o usuário já confirmou).
     CloseId(u64),
+    /// Abre (ou fecha) a busca no terminal da tela.
+    FindToggle,
+    /// O texto da busca mudou: procura de novo, da saída mais nova para trás.
+    FindText(String),
+    /// Próxima ocorrência: `true` sobe (mais antiga), `false` desce (mais nova).
+    FindNext(bool),
 }
 
 /// De quanto em quanto tempo olhar o arquivo de código da tarefa.
@@ -287,6 +293,12 @@ pub struct TerminalExtension {
     exit_watch: Vec<(u64, PathBuf)>,
     /// Nomes que o usuário deu às abas, pelo id do terminal.
     names: BTreeMap<u64, String>,
+    /// `[terminal] scrollback`: linhas de histórico dos terminais que abrirem.
+    scrollback: usize,
+    /// A busca no terminal (RFC 0024, M1.4): aberta, com este texto.
+    find: Option<String>,
+    /// A última busca não achou nada (o campo avisa).
+    find_missing: bool,
 }
 
 /// A pasta da worktree de um agente aberto pelo lançador: o branch, com `/` trocado por `-` (`fix/login` →
@@ -303,6 +315,20 @@ const SIZE_GUESS: iced::Size = iced::Size::new(900.0, 260.0);
 fn user_allow_list() -> Vec<String> {
     let Some(global) = tea_core::config::global_config_path() else { return Vec::new() };
     tea_core::config::Config::load(Some(&global), None).agents.allow
+}
+
+/// O `[terminal]` do config (o do projeto vale por cima do do usuário).
+#[cfg(not(test))]
+fn terminal_config(root: &Path) -> tea_core::config::TerminalConfig {
+    let global = tea_core::config::global_config_path();
+    let project = tea_core::config::project_config_path(root);
+    tea_core::config::Config::load(global.as_deref(), Some(&project)).terminal
+}
+
+/// Nos testes, o padrão (o config de quem roda os testes não entra).
+#[cfg(test)]
+fn terminal_config(_root: &Path) -> tea_core::config::TerminalConfig {
+    tea_core::config::TerminalConfig::default()
 }
 
 /// Nos testes, nada é permitido sem confirmar (o config de quem roda os testes não entra).
@@ -334,6 +360,9 @@ impl Default for TerminalExtension {
             ticking: false,
             exit_watch: Vec::new(),
             names: BTreeMap::new(),
+            scrollback: tea_core::config::TerminalConfig::default().scrollback,
+            find: None,
+            find_missing: false,
         }
     }
 }
@@ -352,6 +381,7 @@ impl TerminalExtension {
                 args,
                 env: [("TERM_PROGRAM".to_string(), "idetea".to_string())].into(),
                 working_directory: Some(cwd.to_path_buf()),
+                scrollback: self.scrollback,
             },
         }
     }
@@ -1066,6 +1096,29 @@ impl TerminalExtension {
         Task::none()
     }
 
+    /// Procura no terminal da tela e marca se achou.
+    fn find_in_current(&mut self, older: bool) {
+        let Some(text) = self.find.clone() else { return };
+        let Some(term) = self.current_mut() else { return };
+        let found = term.handle(iced_term::Command::ProxyToBackend(iced_term::BackendCommand::Search { text: text.clone(), older }));
+        self.find_missing = !text.is_empty() && found != Action::SearchResult(true);
+    }
+
+    fn find_toggle(&mut self) -> Task<Message> {
+        if self.find.take().is_some() {
+            if let Some(term) = self.current_mut() {
+                term.handle(iced_term::Command::ProxyToBackend(iced_term::BackendCommand::ClearSelection));
+            }
+            self.find_missing = false;
+            return self.focus_current();
+        }
+        if self.current().is_none() {
+            return Task::none();
+        }
+        self.find = Some(String::new());
+        Task::batch([operation::focus(find_input_id()), operation::select_all(find_input_id())])
+    }
+
     /// Um evento do alacritty de um terminal: saída, sino ou título mudam o estado da aba.
     fn track(&mut self, id: u64, event: &iced_term::AlacrittyEvent) {
         use iced_term::AlacrittyEvent as E;
@@ -1169,6 +1222,9 @@ impl TerminalExtension {
         if let CoreEvent::SendToAgent { text } = event {
             return self.send_to_agent(text, ctx);
         }
+        if let CoreEvent::ConfigReloaded = event {
+            self.scrollback = terminal_config(&self.root).scrollback;
+        }
         if let CoreEvent::Appearance { theme, font_size, code_font } = event {
             self.theme = theme.clone();
             self.font_size = *font_size;
@@ -1200,6 +1256,13 @@ impl TerminalExtension {
                 Task::none()
             }
             "terminal.next_attention" => self.next_attention(ctx),
+            "terminal.find" => {
+                ctx.show_panel(PANEL);
+                if self.find.is_some() {
+                    return Task::batch([operation::focus(find_input_id()), operation::select_all(find_input_id())]);
+                }
+                self.find_toggle()
+            }
             "terminal.rename" => {
                 if let Some(id) = self.current().map(|t| t.id) {
                     self.ask_rename(id, ctx);
@@ -1242,6 +1305,16 @@ impl TerminalExtension {
                 return self.after_removal(ctx);
             }
             Message::CloseCurrent => return self.close_asking(ctx),
+            Message::FindToggle => return self.find_toggle(),
+            Message::FindText(text) => {
+                // Do começo de novo: tira a seleção da busca anterior e acha a ocorrência mais nova.
+                if let Some(term) = self.current_mut() {
+                    term.handle(iced_term::Command::ProxyToBackend(iced_term::BackendCommand::ClearSelection));
+                }
+                self.find = Some(text);
+                self.find_in_current(true);
+            }
+            Message::FindNext(older) => self.find_in_current(older),
             Message::ShowId(id) => return self.show_id(id, ctx),
             Message::AskRename(id) => self.ask_rename(id, ctx),
             Message::Rename(id, name) => {
@@ -1366,6 +1439,7 @@ impl Extension for TerminalExtension {
 
     fn activate(&mut self, ctx: &mut Context) -> Task<Message> {
         self.root = ctx.root().to_path_buf();
+        self.scrollback = terminal_config(&self.root).scrollback;
         ctx.register_panel_hidden(PANEL, "Terminal", Slot::Bottom);
         ctx.panel_icon(PANEL, Icon::Terminal);
         ctx.register_command("terminal.focus", fl!("cmd-terminal-focus"));
@@ -1377,6 +1451,7 @@ impl Extension for TerminalExtension {
         ctx.register_command("terminal.goto", fl!("cmd-terminal-goto"));
         ctx.register_command("terminal.next_attention", fl!("cmd-terminal-next-attention"));
         ctx.register_command("terminal.rename", fl!("cmd-terminal-rename"));
+        ctx.register_command("terminal.find", fl!("cmd-terminal-find"));
         Task::none()
     }
 
@@ -1468,6 +1543,9 @@ impl Extension for TerminalExtension {
                     .style(if on { button::primary } else { button::secondary }),
             );
         }
+        if self.current().is_some() {
+            bar = bar.push(icons::toggle_button(Icon::Search, fl!("cmd-terminal-find"), self.find.is_some(), Message::FindToggle));
+        }
         bar = bar.push(icons::icon_button(Icon::Add, fl!("cmd-terminal-new"), Some(Message::Start)));
         bar = bar.push(space::horizontal());
         // O pedido se recusa pelo botão dele, não pelo ×.
@@ -1475,7 +1553,35 @@ impl Extension for TerminalExtension {
             let close = if self.shown == Shown::Task { fl!("terminal-close-task") } else { fl!("terminal-close") };
             bar = bar.push(icons::icon_button(Icon::Close, close, Some(Message::CloseCurrent)));
         }
-        column![bar, body].spacing(2).into()
+        let find: Option<Element<'_, Message>> = match (&self.find, self.current()) {
+            (Some(query), Some(_)) => {
+                let input = text_input(&fl!("terminal-find-placeholder"), query)
+                    .id(find_input_id())
+                    .on_input(Message::FindText)
+                    .on_submit(Message::FindNext(true))
+                    .size(12)
+                    .padding(3)
+                    .width(260);
+                let mut line = row![
+                    input,
+                    icons::icon_button(Icon::ArrowUp, fl!("terminal-find-older"), Some(Message::FindNext(true))),
+                    icons::icon_button(Icon::ArrowDown, fl!("terminal-find-newer"), Some(Message::FindNext(false))),
+                ]
+                .spacing(4)
+                .align_y(iced::Center);
+                if self.find_missing {
+                    line = line.push(text(fl!("terminal-find-none")).size(12).style(text::danger));
+                }
+                line = line.push(space::horizontal());
+                line = line.push(icons::icon_button(Icon::Close, fl!("terminal-find-close"), Some(Message::FindToggle)));
+                Some(line.into())
+            }
+            _ => None,
+        };
+        match find {
+            Some(find) => column![bar, find, body].spacing(2).into(),
+            None => column![bar, body].spacing(2).into(),
+        }
     }
 
     fn subscription(&self) -> Subscription<Message> {
@@ -1514,6 +1620,10 @@ fn watch_requests(root: &PathBuf) -> mpsc::UnboundedReceiver<Message> {
         }
     });
     rx
+}
+
+fn find_input_id() -> Id {
+    Id::new("terminal-find")
 }
 
 /// A cor do ponto de cada estado, tirada do tema.
