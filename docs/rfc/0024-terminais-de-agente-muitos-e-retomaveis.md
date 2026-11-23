@@ -95,10 +95,22 @@ O mascote, que hoje diz "um agente precisa de você", passa a dizer qual, e um c
 
 - O título OSC vira o nome da aba quando o usuário não deu um (o Claude Code e o Codex mudam o título com a tarefa
   **[Hipótese]**). Duplo clique renomeia.
-- `Alt+1…9` vai para a aba N do terminal; `Ctrl+PgUp/PgDn` com o terminal em foco anda entre elas.
+- `Ctrl+Shift+PgDn/PgUp` anda entre as abas, também com o foco no terminal. (Na implementação: `Alt+1…9` ficou de
+  fora porque as teclas com Alt vão para o shell, que as usa, e `Ctrl+PgUp/PgDn` já é a troca de aba do editor.)
 - Paleta: **Terminal: ir para…** lista as abas com o estado, filtrando pelo nome (a mais útil com muitos agentes);
   **Terminal: próxima esperando você**.
-- Fechar uma aba com processo rodando pergunta antes (hoje o `×` encerra direto).
+- Fechar uma aba de agente ou de tarefa que ainda roda pergunta antes (hoje o `×` encerra direto). Um shell fecha
+  direto: a IDE não sabe se há um comando rodando dentro dele.
+
+### 2b. O pedido vai para a IDE de onde saiu
+
+**[Fato]** Com duas IDEs abertas no mesmo projeto (o caso de todo teste manual no dogfooding), um pedido de terminal
+fica com a que o vê primeiro: um `idetea run` digitado na janela de teste pode abrir na outra. **[Recomendação]** O
+`idetea run`/`idetea agent` que roda numa aba da IDE tem `IDETEA_TERMINAL=<pid>-<id>`; a CLI grava o pid no pedido
+(`"ide": <pid>`) e as outras IDEs, enquanto esse pid estiver vivo, deixam o pedido para ela. **[Fato]** Cuidado: o
+pedido é lido com `deny_unknown_fields`, então uma IDE antiga marca como `invalid` um pedido com campo novo. Antes
+de a CLI gravar o campo, a leitura precisa passar a aceitar e ignorar campos desconhecidos, e isso tem que estar
+numa versão publicada.
 
 ### 3. Lado a lado e na área do editor
 
@@ -232,7 +244,8 @@ encerrar"); o `idetea status` mostra quais estão vivos.
 
 1. M1.4 desempenho: fonte reaplicada só no terminal que aparece.
 2. M1.1 estado em cada aba (saída, fim, título OSC; depois hooks com `IDETEA_TERMINAL` e sino).
-3. M1.2 nome, atalhos, paleta e confirmação ao fechar.
+3. M1.2 nome, atalhos, paleta e confirmação ao fechar; 2b (pedido para a IDE de onde saiu) em dois passos: aceitar
+   campos desconhecidos numa versão, gravar o campo na seguinte.
 4. Patch do `iced_term`: scrollback e busca.
 5. M1.3 divisão no painel; depois o terminal na área do editor.
 6. M2: abas na sessão, retomada dos agentes, `keep_scrollback`.

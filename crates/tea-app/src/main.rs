@@ -5455,7 +5455,7 @@ mod tests {
         ids.dedup();
         assert_eq!(ids.len(), CORE_COMMANDS.len(), "ids repetidos");
 
-        let ext_commands = ["filetree.toggle", "filetree.reveal", "search.focus", "search.replace", "search.next", "search.prev", "problems.focus", "problems.next", "terminal.focus", "git.focus", "outline.toggle", "preview.toggle", "tasks.run", "tasks.rerun"];
+        let ext_commands = ["filetree.toggle", "filetree.reveal", "search.focus", "search.replace", "search.next", "search.prev", "problems.focus", "problems.next", "terminal.focus", "terminal.next", "terminal.prev", "git.focus", "outline.toggle", "preview.toggle", "tasks.run", "tasks.rerun"];
         let cfg = Config::from_layers(&[("padrão".into(), config::DEFAULT_CONFIG.into())]);
         let (keymap, errors) = tea_core::keymap::Keymap::from_pairs(cfg.keys.iter().map(|(k, c)| (k.as_str(), c.as_str())));
         assert!(errors.is_empty(), "{errors:?}");

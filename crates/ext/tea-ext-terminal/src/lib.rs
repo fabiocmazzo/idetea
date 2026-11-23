@@ -26,7 +26,7 @@ use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
 use iced::futures::channel::mpsc;
-use iced::widget::{button, column, container, keyed_column, row, space, text};
+use iced::widget::{button, column, container, keyed_column, mouse_area, row, space, text};
 use iced::{Color, Element, Fill, Font, Subscription, Task, Theme};
 use iced_term::actions::Action;
 use iced_term::settings::{BackendSettings, FontSettings, Settings, ThemeSettings};
@@ -133,6 +133,14 @@ pub enum Message {
     ExitPoll,
     /// Sinais dos hooks dos agentes para as abas (pelo id do terminal).
     Signals(Vec<(u64, tab_hooks::Signal)>),
+    /// Mostra a aba deste terminal (da paleta "ir para…").
+    ShowId(u64),
+    /// Abre a escolha do nome da aba deste terminal (duplo clique ou paleta).
+    AskRename(u64),
+    /// Nome dado pelo usuário; vazio volta ao padrão.
+    Rename(u64, String),
+    /// Fecha este terminal sem perguntar (o usuário já confirmou).
+    CloseId(u64),
 }
 
 /// De quanto em quanto tempo olhar o arquivo de código da tarefa.
@@ -277,6 +285,8 @@ pub struct TerminalExtension {
     ticking: bool,
     /// Terminais de agentes do lançador e o arquivo onde o script grava o código de saída.
     exit_watch: Vec<(u64, PathBuf)>,
+    /// Nomes que o usuário deu às abas, pelo id do terminal.
+    names: BTreeMap<u64, String>,
 }
 
 /// A pasta da worktree de um agente aberto pelo lançador: o branch, com `/` trocado por `-` (`fix/login` →
@@ -323,6 +333,7 @@ impl Default for TerminalExtension {
             activity: BTreeMap::new(),
             ticking: false,
             exit_watch: Vec::new(),
+            names: BTreeMap::new(),
         }
     }
 }
@@ -932,6 +943,129 @@ impl TerminalExtension {
         Ok(term)
     }
 
+    /// As abas de terminal, na ordem da barra, com o id do terminal de cada uma.
+    fn tabs(&self) -> Vec<(Shown, u64)> {
+        let shells = self.shells.iter().enumerate().map(|(i, s)| (Shown::Shell(i), s.term.id));
+        let task = self.task.iter().map(|t| (Shown::Task, t.term.id));
+        let agents = self.agents.iter().enumerate().map(|(i, a)| (Shown::Agent(i), a.term.id));
+        shells.chain(task).chain(agents).collect()
+    }
+
+    /// O nome da aba: o que o usuário deu; senão, num shell, o título que ele manda; senão, o padrão do tipo.
+    fn tab_label(&self, shown: Shown, id: u64) -> String {
+        if let Some(name) = self.names.get(&id) {
+            return name.clone();
+        }
+        match shown {
+            Shown::Shell(i) => match self.activity.get(&id).and_then(activity::Activity::title) {
+                Some(title) => title.to_string(),
+                None => fl!("terminal-tab-n", number = self.shells.get(i).map_or(0, |s| s.number)),
+            },
+            Shown::Task => fl!("terminal-tab-task", name = self.task.as_ref().map_or("", |t| t.name.as_str())),
+            Shown::Agent(i) => fl!("terminal-tab-agent", title = self.agents.get(i).map_or("", |a| a.title.as_str())),
+            Shown::Request => String::new(),
+        }
+    }
+
+    /// O estado da aba em texto (tooltip e paleta); vazio quando não há nada a dizer.
+    fn state_text(state: activity::State) -> String {
+        match state {
+            activity::State::Idle => String::new(),
+            activity::State::Running => fl!("terminal-state-running"),
+            activity::State::Unseen => fl!("terminal-state-unseen"),
+            activity::State::Attention(activity::Attention::Bell) => fl!("terminal-state-bell"),
+            activity::State::Attention(activity::Attention::Asked) => fl!("terminal-state-attention"),
+            activity::State::Attention(activity::Attention::TurnDone) => fl!("terminal-state-turn-done"),
+            activity::State::Exited(code) => fl!("terminal-state-exited", code = code),
+        }
+    }
+
+    fn state_of(&self, id: u64, now: Instant) -> activity::State {
+        self.activity.get(&id).map_or(activity::State::Idle, |a| a.state(now))
+    }
+
+    /// Mostra a aba do terminal `id` (se ainda existe) e abre o painel.
+    fn show_id(&mut self, id: u64, ctx: &mut Context) -> Task<Message> {
+        let Some((shown, _)) = self.tabs().into_iter().find(|(_, t)| *t == id) else { return Task::none() };
+        self.shown = shown;
+        if let Shown::Agent(i) = shown {
+            self.clock += 1;
+            self.agents[i].used = self.clock;
+        }
+        ctx.show_panel(PANEL);
+        self.focus_current()
+    }
+
+    /// A aba seguinte (ou a anterior), dando a volta.
+    fn cycle(&mut self, forward: bool, ctx: &mut Context) -> Task<Message> {
+        let tabs = self.tabs();
+        if tabs.is_empty() {
+            return self.show_shell(ctx);
+        }
+        let at = tabs.iter().position(|(s, _)| *s == self.shown);
+        let next = match (at, forward) {
+            (None, _) => 0,
+            (Some(i), true) => (i + 1) % tabs.len(),
+            (Some(i), false) => (i + tabs.len() - 1) % tabs.len(),
+        };
+        self.show_id(tabs[next].1, ctx)
+    }
+
+    /// A próxima aba (depois da atual, dando a volta) que pede atenção.
+    fn next_attention(&mut self, ctx: &mut Context) -> Task<Message> {
+        let tabs = self.tabs();
+        let now = Instant::now();
+        let at = tabs.iter().position(|(s, _)| *s == self.shown).map_or(0, |i| i + 1);
+        let found = (0..tabs.len())
+            .map(|k| tabs[(at + k) % tabs.len()].1)
+            .find(|id| matches!(self.state_of(*id, now), activity::State::Attention(_)));
+        match found {
+            Some(id) => self.show_id(id, ctx),
+            None => {
+                ctx.notify(fl!("terminal-no-attention"));
+                Task::none()
+            }
+        }
+    }
+
+    /// "Terminal: ir para…": as abas com o estado, para escolher pelo nome.
+    fn pick_tab(&self, ctx: &mut Context) {
+        let now = Instant::now();
+        let mut pick = tea_core::pick::Pick::new(fl!("terminal-goto-placeholder"));
+        for (shown, id) in self.tabs() {
+            let detail = Self::state_text(self.state_of(id, now));
+            pick = pick.item(Some(Icon::Terminal), self.tab_label(shown, id), detail, Message::ShowId(id));
+        }
+        ctx.pick(pick);
+    }
+
+    /// Pergunta o nome da aba: o texto digitado vira o nome; o item volta ao padrão.
+    fn ask_rename(&self, id: u64, ctx: &mut Context) {
+        let mut pick = tea_core::pick::Pick::new(fl!("terminal-rename-placeholder"));
+        if self.names.contains_key(&id) {
+            pick = pick.item(None, fl!("terminal-rename-reset"), String::new(), Message::Rename(id, String::new()));
+        }
+        ctx.pick(pick.create(fl!("terminal-rename-to"), move |name| Message::Rename(id, name)));
+    }
+
+    /// Fechar a aba na tela mata o que roda nela: um agente ou uma tarefa que ainda não terminou pergunta antes.
+    /// Um shell fecha direto, como sempre (a IDE não sabe se há um comando rodando dentro dele).
+    fn close_asking(&mut self, ctx: &mut Context) -> Task<Message> {
+        let running = match self.shown {
+            Shown::Task => self.task.as_ref().filter(|t| !t.reported).map(|t| t.term.id),
+            Shown::Agent(i) => self.agents.get(i).filter(|a| !a.ended).map(|a| a.term.id),
+            _ => None,
+        };
+        let Some(id) = running else { return self.close_current(ctx) };
+        let label = self.tab_label(self.shown, id);
+        ctx.show_dialog(
+            tea_core::Dialog::new(fl!("terminal-close-running-title"), fl!("terminal-close-running", name = label))
+                .button(fl!("terminal-close-running-yes"), tea_core::ButtonKind::Danger, Message::CloseId(id))
+                .cancel(fl!("terminal-close-running-no")),
+        );
+        Task::none()
+    }
+
     /// Um evento do alacritty de um terminal: saída, sino ou título mudam o estado da aba.
     fn track(&mut self, id: u64, event: &iced_term::AlacrittyEvent) {
         use iced_term::AlacrittyEvent as E;
@@ -954,6 +1088,7 @@ impl TerminalExtension {
             let alive: Vec<u64> = self.all_terms().map(|t| t.id).collect();
             self.activity.retain(|id, _| alive.contains(id));
             self.exit_watch.retain(|(id, _)| alive.contains(id));
+            self.names.retain(|id, _| alive.contains(id));
         }
         let now = Instant::now();
         if self.ticking || !self.activity.values().any(|a| a.ticking(now)) {
@@ -1057,7 +1192,20 @@ impl TerminalExtension {
                 ctx.show_panel(PANEL);
                 self.focus_current()
             }
-            "terminal.close" => self.close_current(ctx),
+            "terminal.close" => self.close_asking(ctx),
+            "terminal.next" => self.cycle(true, ctx),
+            "terminal.prev" => self.cycle(false, ctx),
+            "terminal.goto" => {
+                self.pick_tab(ctx);
+                Task::none()
+            }
+            "terminal.next_attention" => self.next_attention(ctx),
+            "terminal.rename" => {
+                if let Some(id) = self.current().map(|t| t.id) {
+                    self.ask_rename(id, ctx);
+                }
+                Task::none()
+            }
             "terminal.restart" => {
                 if !self.restart(ctx) {
                     return Task::none();
@@ -1093,7 +1241,24 @@ impl TerminalExtension {
                 self.task = None;
                 return self.after_removal(ctx);
             }
-            Message::CloseCurrent => return self.close_current(ctx),
+            Message::CloseCurrent => return self.close_asking(ctx),
+            Message::ShowId(id) => return self.show_id(id, ctx),
+            Message::AskRename(id) => self.ask_rename(id, ctx),
+            Message::Rename(id, name) => {
+                let name: String = name.chars().filter(|c| !c.is_control()).collect();
+                let name = name.trim();
+                if name.is_empty() {
+                    self.names.remove(&id);
+                } else {
+                    self.names.insert(id, name.chars().take(40).collect());
+                }
+            }
+            Message::CloseId(id) => {
+                if let Some((shown, _)) = self.tabs().into_iter().find(|(_, t)| *t == id) {
+                    self.shown = shown;
+                    return self.close_current(ctx);
+                }
+            }
             Message::Requests(found) => return self.requests(found, ctx),
             Message::ShowAgent(i) => {
                 if i < self.agents.len() {
@@ -1207,6 +1372,11 @@ impl Extension for TerminalExtension {
         ctx.register_command("terminal.new", fl!("cmd-terminal-new"));
         ctx.register_command("terminal.close", fl!("cmd-terminal-close"));
         ctx.register_command("terminal.restart", fl!("cmd-terminal-restart"));
+        ctx.register_command("terminal.next", fl!("cmd-terminal-next"));
+        ctx.register_command("terminal.prev", fl!("cmd-terminal-prev"));
+        ctx.register_command("terminal.goto", fl!("cmd-terminal-goto"));
+        ctx.register_command("terminal.next_attention", fl!("cmd-terminal-next-attention"));
+        ctx.register_command("terminal.rename", fl!("cmd-terminal-rename"));
         Task::none()
     }
 
@@ -1254,12 +1424,13 @@ impl Extension for TerminalExtension {
         }
         let now = Instant::now();
         // Cada aba: o ponto do estado (RFC 0024, M1.1), o nome e, parando o mouse, o que o ponto quer dizer e o
-        // título que o programa mandou. Na aba da tela, só o fim aparece: o resto ela já mostra.
-        let tab = |label: String, id: u64, on: bool, msg: Message| -> Element<'_, Message> {
+        // título que o programa mandou. Na aba da tela, só o fim aparece: o resto ela já mostra. Duplo clique
+        // renomeia.
+        let mut bar = row![].spacing(4).align_y(iced::Center);
+        for (shown, id) in self.tabs() {
+            let on = self.shown == shown;
             let kind = if on { tea_core::style::Tab::Shown } else { tea_core::style::Tab::Idle };
-            let act = self.activity.get(&id);
-            let state = act.map_or(activity::State::Idle, |a| a.state(now));
-            let state = match state {
+            let state = match self.state_of(id, now) {
                 activity::State::Running | activity::State::Unseen if on => activity::State::Idle,
                 s => s,
             };
@@ -1267,40 +1438,26 @@ impl Extension for TerminalExtension {
             if state != activity::State::Idle {
                 content = content.push(text("●").size(9).style(move |t: &Theme| text::Style { color: Some(state_color(t, state)) }));
             }
-            content = content.push(text(label).size(12));
-            let b = button(content)
-                .on_press(msg)
-                .padding([2, 10])
-                .style(move |t: &iced::Theme, st| tea_core::style::tab(t, st, kind));
+            content = content.push(text(self.tab_label(shown, id)).size(12));
+            let msg = match shown {
+                Shown::Shell(i) => Message::ShowShell(i),
+                Shown::Task => Message::ShowTask,
+                Shown::Agent(i) => Message::ShowAgent(i),
+                Shown::Request => Message::ShowRequest,
+            };
+            // O `mouse_area` fica dentro do botão: por fora, o botão capturaria o clique e o duplo clique nunca
+            // chegaria. Ele seleciona ao soltar e renomeia no duplo clique; o botão só dá a aparência (passar o mouse).
+            let inner = mouse_area(container(content).padding([2, 10])).on_release(msg.clone()).on_double_click(Message::AskRename(id));
+            let b = button(inner).on_press(msg).padding(0).style(move |t: &iced::Theme, st| tea_core::style::tab(t, st, kind));
             let mut tip: Vec<String> = Vec::new();
-            match state {
-                activity::State::Idle => {}
-                activity::State::Running => tip.push(fl!("terminal-state-running")),
-                activity::State::Unseen => tip.push(fl!("terminal-state-unseen")),
-                activity::State::Attention(activity::Attention::Bell) => tip.push(fl!("terminal-state-bell")),
-                activity::State::Attention(activity::Attention::Asked) => tip.push(fl!("terminal-state-attention")),
-                activity::State::Attention(activity::Attention::TurnDone) => tip.push(fl!("terminal-state-turn-done")),
-                activity::State::Exited(code) => tip.push(fl!("terminal-state-exited", code = code)),
+            let what = Self::state_text(state);
+            if !what.is_empty() {
+                tip.push(what);
             }
-            if let Some(title) = act.and_then(activity::Activity::title) {
+            if let Some(title) = self.activity.get(&id).and_then(activity::Activity::title) {
                 tip.push(title.to_string());
             }
-            if tip.is_empty() { b.into() } else { icons::with_tip(b, tip.join(" · ")) }
-        };
-        let mut bar = row![].spacing(4).align_y(iced::Center);
-        for (i, s) in self.shells.iter().enumerate() {
-            // O título que o shell manda (pasta, comando) diz mais que o número, quando há.
-            let label = match self.activity.get(&s.term.id).and_then(activity::Activity::title) {
-                Some(title) => title.to_string(),
-                None => fl!("terminal-tab-n", number = s.number),
-            };
-            bar = bar.push(tab(label, s.term.id, self.shown == Shown::Shell(i), Message::ShowShell(i)));
-        }
-        if let Some(task) = &self.task {
-            bar = bar.push(tab(fl!("terminal-tab-task", name = task.name.as_str()), task.term.id, self.shown == Shown::Task, Message::ShowTask));
-        }
-        for (i, a) in self.agents.iter().enumerate() {
-            bar = bar.push(tab(fl!("terminal-tab-agent", title = a.title.as_str()), a.term.id, self.shown == Shown::Agent(i), Message::ShowAgent(i)));
+            bar = bar.push(if tip.is_empty() { b.into() } else { icons::with_tip(b, tip.join(" · ")) });
         }
         if !self.pending.is_empty() {
             let on = self.shown == Shown::Request;
@@ -1678,6 +1835,32 @@ mod tests {
         std::fs::write(root.join(agents::DIR).join("ruim.json"), bad.to_string()).unwrap();
         let _ = ext.update(Message::Requests(agents::scan(&root)), &mut Context::new(&root, None));
         assert_eq!(status(&root, "ruim"), "invalid");
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    /// RFC 0024, M1.2: a próxima/anterior dão a volta; o nome dado vale mais que o padrão e vazio volta a ele.
+    #[cfg(unix)]
+    #[test]
+    fn tabs_cycle_and_rename() {
+        let root = std::env::temp_dir().join(format!("idetea-tabs-cycle-{}", std::process::id()));
+        std::fs::create_dir_all(&root).unwrap();
+        let mut ext = TerminalExtension::new();
+        let _ = ext.activate(&mut Context::new(&root, None));
+        for _ in 0..3 {
+            assert!(ext.start(&mut Context::new(&root, None)));
+        }
+        assert_eq!(ext.shown, Shown::Shell(2));
+        let _ = ext.on_command("terminal.next", &mut Context::new(&root, None));
+        assert_eq!(ext.shown, Shown::Shell(0), "dá a volta");
+        let _ = ext.on_command("terminal.prev", &mut Context::new(&root, None));
+        assert_eq!(ext.shown, Shown::Shell(2));
+        let id = ext.shells[1].term.id;
+        let _ = ext.update(Message::Rename(id, "  servidor\n ".into()), &mut Context::new(&root, None));
+        assert_eq!(ext.tab_label(Shown::Shell(1), id), "servidor");
+        let _ = ext.update(Message::Rename(id, "   ".into()), &mut Context::new(&root, None));
+        assert_eq!(ext.tab_label(Shown::Shell(1), id), fl!("terminal-tab-n", number = 2));
+        let _ = ext.update(Message::ShowId(id), &mut Context::new(&root, None));
+        assert_eq!(ext.shown, Shown::Shell(1));
         let _ = std::fs::remove_dir_all(&root);
     }
 
