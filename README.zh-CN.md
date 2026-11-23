@@ -114,13 +114,13 @@
 ## 安装
 
 **Linux、macOS和Windows，下载就能跑。**当前版本是
-[v0.15.0](https://github.com/fabiocmazzo/idetea/releases/tag/v0.15.0)。
+[v0.16.0](https://github.com/fabiocmazzo/idetea/releases/tag/v0.16.0)。
 该页的`SHA256SUMS`里是校验和。有更新版本时请改`VERSION`，或到[Releases](https://github.com/fabiocmazzo/idetea/releases)里选文件。
 
 **Linux (x86_64).** 解压并运行`install.sh`。它会把`idetea`放到`~/.local/bin`，并加入应用菜单：
 
 ```sh
-VERSION=0.15.0
+VERSION=0.16.0
 curl -fsSL -O "https://github.com/fabiocmazzo/idetea/releases/download/v${VERSION}/idetea-${VERSION}-x86_64-linux.tar.gz"
 tar -xzf idetea-${VERSION}-x86_64-linux.tar.gz
 cd idetea-${VERSION}-x86_64-linux
@@ -132,7 +132,7 @@ ARM请改用`idetea-${VERSION}-aarch64-linux.tar.gz`。如果更想要单个文�
 **macOS (Apple Silicon).** 压缩包里有`IDE TEA.app`：
 
 ```sh
-VERSION=0.15.0
+VERSION=0.16.0
 curl -fsSL -O "https://github.com/fabiocmazzo/idetea/releases/download/v${VERSION}/idetea-${VERSION}-aarch64-macos.tar.gz"
 tar -xzf idetea-${VERSION}-aarch64-macos.tar.gz
 cd idetea-${VERSION}-aarch64-macos
@@ -142,13 +142,13 @@ cd idetea-${VERSION}-aarch64-macos
 目前还没有Intel Mac的包。
 
 **Windows (x86_64).** 下载并运行
-[IDE_TEA-0.15.0-x86_64-setup.exe](https://github.com/fabiocmazzo/idetea/releases/download/v0.15.0/IDE_TEA-0.15.0-x86_64-setup.exe)，
+[IDE_TEA-0.16.0-x86_64-setup.exe](https://github.com/fabiocmazzo/idetea/releases/download/v0.16.0/IDE_TEA-0.16.0-x86_64-setup.exe)，
 或解压便携版
-[idetea-0.15.0-x86_64-windows.zip](https://github.com/fabiocmazzo/idetea/releases/download/v0.15.0/idetea-0.15.0-x86_64-windows.zip)
+[idetea-0.16.0-x86_64-windows.zip](https://github.com/fabiocmazzo/idetea/releases/download/v0.16.0/idetea-0.16.0-x86_64-windows.zip)
 （里面是`idetea.exe`）。在PowerShell中：
 
 ```powershell
-$Version = "0.15.0"
+$Version = "0.16.0"
 Invoke-WebRequest -Uri "https://github.com/fabiocmazzo/idetea/releases/download/v$Version/IDE_TEA-$Version-x86_64-setup.exe" -OutFile "IDE_TEA-$Version-x86_64-setup.exe"
 Start-Process ".\IDE_TEA-$Version-x86_64-setup.exe"
 ```
@@ -179,7 +179,7 @@ idetea new my-app --model rust --agent claude     # 新建项目，智能体可�
 
 ## 什么时候选IDE TEA，什么时候不选
 
-[`docs/comparativo-ides.zh-CN.md`](docs/comparativo-ides.zh-CN.md)是和VS Code、Cursor、Zed、JetBrains、Helix的一份诚实对比，已按0.8.0更新。要点：
+[`docs/comparativo-ides.zh-CN.md`](docs/comparativo-ides.zh-CN.md)是和VS Code、Cursor、Zed、JetBrains、Helix的一份诚实对比，已按0.15.0更新。要点：
 
 - 终端里的智能体得到一套原生的、基于文件的协议（表单、经你批准的命令、工作树、Tea吉祥物）。那篇笔记里的其他编辑器没有这个。
 - 故意没有幽灵文本补全。如果你要按Tab补全，或要行内差异，那份文档会指向Cursor、Windsurf或Zed。

@@ -52,12 +52,12 @@
 
 <section id="install">
   <h2>1. インストール</h2>
-  <p>現在のリリースは <a href="https://github.com/fabiocmazzo/idetea/releases/tag/v0.15.0">v0.15.0</a> です。
+  <p>現在のリリースは <a href="https://github.com/fabiocmazzo/idetea/releases/tag/v0.16.0">v0.16.0</a> です。
     そのページの <code>SHA256SUMS</code> にチェックサムがあります。新しい版が出たら <code>VERSION</code> を変えるか、
     <a href="https://github.com/fabiocmazzo/idetea/releases/latest">最新リリース</a> からファイルを選んでください。</p>
   <ol class="steps">
     <li><strong>Linux (x86_64).</strong> 展開してインストーラーを実行します。<code>idetea</code> を <code>~/.local/bin</code> に置き、IDE TEA をアプリ メニューに追加します:
-<pre><code>VERSION=0.15.0
+<pre><code>VERSION=0.16.0
 curl -fsSL -O "https://github.com/fabiocmazzo/idetea/releases/download/v${VERSION}/idetea-${VERSION}-x86_64-linux.tar.gz"
 tar -xzf idetea-${VERSION}-x86_64-linux.tar.gz
 cd idetea-${VERSION}-x86_64-linux
@@ -66,18 +66,18 @@ cd idetea-${VERSION}-x86_64-linux
       <code>IDE_TEA-${VERSION}-x86_64.AppImage</code>（または <code>IDE_TEA-${VERSION}-aarch64.AppImage</code>）をダウンロードし、<code>chmod +x</code> して開きます。
       <code>--install-desktop</code> でメニューに追加します。</li>
     <li><strong>macOS (Apple Silicon).</strong> アーカイブに <code>IDE TEA.app</code> が入っています:
-<pre><code>VERSION=0.15.0
+<pre><code>VERSION=0.16.0
 curl -fsSL -O "https://github.com/fabiocmazzo/idetea/releases/download/v${VERSION}/idetea-${VERSION}-aarch64-macos.tar.gz"
 tar -xzf idetea-${VERSION}-aarch64-macos.tar.gz
 cd idetea-${VERSION}-aarch64-macos
 ./idetea --install-desktop</code></pre>
       <code>--install-desktop</code> が <code>~/Applications/IDE TEA.app</code> を作ります。Intel Mac 向けのビルドはまだありません。</li>
     <li><strong>Windows (x86_64).</strong>
-      <a href="https://github.com/fabiocmazzo/idetea/releases/download/v0.15.0/IDE_TEA-0.15.0-x86_64-setup.exe">IDE_TEA-0.15.0-x86_64-setup.exe</a>
+      <a href="https://github.com/fabiocmazzo/idetea/releases/download/v0.16.0/IDE_TEA-0.16.0-x86_64-setup.exe">IDE_TEA-0.16.0-x86_64-setup.exe</a>
       をダウンロードして実行するか、ポータブルな
-      <a href="https://github.com/fabiocmazzo/idetea/releases/download/v0.15.0/idetea-0.15.0-x86_64-windows.zip">idetea-0.15.0-x86_64-windows.zip</a>
+      <a href="https://github.com/fabiocmazzo/idetea/releases/download/v0.16.0/idetea-0.16.0-x86_64-windows.zip">idetea-0.16.0-x86_64-windows.zip</a>
       を展開します（中に <code>idetea.exe</code> があります）。PowerShell では:
-<pre><code>$Version = "0.15.0"
+<pre><code>$Version = "0.16.0"
 Invoke-WebRequest -Uri "https://github.com/fabiocmazzo/idetea/releases/download/v$Version/IDE_TEA-$Version-x86_64-setup.exe" -OutFile "IDE_TEA-$Version-x86_64-setup.exe"
 Start-Process ".\IDE_TEA-$Version-x86_64-setup.exe"</code></pre></li>
     <li>Linux のインストーラーが <code>~/.local/bin</code> が <code>PATH</code> にないと表示したら、追加してください（例: <code>~/.profile</code>）。

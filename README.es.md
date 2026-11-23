@@ -128,14 +128,14 @@ dentro del README. Los pósters abren el clip en el sitio, con sonido. Los archi
 ## Instalación
 
 **Linux, macOS y Windows, listo para usar.** La versión actual es
-[v0.15.0](https://github.com/fabiocmazzo/idetea/releases/tag/v0.15.0).
+[v0.16.0](https://github.com/fabiocmazzo/idetea/releases/tag/v0.16.0).
 `SHA256SUMS` en esa página tiene las sumas de verificación. Cambia `VERSION` cuando salga una más nueva, o elige el
 archivo en [Releases](https://github.com/fabiocmazzo/idetea/releases).
 
 **Linux (x86_64).** Descomprime y ejecuta `install.sh`. Pone `idetea` en `~/.local/bin` y en el menú de aplicaciones:
 
 ```sh
-VERSION=0.15.0
+VERSION=0.16.0
 curl -fsSL -O "https://github.com/fabiocmazzo/idetea/releases/download/v${VERSION}/idetea-${VERSION}-x86_64-linux.tar.gz"
 tar -xzf idetea-${VERSION}-x86_64-linux.tar.gz
 cd idetea-${VERSION}-x86_64-linux
@@ -149,7 +149,7 @@ En ARM, usa `idetea-${VERSION}-aarch64-linux.tar.gz`. Si prefieres un solo archi
 **macOS (Apple Silicon).** El archivo incluye `IDE TEA.app`:
 
 ```sh
-VERSION=0.15.0
+VERSION=0.16.0
 curl -fsSL -O "https://github.com/fabiocmazzo/idetea/releases/download/v${VERSION}/idetea-${VERSION}-aarch64-macos.tar.gz"
 tar -xzf idetea-${VERSION}-aarch64-macos.tar.gz
 cd idetea-${VERSION}-aarch64-macos
@@ -159,13 +159,13 @@ cd idetea-${VERSION}-aarch64-macos
 Todavía no hay paquete para Mac con Intel.
 
 **Windows (x86_64).** Descarga y ejecuta
-[IDE_TEA-0.15.0-x86_64-setup.exe](https://github.com/fabiocmazzo/idetea/releases/download/v0.15.0/IDE_TEA-0.15.0-x86_64-setup.exe),
+[IDE_TEA-0.16.0-x86_64-setup.exe](https://github.com/fabiocmazzo/idetea/releases/download/v0.16.0/IDE_TEA-0.16.0-x86_64-setup.exe),
 o descomprime el
-[idetea-0.15.0-x86_64-windows.zip](https://github.com/fabiocmazzo/idetea/releases/download/v0.15.0/idetea-0.15.0-x86_64-windows.zip)
+[idetea-0.16.0-x86_64-windows.zip](https://github.com/fabiocmazzo/idetea/releases/download/v0.16.0/idetea-0.16.0-x86_64-windows.zip)
 portátil (`idetea.exe` está dentro). En PowerShell:
 
 ```powershell
-$Version = "0.15.0"
+$Version = "0.16.0"
 Invoke-WebRequest -Uri "https://github.com/fabiocmazzo/idetea/releases/download/v$Version/IDE_TEA-$Version-x86_64-setup.exe" -OutFile "IDE_TEA-$Version-x86_64-setup.exe"
 Start-Process ".\IDE_TEA-$Version-x86_64-setup.exe"
 ```
@@ -202,7 +202,7 @@ los atajos. Las guías están en el [sitio](https://idetea.belabs.cloud/es/).
 ## Por qué IDE TEA, y cuándo no
 
 [`docs/comparativo-ides.md`](docs/comparativo-ides.md) es una comparación honesta con VS Code, Cursor, Zed, JetBrains
-y Helix, actualizada para la 0.8.0 (en portugués). En resumen:
+y Helix, actualizada para la 0.15.0 (en portugués). En resumen:
 
 - El agente de la terminal tiene un protocolo nativo, hecho de archivos (formularios, comandos que tú apruebas,
   worktrees, la mascota Tea). Eso es lo que los otros editores de esa nota no tienen.
