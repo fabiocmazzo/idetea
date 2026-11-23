@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["crates/tea-core", "crates/tea-declarative-ui", "crates/tea-plugins", "crates/tea-editor", "crates/tea-lsp", "crates/tea-dap", "crates/tea-skills", "crates/tea-table", "crates/tea-app", "crates/ext/*"]
+members = ["crates/tea-core", "crates/tea-declarative-ui", "crates/tea-plugins", "crates/tea-editor", "crates/tea-lsp", "crates/tea-dap", "crates/tea-skills", "crates/tea-table", "crates/tea-app", "crates/iced_term", "crates/ext/*"]
 
 [workspace.package]
 version = "0.15.0"
@@ -24,6 +24,8 @@ regex = "1"
 # Encodings além de UTF-8 (RFC 0021); já vinha no lock pelo rust-i18n.
 encoding_rs = "0.8"
 serde_json = "1"
+# O id da conversa que o lançador escolhe para o Claude Code (RFC 0024, M2); já vinha no lock pelo zbus.
+uuid = { version = "1", features = ["v4"] }
 i18n-embed = { version = "0.16", features = ["fluent-system"] }
 i18n-embed-fl = "0.10"
 rust-embed = "8"
@@ -38,6 +40,7 @@ tea-table = { path = "crates/tea-table" }
 tea-editor = { path = "crates/tea-editor" }
 tea-lsp = { path = "crates/tea-lsp" }
 tea-dap = { path = "crates/tea-dap" }
+iced_term = { path = "crates/iced_term" }
 tea-ext-filetree = { path = "crates/ext/tea-ext-filetree" }
 tea-ext-statusbar = { path = "crates/ext/tea-ext-statusbar" }
 tea-ext-search = { path = "crates/ext/tea-ext-search" }

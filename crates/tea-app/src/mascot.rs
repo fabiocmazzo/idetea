@@ -2182,6 +2182,15 @@ pub fn run_cli(args: &[String], cwd: &Path) -> i32 {
         }
     }
 
+    // Rodando numa aba do terminal da IDE (um hook do agente herda a variável): a aba também fica sabendo
+    // (RFC 0024, M1.1). Falhar aqui não impede o mascote.
+    #[cfg(feature = "ext-terminal")]
+    if let (Ok(tab), Some(signal)) =
+        (std::env::var(tea_ext_terminal::tab_hooks::ENV), tea_ext_terminal::tab_hooks::Signal::from_mood(mood.as_str()))
+    {
+        let _ = tea_ext_terminal::tab_hooks::write(&root, &tab, signal);
+    }
+
     let dir = root.join(".idetea");
     if std::fs::create_dir_all(&dir).is_err() {
         return EXIT_INVALID;

@@ -1,0 +1,21 @@
+# iced_term no workspace
+
+Cópia do [iced_term](https://github.com/Harzu/iced_term) 0.8.0 (licença MIT, em `LICENSE`), do commit
+`e0e90be2c160bd68f1bf544a51bf772d75b98ffc`, publicado no crates.io. Trazida para cá pela
+[ADR 0004](../../docs/decisions/0004-iced-term-no-workspace.md) para a RFC 0024 (histórico configurável, busca e,
+depois, um backend que não seja dono do PTY).
+
+O código de `src/` entrou sem mudança (commit "vendor iced_term 0.8.0"). Cada mudança depois disso fica listada
+aqui, com o motivo, para dar para comparar com o upstream ou mandar a ele quando fizer sentido.
+
+## Mudanças
+
+- **`BackendSettings::scrollback`** (RFC 0024, M1.4): o número de linhas do histórico, que ia fixo no
+  `term::Config::default()` (10 000). O padrão continua 10 000.
+- **`BackendCommand::Search { text, older }`, `BackendCommand::ClearSelection` e `Action::SearchResult(bool)`**
+  (RFC 0024, M1.4): busca de texto literal (com o "smart case" do alacritty) no histórico, a partir da seleção ou
+  do fim, selecionando e rolando até a ocorrência. Usa o `RegexSearch`/`search_next` do alacritty, que o upstream
+  só usava para achar URLs. Com testes (`search_tests`).
+- **`Terminal::text(max_lines)` e `BackendSettings::preamble`** (RFC 0024, M2): o texto das últimas linhas
+  (histórico e tela, sem cores) e uma saída mostrada antes do programa começar, passada pelo parser antes de o
+  laço do pty existir (o programa nunca a recebe). Juntos, mostram o texto da sessão anterior. Com teste.

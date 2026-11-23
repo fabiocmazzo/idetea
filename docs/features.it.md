@@ -92,6 +92,27 @@ L'elenco completo, per chi vuole il dettaglio tecnico. Per la versione breve, ve
 - Diverse shell in schede («Terminale 1», «Terminale 2»…), più la scheda propria dell'attività; `+` ne apre una, `×` la chiude,
   `exit` chiude la scheda.
 - Le scelte rapide della shell (`Ctrl+C`, `Ctrl+W`…) vanno alla shell; le scelte rapide `Ctrl+Shift` dell'IDE continuano a funzionare.
+- Ogni scheda mostra un punto con il suo stato: in esecuzione, nuovo output che non hai visto, chiede la tua
+  attenzione (il campanello o gli hook di un agente) e, alla fine, il codice di uscita (verde o rosso); il tooltip
+  lo spiega. Le schede di shell prendono il titolo che la shell imposta.
+- Gli agenti raggiungono la propria scheda: ogni scheda riceve `IDETEA_TERMINAL`, e gli hook di Claude Code
+  installati da `idetea mascot setup-hooks` segnano la scheda dove gira l'agente quando chiede un permesso o finisce
+  il suo turno.
+- `Ctrl+Shift+PgDn` / `Ctrl+Shift+PgUp` passano tra le schede del terminale, anche dall'interno del terminale.
+  *Terminale: vai a…* elenca le schede con il loro stato; *Terminale: prossima scheda che ti aspetta* va alla
+  prossima che ha bisogno di te. Un doppio clic su una scheda (o *Terminale: rinomina la scheda*) le dà un nome.
+- Chiudere un agente o un'attività ancora in esecuzione chiede prima.
+- Due terminali affiancati (`Ctrl+Shift+5` o il pulsante di divisione); un clic o la digitazione in uno gli dà il
+  focus.
+- Ricerca nel terminale (la lente, o *Terminale: cerca*): testo semplice, il risultato più recente per primo.
+- `[terminal] scrollback` stabilisce quante righe tiene ogni scheda (10000 per impostazione predefinita).
+- Le schede del terminale tornano quando l’IDE si riapre: le shell da sole, con il loro nome; gli agenti aperti dal
+  launcher solo se lo vuoi (*Riprendi tutti*, *Scegli…*, *No*, o più tardi *Terminale: riprendi gli agenti della
+  sessione precedente*). Claude Code e Codex riprendono la stessa conversazione; gli altri agenti ne iniziano una
+  nuova.
+- `[terminal] keep_scrollback = true` conserva le ultime righe di ogni scheda alla chiusura e le mostra una volta
+  sopra il nuovo prompt. Disattivato per impostazione predefinita: un terminale contiene password e token. Il testo
+  resta fuori dal progetto, leggibile solo da te.
 
 ## Git
 
@@ -217,6 +238,8 @@ Dettagli dei terminali di agente (per ora in portoghese): [terminais-de-agente.m
 | `Ctrl+Shift+F` | Cerca nel progetto |
 | `F4` / `Maiusc+F4` | Risultato di ricerca successivo / precedente |
 | `` Ctrl+` `` / `Ctrl+'` | Terminale |
+| `Ctrl+Shift+PgDn` / `Ctrl+Shift+PgUp` | Scheda del terminale successiva / precedente |
+| `Ctrl+Shift+5` | Dividi il terminale |
 | `Ctrl+Shift+T` | Riapri l'ultima scheda chiusa |
 | `Ctrl+Shift+G` | Git |
 | `Ctrl+Shift+M` / `F8` | Problemi / problema successivo |

@@ -47,3 +47,47 @@ run-invalid = idetea run: request "{ $name }" is invalid: { $error }
 run-ended = idetea run: "{ $name }" ended without a code ({ $state })
 run-branch = idetea run: the work is on branch { $branch }
 run-timeout = idetea run: time is up and "{ $name }" is still in the terminal (idetea run --wait { $name } waits again; --stop ends it)
+
+## Tab state (RFC 0024)
+terminal-state-running = Running
+terminal-state-unseen = New output since you last looked
+terminal-state-attention = Asked for your attention (permission or an answer)
+terminal-state-exited = Ended with code { $code }
+terminal-state-bell = Rang the bell
+terminal-state-turn-done = Finished its turn and is waiting for you
+cmd-terminal-next = Terminal: next tab
+cmd-terminal-prev = Terminal: previous tab
+cmd-terminal-goto = Terminal: go to…
+cmd-terminal-next-attention = Terminal: next tab waiting for you
+cmd-terminal-rename = Terminal: rename tab
+terminal-no-attention = No terminal tab needs attention.
+terminal-goto-placeholder = Go to terminal tab…
+terminal-rename-placeholder = Tab name
+terminal-rename-reset = Back to the default name
+terminal-rename-to = Rename to
+terminal-close-running-title = Close the tab?
+terminal-close-running = { $name } is still running. Closing the tab stops the process.
+terminal-close-running-yes = Close and stop
+terminal-close-running-no = Cancel
+cmd-terminal-find = Terminal: find
+terminal-find-placeholder = Find in terminal (Enter: older)
+terminal-find-older = Older (up)
+terminal-find-newer = Newer (down)
+terminal-find-none = No matches
+terminal-find-close = Close find
+cmd-terminal-split = Terminal: split (or unsplit)
+cmd-terminal-resume = Terminal: resume agents from the last session
+terminal-resume-nothing = No agents from the last session waiting.
+terminal-resume-title = Resume the agents?
+terminal-resume-message = { $count ->
+    [one] One agent was open when the IDE closed: { $names }.
+   *[other] { $count } agents were open when the IDE closed: { $names }.
+}
+terminal-resume-all = Resume all
+terminal-resume-pick = Choose…
+terminal-resume-none = No
+terminal-resume-pick-placeholder = Agent to resume…
+terminal-resume-same = same conversation
+terminal-resume-new = new conversation
+terminal-resume-failed = Could not resume the conversation of { $title } (code { $code }). Start a new one with "Agents: launch…" (Ctrl+Shift+A).
+terminal-previous-session = — previous session, { $when } —

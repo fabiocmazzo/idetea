@@ -86,6 +86,8 @@ impl State {
 pub struct OnDisk {
     pub state: String,
     pub ide: Option<u32>,
+    /// O código de saída, no `exited`.
+    pub code: Option<i32>,
 }
 
 pub fn valid_name(name: &str) -> bool {
@@ -227,6 +229,7 @@ pub fn read_status(root: &Path, name: &str) -> Option<OnDisk> {
     Some(OnDisk {
         state: value.get("state")?.as_str()?.to_string(),
         ide: value.get("ide").and_then(serde_json::Value::as_u64).and_then(|p| u32::try_from(p).ok()),
+        code: value.get("code").and_then(serde_json::Value::as_i64).and_then(|c| i32::try_from(c).ok()),
     })
 }
 
@@ -386,9 +389,9 @@ mod tests {
         let v: serde_json::Value = serde_json::from_str(&text).unwrap();
         assert_eq!((v["state"].as_str(), v["code"].as_i64(), v["format"].as_str()), (Some("exited"), Some(3), Some(STATUS_FORMAT)));
         let me = std::process::id();
-        assert_eq!(read_status(&root, "a"), Some(OnDisk { state: "exited".into(), ide: Some(me) }));
+        assert_eq!(read_status(&root, "a"), Some(OnDisk { state: "exited".into(), ide: Some(me), code: Some(3) }));
 
-        let disk = |state: &str, ide: Option<u32>| OnDisk { state: state.into(), ide };
+        let disk = |state: &str, ide: Option<u32>| OnDisk { state: state.into(), ide, code: None };
         // Um pid que não existe (acima do máximo do Linux).
         let dead = 4_194_400;
         assert_eq!(decide(None, me), Decision::Ask);

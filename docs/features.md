@@ -89,6 +89,24 @@ The full list, for the technical reader. For the short version, see the [README]
 - Several shells in tabs ("Terminal 1", "Terminal 2"…), plus the task's own tab; `+` opens one, `×` closes it,
   `exit` closes the tab.
 - Shell shortcuts (`Ctrl+C`, `Ctrl+W`…) go to the shell; the IDE's `Ctrl+Shift` shortcuts keep working.
+- Each tab shows a dot with its state: running, new output you haven't seen, asking for your attention (the bell,
+  or an agent's hooks) and, when it ends, the exit code (green or red); hovering explains it. Shell tabs take the
+  title the shell sets.
+- Agents reach their own tab: every tab gets `IDETEA_TERMINAL`, and the Claude Code hooks installed by
+  `idetea mascot setup-hooks` mark the tab where the agent runs when it asks for permission or finishes its turn.
+- `Ctrl+Shift+PgDn` / `Ctrl+Shift+PgUp` move between terminal tabs, also from inside the terminal. *Terminal: go
+  to…* lists the tabs with their state; *Terminal: next tab waiting for you* jumps to the next one that needs you.
+  Double-click a tab (or *Terminal: rename tab*) to name it.
+- Closing an agent or a task that is still running asks first.
+- Two terminals side by side (`Ctrl+Shift+5` or the split button); click or type in one to give it the focus.
+- Find in the terminal (the magnifier, or *Terminal: find*): plain text, newest match first.
+- `[terminal] scrollback` sets how many lines each tab keeps (10000 by default).
+- Terminal tabs come back when the IDE reopens: shells by themselves, with their names; agents opened by the
+  launcher only after you say so (*Resume all*, *Choose…*, *No*, or later *Terminal: resume agents from the last
+  session*). Claude Code and Codex come back to the same conversation; other agents start a new one.
+- `[terminal] keep_scrollback = true` keeps the last lines of each tab when the IDE closes and shows them above
+  the new prompt, once. Off by default: a terminal holds passwords and tokens. The text stays outside the project,
+  readable only by you.
 
 ## Git
 
@@ -211,6 +229,8 @@ Details (in Portuguese for now): [terminais-de-agente.md](terminais-de-agente.md
 | `Ctrl+Shift+F` | Search in the project |
 | `F4` / `Shift+F4` | Next / previous search result |
 | `` Ctrl+` `` / `Ctrl+'` | Terminal |
+| `Ctrl+Shift+PgDn` / `Ctrl+Shift+PgUp` | Next / previous terminal tab |
+| `Ctrl+Shift+5` | Split the terminal |
 | `Ctrl+Shift+T` | Reopen the last closed tab |
 | `Ctrl+Shift+G` | Git |
 | `Ctrl+Shift+M` / `F8` | Problems / next problem |

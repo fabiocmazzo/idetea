@@ -47,3 +47,47 @@ run-invalid = idetea run : la demande "{ $name }" n'est pas valide : { $error }
 run-ended = idetea run : "{ $name }" s'est terminé sans code ({ $state })
 run-branch = idetea run : le travail est sur la branche { $branch }
 run-timeout = idetea run : le temps est écoulé et "{ $name }" est encore dans le terminal (idetea run --wait { $name } attend à nouveau ; --stop y met fin)
+
+## État des onglets (RFC 0024)
+terminal-state-running = En cours
+terminal-state-unseen = Nouvelle sortie depuis votre dernier passage
+terminal-state-attention = Demande votre attention
+terminal-state-exited = Terminé avec le code { $code }
+terminal-state-bell = A fait sonner la cloche
+terminal-state-turn-done = A fini son tour et vous attend
+cmd-terminal-next = Terminal : onglet suivant
+cmd-terminal-prev = Terminal : onglet précédent
+cmd-terminal-goto = Terminal : aller à…
+cmd-terminal-next-attention = Terminal : prochain onglet qui vous attend
+cmd-terminal-rename = Terminal : renommer l’onglet
+terminal-no-attention = Aucun onglet de terminal ne demande d’attention.
+terminal-goto-placeholder = Aller à l’onglet de terminal…
+terminal-rename-placeholder = Nom de l’onglet
+terminal-rename-reset = Revenir au nom par défaut
+terminal-rename-to = Renommer en
+terminal-close-running-title = Fermer l’onglet ?
+terminal-close-running = { $name } est toujours en cours. Fermer l’onglet arrête le processus.
+terminal-close-running-yes = Fermer et arrêter
+terminal-close-running-no = Annuler
+cmd-terminal-find = Terminal : rechercher
+terminal-find-placeholder = Rechercher dans le terminal (Entrée : plus ancien)
+terminal-find-older = Plus ancien (haut)
+terminal-find-newer = Plus récent (bas)
+terminal-find-none = Aucun résultat
+terminal-find-close = Fermer la recherche
+cmd-terminal-split = Terminal : diviser (ou réunir)
+cmd-terminal-resume = Terminal : reprendre les agents de la session précédente
+terminal-resume-nothing = Aucun agent de la session précédente en attente.
+terminal-resume-title = Reprendre les agents ?
+terminal-resume-message = { $count ->
+    [one] Un agent était ouvert quand l’IDE s’est fermé : { $names }.
+   *[other] { $count } agents étaient ouverts quand l’IDE s’est fermé : { $names }.
+}
+terminal-resume-all = Tout reprendre
+terminal-resume-pick = Choisir…
+terminal-resume-none = Non
+terminal-resume-pick-placeholder = Agent à reprendre…
+terminal-resume-same = même conversation
+terminal-resume-new = nouvelle conversation
+terminal-resume-failed = Impossible de reprendre la conversation de { $title } (code { $code }). Ouvrez-en une nouvelle avec « Agents : lancer… » (Ctrl+Shift+A).
+terminal-previous-session = — session précédente, { $when } —

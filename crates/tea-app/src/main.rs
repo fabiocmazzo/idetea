@@ -3261,6 +3261,8 @@ impl App {
 
     fn quit(&mut self) -> Task<Message> {
         self.save_session(true);
+        // As extensões gravam o que precisam (o texto dos terminais, por exemplo); a IDE fecha logo depois.
+        let _ = self.broadcast(CoreEvent::Closing);
         // Saiu pelo caminho normal (salvou ou escolheu descartar): as cópias não servem mais.
         if let Some(dir) = &self.backup_dir {
             backup::remove_mine(dir);
@@ -5455,7 +5457,7 @@ mod tests {
         ids.dedup();
         assert_eq!(ids.len(), CORE_COMMANDS.len(), "ids repetidos");
 
-        let ext_commands = ["filetree.toggle", "filetree.reveal", "search.focus", "search.replace", "search.next", "search.prev", "problems.focus", "problems.next", "terminal.focus", "git.focus", "outline.toggle", "preview.toggle", "tasks.run", "tasks.rerun"];
+        let ext_commands = ["filetree.toggle", "filetree.reveal", "search.focus", "search.replace", "search.next", "search.prev", "problems.focus", "problems.next", "terminal.focus", "terminal.next", "terminal.prev", "terminal.split", "git.focus", "outline.toggle", "preview.toggle", "tasks.run", "tasks.rerun"];
         let cfg = Config::from_layers(&[("padrão".into(), config::DEFAULT_CONFIG.into())]);
         let (keymap, errors) = tea_core::keymap::Keymap::from_pairs(cfg.keys.iter().map(|(k, c)| (k.as_str(), c.as_str())));
         assert!(errors.is_empty(), "{errors:?}");

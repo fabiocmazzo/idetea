@@ -7,9 +7,10 @@ license.workspace = true
 [dependencies]
 iced.workspace = true
 tea-core.workspace = true
-iced_term = "0.8"
+iced_term.workspace = true
 serde.workspace = true
 serde_json.workspace = true
+toml.workspace = true
 
 [dev-dependencies]
 iced_test = "0.14"

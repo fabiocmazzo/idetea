@@ -87,6 +87,8 @@ pub enum Icon {
     SymbolConstant,
     SymbolParameter,
     SymbolMisc,
+    /// Dividir lado a lado (`split-horizontal`).
+    SplitHorizontal,
 }
 
 impl Icon {
@@ -158,6 +160,7 @@ impl Icon {
             Icon::SymbolConstant => 0xEB5D,
             Icon::SymbolParameter => 0xEA92,
             Icon::SymbolMisc => 0xEB63,
+            Icon::SplitHorizontal => 0xEB56,
         };
         char::from_u32(code).unwrap_or('?')
     }

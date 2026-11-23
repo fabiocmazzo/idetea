@@ -41,3 +41,46 @@ run-invalid = idetea run: 要求 "{ $name }" は無効です: { $error }
 run-ended = idetea run: "{ $name }" はコードなしで終了しました ({ $state })
 run-branch = idetea run: 作業はブランチ { $branch } にあります
 run-timeout = idetea run: 時間切れです。"{ $name }" はまだターミナルにあります (idetea run --wait { $name } でもう一度待ちます。--stop で終了します)
+
+## タブの状態 (RFC 0024)
+terminal-state-running = 実行中
+terminal-state-unseen = 前回見たあとに新しい出力
+terminal-state-attention = 対応を求めています
+terminal-state-exited = コード { $code } で終了
+terminal-state-bell = ベルを鳴らしました
+terminal-state-turn-done = ターンを終えて待っています
+cmd-terminal-next = ターミナル: 次のタブ
+cmd-terminal-prev = ターミナル: 前のタブ
+cmd-terminal-goto = ターミナル: 移動…
+cmd-terminal-next-attention = ターミナル: 待っている次のタブ
+cmd-terminal-rename = ターミナル: タブ名を変更
+terminal-no-attention = 対応が必要なターミナルタブはありません。
+terminal-goto-placeholder = ターミナルタブへ移動…
+terminal-rename-placeholder = タブ名
+terminal-rename-reset = 既定の名前に戻す
+terminal-rename-to = 名前を変更:
+terminal-close-running-title = タブを閉じますか？
+terminal-close-running = { $name } はまだ実行中です。タブを閉じるとプロセスが終了します。
+terminal-close-running-yes = 閉じて終了
+terminal-close-running-no = キャンセル
+cmd-terminal-find = ターミナル: 検索
+terminal-find-placeholder = ターミナル内を検索（Enter: 古い方へ）
+terminal-find-older = 古い方（上）
+terminal-find-newer = 新しい方（下）
+terminal-find-none = 見つかりません
+terminal-find-close = 検索を閉じる
+cmd-terminal-split = ターミナル: 分割（または結合）
+cmd-terminal-resume = ターミナル: 前回のセッションのエージェントを再開
+terminal-resume-nothing = 待っている前回のセッションのエージェントはありません。
+terminal-resume-title = エージェントを再開しますか？
+terminal-resume-message = { $count ->
+   *[other] IDE を閉じたときに開いていたエージェント ({ $count }): { $names }。
+}
+terminal-resume-all = すべて再開
+terminal-resume-pick = 選ぶ…
+terminal-resume-none = いいえ
+terminal-resume-pick-placeholder = 再開するエージェント…
+terminal-resume-same = 同じ会話
+terminal-resume-new = 新しい会話
+terminal-resume-failed = { $title } の会話を再開できませんでした (コード { $code })。「エージェント: 起動…」(Ctrl+Shift+A) から新しい会話を始めてください。
+terminal-previous-session = — 前回のセッション、{ $when } —

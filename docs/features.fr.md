@@ -107,6 +107,28 @@ La liste complète, pour le lecteur technique. Pour la version courte, voir le [
   un, `×` le ferme, `exit` ferme l'onglet.
 - Les raccourcis du shell (`Ctrl+C`, `Ctrl+W`…) vont au shell ; les raccourcis `Ctrl+Shift` de l'IDE continuent de
   fonctionner.
+- Chaque onglet affiche un point avec son état : en cours, nouvelle sortie que vous n'avez pas vue, demande votre
+  attention (la cloche, ou les hooks d'un agent) et, à la fin, le code de sortie (vert ou rouge) ; l'infobulle
+  l'explique. Les onglets de shell prennent le titre que le shell définit.
+- Les agents atteignent leur propre onglet : chaque onglet reçoit `IDETEA_TERMINAL`, et les hooks de Claude Code
+  installés par `idetea mascot setup-hooks` marquent l'onglet où tourne l'agent quand il demande une permission ou
+  finit son tour.
+- `Ctrl+Shift+PgDn` / `Ctrl+Shift+PgUp` passent d'un onglet de terminal à l'autre, même depuis le terminal.
+  *Terminal : aller à…* liste les onglets avec leur état ; *Terminal : prochain onglet qui vous attend* va au
+  suivant qui a besoin de vous. Un double-clic sur un onglet (ou *Terminal : renommer l’onglet*) le nomme.
+- Fermer un agent ou une tâche encore en cours demande d'abord.
+- Deux terminaux côte à côte (`Ctrl+Shift+5` ou le bouton de division) ; cliquer ou taper dans l'un lui donne le
+  focus.
+- Recherche dans le terminal (la loupe, ou *Terminal : rechercher*) : texte simple, le résultat le plus récent
+  d'abord.
+- `[terminal] scrollback` fixe le nombre de lignes que garde chaque onglet (10000 par défaut).
+- Les onglets de terminal reviennent à la réouverture de l’IDE : les shells d’eux-mêmes, avec leur nom ; les
+  agents ouverts par le lanceur seulement si vous le voulez (*Tout reprendre*, *Choisir…*, *Non*, ou plus tard
+  *Terminal : reprendre les agents de la session précédente*). Claude Code et Codex reprennent la même
+  conversation ; les autres agents en commencent une nouvelle.
+- `[terminal] keep_scrollback = true` garde les dernières lignes de chaque onglet à la fermeture et les affiche une
+  fois au-dessus de la nouvelle invite. Désactivé par défaut : un terminal contient des mots de passe et des jetons.
+  Le texte reste hors du projet, lisible par vous seul.
 
 ## Git
 
@@ -248,6 +270,8 @@ Détails (en portugais pour l'instant) : [terminais-de-agente.md](terminais-de-a
 | `Ctrl+Shift+F` | Rechercher dans le projet |
 | `F4` / `Maj+F4` | Résultat de recherche suivant / précédent |
 | `` Ctrl+` `` / `Ctrl+'` | Terminal |
+| `Ctrl+Shift+PgDn` / `Ctrl+Shift+PgUp` | Onglet de terminal suivant / précédent |
+| `Ctrl+Shift+5` | Diviser le terminal |
 | `Ctrl+Shift+T` | Rouvrir le dernier onglet fermé |
 | `Ctrl+Shift+G` | Git |
 | `Ctrl+Shift+M` / `F8` | Problèmes / problème suivant |

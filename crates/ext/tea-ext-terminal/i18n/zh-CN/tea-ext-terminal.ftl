@@ -45,3 +45,46 @@ run-invalid = idetea run：请求“{ $name }”无效：{ $error }
 run-ended = idetea run：“{ $name }”结束时没有代码（{ $state }）
 run-branch = idetea run：工作在分支 { $branch } 上
 run-timeout = idetea run：时间到了，“{ $name }”仍在终端里（idetea run --wait { $name } 会再等一次；--stop会结束它）
+
+## 标签页状态 (RFC 0024)
+terminal-state-running = 运行中
+terminal-state-unseen = 上次查看后有新输出
+terminal-state-attention = 需要你的注意
+terminal-state-exited = 已结束，代码 { $code }
+terminal-state-bell = 发出了提示音
+terminal-state-turn-done = 本轮已完成，正在等你
+cmd-terminal-next = 终端：下一个标签页
+cmd-terminal-prev = 终端：上一个标签页
+cmd-terminal-goto = 终端：转到…
+cmd-terminal-next-attention = 终端：下一个在等你的标签页
+cmd-terminal-rename = 终端：重命名标签页
+terminal-no-attention = 没有需要注意的终端标签页。
+terminal-goto-placeholder = 转到终端标签页…
+terminal-rename-placeholder = 标签页名称
+terminal-rename-reset = 恢复默认名称
+terminal-rename-to = 重命名为
+terminal-close-running-title = 关闭标签页？
+terminal-close-running = { $name } 仍在运行。关闭标签页会结束该进程。
+terminal-close-running-yes = 关闭并结束
+terminal-close-running-no = 取消
+cmd-terminal-find = 终端：查找
+terminal-find-placeholder = 在终端中查找（Enter：更早）
+terminal-find-older = 更早（向上）
+terminal-find-newer = 更新（向下）
+terminal-find-none = 没有找到
+terminal-find-close = 关闭查找
+cmd-terminal-split = 终端：拆分（或合并）
+cmd-terminal-resume = 终端：恢复上次会话的智能体
+terminal-resume-nothing = 没有等待恢复的上次会话智能体。
+terminal-resume-title = 恢复智能体吗？
+terminal-resume-message = { $count ->
+   *[other] IDE关闭时有 { $count } 个智能体打开：{ $names }。
+}
+terminal-resume-all = 全部恢复
+terminal-resume-pick = 选择…
+terminal-resume-none = 不
+terminal-resume-pick-placeholder = 要恢复的智能体…
+terminal-resume-same = 同一个对话
+terminal-resume-new = 新对话
+terminal-resume-failed = 无法恢复 { $title } 的对话（代码 { $code }）。请用“智能体: 启动…”（Ctrl+Shift+A）开始新的对话。
+terminal-previous-session = — 上次会话，{ $when } —

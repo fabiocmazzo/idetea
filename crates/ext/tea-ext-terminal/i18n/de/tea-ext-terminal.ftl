@@ -47,3 +47,47 @@ run-invalid = idetea run: Anfrage "{ $name }" ist ungültig: { $error }
 run-ended = idetea run: "{ $name }" endete ohne Code ({ $state })
 run-branch = idetea run: die Arbeit liegt auf Branch { $branch }
 run-timeout = idetea run: die Zeit ist um und "{ $name }" liegt noch im Terminal (idetea run --wait { $name } wartet erneut; --stop beendet es)
+
+## Tab-Status (RFC 0024)
+terminal-state-running = Läuft
+terminal-state-unseen = Neue Ausgabe seit dem letzten Blick
+terminal-state-attention = Bittet um Aufmerksamkeit
+terminal-state-exited = Beendet mit Code { $code }
+terminal-state-bell = Hat die Glocke geläutet
+terminal-state-turn-done = Ist fertig und wartet auf dich
+cmd-terminal-next = Terminal: nächster Tab
+cmd-terminal-prev = Terminal: vorheriger Tab
+cmd-terminal-goto = Terminal: gehe zu…
+cmd-terminal-next-attention = Terminal: nächster Tab, der auf dich wartet
+cmd-terminal-rename = Terminal: Tab umbenennen
+terminal-no-attention = Kein Terminal-Tab braucht Aufmerksamkeit.
+terminal-goto-placeholder = Zum Terminal-Tab…
+terminal-rename-placeholder = Name des Tabs
+terminal-rename-reset = Zurück zum Standardnamen
+terminal-rename-to = Umbenennen in
+terminal-close-running-title = Tab schließen?
+terminal-close-running = { $name } läuft noch. Das Schließen des Tabs beendet den Prozess.
+terminal-close-running-yes = Schließen und beenden
+terminal-close-running-no = Abbrechen
+cmd-terminal-find = Terminal: suchen
+terminal-find-placeholder = Im Terminal suchen (Enter: älter)
+terminal-find-older = Älter (oben)
+terminal-find-newer = Neuer (unten)
+terminal-find-none = Keine Treffer
+terminal-find-close = Suche schließen
+cmd-terminal-split = Terminal: teilen (oder zusammenführen)
+cmd-terminal-resume = Terminal: Agenten der letzten Sitzung fortsetzen
+terminal-resume-nothing = Keine Agenten der letzten Sitzung warten.
+terminal-resume-title = Agenten fortsetzen?
+terminal-resume-message = { $count ->
+    [one] Ein Agent war offen, als die IDE geschlossen wurde: { $names }.
+   *[other] { $count } Agenten waren offen, als die IDE geschlossen wurde: { $names }.
+}
+terminal-resume-all = Alle fortsetzen
+terminal-resume-pick = Auswählen…
+terminal-resume-none = Nein
+terminal-resume-pick-placeholder = Agent zum Fortsetzen…
+terminal-resume-same = dasselbe Gespräch
+terminal-resume-new = neues Gespräch
+terminal-resume-failed = Das Gespräch von { $title } ließ sich nicht fortsetzen (Code { $code }). Starte ein neues mit „Agenten: starten…“ (Ctrl+Shift+A).
+terminal-previous-session = — vorherige Sitzung, { $when } —

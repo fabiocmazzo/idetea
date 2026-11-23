@@ -65,18 +65,10 @@ impl Session {
 /// Onde fica a sessão de um projeto. O nome leva a pasta (para achar à mão) e um hash do caminho inteiro
 /// (duas pastas `app` em lugares diferentes não se misturam).
 pub fn path_for(root: &Path) -> Option<PathBuf> {
-    let dir = crate::ui_state::state_path()?.parent()?.join("sessions");
-    let name: String = root
-        .file_name()
-        .map(|n| n.to_string_lossy().chars().map(|c| if c.is_alphanumeric() || c == '-' || c == '_' { c } else { '_' }).collect())
-        .unwrap_or_default();
-    Some(dir.join(format!("{name}-{:016x}.toml", fnv1a(root.as_os_str().as_encoded_bytes()))))
+    tea_core::os::project_state_file("sessions", root)
 }
 
-/// FNV-1a de 64 bits: estável entre versões do Rust (o `DefaultHasher` não promete isso).
-pub(crate) fn fnv1a(bytes: &[u8]) -> u64 {
-    bytes.iter().fold(0xcbf2_9ce4_8422_2325, |h, b| (h ^ u64::from(*b)).wrapping_mul(0x0000_0100_0000_01b3))
-}
+pub(crate) use tea_core::os::fnv1a;
 
 #[cfg(test)]
 mod tests {
