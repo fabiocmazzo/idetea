@@ -240,6 +240,11 @@ encerrar"); o `idetea status` mostra quais estão vivos.
 3. **Retomada:** os agentes só voltam depois de uma pergunta, mesmo os que estão no `[agents] allow`.
 4. **Texto da tela (`keep_scrollback`):** existe, desligado por padrão.
 
+5. **Terminal na área do editor** (painel, 2026-11-23): adiado. As abas do editor são sempre um `Editor` de arquivo,
+   e generalizar isso toca sessão, editor dividido, salvar e fechar. Enquanto isso, o painel do terminal já pode
+   ficar à direita, com toda a altura, por `[extensions] terminal = { slot = "right" }` (vale ao recarregar o
+   config).
+
 ## Ordem de implementação
 
 1. M1.4 desempenho: fonte reaplicada só no terminal que aparece.

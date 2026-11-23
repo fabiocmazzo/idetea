@@ -95,6 +95,24 @@ Etapa 5 da RFC 0005. O pedido aceita `"worktree": "<branch>"`:
 
 Quem espera quem (a fila de cada agente no painel) fica para quando o uso pedir.
 
+## Estado da aba e sinais dos agentes
+
+RFC 0024, M1.1. Cada aba do terminal mostra um ponto com o estado: rodando (saída nos últimos 2 s), saída nova não
+vista, pediu atenção, e o fim com o código (verde ou vermelho). Na aba que está na tela, só o fim aparece.
+
+"Pediu atenção" vem do sino (`\a`) ou de um sinal do agente:
+
+- Toda aba recebe `IDETEA_TERMINAL=<pid da IDE>-<id do terminal>` no ambiente.
+- `idetea mascot attention` e `idetea mascot celebrating` (chamados pelos hooks `Notification` e `Stop` que o
+  `idetea mascot setup-hooks` instala para o Claude Code), rodando com essa variável, gravam também
+  `.idetea/terminals/<valor>.json`: `{"format": "idetea-terminal-signal", "version": 1, "signal": "asked"}` (ou
+  `"turn-done"`).
+- A IDE dona do pid lê o arquivo, apaga e marca a aba: "pediu sua atenção" ou "terminou a vez e espera você".
+- O valor só vale com dígitos (`^\d+-\d+$`); outro valor é ignorado, então o nome do arquivo não sai da pasta. A
+  pasta ganha um `.gitignore` com `*`.
+
+Um agente que não usa os hooks do mascote pode gravar o mesmo arquivo (pelo temporário e `mv`), ou tocar o sino.
+
 ## Comandos que rodam sem confirmar
 
 No config **do usuário** (`~/.config/idetea/config.toml`), uma lista de comandos que não precisam de confirmação:

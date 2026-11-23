@@ -92,6 +92,20 @@ Die vollständige Liste, für die technische Leserschaft. Die Kurzfassung steht 
 - Mehrere Shells in Registerkarten („Terminal 1“, „Terminal 2“ …), dazu die eigene Registerkarte der Aufgabe; `+` öffnet eine, `×` schließt sie,
   `exit` schließt die Registerkarte.
 - Tastenkürzel der Shell (`Ctrl+C`, `Ctrl+W` …) gehen an die Shell; die Tastenkürzel der IDE mit `Ctrl+Shift` funktionieren weiter.
+- Jede Registerkarte zeigt einen Punkt mit ihrem Zustand: läuft, neue Ausgabe, die Sie noch nicht gesehen haben,
+  bittet um Aufmerksamkeit (die Glocke oder die Hooks eines Agenten) und am Ende der Exit-Code (grün oder rot); der
+  Tooltip erklärt ihn. Shell-Registerkarten übernehmen den Titel, den die Shell setzt.
+- Agenten erreichen ihre eigene Registerkarte: Jede bekommt `IDETEA_TERMINAL`, und die Hooks von Claude Code, die
+  `idetea mascot setup-hooks` installiert, markieren die Registerkarte des Agenten, wenn er um Erlaubnis bittet oder
+  seinen Zug beendet.
+- `Ctrl+Shift+PgDn` / `Ctrl+Shift+PgUp` wechseln zwischen den Terminal-Registerkarten, auch im Terminal. *Terminal:
+  gehe zu…* listet die Registerkarten mit ihrem Zustand; *Terminal: nächster Tab, der auf dich wartet* springt zur
+  nächsten, die Sie braucht. Doppelklick auf eine Registerkarte (oder *Terminal: Tab umbenennen*) benennt sie.
+- Einen Agenten oder eine Aufgabe zu schließen, die noch läuft, fragt vorher nach.
+- Zwei Terminals nebeneinander (`Ctrl+Shift+5` oder die Teilen-Schaltfläche); ein Klick oder Tippen in einem gibt
+  ihm den Fokus.
+- Suche im Terminal (die Lupe oder *Terminal: suchen*): einfacher Text, der neueste Treffer zuerst.
+- `[terminal] scrollback` legt fest, wie viele Zeilen jede Registerkarte behält (standardmäßig 10000).
 
 ## Git
 
@@ -217,6 +231,8 @@ Einzelheiten: [terminais-de-agente.md](terminais-de-agente.md) (vorerst auf Port
 | `Ctrl+Shift+F` | Im Projekt suchen |
 | `F4` / `Umschalt+F4` | Nächstes / vorheriges Suchergebnis |
 | `` Ctrl+` `` / `Ctrl+'` | Terminal |
+| `Ctrl+Shift+PgDn` / `Ctrl+Shift+PgUp` | Nächste / vorherige Terminal-Registerkarte |
+| `Ctrl+Shift+5` | Terminal teilen |
 | `Ctrl+Shift+T` | Die zuletzt geschlossene Registerkarte wieder öffnen |
 | `Ctrl+Shift+G` | Git |
 | `Ctrl+Shift+M` / `F8` | Probleme / nächstes Problem |
