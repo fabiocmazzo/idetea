@@ -51,3 +51,5 @@ terminal-state-running = 运行中
 terminal-state-unseen = 上次查看后有新输出
 terminal-state-attention = 需要你的注意
 terminal-state-exited = 已结束，代码 { $code }
+terminal-state-bell = 响铃了
+terminal-state-turn-done = 本轮已完成，正在等你

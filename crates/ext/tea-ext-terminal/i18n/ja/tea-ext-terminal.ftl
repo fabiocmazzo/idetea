@@ -47,3 +47,5 @@ terminal-state-running = 実行中
 terminal-state-unseen = 前回見たあとに新しい出力
 terminal-state-attention = 対応を求めています
 terminal-state-exited = コード { $code } で終了
+terminal-state-bell = ベルを鳴らしました
+terminal-state-turn-done = ターンを終えて待っています

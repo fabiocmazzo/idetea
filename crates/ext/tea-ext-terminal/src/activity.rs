@@ -19,17 +19,28 @@ pub enum State {
     Running,
     /// Saiu algo enquanto estava escondida, e parou.
     Unseen,
-    /// O programa tocou o sino (ou um agente pediu atenção) enquanto estava escondida.
-    Attention,
+    /// Pediu atenção enquanto estava escondida: o sino, ou um hook do agente.
+    Attention(Attention),
     /// O comando terminou com este código.
     Exited(i32),
+}
+
+/// Por que a aba pede atenção.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Attention {
+    /// O sino (`\a`).
+    Bell,
+    /// O agente pediu permissão ou uma resposta (hook `Notification`).
+    Asked,
+    /// O agente terminou a vez e espera você (hook `Stop`).
+    TurnDone,
 }
 
 #[derive(Debug, Clone, Default)]
 pub struct Activity {
     last_output: Option<Instant>,
     unseen: bool,
-    attention: bool,
+    attention: Option<Attention>,
     title: Option<String>,
     exit: Option<i32>,
 }
@@ -41,15 +52,17 @@ impl Activity {
         self.unseen = true;
     }
 
-    /// O sino (`\a`).
-    pub fn bell(&mut self) {
-        self.attention = true;
+    /// O sino, ou um sinal do agente. Um pedido do agente vale mais que o sino, e o sino não apaga o pedido.
+    pub fn attention(&mut self, why: Attention) {
+        if why != Attention::Bell || self.attention.is_none() {
+            self.attention = Some(why);
+        }
     }
 
     /// A aba está na tela: o que tinha para ver, foi visto.
     pub fn seen(&mut self) {
         self.unseen = false;
-        self.attention = false;
+        self.attention = None;
     }
 
     /// O título que o programa mandou; `None` quando ele pede para voltar ao padrão.
@@ -74,8 +87,8 @@ impl Activity {
     pub fn state(&self, now: Instant) -> State {
         if let Some(code) = self.exit {
             State::Exited(code)
-        } else if self.attention {
-            State::Attention
+        } else if let Some(why) = self.attention {
+            State::Attention(why)
         } else if self.ticking(now) {
             State::Running
         } else if self.unseen {
@@ -122,8 +135,11 @@ mod tests {
         let t0 = Instant::now();
         let mut a = Activity::default();
         a.output(t0);
-        a.bell();
-        assert_eq!(a.state(t0), State::Attention);
+        a.attention(Attention::Bell);
+        assert_eq!(a.state(t0), State::Attention(Attention::Bell));
+        a.attention(Attention::Asked);
+        a.attention(Attention::Bell);
+        assert_eq!(a.state(t0), State::Attention(Attention::Asked), "o sino não apaga o pedido do agente");
         a.seen();
         assert_eq!(a.state(t0), State::Running);
     }
@@ -133,7 +149,7 @@ mod tests {
         let t0 = Instant::now();
         let mut a = Activity::default();
         a.output(t0);
-        a.bell();
+        a.attention(Attention::TurnDone);
         a.exited(2);
         assert_eq!(a.state(t0), State::Exited(2));
         assert!(!a.ticking(t0));

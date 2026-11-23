@@ -17,6 +17,7 @@ macro_rules! fl {
 
 mod activity;
 mod agents;
+pub mod tab_hooks;
 pub mod cli;
 mod worktree;
 
@@ -130,6 +131,8 @@ pub enum Message {
     ActivityTick,
     /// Um agente aberto pelo lançador pode ter gravado o código de saída.
     ExitPoll,
+    /// Sinais dos hooks dos agentes para as abas (pelo id do terminal).
+    Signals(Vec<(u64, tab_hooks::Signal)>),
 }
 
 /// De quanto em quanto tempo olhar o arquivo de código da tarefa.
@@ -918,7 +921,9 @@ impl TerminalExtension {
     /// Cria um terminal já com o tamanho da área. Todo comando ao `iced_term` recalcula linhas e colunas com o
     /// último tamanho recebido; um terminal novo só tem o provisório (80×50 pixels) até o widget medir, e qualquer
     /// coisa antes disso (a saída do shell, um redesenho) o espremia em poucas colunas, quebrando o prompt.
-    fn new_terminal(&mut self, settings: Settings) -> std::io::Result<Terminal> {
+    fn new_terminal(&mut self, mut settings: Settings) -> std::io::Result<Terminal> {
+        // Os hooks do agente que roda aqui dizem a esta aba que ele pediu atenção (RFC 0024, M1.1).
+        settings.backend.env.insert(tab_hooks::ENV.into(), tab_hooks::env_value(std::process::id(), self.next_id));
         let mut term = Terminal::new(self.next_id, settings)?;
         // Sem medida ainda (nenhum terminal apareceu), o `iced_term` usaria uma área de 80×50 px: umas 10 colunas e
         // 2 linhas, e a saída de um comando curto sumiria espremida antes de o widget medir. Uma estimativa até lá.
@@ -927,13 +932,12 @@ impl TerminalExtension {
         Ok(term)
     }
 
-    /// O que muda o lugar do terminal na tela: qual está à vista e se há barra de abas.
     /// Um evento do alacritty de um terminal: saída, sino ou título mudam o estado da aba.
     fn track(&mut self, id: u64, event: &iced_term::AlacrittyEvent) {
         use iced_term::AlacrittyEvent as E;
         match event {
             E::Wakeup => self.activity.entry(id).or_default().output(Instant::now()),
-            E::Bell => self.activity.entry(id).or_default().bell(),
+            E::Bell => self.activity.entry(id).or_default().attention(activity::Attention::Bell),
             E::Title(title) => self.activity.entry(id).or_default().set_title(Some(title)),
             E::ResetTitle => self.activity.entry(id).or_default().set_title(None),
             _ => {}
@@ -1116,6 +1120,19 @@ impl TerminalExtension {
             // O `after_update` decide se precisa de outro.
             Message::ActivityTick => self.ticking = false,
             Message::ExitPoll => return self.poll_exits(),
+            Message::Signals(signals) => {
+                for (id, signal) in signals {
+                    // Só abas que existem: um sinal atrasado de uma aba fechada não cria estado.
+                    if !self.all_terms().any(|t| t.id == id) {
+                        continue;
+                    }
+                    let why = match signal {
+                        tab_hooks::Signal::Asked => activity::Attention::Asked,
+                        tab_hooks::Signal::TurnDone => activity::Attention::TurnDone,
+                    };
+                    self.activity.entry(id).or_default().attention(why);
+                }
+            }
             Message::ShowRequest => {
                 if !self.pending.is_empty() {
                     self.shown = Shown::Request;
@@ -1260,7 +1277,9 @@ impl Extension for TerminalExtension {
                 activity::State::Idle => {}
                 activity::State::Running => tip.push(fl!("terminal-state-running")),
                 activity::State::Unseen => tip.push(fl!("terminal-state-unseen")),
-                activity::State::Attention => tip.push(fl!("terminal-state-attention")),
+                activity::State::Attention(activity::Attention::Bell) => tip.push(fl!("terminal-state-bell")),
+                activity::State::Attention(activity::Attention::Asked) => tip.push(fl!("terminal-state-attention")),
+                activity::State::Attention(activity::Attention::TurnDone) => tip.push(fl!("terminal-state-turn-done")),
                 activity::State::Exited(code) => tip.push(fl!("terminal-state-exited", code = code)),
             }
             if let Some(title) = act.and_then(activity::Activity::title) {
@@ -1330,6 +1349,10 @@ fn watch_requests(root: &PathBuf) -> mpsc::UnboundedReceiver<Message> {
                     return;
                 }
             }
+            let signals = tab_hooks::take(&root, std::process::id());
+            if !signals.is_empty() && tx.unbounded_send(Message::Signals(signals)).is_err() {
+                return;
+            }
             std::thread::sleep(AGENTS_POLL);
         }
     });
@@ -1342,7 +1365,7 @@ fn state_color(theme: &Theme, state: activity::State) -> Color {
     match state {
         activity::State::Idle | activity::State::Unseen => p.background.base.text.scale_alpha(0.55),
         activity::State::Running => p.primary.base.color,
-        activity::State::Attention => p.warning.base.color,
+        activity::State::Attention(_) => p.warning.base.color,
         activity::State::Exited(0) => p.success.base.color,
         activity::State::Exited(_) => p.danger.base.color,
     }

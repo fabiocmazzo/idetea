@@ -51,5 +51,7 @@ run-timeout = idetea run: o prazo acabou e "{ $name }" segue no terminal (idetea
 ## Estado das abas (RFC 0024)
 terminal-state-running = Rodando
 terminal-state-unseen = Saída nova desde a última vez que você viu
-terminal-state-attention = Pediu sua atenção
+terminal-state-attention = Pediu sua atenção (permissão ou resposta)
 terminal-state-exited = Terminou com o código { $code }
+terminal-state-bell = Tocou o sino
+terminal-state-turn-done = Terminou a vez e espera você

@@ -51,5 +51,7 @@ run-timeout = idetea run: time is up and "{ $name }" is still in the terminal (i
 ## Tab state (RFC 0024)
 terminal-state-running = Running
 terminal-state-unseen = New output since you last looked
-terminal-state-attention = Asked for your attention
+terminal-state-attention = Asked for your attention (permission or an answer)
 terminal-state-exited = Ended with code { $code }
+terminal-state-bell = Rang the bell
+terminal-state-turn-done = Finished its turn and is waiting for you

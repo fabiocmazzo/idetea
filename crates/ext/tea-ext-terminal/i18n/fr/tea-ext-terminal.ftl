@@ -53,3 +53,5 @@ terminal-state-running = En cours
 terminal-state-unseen = Nouvelle sortie depuis votre dernier passage
 terminal-state-attention = Demande votre attention
 terminal-state-exited = Terminé avec le code { $code }
+terminal-state-bell = A fait sonner la cloche
+terminal-state-turn-done = A fini son tour et vous attend
