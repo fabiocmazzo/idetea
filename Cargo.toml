@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["crates/tea-core", "crates/tea-declarative-ui", "crates/tea-plugins", "crates/tea-editor", "crates/tea-lsp", "crates/tea-dap", "crates/tea-skills", "crates/tea-table", "crates/tea-app", "crates/ext/*"]
+members = ["crates/tea-core", "crates/tea-declarative-ui", "crates/tea-plugins", "crates/tea-editor", "crates/tea-lsp", "crates/tea-dap", "crates/tea-skills", "crates/tea-table", "crates/tea-app", "crates/iced_term", "crates/ext/*"]
 
 [workspace.package]
 version = "0.15.0"
@@ -38,6 +38,7 @@ tea-table = { path = "crates/tea-table" }
 tea-editor = { path = "crates/tea-editor" }
 tea-lsp = { path = "crates/tea-lsp" }
 tea-dap = { path = "crates/tea-dap" }
+iced_term = { path = "crates/iced_term" }
 tea-ext-filetree = { path = "crates/ext/tea-ext-filetree" }
 tea-ext-statusbar = { path = "crates/ext/tea-ext-statusbar" }
 tea-ext-search = { path = "crates/ext/tea-ext-search" }
