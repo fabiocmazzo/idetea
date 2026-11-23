@@ -1,0 +1,225 @@
+# RFC 0024 — Terminais de agente: muitos, eficientes e retomáveis
+
+- **Status:** proposta (2026-11-23). Base: `main` em `2e08d33` (ACP revertido).
+- **Substitui:** as RFCs 0022 (cliente ACP) e 0023 (acabamento da sessão ACP), que entraram na `main` em `7ba0695`
+  e `bb25311` e saíram no revert `2e08d33`. A decisão está na [ADR 0003](../decisions/0003-agentes-no-terminal-sem-acp.md).
+- **Continua:** [RFC 0005](0005-agentes-e-projetos.md) (terminais pedidos por agentes),
+  [RFC 0016](0016-lancador-de-agentes-e-memoria-do-projeto.md) (lançador e `Ctrl+L`) e
+  [RFC 0012](0012-chat-multimodelo-e-mascote.md) (mascote e hooks).
+
+Marcadores: **[Fato]** conferido nesta sessão no código ou na fonte da crate (`iced_term` 0.8.0,
+`alacritty_terminal` 0.25.1); **[Referência]** dito pela ajuda ou documentação de ferramenta externa, não testado
+aqui; **[Hipótese]** provável, não testado; **[Recomendação]** proposta, ainda não decidida.
+
+## Resumo
+
+O agente roda no terminal, com a interface dele. A IDE não refaz a conversa do agente: ela dá **a tela, o teclado,
+o contexto (`Ctrl+L`), o painel Interfaces e a confirmação** de cada terminal pedido. Com isso decidido, o terminal
+vira a peça central do trabalho com agentes, e hoje ele foi feito para um ou dois shells: abas sem estado, uma aba
+visível por vez, só no painel de baixo, e tudo some ao fechar a IDE.
+
+**[Recomendação]** Três marcos, nesta ordem:
+
+- **M1 — muitos terminais, sem se perder:** cada aba diz em que estado está (rodando, saída nova, **esperando
+  você**, terminou com código), tem nome, atalho e lugar na paleta; dois terminais lado a lado; um terminal pode ir
+  para a área do editor; e trocar de aba não custa mais com dez terminais abertos do que com um.
+- **M2 — reabrir como estava:** a IDE guarda as abas de terminal na sessão do projeto e, ao reabrir, oferece
+  **retomar os agentes na mesma conversa** pelo próprio agente (`claude --resume <id>`, `codex resume …`). A
+  "memória" do agente é a conversa que ele mesmo grava em disco; o processo não precisa sobreviver para ela voltar.
+  Opcionalmente, o texto que estava na tela volta acima do prompt novo.
+- **M3 — o processo sobrevive à IDE (experimental, decidir depois do M2):** um processo pequeno da própria IDE
+  (`idetea pty-host`) segura os PTYs; a IDE fecha, trava ou é atualizada, e reconecta neles.
+
+## Por que no terminal (e não ACP)
+
+- **[Fato]** As RFCs 0022/0023 foram até a sessão ACP com várias abas, permissão explícita e estado no mascote. A
+  RFC 0023 já listava o que faltava para ficar usável: Markdown, copiar, entrada multilinha, permissão e ferramentas
+  legíveis, contexto do editor. Era refazer, dentro da IDE, a interface que cada agente já tem.
+- **[Fato]** Decisão do usuário em 2026-11-22: o ACP saiu da `main` (#20); os agentes rodam no terminal.
+- **[Hipótese]** O que pesa: cada agente implementa uma parte diferente do protocolo, e os comandos próprios
+  (slash commands, `/compact`, modos, retomada, subagentes) chegam primeiro, ou só, na interface de terminal dele.
+  No terminal, a IDE ganha cada recurso novo do agente sem escrever nada.
+- **[Fato]** O canal estruturado entre agente e IDE continua sendo de arquivos: painel Interfaces, pedidos de
+  terminal, `idetea ask/run/agent/status/open`, hooks do mascote. Nada disso depende de ler o texto do terminal
+  (RFC 0016: o formato muda).
+
+## O que existe hoje
+
+- **[Fato]** `tea-ext-terminal` (`crates/ext/tea-ext-terminal/src/lib.rs`) usa `iced_term` 0.8 sobre
+  `alacritty_terminal`. Três tipos de aba: `Shell` ("Terminal N"), a `TaskTerm` (uma só) e `AgentTerm` (pedidas por
+  agentes ou abertas pelo lançador). Os pedidos esperando o usuário ficam numa aba de pedido.
+- **[Fato]** Uma aba visível por vez (`Shown`), no painel de baixo. A barra mostra só o rótulo: nada diz se o
+  terminal escondido mudou, terminou ou espera uma resposta.
+- **[Fato]** O título que o programa manda (OSC 0/2) chega do `iced_term` como `Action::ChangeTitle` e é ignorado.
+- **[Fato]** A cada troca de aba ou quando a barra aparece/some, `redraw_if_moved` manda `ChangeFont` para **todos**
+  os terminais, para limpar o cache de desenho do `iced_term`. Com N terminais, cada troca recalcula N grades.
+- **[Fato]** O `iced_term` cria o backend com `term::Config::default()`: o histórico (scrollback) é o padrão do
+  alacritty e não é configurável; a busca por regex do alacritty (`RegexSearch`) existe no backend, mas só é usada
+  para achar URLs.
+- **[Fato]** `AgentTerm` já guarda `last_output` (para a colagem do `Ctrl+L` esperar o agente subir).
+- **[Fato]** A sessão do projeto (`crates/tea-app/src/session.rs`, em `$XDG_STATE_HOME/idetea/sessions/`) guarda
+  abas do editor, painéis e o editor dividido; nada do terminal. Ao fechar a IDE, todos os processos morrem, e um
+  pedido que rodava vira `lost`.
+- **[Fato]** Os hooks do mascote (`idetea mascot setup-hooks`) mandam `working` no `PreToolUse`, `attention` no
+  `Notification` e `celebrating` no `Stop` do Claude Code. O estado é do projeto, não de uma aba.
+- **[Fato]** `claude --help` (instalado aqui) tem `--session-id <uuid>`, `-r/--resume [id]` e `-c/--continue`;
+  `codex --help` tem `codex resume` (escolha, ou `--last`).
+
+## M1 — muitos terminais, sem se perder
+
+### 1. Estado em cada aba
+
+Cada aba ganha um ponto à esquerda do nome:
+
+| estado | quando | como a IDE sabe |
+| --- | --- | --- |
+| rodando | saiu algo nos últimos ~2 s | `last_output` (já existe; passa a valer para todo tipo de aba) |
+| saída nova | saiu algo desde a última vez que a aba apareceu | idem, comparado com a hora em que foi mostrada |
+| **esperando você** | o agente pediu atenção | hook `Notification` (ver abaixo), BEL (`\a`) ou OSC 9 / OSC 777 *notify* |
+| ocioso | o agente terminou o turno | hook `Stop` |
+| terminou | o processo saiu | o código, em verde ou vermelho |
+
+**[Recomendação]** O estado "esperando você" vem dos hooks que o mascote já instala, com um endereço: a IDE põe
+`IDETEA_TERMINAL=<id>` no ambiente de cada aba, e `idetea mascot attention` (e os outros) passa a gravar também
+`.idetea/terminals/<id>.state`. Sem o `IDETEA_TERMINAL`, nada muda (o mascote continua como hoje). Um agente sem
+hooks ainda dá o estado pelo BEL ou pela notificação OSC. **[Fato]** O `iced_term` 0.8 só trata `Exit`, `Title` e
+`PtyWrite` dos eventos do alacritty e descarta o `Bell`: repassá-lo é um patch pequeno (o mesmo do item 4).
+
+O mascote, que hoje diz "um agente precisa de você", passa a dizer qual, e um clique leva à aba.
+
+### 2. Nome, atalhos e paleta
+
+- O título OSC vira o nome da aba quando o usuário não deu um (o Claude Code e o Codex mudam o título com a tarefa
+  **[Hipótese]**). Duplo clique renomeia.
+- `Alt+1…9` vai para a aba N do terminal; `Ctrl+PgUp/PgDn` com o terminal em foco anda entre elas.
+- Paleta: **Terminal: ir para…** lista as abas com o estado, filtrando pelo nome (a mais útil com muitos agentes);
+  **Terminal: próxima esperando você**.
+- Fechar uma aba com processo rodando pergunta antes (hoje o `×` encerra direto).
+
+### 3. Lado a lado e na área do editor
+
+- **Dividir** (`Ctrl+Shift+5`, como no VS Code): duas colunas no painel de baixo, cada uma com a sua aba. Uma
+  divisão só (duas colunas) no começo; grade fica para quando o uso pedir.
+- **Mover para o editor**: a aba de terminal vira uma aba da área do editor, ao lado do código e com toda a altura.
+  É o lugar natural de um agente com quem se conversa por muito tempo. O processo é o mesmo (só muda onde aparece),
+  e volta ao painel pelo mesmo comando. **[Hipótese]** É a parte mais cara do M1: o editor hoje só abre arquivos
+  (`tea-editor`), e a aba precisa de um tipo novo que delega a `view` para a extensão do terminal.
+- **[Recomendação]** O lançador (`Ctrl+Shift+A`) ganha a escolha "abrir no editor" e `[agents] open_in = "editor"`.
+
+### 4. Desempenho
+
+- `redraw_if_moved` reaplica a fonte só no terminal que vai aparecer e marca os outros como "sujos"; cada um se
+  redesenha quando voltar. Trocar de aba passa a custar 1 grade, não N.
+- Terminais escondidos não desenham (já é assim: só o atual entra na `view`) e continuam lendo o PTY (precisam,
+  senão o processo trava com o buffer cheio).
+- `[terminal] scrollback = 10000` (linhas, por aba). Dez agentes com 100 mil linhas cada são centenas de MB.
+  Precisa que o `iced_term` aceite um `term::Config`: patch pequeno, mandado como PR para o upstream, com o mesmo
+  tratamento do fork do `iced-code-editor` (ADR 0001) enquanto não entra.
+- **Buscar no terminal** (`Ctrl+Shift+F` com o terminal em foco): o `RegexSearch` do alacritty já está no backend;
+  falta o `iced_term` expor busca e rolagem até o resultado. Mesmo patch.
+
+## M2 — reabrir como estava
+
+### 5. As abas voltam
+
+A sessão do projeto ganha a lista de terminais, na ordem, com a ativa e a divisão:
+
+```toml
+[[terminals]]
+kind = "agent"             # shell | agent | task (a tarefa não volta)
+title = "Revisor"
+cwd = "."                  # relativo à raiz; OSC 7 atualiza a pasta de um shell
+launcher = "claude"        # nome no lançador (KNOWN ou [agents.launchers])
+worktree = "agente/revisao"
+agent_session = "6f1c…"    # quando a IDE sabe (ver 6)
+where = "editor"           # panel | editor
+```
+
+Ao reabrir:
+
+- **Shells** voltam sozinhos, na pasta onde estavam.
+- **Agentes** não rodam sozinhos: a IDE mostra "3 agentes estavam abertos: Retomar todos / Escolher / Não". Um
+  agente roda comandos, e o princípio da RFC 0005 vale aqui: nada roda sem você ver o comando. O `[agents] allow`
+  do usuário vale como sempre.
+- **Pedidos de agentes** (`.idetea/agents/`) continuam virando `lost`; quem pediu decide se pede de novo. (Com o M3,
+  eles sobrevivem.)
+
+### 6. A memória do agente: retomar a conversa
+
+O que se quer guardar de um agente não é o processo, é a conversa: o que ele leu, decidiu e fez. Os agentes já a
+gravam em disco, e cada um tem o seu jeito de voltar:
+
+| agente | abrir sabendo o id | retomar |
+| --- | --- | --- |
+| Claude Code | `claude --session-id <uuid>` **[Fato]** | `claude --resume <uuid>` **[Fato]** |
+| Codex | não há **[Fato]** | `codex resume --last` na mesma pasta **[Fato]**, ou o id, se descobrirmos de onde lê-lo |
+| Gemini CLI, OpenCode, Aider, Cursor Agent | **[Referência]** a conferir em cada um | idem |
+
+**[Recomendação]**
+
+- O lançador gera o uuid e abre o Claude Code com `--session-id`: a IDE sabe o id desde o começo e o retoma com
+  `--resume <id>`, sem adivinhar.
+- Para agentes sem id conhecido, "a última conversa nesta pasta". Como cada agente do lançador numa worktree tem
+  a sua pasta (`.idetea/worktrees/launch-<branch>`), "a última" é a certa nesse caso; dois agentes na raiz podem
+  trocar de conversa, e a tela de retomada avisa.
+- `[agents.launchers]` ganha `resume = "meu-agente --resume {session}"` e `session_arg = "--session-id {session}"`,
+  para os agentes que o usuário configura. Os conhecidos vêm com a tabela acima em `tea-core::coding_agents`.
+- O comando de retomada muda entre versões dos agentes: se o agente sair com erro logo ao retomar, a aba oferece
+  "abrir uma conversa nova".
+
+### 7. O texto da tela (opcional, desligado por padrão)
+
+`[terminal] keep_scrollback = true` grava, ao fechar, as últimas linhas de cada aba em
+`$XDG_STATE_HOME/idetea/terminals/<projeto>/<id>.txt` (fora do projeto, permissão 0600), e ao reabrir mostra esse
+texto acima do prompt novo, com uma linha "— sessão anterior, 23/11 14:02 —". Desligado por padrão porque o
+terminal tem senhas, tokens e saídas de `env`; a IDE não sabe o que é segredo. Para agentes com retomada, o próprio
+agente redesenha a conversa, e isto quase não faz falta.
+
+## M3 — o processo sobrevive à IDE (experimental)
+
+Para o servidor de desenvolvimento, o build longo e o agente no meio de um turno, que não podem morrer quando a
+IDE fecha, trava ou é reinstalada.
+
+| opção | como | prós | contras |
+| --- | --- | --- | --- |
+| A. tmux / zellij por baixo | cada aba é uma sessão do tmux | pronto, maduro | o tmux tem a própria tela, rolagem, mouse e atalhos, que brigam com os da IDE; uma dependência a mais |
+| B. dtach / abduco | só segura o PTY | pequeno, transparente | sem histórico ao reconectar; dependência externa, ausente na maioria das máquinas |
+| C. `idetea pty-host` | um processo da IDE segura os PTYs, com um buffer das últimas saídas, num socket em `$XDG_RUNTIME_DIR/idetea/` (0700) | sem dependência, mesmo binário, histórico ao reconectar; é como o VS Code faz os terminais persistentes **[Referência]** | precisa de um backend do `iced_term` que leia de um socket em vez de abrir o PTY (fork ou PR maior); processos órfãos a administrar; Windows fica de fora no começo |
+
+**[Recomendação]** C, mas só depois de usar o M2 por um tempo: se retomar a conversa do agente bastar, o M3 vira
+só para servidores e builds longos, e talvez nem precise. Se for feito: o host sai sozinho quando não sobra nenhum
+PTY; a IDE lista os órfãos na abertura ("2 terminais de uma sessão anterior continuam rodando: reconectar /
+encerrar"); o `idetea status` mostra quais estão vivos.
+
+## O que fica de fora
+
+- ACP, ou qualquer chat próprio que fale com modelos (ADR 0003, RFC 0012 opção A).
+- Ler o texto do terminal para entender o agente: o estado vem de hooks, BEL/OSC e da saída do processo, não do
+  conteúdo da tela.
+- Grade com mais de duas colunas, terminais em janela separada e "mandar a mesma tecla para todos".
+
+## Riscos
+
+- **Patches no `iced_term`** (scrollback, busca, sino, backend por socket): mais um fork a manter. Mandar cada um
+  como PR pequeno ao upstream e manter o `[patch]` só até entrar.
+- **Segredos:** o histórico gravado (item 7) e o buffer do `pty-host` (M3) guardam o que passou na tela. Fora do
+  projeto, 0600, desligado por padrão, e nunca no git.
+- **Retomada que quebra:** as opções de linha de comando dos agentes mudam. A tabela fica num lugar só
+  (`coding_agents.rs`), coberta por teste, e o config do usuário pode sobrescrever.
+- **Hooks são do Claude Code:** os outros agentes dão menos estado ("rodando" e "terminou" sim, "esperando você"
+  só se tocarem o sino ou mandarem OSC).
+
+## Testes
+
+- Unitários: transições de estado da aba (saída, hook, BEL, saída do processo); a sessão grava e lê os terminais;
+  montagem do comando de retomada para cada agente conhecido e para `[agents.launchers]`.
+- `iced_test`: a barra mostra o estado; trocar de aba reaplica a fonte só no terminal que aparece.
+- Manual (painel): três agentes no lançador, um em cada estado; fechar e reabrir a IDE; retomar; conferir que a
+  conversa é a mesma.
+
+## Perguntas para decidir
+
+1. M1 e M2 juntos nesta versão, e M3 depois do uso? Ou só o M1 primeiro?
+2. Terminal na área do editor entra no M1 (o mais caro) ou vai para depois da divisão no painel?
+3. Os agentes retomam com uma pergunta (recomendado) ou sozinhos quando estão no `[agents] allow`?
+4. Histórico da tela gravado (item 7): desligado por padrão, como proposto?
