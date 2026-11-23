@@ -1,6 +1,7 @@
 # RFC 0024 — Terminais de agente: muitos, eficientes e retomáveis
 
-- **Status:** proposta (2026-11-23). Base: `main` em `2e08d33` (ACP revertido).
+- **Status:** aprovada no painel em 2026-11-23: M1 e M2 nesta versão, M3 depois do uso. Base: `main` em `2e08d33`
+  (ACP revertido).
 - **Substitui:** as RFCs 0022 (cliente ACP) e 0023 (acabamento da sessão ACP), que entraram na `main` em `7ba0695`
   e `bb25311` e saíram no revert `2e08d33`. A decisão está na [ADR 0003](../decisions/0003-agentes-no-terminal-sem-acp.md).
 - **Continua:** [RFC 0005](0005-agentes-e-projetos.md) (terminais pedidos por agentes),
@@ -217,9 +218,18 @@ encerrar"); o `idetea status` mostra quais estão vivos.
 - Manual (painel): três agentes no lançador, um em cada estado; fechar e reabrir a IDE; retomar; conferir que a
   conversa é a mesma.
 
-## Perguntas para decidir
+## Decisões (painel, 2026-11-23)
 
-1. M1 e M2 juntos nesta versão, e M3 depois do uso? Ou só o M1 primeiro?
-2. Terminal na área do editor entra no M1 (o mais caro) ou vai para depois da divisão no painel?
-3. Os agentes retomam com uma pergunta (recomendado) ou sozinhos quando estão no `[agents] allow`?
-4. Histórico da tela gravado (item 7): desligado por padrão, como proposto?
+1. **Escopo:** M1 e M2 nesta versão; o M3 é decidido depois de usar o M2.
+2. **Terminal na área do editor:** entra no fim do M1, depois da divisão no painel.
+3. **Retomada:** os agentes só voltam depois de uma pergunta, mesmo os que estão no `[agents] allow`.
+4. **Texto da tela (`keep_scrollback`):** existe, desligado por padrão.
+
+## Ordem de implementação
+
+1. M1.4 desempenho: fonte reaplicada só no terminal que aparece.
+2. M1.1 estado em cada aba (saída, fim, título OSC; depois hooks com `IDETEA_TERMINAL` e sino).
+3. M1.2 nome, atalhos, paleta e confirmação ao fechar.
+4. Patch do `iced_term`: scrollback, busca, sino.
+5. M1.3 divisão no painel; depois o terminal na área do editor.
+6. M2: abas na sessão, retomada dos agentes, `keep_scrollback`.
