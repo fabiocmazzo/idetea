@@ -2,7 +2,7 @@
 
 [Português](comparativo-ides.md) · [Français](comparativo-ides.fr.md) · [Deutsch](comparativo-ides.de.md) · [Italiano](comparativo-ides.it.md) · [日本語](comparativo-ides.ja.md) · **中文（简体）**
 
-本文档对**IDE TEA**（当前状态，`v0.8.0`）相对市面上主要IDE和编辑器做一次技术上直接、不加修饰的评估：
+本文档对**IDE TEA**（当前状态，`v0.15.0`）相对市面上主要IDE和编辑器做一次技术上直接、不加修饰的评估：
 
 - **VS Code / VSCodium**（基于Electron的通用标准）
 - **Cursor / Windsurf**（专注于AI的VS Code分支）
@@ -44,7 +44,7 @@
    - **故障自动恢复（`backup.rs`）：**有未保存更改的选项卡按PID写到`$XDG_STATE_HOME/idetea/backups/<项目>/`，窗口意外关闭时可以恢复。
    - 在文件树里删除文件会送到**系统回收站**（不是不可逆的`unlink`）。
    - 磁盘上的外部更改（`git checkout`、`cargo fmt`、智能体在改文件）由监视器发现：没有本地编辑的选项卡自己重新加载；有未保存本地编辑的选项卡**绝不会**被悄悄覆盖。
-   - 二进制文件或非UTF-8文件会被拒绝，并给出明确警告，而不是在保存时弄坏缓冲区。
+   - 二进制文件会被拒绝，并给出明确警告，而不是在保存时弄坏缓冲区。其他编码（UTF-16、Windows-1252等）的文件会按各自的编码打开和保存；编码装不下的字符在保存时会被拒绝，绝不会被换成`?`。没有BOM、`.editorconfig`里也没有`charset`的Shift_JIS文件，目前仍会回退到Windows-1252（`[editor] fallback_encoding`的默认值），需要通过状态栏的编码重新打开。
    - `.idetea/`协议使用原子写入（`.tmp` + `rename`），并有自恢复命令（`idetea fix` / “界面: 修复此项目”）。
 
 ### IDE TEA的稳定性还输给大产品的地方
@@ -95,6 +95,8 @@ IDE TEA认定**最好的智能体已经在终端里跑**（Claude Code、Codex�
 ### IDE TEA里已经扎实的部分
 - 快速打开文件（`Ctrl+P`，模糊搜索，以及`文件:行`跳转）、文件内符号（`Ctrl+Shift+O`）和项目内符号（`Ctrl+T`）。
 - 多光标、按词选择（`Ctrl+方向键`）、`Shift+单击`、代码折叠、撤消/重做、文件内查找和替换，以及**在整个项目里替换（`Ctrl+Shift+H`）**，带逐行预览和正则。
+- 项目搜索（`Ctrl+Shift+F`）：可限定到某个文件夹或文件（右键，面板里有一个芯片可清除）、包含和排除的glob（`src/**`、`*.test.rs`）、在编辑器里也能用`F4` / `Shift+F4`跳到下一个和上一个结果，以及上下文行（`[search] context_lines`，默认0）。
+- CSV、TSV和JSONL会以表格打开（排序和筛选都不改动文件；编辑一个单元格只会改动文本里的那一个字段，`Ctrl+Z`可撤消）。标签栏上的按钮可回到文本。
 - 编辑器临时缩放（`Ctrl+=`、`Ctrl+-`、`Ctrl+0`、`Ctrl+滚轮`），在选项卡和分屏之间同步，不影响界面的其余部分。
 - 编辑器左右分屏，可单击的痕迹（`项目 › 文件夹 › 文件 › 符号`），按语言的Seti图标，以及可自定义、带连字的字体（内置`JetBrains Mono`）。
 - 可选的vim模式。
@@ -169,12 +171,19 @@ IDE TEA认定**最好的智能体已经在终端里跑**（Claude Code、Codex�
 
 ---
 
-## 9. 影响最大的接下来5步（靠近领先者，同时不丢掉IDE TEA的灵魂）
+## 9. 已完成的与仍未完成的（靠近领先者，同时不丢掉IDE TEA的灵魂）
 
-如果目标是缩小和VS Code、Zed的功能差距，同时保持二进制轻、宣言里的哲学还在：
+本节曾列出5个接下来的步骤，其中4个已完成。已完成的与仍未完成的，同时保持二进制轻、宣言里的哲学还在：
+
+**已经完成**
 
 1. ~~LSP的Code Actions / 快速修复（`Ctrl+.`）~~：**已完成**。列表在命令面板中打开，推荐项排在最前，更改留在标签页中、尚未保存。
 2. ~~编辑器里的Git标记（装订线差异）+ 切换分支~~：**已完成**，有装订线标记，也能在命令面板里切换/创建分支。
 3. ~~“把选区 / 诊断发给智能体”的快捷键（`Ctrl+L`）~~：**0.8.0已完成**，同时加入了智能体启动器（`Ctrl+Shift+A`）。
 4. ~~LSP的Inlay Hints~~ —— **已完成：**在代码里显示推断类型和参数名，默认开启，用`Ctrl+Alt+I`开关。
-5. **更多DAP适配器（`debugpy`、`delve`、`js-debug`、`codelldb`）：**支持GDB和`lldb-dap`以外的调试。这一项里原本的macOS和Windows移植已在0.5.0发布。
+
+**仍未完成**
+
+1. **更多DAP适配器（`debugpy`、`delve`、`js-debug`、`codelldb`）：**支持GDB和`lldb-dap`以外的调试。这一项里原本的macOS和Windows移植已在0.5.0发布。
+2. **三方合并视图和界面里的stash**（现在用终端；见第7节）。
+3. **WASM第三方插件**，无需重新构建IDE（原型在`plugins`特性之后）。

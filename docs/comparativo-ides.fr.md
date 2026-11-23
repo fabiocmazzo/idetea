@@ -2,7 +2,7 @@
 
 [Português](comparativo-ides.md) · **Français** · [Deutsch](comparativo-ides.de.md) · [Italiano](comparativo-ides.it.md) · [日本語](comparativo-ides.ja.md) · [中文（简体）](comparativo-ides.zh-CN.md)
 
-Ce document fait une évaluation technique, directe et sans fard d'**IDE TEA** (état actuel, `v0.8.0`) face aux
+Ce document fait une évaluation technique, directe et sans fard d'**IDE TEA** (état actuel, `v0.15.0`) face aux
 principaux IDE et éditeurs du marché :
 
 - **VS Code / VSCodium** (le standard universel fondé sur Electron)
@@ -45,7 +45,7 @@ principaux IDE et éditeurs du marché :
    - **Récupération automatique des plantages (`backup.rs`) :** les onglets avec des modifications non enregistrées sont écrits dans `$XDG_STATE_HOME/idetea/backups/<projet>/` par PID et proposés à la restauration si la fenêtre se ferme de façon inattendue.
    - Supprimer des fichiers dans l'arborescence les envoie à la **corbeille du système** (pas d'`unlink` irréversible).
    - Les changements externes sur le disque (`git checkout`, `cargo fmt`, des agents qui éditent des fichiers) sont détectés par le watcher : les onglets sans édition locale se rechargent seuls ; les onglets avec une édition locale non enregistrée ne sont **jamais** écrasés en silence.
-   - Les fichiers binaires ou non UTF-8 sont refusés avec un avertissement clair, au lieu de corrompre le tampon à l'enregistrement.
+   - Les fichiers binaires sont refusés avec un avertissement clair, au lieu de corrompre le tampon à l'enregistrement. Les fichiers dans d'autres encodages (UTF-16, Windows-1252, etc.) s'ouvrent et s'enregistrent dans leur propre encodage ; un caractère qui n'entre pas dans l'encodage est refusé à l'enregistrement, jamais remplacé par `?`. Sans BOM ni `charset` dans `.editorconfig`, un fichier Shift_JIS retombe encore sur Windows-1252 (valeur par défaut de `[editor] fallback_encoding`) et doit être rouvert via l'encodage de la barre d'état.
    - Le protocole `.idetea/` utilise une écriture atomique (`.tmp` + `rename`) et possède une commande d'autoréparation (`idetea fix` / *« Interfaces : corriger ce projet »*).
 
 ### Là où la stabilité d'IDE TEA est encore en retrait face aux grandes
@@ -96,6 +96,8 @@ IDE TEA part du principe que **les meilleurs agents tournent déjà dans le term
 ### Ce qui est déjà solide dans IDE TEA
 - Ouverture rapide de fichiers (`Ctrl+P` avec recherche floue et saut `fichier:ligne`), symboles dans le fichier (`Ctrl+Shift+O`) et dans le projet (`Ctrl+T`).
 - Curseurs multiples, sélection mot par mot (`Ctrl+flèches`), `Shift+clic`, repli du code (folding), annuler/rétablir, recherche et remplacement dans le fichier et **remplacement dans tout le projet (`Ctrl+Shift+H`)** avec aperçu ligne à ligne et prise en charge des expressions régulières.
+- Recherche dans le projet (`Ctrl+Shift+F`) avec portée sur un dossier ou un fichier (clic droit, avec une pastille dans le panneau pour l'effacer), globs d'inclusion et d'exclusion (`src/**`, `*.test.rs`), `F4` / `Shift+F4` pour le résultat suivant et précédent même depuis l'éditeur, et lignes de contexte (`[search] context_lines`, 0 par défaut).
+- CSV, TSV et JSONL s'ouvrent comme un tableau (trier et filtrer sans toucher au fichier ; modifier une cellule ne change que ce champ dans le texte, et `Ctrl+Z` l'annule). Le bouton de la barre d'onglets ramène au texte.
 - Zoom temporaire de l'éditeur (`Ctrl+=`, `Ctrl+-`, `Ctrl+0`, `Ctrl+molette`) synchronisé entre les onglets et les divisions, sans toucher au reste de l'interface.
 - Division de l'éditeur côte à côte (split), fil d'Ariane cliquable (`projet › dossier › fichier › symbole`), icônes Seti par langage et polices personnalisables avec ligatures (`JetBrains Mono` intégrée).
 - Mode Vim facultatif.
@@ -170,12 +172,19 @@ IDE TEA part du principe que **les meilleurs agents tournent déjà dans le term
 
 ---
 
-## 9. Les 5 prochaines étapes au plus fort impact (pour se rapprocher des têtes de liste sans perdre l'âme d'IDE TEA)
+## 9. Fait et encore ouvert (pour se rapprocher des têtes de liste sans perdre l'âme d'IDE TEA)
 
-Si le but est de réduire la distance fonctionnelle avec VS Code et Zed tout en gardant le binaire léger et la philosophie du manifeste :
+Cette section a déjà listé cinq prochaines étapes ; quatre sont faites. Ce qui est fait et ce qui reste ouvert, en gardant le binaire léger et la philosophie du manifeste :
+
+**Déjà fait**
 
 1. ~~Code Actions / Quick Fixes du LSP (`Ctrl+.`)~~ — **fait :** la liste s'ouvre dans la palette, la recommandée en premier, et les modifications restent dans les onglets, non enregistrées.
 2. ~~Marques Git dans l'éditeur (Gutter Diff) + changement de branche~~ — **déjà fait :** marques dans la marge et changement/création de branche depuis la palette.
 3. ~~Raccourci « Envoyer la sélection / le diagnostic à l'agent » (`Ctrl+L`)~~ — **fait dans la 0.8.0**, avec le lanceur d'agents (`Ctrl+Shift+A`).
 4. ~~Inlay Hints du LSP~~ — **fait :** types déduits et noms de paramètres dans le code, activés par défaut, avec `Ctrl+Alt+I` pour les activer et les désactiver.
-5. **Davantage d'adaptateurs DAP (`debugpy`, `delve`, `js-debug`, `codelldb`) :** prendre en charge le débogage au-delà de GDB et de `lldb-dap`. La portabilité vers macOS et Windows, qui faisait aussi partie de ce point, est sortie dans la 0.5.0.
+
+**Encore ouvert**
+
+1. **Davantage d'adaptateurs DAP (`debugpy`, `delve`, `js-debug`, `codelldb`) :** prendre en charge le débogage au-delà de GDB et de `lldb-dap`. La portabilité vers macOS et Windows, qui faisait aussi partie de ce point, est sortie dans la 0.5.0.
+2. **Vue de fusion à 3 voies et stash depuis l'interface** (aujourd'hui via le terminal ; voir la section 7).
+3. **Extensions tierces en WASM**, sans recompiler l'IDE (un prototype existe derrière la fonctionnalité `plugins`).
