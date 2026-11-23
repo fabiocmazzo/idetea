@@ -3261,6 +3261,8 @@ impl App {
 
     fn quit(&mut self) -> Task<Message> {
         self.save_session(true);
+        // As extensões gravam o que precisam (o texto dos terminais, por exemplo); a IDE fecha logo depois.
+        let _ = self.broadcast(CoreEvent::Closing);
         // Saiu pelo caminho normal (salvou ou escolheu descartar): as cópias não servem mais.
         if let Some(dir) = &self.backup_dir {
             backup::remove_mine(dir);

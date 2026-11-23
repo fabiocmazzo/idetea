@@ -191,6 +191,26 @@ texto acima do prompt novo, com uma linha "— sessão anterior, 23/11 14:02 —
 terminal tem senhas, tokens e saídas de `env`; a IDE não sabe o que é segredo. Para agentes com retomada, o próprio
 agente redesenha a conversa, e isto quase não faz falta.
 
+### Como o M2 ficou (2026-11-23)
+
+Os três itens entraram, cada um aprovado em teste manual. Onde o feito difere do proposto acima:
+
+- **As abas não ficam na sessão do editor**, e sim num arquivo da extensão do terminal,
+  `$XDG_STATE_HOME/idetea/terminals/<pasta>-<hash da raiz>.toml` (o mesmo nome que o da sessão, por
+  `tea_core::os::project_state_file`). A API das extensões não tem gancho de sessão, e o arquivo é gravado a cada
+  mudança das abas, então sobrevive a uma IDE que trava. Guarda o tipo, o nome dado, o título e o comando do
+  agente, a worktree e o id da conversa. **Ainda não guarda** a pasta de cada shell (eles voltam na raiz), a aba
+  ativa nem a divisão.
+- **Retomar:** "Retomar todos / Escolher… / Não", e a paleta "Terminal: retomar agentes da sessão anterior" para
+  os que ficaram. Claude Code e Codex como na tabela (`tea_core::coding_agents::{with_new_session,
+  resume_command}`); sem id, `claude --continue`. Os outros abrem uma conversa nova. **Não entrou** o `resume` /
+  `session_arg` em `[agents.launchers]`. Retomada que sai com erro em até 15 s vira um aviso que aponta o
+  lançador (não um botão na aba).
+- **Texto da tela:** os arquivos ficam em `terminals/<pasta>-<hash>/<posição>.txt` (pasta 0700, arquivos 0600),
+  com as últimas 2 000 linhas, e são lidos uma vez só. A data da linha de separação é `AAAA-MM-DD HH:MM`. Para
+  gravar ao fechar, as extensões recebem `CoreEvent::Closing`; o `iced_term` ganhou `Terminal::text` e
+  `BackendSettings::preamble` (ver `crates/iced_term/UPSTREAM.md`).
+
 ## M3 — o processo sobrevive à IDE (experimental)
 
 Para o servidor de desenvolvimento, o build longo e o agente no meio de um turno, que não podem morrer quando a

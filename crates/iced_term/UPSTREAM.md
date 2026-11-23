@@ -16,3 +16,6 @@ aqui, com o motivo, para dar para comparar com o upstream ou mandar a ele quando
   (RFC 0024, M1.4): busca de texto literal (com o "smart case" do alacritty) no histórico, a partir da seleção ou
   do fim, selecionando e rolando até a ocorrência. Usa o `RegexSearch`/`search_next` do alacritty, que o upstream
   só usava para achar URLs. Com testes (`search_tests`).
+- **`Terminal::text(max_lines)` e `BackendSettings::preamble`** (RFC 0024, M2): o texto das últimas linhas
+  (histórico e tela, sem cores) e uma saída mostrada antes do programa começar, passada pelo parser antes de o
+  laço do pty existir (o programa nunca a recebe). Juntos, mostram o texto da sessão anterior. Com teste.

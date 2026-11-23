@@ -67,6 +67,9 @@ pub enum CoreEvent {
     Notification(String),
     /// Config recarregado (ex.: depois de salvar o config.toml).
     ConfigReloaded,
+    /// A janela vai fechar (pelo caminho normal: o usuário fechou ou pediu para reiniciar). Último momento para
+    /// gravar estado; o que a extensão devolver aqui não roda.
+    Closing,
     /// O executável da IDE foi recompilado ou atualizado depois que ela abriu: esta IDE está desatualizada.
     BinaryChanged,
     /// Diagnósticos de um arquivo (substituem os anteriores desse arquivo e dessa fonte).

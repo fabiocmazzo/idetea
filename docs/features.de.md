@@ -106,6 +106,13 @@ Die vollständige Liste, für die technische Leserschaft. Die Kurzfassung steht 
   ihm den Fokus.
 - Suche im Terminal (die Lupe oder *Terminal: suchen*): einfacher Text, der neueste Treffer zuerst.
 - `[terminal] scrollback` legt fest, wie viele Zeilen jede Registerkarte behält (standardmäßig 10000).
+- Terminal-Registerkarten kommen beim erneuten Öffnen der IDE zurück: Shells von selbst, mit ihren Namen; vom
+  Starter geöffnete Agenten erst, wenn du zustimmst (*Alle fortsetzen*, *Auswählen…*, *Nein* oder später
+  *Terminal: Agenten der letzten Sitzung fortsetzen*). Claude Code und Codex setzen dasselbe Gespräch fort,
+  andere Agenten beginnen ein neues.
+- `[terminal] keep_scrollback = true` behält beim Schließen die letzten Zeilen jeder Registerkarte und zeigt sie
+  einmal über dem neuen Prompt. Standardmäßig aus: ein Terminal enthält Passwörter und Tokens. Der Text bleibt
+  außerhalb des Projekts und ist nur für dich lesbar.
 
 ## Git
 

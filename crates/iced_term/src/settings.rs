@@ -24,6 +24,9 @@ pub struct BackendSettings {
     pub working_directory: Option<PathBuf>,
     /// Lines kept above the screen (alacritty's `scrolling_history`).
     pub scrollback: usize,
+    /// Output shown before the program starts (bytes as a program would write them, escape sequences included),
+    /// e.g. the text of a previous session. Never sent to the program.
+    pub preamble: Vec<u8>,
 }
 
 impl Default for BackendSettings {
@@ -34,6 +37,7 @@ impl Default for BackendSettings {
             env: HashMap::new(),
             working_directory: None,
             scrollback: 10_000,
+            preamble: Vec::new(),
         }
     }
 }

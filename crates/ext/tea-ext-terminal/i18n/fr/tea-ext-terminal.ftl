@@ -90,3 +90,4 @@ terminal-resume-pick-placeholder = Agent à reprendre…
 terminal-resume-same = même conversation
 terminal-resume-new = nouvelle conversation
 terminal-resume-failed = Impossible de reprendre la conversation de { $title } (code { $code }). Ouvrez-en une nouvelle avec « Agents : lancer… » (Ctrl+Shift+A).
+terminal-previous-session = — session précédente, { $when } —

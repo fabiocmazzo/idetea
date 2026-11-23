@@ -83,3 +83,4 @@ terminal-resume-pick-placeholder = 再開するエージェント…
 terminal-resume-same = 同じ会話
 terminal-resume-new = 新しい会話
 terminal-resume-failed = { $title } の会話を再開できませんでした (コード { $code })。「エージェント: 起動…」(Ctrl+Shift+A) から新しい会話を始めてください。
+terminal-previous-session = — 前回のセッション、{ $when } —

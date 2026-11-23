@@ -133,11 +133,14 @@ allow = []
 [table]
 max_mb = 50
 
-# Busca no projeto (painel de baixo).
 [terminal]
 # Linhas guardadas acima da tela, em cada aba (até 200000). Vale para os terminais abertos depois de mudar.
 scrollback = 10000
+# Guardar o texto das abas ao fechar e mostrá-lo ao reabrir, acima do prompt novo. Desligado: o terminal tem
+# senhas, tokens e saídas de `env`, e a IDE não sabe o que é segredo. Fica fora do projeto, só você lê.
+keep_scrollback = false
 
+# Busca no projeto (painel de baixo).
 [search]
 # Linhas de contexto antes e depois de cada resultado. 0 não mostra nenhuma; o botão "Contexto" do painel
 # liga, e aí vale este número (ou 1, se aqui estiver 0).
@@ -379,11 +382,13 @@ pub enum MascotChatty {
 pub struct TerminalConfig {
     /// Linhas guardadas acima da tela, por aba. Vale para os terminais abertos depois de mudar.
     pub scrollback: usize,
+    /// Guarda o texto das abas ao fechar e o mostra ao reabrir (RFC 0024, M2). Desligado por padrão.
+    pub keep_scrollback: bool,
 }
 
 impl Default for TerminalConfig {
     fn default() -> Self {
-        Self { scrollback: 10_000 }
+        Self { scrollback: 10_000, keep_scrollback: false }
     }
 }
 
@@ -667,6 +672,8 @@ mod tests {
         assert_eq!(c.terminal, TerminalConfig::default(), "o texto e o Default dizem o mesmo");
         assert_eq!(layers(&["[terminal]\nscrollback = 900000"]).terminal.scrollback, SCROLLBACK_MAX);
         assert_eq!(layers(&["[terminal]\nscrollback = 0"]).terminal.scrollback, 0);
+        assert!(!layers(&[]).terminal.keep_scrollback);
+        assert!(layers(&["[terminal]\nkeep_scrollback = true"]).terminal.keep_scrollback);
         assert!(!c.ui.splash, "a splash vem desligada");
         assert_eq!(c.editor, EditorConfig::default(), "o texto e o Default dizem o mesmo");
         assert_eq!(layers(&["[editor]\ntab_size = 0"]).editor.tab_size, 1);

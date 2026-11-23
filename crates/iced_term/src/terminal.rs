@@ -61,6 +61,11 @@ impl Terminal {
         })
     }
 
+    /// The last `max_lines` lines of text, without colors (see [`backend::Backend::text`]).
+    pub fn text(&self, max_lines: usize) -> String {
+        self.backend.text(max_lines)
+    }
+
     pub fn widget_id(&self) -> &iced::widget::Id {
         &self.widget_id
     }

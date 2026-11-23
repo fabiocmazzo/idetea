@@ -113,6 +113,23 @@ vista, pediu atenção, e o fim com o código (verde ou vermelho). Na aba que es
 
 Um agente que não usa os hooks do mascote pode gravar o mesmo arquivo (pelo temporário e `mv`), ou tocar o sino.
 
+## Ao reabrir a IDE
+
+RFC 0024, M2. As abas de terminal ficam em `$XDG_STATE_HOME/idetea/terminals/<pasta>-<hash>.toml`, gravado a cada
+mudança. Ao reabrir:
+
+- Os shells voltam sozinhos, com o nome dado (na raiz do projeto).
+- Os agentes abertos pelo lançador esperam "Retomar os agentes?" (*Retomar todos*, *Escolher…*, *Não*); a paleta
+  "Terminal: retomar agentes da sessão anterior" mostra os que ficaram. Cada um volta na mesma pasta ou worktree.
+- O Claude Code abre com `--session-id <uuid>` escolhido pela IDE e volta com `claude --resume <uuid>`; o Codex,
+  com `codex resume --last` (a conversa mais recente daquela pasta). Os outros abrem uma conversa nova. Se a
+  retomada sair com erro em até 15 s, a IDE avisa.
+- Tarefas e terminais pedidos por agentes não voltam: o pedido vira `lost`, e quem pediu decide se pede de novo.
+
+Com `[terminal] keep_scrollback = true`, as últimas 2 000 linhas de cada aba são gravadas ao fechar (fora do
+projeto, só o usuário lê) e aparecem uma vez acima do prompt novo. Desligado por padrão: o terminal tem senhas e
+tokens.
+
 ## Comandos que rodam sem confirmar
 
 No config **do usuário** (`~/.config/idetea/config.toml`), uma lista de comandos que não precisam de confirmação:

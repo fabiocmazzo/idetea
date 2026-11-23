@@ -251,6 +251,18 @@ impl AgentTerm {
     }
 }
 
+/// Linhas de cada aba guardadas com `keep_scrollback`.
+const KEEP_LINES: usize = 2_000;
+
+/// O texto de uma saída da sessão anterior, sem a linha de separação nem os `\r`.
+fn previous_text(preamble: &[u8]) -> String {
+    let text = String::from_utf8_lossy(preamble).replace("\r\n", "\n");
+    match text.rfind("\n\x1b[2m") {
+        Some(end) => text[..end].to_string(),
+        None => text,
+    }
+}
+
 /// Um agente retomado que sai com erro antes disto: a retomada falhou (a IDE avisa).
 const RESUME_FAILS_WITHIN: Duration = Duration::from_secs(15);
 
@@ -326,6 +338,10 @@ pub struct TerminalExtension {
     last_saved: Option<saved::Saved>,
     /// Agentes da sessão anterior esperando o usuário dizer se retoma.
     to_resume: Vec<saved::Tab>,
+    /// `[terminal] keep_scrollback`: guarda o texto das abas ao fechar.
+    keep_scrollback: bool,
+    /// A saída que o próximo terminal mostra antes do programa (o texto da sessão anterior).
+    next_preamble: Vec<u8>,
     /// A última busca não achou nada (o campo avisa).
     find_missing: bool,
     /// Painel dividido (RFC 0024, M1.3): o terminal do lado sem foco. O lado com foco é o `shown`.
@@ -417,6 +433,8 @@ impl Default for TerminalExtension {
             saved_path: None,
             last_saved: None,
             to_resume: Vec::new(),
+            keep_scrollback: false,
+            next_preamble: Vec::new(),
             split: None,
         }
     }
@@ -437,6 +455,7 @@ impl TerminalExtension {
                 env: [("TERM_PROGRAM".to_string(), "idetea".to_string())].into(),
                 working_directory: Some(cwd.to_path_buf()),
                 scrollback: self.scrollback,
+                preamble: Vec::new(),
             },
         }
     }
@@ -1019,6 +1038,7 @@ impl TerminalExtension {
     /// último tamanho recebido; um terminal novo só tem o provisório (80×50 pixels) até o widget medir, e qualquer
     /// coisa antes disso (a saída do shell, um redesenho) o espremia em poucas colunas, quebrando o prompt.
     fn new_terminal(&mut self, mut settings: Settings) -> std::io::Result<Terminal> {
+        settings.backend.preamble = std::mem::take(&mut self.next_preamble);
         // Os hooks do agente que roda aqui dizem a esta aba que ele pediu atenção (RFC 0024, M1.1).
         settings.backend.env.insert(tab_hooks::ENV.into(), tab_hooks::env_value(std::process::id(), self.next_id));
         let mut term = Terminal::new(self.next_id, settings)?;
@@ -1167,8 +1187,26 @@ impl TerminalExtension {
             command: a.command.clone(),
             worktree: a.branch.clone(),
             session: a.session.clone(),
+            text: None,
         });
         saved::Saved { root: self.root.clone(), tabs: shells.chain(agents).chain(self.to_resume.iter().cloned()).collect() }
+    }
+
+    /// Ao fechar, com `keep_scrollback`: o texto de cada aba, na ordem de [`Self::snapshot`]. Desligado, apaga o
+    /// que houver.
+    fn save_texts(&self) {
+        let Some(path) = &self.saved_path else { return };
+        let dir = saved::Saved::text_dir(path);
+        if !self.keep_scrollback {
+            let _ = std::fs::remove_dir_all(dir);
+            return;
+        }
+        let shells = self.shells.iter().map(|s| Some(s.term.text(KEEP_LINES)));
+        let agents = self.agents.iter().filter(|a| a.launched && !a.ended).map(|a| Some(a.term.text(KEEP_LINES)));
+        // Os que esperavam resposta guardam o texto que trouxeram (sem a linha de separação, que volta nova).
+        let waiting = self.to_resume.iter().map(|t| t.text.as_ref().map(|b| previous_text(b)));
+        let texts: Vec<Option<String>> = shells.chain(agents).chain(waiting).collect();
+        saved::write_texts(&dir, &texts);
     }
 
     /// Grava as abas se mudaram desde a última vez.
@@ -1187,6 +1225,7 @@ impl TerminalExtension {
         for tab in saved.tabs {
             match tab.kind {
                 saved::Kind::Shell => {
+                    self.next_preamble = tab.text.unwrap_or_default();
                     if self.start(ctx)
                         && let Some(name) = tab.name
                         && let Some(id) = self.shells.last().map(|s| s.term.id)
@@ -1243,6 +1282,10 @@ impl TerminalExtension {
         let before = self.agents.len();
         let resume = tea_core::coding_agents::resume_command(&tab.command, tab.session.as_deref());
         let command = resume.clone().unwrap_or_else(|| tab.command.clone());
+        // O agente que retoma a conversa a redesenha; o que abre uma nova mostra o texto da vez anterior.
+        if resume.is_none() {
+            self.next_preamble = tab.text.clone().unwrap_or_default();
+        }
         let task = self.launch_agent(&tab.title, &command, tab.worktree.as_deref(), ctx);
         if self.agents.len() > before
             && let Some(agent) = self.agents.last_mut()
@@ -1446,7 +1489,13 @@ impl TerminalExtension {
             return self.send_to_agent(text, ctx);
         }
         if let CoreEvent::ConfigReloaded = event {
-            self.scrollback = terminal_config(&self.root).scrollback;
+            let config = terminal_config(&self.root);
+            self.scrollback = config.scrollback;
+            self.keep_scrollback = config.keep_scrollback;
+        }
+        if let CoreEvent::Closing = event {
+            self.save_tabs();
+            self.save_texts();
         }
         if let CoreEvent::Appearance { theme, font_size, code_font } = event {
             self.theme = theme.clone();
@@ -1706,11 +1755,26 @@ impl Extension for TerminalExtension {
 
     fn activate(&mut self, ctx: &mut Context) -> Task<Message> {
         self.root = ctx.root().to_path_buf();
-        self.scrollback = terminal_config(&self.root).scrollback;
+        let config = terminal_config(&self.root);
+        self.scrollback = config.scrollback;
+        self.keep_scrollback = config.keep_scrollback;
         self.saved_path = saved_path(&self.root);
-        if let Some(saved) = self.saved_path.as_deref().and_then(|p| saved::Saved::load(p, &self.root)) {
-            self.last_saved = Some(saved.clone());
-            self.restore(saved, ctx);
+        if let Some(path) = self.saved_path.clone() {
+            let saved = saved::Saved::load(&path, &self.root);
+            // Os textos só valem uma vez (e somem mesmo com `keep_scrollback` desligado depois de gravar).
+            let count = saved.as_ref().map_or(0, |s| s.tabs.len());
+            let texts = saved::take_texts(&saved::Saved::text_dir(&path), count, |when| {
+                fl!("terminal-previous-session", when = when)
+            });
+            if let Some(mut saved) = saved {
+                self.last_saved = Some(saved.clone());
+                if self.keep_scrollback {
+                    for (tab, text) in saved.tabs.iter_mut().zip(texts) {
+                        tab.text = text;
+                    }
+                }
+                self.restore(saved, ctx);
+            }
         }
         ctx.register_panel_hidden(PANEL, "Terminal", Slot::Bottom);
         ctx.panel_icon(PANEL, Icon::Terminal);

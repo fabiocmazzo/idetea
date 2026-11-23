@@ -122,6 +122,13 @@ La liste complète, pour le lecteur technique. Pour la version courte, voir le [
 - Recherche dans le terminal (la loupe, ou *Terminal : rechercher*) : texte simple, le résultat le plus récent
   d'abord.
 - `[terminal] scrollback` fixe le nombre de lignes que garde chaque onglet (10000 par défaut).
+- Les onglets de terminal reviennent à la réouverture de l’IDE : les shells d’eux-mêmes, avec leur nom ; les
+  agents ouverts par le lanceur seulement si vous le voulez (*Tout reprendre*, *Choisir…*, *Non*, ou plus tard
+  *Terminal : reprendre les agents de la session précédente*). Claude Code et Codex reprennent la même
+  conversation ; les autres agents en commencent une nouvelle.
+- `[terminal] keep_scrollback = true` garde les dernières lignes de chaque onglet à la fermeture et les affiche une
+  fois au-dessus de la nouvelle invite. Désactivé par défaut : un terminal contient des mots de passe et des jetons.
+  Le texte reste hors du projet, lisible par vous seul.
 
 ## Git
 

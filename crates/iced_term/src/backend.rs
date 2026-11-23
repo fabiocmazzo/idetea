@@ -181,6 +181,11 @@ impl Backend {
         let event_proxy = EventProxy(pty_event_proxy_sender);
 
         let mut term = Term::new(config, &terminal_size, event_proxy.clone());
+        if !settings.preamble.is_empty() {
+            // Before the event loop starts: the program's first output always comes after it.
+            let mut processor: alacritty_terminal::vte::ansi::Processor = alacritty_terminal::vte::ansi::Processor::new();
+            processor.advance(&mut term, &settings.preamble);
+        }
 
         let cursor = term.grid_mut().cursor_cell().clone();
 
@@ -531,6 +536,25 @@ impl Backend {
         }
     }
 
+    /// The last `max_lines` lines of text (history and screen), without colors; trailing blank lines dropped.
+    pub fn text(&self, max_lines: usize) -> String {
+        let term = self.term.lock();
+        Self::last_lines(&term, max_lines)
+    }
+
+    fn last_lines<T: EventListener>(term: &Term<T>, max_lines: usize) -> String {
+        if max_lines == 0 {
+            return String::new();
+        }
+        let bottom = term.bottommost_line();
+        let top = Line((bottom.0 - max_lines as i32 + 1).max(term.topmost_line().0));
+        let last_column = Column(term.columns().saturating_sub(1));
+        let text = term.bounds_to_string(Point::new(top, Column(0)), Point::new(bottom, last_column));
+        let lines: Vec<&str> = text.lines().map(str::trim_end).collect();
+        let end = lines.iter().rposition(|l| !l.is_empty()).map_or(0, |i| i + 1);
+        lines[..end].join("\n")
+    }
+
     pub fn selectable_content(&self) -> String {
         let content = self.renderable_content();
         let mut result = String::new();
@@ -656,6 +680,14 @@ mod search_tests {
 
     fn selected(term: &Term<VoidListener>) -> Option<String> {
         term.selection_to_string()
+    }
+
+    #[test]
+    fn last_lines_take_history_and_drop_trailing_blanks() {
+        let term = term_with(&["um", "dois  ", "tres", "quatro", "cinco"]);
+        assert_eq!(Backend::last_lines(&term, 100), "um\ndois\ntres\nquatro\ncinco");
+        assert_eq!(Backend::last_lines(&term, 4), "tres\nquatro\ncinco", "a linha em branco do cursor conta");
+        assert_eq!(Backend::last_lines(&term, 0), "");
     }
 
     #[test]

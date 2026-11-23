@@ -42,6 +42,42 @@ pub fn fnv1a(bytes: &[u8]) -> u64 {
     bytes.iter().fold(0xcbf2_9ce4_8422_2325, |h, b| (h ^ u64::from(*b)).wrapping_mul(0x0000_0100_0000_01b3))
 }
 
+/// `AAAA-MM-DD HH:MM` na hora local (UTC, com o sufixo, se não der para saber o fuso).
+pub fn local_date_time(t: std::time::SystemTime) -> String {
+    let secs = t.duration_since(std::time::UNIX_EPOCH).map_or(0, |d| d.as_secs());
+    #[cfg(unix)]
+    {
+        // `time_t` é i32 em sistemas de 32 bits.
+        #[allow(clippy::useless_conversion)]
+        if let Ok(raw) = libc::time_t::try_from(secs) {
+            // SAFETY: `localtime_r` só escreve no `tm` que passamos; os dois ponteiros valem durante a chamada.
+            let mut tm: libc::tm = unsafe { std::mem::zeroed() };
+            if !unsafe { libc::localtime_r(&raw, &mut tm) }.is_null() {
+                return format!(
+                    "{:04}-{:02}-{:02} {:02}:{:02}",
+                    tm.tm_year + 1900,
+                    tm.tm_mon + 1,
+                    tm.tm_mday,
+                    tm.tm_hour,
+                    tm.tm_min
+                );
+            }
+        }
+    }
+    // Dias desde 1970 para a data civil (algoritmo de Howard Hinnant).
+    let days = (secs / 86_400) as i64 + 719_468;
+    let era = days.div_euclid(146_097);
+    let doe = days - era * 146_097;
+    let yoe = (doe - doe / 1460 + doe / 36_524 - doe / 146_096) / 365;
+    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
+    let mp = (5 * doy + 2) / 153;
+    let day = doy - (153 * mp + 2) / 5 + 1;
+    let month = if mp < 10 { mp + 3 } else { mp - 9 };
+    let year = yoe + era * 400 + i64::from(month <= 2);
+    let s = secs % 86_400;
+    format!("{year:04}-{month:02}-{day:02} {:02}:{:02} UTC", s / 3600, s % 3600 / 60)
+}
+
 /// Um arquivo de estado de um projeto: `<estado>/idetea/<sub>/<pasta>-<hash da raiz>.toml`. O nome leva a pasta
 /// (para achar à mão) e um hash do caminho inteiro (duas pastas `app` em lugares diferentes não se misturam).
 pub fn project_state_file(sub: &str, root: &Path) -> Option<PathBuf> {
