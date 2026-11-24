@@ -23,3 +23,7 @@ aqui, com o motivo, para dar para comparar com o upstream ou mandar a ele quando
   polegar na cor `background.strong` do tema. Aparece quando há histórico e some na tela alternativa (vim, htop).
   Arrastar o polegar rola junto (`BackendCommand::ScrollTo(offset)`, novo), clicar na trilha pula uma página, e
   um clique nela nunca começa seleção. A conta do polegar (`thumb`, `offset_for`) tem testes.
+- **Tamanho ao trocar de terminal** (2026-11-24): o widget reaproveita o estado quando outro terminal ocupa o mesmo
+  lugar na tela (troca de aba), e só redimensionava quando o tamanho do layout mudava. Um terminal criado ou
+  medido em outro lugar ficava com as colunas antigas (o texto quebrava em ~37 colunas num painel largo). Agora o
+  widget compara também com `Backend::layout_size()` (novo).

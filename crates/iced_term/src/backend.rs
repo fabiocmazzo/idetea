@@ -599,6 +599,11 @@ impl Backend {
         self.last_content.terminal_size = self.size;
     }
 
+    /// The area the terminal was last sized for (the widget compares it with its own layout).
+    pub fn layout_size(&self) -> Size<f32> {
+        Size::new(self.size.layout_width, self.size.layout_height)
+    }
+
     pub fn renderable_content(&self) -> &RenderableContent {
         &self.last_content
     }
