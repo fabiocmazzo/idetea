@@ -88,3 +88,4 @@ terminal-resume-same = 同一个对话
 terminal-resume-new = 新对话
 terminal-resume-failed = 无法恢复 { $title } 的对话（代码 { $code }）。请用“智能体: 启动…”（Ctrl+Shift+A）开始新的对话。
 terminal-previous-session = — 上次会话，{ $when } —
+agent-request-ignored = 此版本不认识的字段（已忽略）：{ $fields }

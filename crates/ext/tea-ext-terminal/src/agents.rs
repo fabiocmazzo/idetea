@@ -35,10 +35,19 @@ pub struct Request {
     pub cwd: PathBuf,
     /// Rodar num worktree próprio, com este branch (etapa 5).
     pub worktree: Option<String>,
+    /// O pid da IDE de onde o pedido saiu (RFC 0024, 2b): enquanto ela estiver aberta, as outras o deixam para ela.
+    pub ide: Option<u32>,
+    /// Campos que esta versão não conhece: o pedido vale sem eles, e a tela diz quais foram ignorados (um erro de
+    /// digitação, como `worktre`, não passa calado).
+    pub ignored: Vec<String>,
 }
 
+/// Até quantos campos desconhecidos a tela lista.
+const MAX_IGNORED: usize = 8;
+
+/// Campos desconhecidos não invalidam o pedido: um agente que escreve para uma IDE mais nova continua funcionando
+/// numa mais velha (antes da 0.17.0, um campo novo virava `invalid`).
 #[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
 struct Raw {
     format: String,
     version: u32,
@@ -51,6 +60,10 @@ struct Raw {
     cwd: Option<String>,
     #[serde(default)]
     worktree: Option<String>,
+    #[serde(default)]
+    ide: Option<u32>,
+    #[serde(flatten)]
+    other: BTreeMap<String, serde_json::Value>,
 }
 
 /// O andamento gravado em `<nome>.status.json`.
@@ -220,7 +233,13 @@ fn read(root: &Path, name: &str, path: &Path) -> Result<Request, String> {
         Some(b) if crate::worktree::valid_branch(b) => Some(b.to_string()),
         Some(b) => return Err(format!("worktree: nome de branch que não vale: {b}")),
     };
-    Ok(Request { name: name.to_string(), title, source, command, cwd, worktree })
+    let ignored = raw
+        .other
+        .into_keys()
+        .map(|k| k.chars().filter(|c| !c.is_control()).take(MAX_TITLE).collect::<String>())
+        .take(MAX_IGNORED)
+        .collect();
+    Ok(Request { name: name.to_string(), title, source, command, cwd, worktree, ide: raw.ide.filter(|p| *p > 0), ignored })
 }
 
 pub fn read_status(root: &Path, name: &str) -> Option<OnDisk> {
@@ -313,6 +332,11 @@ pub fn decide(on_disk: Option<&OnDisk>, ours: u32) -> Decision {
     }
 }
 
+/// O pedido saiu de outra IDE (o campo `ide`) que ainda está aberta: fica para ela.
+pub fn meant_for_other(request: &Request, ours: u32) -> bool {
+    request.ide.is_some_and(|p| p != ours && alive(p))
+}
+
 /// Outra IDE, ainda aberta, espera o usuário ou roda este pedido.
 pub fn owned_by_other(on_disk: Option<&OnDisk>, ours: u32) -> bool {
     on_disk.is_some_and(|d| {
@@ -361,6 +385,26 @@ mod tests {
         assert!(found["vazio"].as_ref().unwrap_err().contains("vazio"));
         assert!(found["escondido"].as_ref().unwrap_err().contains("controle"));
         assert!(found["Maiuscula"].as_ref().unwrap_err().contains("nome"));
+    }
+
+    #[test]
+    fn unknown_fields_are_ignored_and_listed_and_ide_is_read() {
+        let root = tmp_root("unknown");
+        put(&root, "novo", r#"{"format": "idetea-terminal", "version": 1, "command": "ls", "worktre": "x", "ide": 4242, "slot": {"a": 1}}"#);
+        put(&root, "zero", r#"{"format": "idetea-terminal", "version": 1, "command": "ls", "ide": 0}"#);
+        put(&root, "texto", r#"{"format": "idetea-terminal", "version": 1, "command": "ls", "ide": "4242"}"#);
+        let found = scan(&root);
+        let r = found["novo"].as_ref().unwrap();
+        assert_eq!((r.ide, r.ignored.clone(), r.worktree.clone()), (Some(4242), vec!["slot".to_string(), "worktre".to_string()], None));
+        assert_eq!(found["zero"].as_ref().unwrap().ide, None);
+        assert!(found["texto"].is_err(), "ide tem que ser número");
+        let ours = std::process::id();
+        let mut mine = r.clone();
+        mine.ide = Some(ours);
+        assert!(!meant_for_other(&mine, ours), "o da própria IDE");
+        mine.ide = Some(u32::MAX - 1);
+        assert!(!meant_for_other(&mine, ours), "IDE que já fechou: qualquer uma atende");
+        let _ = std::fs::remove_dir_all(&root);
     }
 
     #[test]

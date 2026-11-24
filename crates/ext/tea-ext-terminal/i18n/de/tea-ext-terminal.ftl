@@ -91,3 +91,4 @@ terminal-resume-same = dasselbe Gespräch
 terminal-resume-new = neues Gespräch
 terminal-resume-failed = Das Gespräch von { $title } ließ sich nicht fortsetzen (Code { $code }). Starte ein neues mit „Agenten: starten…“ (Ctrl+Shift+A).
 terminal-previous-session = — vorherige Sitzung, { $when } —
+agent-request-ignored = Felder, die diese Version nicht kennt (ignoriert): { $fields }

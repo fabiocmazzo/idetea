@@ -827,6 +827,14 @@ impl TerminalExtension {
                 }
             };
             let waiting = self.pending.contains_key(&name);
+            // Saiu de outra IDE aberta (RFC 0024, 2b): fica para ela. Se ela fechar sem tratar, o status some e o
+            // pedido volta aqui na próxima leitura.
+            if !waiting && let Ok(r) = &request
+                && agents::meant_for_other(r, ours)
+            {
+                self.handled.insert(name, request);
+                continue;
+            }
             if !waiting {
                 let disk = agents::read_status(&self.root, &name);
                 let decision = if again && !agents::owned_by_other(disk.as_ref(), ours) {
@@ -865,6 +873,10 @@ impl TerminalExtension {
                     if let Some(entry) = agents::allowed(&request.command, list) {
                         // Na lista do usuário: roda sem perguntar, e o aviso diz por qual linha.
                         notes.push(fl!("agent-request-auto", title = request.title.as_str(), entry = entry));
+                        // Sem a tela de confirmação, o campo ignorado (um `worktre`) só aparece aqui.
+                        if !request.ignored.is_empty() {
+                            notes.push(fl!("agent-request-ignored", fields = request.ignored.join(", ")));
+                        }
                         auto.push(request.clone());
                     } else {
                         asked.get_or_insert_with(|| request.title.clone());
@@ -999,6 +1011,9 @@ impl TerminalExtension {
         if let Some(branch) = &request.worktree {
             let path = format!("{}/{}", worktree::DIR, request.name);
             col = col.push(text(fl!("agent-request-worktree", branch = branch.as_str(), path = path)).size(12));
+        }
+        if !request.ignored.is_empty() {
+            col = col.push(text(fl!("agent-request-ignored", fields = request.ignored.join(", "))).size(12).style(text::warning));
         }
         col = col.push(column![
             text(fl!("agent-request-warning")).size(12).style(text::warning),
@@ -2088,6 +2103,33 @@ mod tests {
 
     fn status(root: &Path, name: &str) -> String {
         agents::read_status(root, name).map(|d| d.state).unwrap_or_default()
+    }
+
+    /// RFC 0024, 2b: o pedido com `"ide"` de outra IDE aberta fica para ela (nem `pending` grava); de uma IDE que já
+    /// fechou, esta atende.
+    #[cfg(unix)]
+    #[test]
+    fn a_request_from_another_open_ide_is_left_to_it() {
+        let root = std::env::temp_dir().join(format!("idetea-agent-origin-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        std::fs::create_dir_all(root.join(agents::DIR)).unwrap();
+        let put = |ide: u32| {
+            let doc = serde_json::json!({"format": agents::FORMAT, "version": 1, "command": "echo oi", "ide": ide});
+            std::fs::write(root.join(agents::DIR).join("pedido.json"), doc.to_string()).unwrap();
+        };
+        let mut ext = TerminalExtension::new();
+        let _ = ext.activate(&mut Context::new(&root, None));
+        // O processo que roda os testes: aberto e não é "esta IDE".
+        put(std::os::unix::process::parent_id());
+        let _ = ext.update(Message::Requests(agents::scan(&root)), &mut Context::new(&root, None));
+        assert!(ext.pending.is_empty());
+        assert_eq!(status(&root, "pedido"), "", "nem marca pending: a outra IDE é que responde");
+        // A IDE de origem fechou (pid que não existe): esta pergunta.
+        put(u32::MAX - 1);
+        let _ = ext.update(Message::Requests(agents::scan(&root)), &mut Context::new(&root, None));
+        assert_eq!(ext.pending.len(), 1);
+        assert_eq!(status(&root, "pedido"), "pending");
+        let _ = std::fs::remove_dir_all(&root);
     }
 
     /// Pedido chega, espera o usuário (status `pending`), é recusado ou permitido; apagar o pedido encerra o terminal;
