@@ -14,7 +14,7 @@ body:
     attributes:
       label: Version and system
       description: IDE TEA version (`idetea --version`), operating system, and whether you used a release package or built from source.
-      placeholder: "idetea 0.16.0, Linux x86_64, package from the GitHub release"
+      placeholder: "idetea 0.17.0, Linux x86_64, package from the GitHub release"
     validations:
       required: true
   - type: textarea
