@@ -52,6 +52,8 @@ pub enum Command {
     Search { text: String, older: bool },
     /// Drop the selection (e.g. when the search is closed).
     ClearSelection,
+    /// Show the history this many lines up from the bottom (0 = the bottom), e.g. from the scrollbar.
+    ScrollTo(usize),
 }
 
 #[derive(Debug, Clone)]
@@ -262,6 +264,13 @@ impl Backend {
             },
             Command::ClearSelection => {
                 term.selection = None;
+            },
+            Command::ScrollTo(target) => {
+                let target = target.min(term.grid().history_size());
+                let delta = target as i64 - term.grid().display_offset() as i64;
+                if delta != 0 {
+                    term.scroll_display(Scroll::Delta(delta as i32));
+                }
             },
         };
 
@@ -496,7 +505,9 @@ impl Backend {
 
         let lines = (self.size.layout_height / self.size.cell_height as f32)
             .floor() as u16;
-        let cols = (self.size.layout_width / self.size.cell_width as f32)
+        // The scrollbar has its own strip on the right: text never runs under it.
+        let cols = ((self.size.layout_width - crate::view::SCROLLBAR_WIDTH).max(0.0)
+            / self.size.cell_width as f32)
             .floor() as u16;
         if lines > 0 && cols > 0 {
             self.size.num_lines = lines;
