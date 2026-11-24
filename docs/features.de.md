@@ -106,6 +106,9 @@ Die vollständige Liste, für die technische Leserschaft. Die Kurzfassung steht 
   ihm den Fokus.
 - Suche im Terminal (die Lupe oder *Terminal: suchen*): einfacher Text, der neueste Treffer zuerst.
 - `[terminal] scrollback` legt fest, wie viele Zeilen jede Registerkarte behält (standardmäßig 10000).
+- Eine schmale Bildlaufleiste rechts in jedem Terminal, mit eigenem Streifen, sodass sie nie Text verdeckt: Daumen
+  ziehen oder auf die Leiste klicken, um eine Seite zu springen. Auf dem alternativen Bildschirm (vim, less, htop)
+  verschwindet sie.
 - Terminal-Registerkarten kommen beim erneuten Öffnen der IDE zurück: Shells von selbst, mit ihren Namen; vom
   Starter geöffnete Agenten erst, wenn du zustimmst (*Alle fortsetzen*, *Auswählen…*, *Nein* oder später
   *Terminal: Agenten der letzten Sitzung fortsetzen*). Claude Code und Codex setzen dasselbe Gespräch fort,

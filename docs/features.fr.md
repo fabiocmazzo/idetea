@@ -122,6 +122,9 @@ La liste complète, pour le lecteur technique. Pour la version courte, voir le [
 - Recherche dans le terminal (la loupe, ou *Terminal : rechercher*) : texte simple, le résultat le plus récent
   d'abord.
 - `[terminal] scrollback` fixe le nombre de lignes que garde chaque onglet (10000 par défaut).
+- Une fine barre de défilement à droite de chaque terminal, dans sa propre bande pour ne jamais cacher le texte :
+  faites glisser le curseur, ou cliquez sur la piste pour avancer d’une page. Elle disparaît sur l’écran alternatif
+  (vim, less, htop).
 - Les onglets de terminal reviennent à la réouverture de l’IDE : les shells d’eux-mêmes, avec leur nom ; les
   agents ouverts par le lanceur seulement si vous le voulez (*Tout reprendre*, *Choisir…*, *Non*, ou plus tard
   *Terminal : reprendre les agents de la session précédente*). Claude Code et Codex reprennent la même

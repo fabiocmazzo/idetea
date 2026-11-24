@@ -19,3 +19,7 @@ aqui, com o motivo, para dar para comparar com o upstream ou mandar a ele quando
 - **`Terminal::text(max_lines)` e `BackendSettings::preamble`** (RFC 0024, M2): o texto das últimas linhas
   (histórico e tela, sem cores) e uma saída mostrada antes do programa começar, passada pelo parser antes de o
   laço do pty existir (o programa nunca a recebe). Juntos, mostram o texto da sessão anterior. Com teste.
+- **Barra de rolagem** (2026-11-24): uma faixa de 8 px à direita, reservada (as colunas param antes dela), com o
+  polegar na cor `background.strong` do tema. Aparece quando há histórico e some na tela alternativa (vim, htop).
+  Arrastar o polegar rola junto (`BackendCommand::ScrollTo(offset)`, novo), clicar na trilha pula uma página, e
+  um clique nela nunca começa seleção. A conta do polegar (`thumb`, `offset_for`) tem testes.

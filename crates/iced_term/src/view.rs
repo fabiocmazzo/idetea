@@ -4,6 +4,7 @@ use crate::backend::{
 use crate::bindings::{BindingAction, BindingsLayout, InputKind};
 use crate::terminal::{Event, Terminal};
 use crate::theme::TerminalStyle;
+use alacritty_terminal::grid::Dimensions;
 use alacritty_terminal::index::Point as TerminalGridPoint;
 use alacritty_terminal::selection::SelectionType;
 use alacritty_terminal::term::{cell, TermMode};
@@ -25,6 +26,34 @@ use iced_graphics::geometry::Stroke;
 
 pub struct TerminalView<'a> {
     term: &'a Terminal,
+}
+
+/// Width of the scrollbar strip on the right (reserved: the columns stop before it).
+pub(crate) const SCROLLBAR_WIDTH: f32 = 8.0;
+/// The thumb never gets shorter than this, even with a long history.
+const THUMB_MIN: f32 = 20.0;
+
+/// The scrollbar thumb: `(top, height)` inside a track `track` pixels tall, for `history` lines above the screen,
+/// `screen` lines on it and the view `offset` lines up from the bottom. `None` without history.
+pub(crate) fn thumb(history: usize, screen: usize, offset: usize, track: f32) -> Option<(f32, f32)> {
+    if history == 0 || screen == 0 || track <= 0.0 {
+        return None;
+    }
+    let total = (history + screen) as f32;
+    let height = (track * screen as f32 / total).max(THUMB_MIN).min(track);
+    let from_top = history.saturating_sub(offset.min(history)) as f32 / history as f32;
+    Some(((track - height) * from_top, height))
+}
+
+/// The inverse of [`thumb`]: the offset that puts the thumb's top at `top`.
+pub(crate) fn offset_for(history: usize, screen: usize, top: f32, track: f32) -> usize {
+    let Some((_, height)) = thumb(history, screen, 0, track) else { return 0 };
+    let room = track - height;
+    if room <= 0.0 {
+        return 0;
+    }
+    let from_top = (top / room).clamp(0.0, 1.0);
+    history - (from_top * history as f32).round() as usize
 }
 
 impl<'a> TerminalView<'a> {
@@ -98,6 +127,63 @@ impl<'a> TerminalView<'a> {
 
         if let Mouse(ButtonPressed(Left)) = event {
             state.focus = is_cursor_in_layout;
+        }
+    }
+
+    /// Where the scrollbar is, when there is history to scroll (not on the alternate screen of vim, htop...).
+    fn scrollbar(&self, bounds: Rectangle) -> Option<Scrollbar> {
+        let content = self.term.backend.renderable_content();
+        if content.terminal_mode.contains(TermMode::ALT_SCREEN) {
+            return None;
+        }
+        let grid = &content.grid;
+        let (history, screen) = (grid.history_size(), grid.screen_lines());
+        let (top, height) = thumb(history, screen, grid.display_offset(), bounds.height)?;
+        let x = bounds.x + bounds.width - SCROLLBAR_WIDTH;
+        Some(Scrollbar {
+            track: Rectangle::new(Point::new(x, bounds.y), Size::new(SCROLLBAR_WIDTH, bounds.height)),
+            thumb: Rectangle::new(
+                Point::new(x + 1.0, bounds.y + top),
+                Size::new(SCROLLBAR_WIDTH - 2.0, height),
+            ),
+            history,
+            screen,
+        })
+    }
+
+    /// The mouse on the scrollbar: `Some` when the event is the scrollbar's (with the command to send, if any).
+    fn handle_scrollbar(
+        &self,
+        state: &mut TerminalViewState,
+        bounds: Rectangle,
+        cursor: Cursor,
+        event: &iced::mouse::Event,
+    ) -> Option<Option<Command>> {
+        use iced_core::mouse::{Button::Left, Event as M};
+        let bar = self.scrollbar(bounds);
+        match event {
+            M::ButtonPressed(Left) => {
+                let bar = bar?;
+                let p = cursor.position()?;
+                if !bar.track.contains(p) {
+                    return None;
+                }
+                if bar.thumb.contains(p) {
+                    state.bar_grab = Some(p.y - bar.thumb.y);
+                    return Some(None);
+                }
+                // On the track: a page towards the click.
+                let lines = bar.screen.saturating_sub(1).max(1) as i32;
+                Some(Some(Command::Scroll(if p.y < bar.thumb.y { lines } else { -lines })))
+            },
+            M::CursorMoved { position } => {
+                let grab = state.bar_grab?;
+                let Some(bar) = bar else { return Some(None) };
+                let top = position.y - bounds.y - grab;
+                Some(Some(Command::ScrollTo(offset_for(bar.history, bar.screen, top, bounds.height))))
+            },
+            M::ButtonReleased(Left) => state.bar_grab.take().map(|_| None),
+            _ => None,
         }
     }
 
@@ -426,7 +512,7 @@ impl Widget<Event, Theme, iced::Renderer> for TerminalView<'_> {
         &self,
         tree: &Tree,
         renderer: &mut iced::Renderer,
-        _theme: &Theme,
+        theme: &Theme,
         _style: &iced::advanced::renderer::Style,
         layout: iced::advanced::Layout,
         _cursor: Cursor,
@@ -618,6 +704,23 @@ impl Widget<Event, Theme, iced::Renderer> for TerminalView<'_> {
 
         use iced::advanced::graphics::geometry::Renderer as _;
         renderer.draw_geometry(geom);
+
+        if let Some(bar) = self.scrollbar(layout.bounds()) {
+            use iced::advanced::Renderer as _;
+            let palette = theme.extended_palette();
+            let mut color = palette.background.strong.color;
+            if state.bar_grab.is_none() {
+                color.a *= 0.8;
+            }
+            renderer.fill_quad(
+                iced::advanced::renderer::Quad {
+                    bounds: bar.thumb,
+                    border: iced::Border::default().rounded(SCROLLBAR_WIDTH / 2.0 - 1.0),
+                    ..Default::default()
+                },
+                color,
+            );
+        }
     }
 
     fn update(
@@ -636,6 +739,17 @@ impl Widget<Event, Theme, iced::Renderer> for TerminalView<'_> {
 
         let is_cursor_in_layout = self.is_cursor_in_layout(cursor, layout);
         self.handle_focus(event, state, is_cursor_in_layout);
+
+        // The scrollbar first: a click on it never starts a selection, and a drag goes on outside the terminal.
+        if let iced::Event::Mouse(mouse_event) = event {
+            if let Some(cmd) = self.handle_scrollbar(state, layout.bounds(), cursor, mouse_event) {
+                shell.capture_event();
+                if let Some(cmd) = cmd {
+                    shell.publish(Event::BackendCall(self.term.id, cmd));
+                }
+                return;
+            }
+        }
 
         let commands = match event {
             iced::Event::Mouse(mouse_event) if is_cursor_in_layout => self
@@ -688,6 +802,15 @@ impl Widget<Event, Theme, iced::Renderer> for TerminalView<'_> {
             cursor_mode = iced_core::mouse::Interaction::Pointer;
         }
 
+        if state.bar_grab.is_some()
+            || cursor.position().is_some_and(|p| {
+                self.is_cursor_in_layout(cursor, layout)
+                    && p.x >= layout.bounds().x + layout.bounds().width - SCROLLBAR_WIDTH
+            })
+        {
+            cursor_mode = iced_core::mouse::Interaction::Idle;
+        }
+
         cursor_mode
     }
 }
@@ -699,9 +822,19 @@ impl<'a> From<TerminalView<'a>> for Element<'a, Event, Theme, iced::Renderer> {
 }
 
 #[derive(Debug, Clone)]
+/// The scrollbar on screen.
+struct Scrollbar {
+    track: Rectangle,
+    thumb: Rectangle,
+    history: usize,
+    screen: usize,
+}
+
 struct TerminalViewState {
     focus: bool,
     is_dragged: bool,
+    /// Dragging the scrollbar thumb: where in the thumb it was grabbed (pixels from its top).
+    bar_grab: Option<f32>,
     last_click: Option<mouse::Click>,
     scroll_pixels: f32,
     keyboard_modifiers: Modifiers,
@@ -714,6 +847,7 @@ impl TerminalViewState {
         Self {
             focus: false,
             is_dragged: false,
+            bar_grab: None,
             last_click: None,
             scroll_pixels: 0.0,
             keyboard_modifiers: Modifiers::empty(),
@@ -816,6 +950,44 @@ impl BackgroundRect {
 
 #[cfg(test)]
 mod tests {
+    mod scrollbar_tests {
+        use super::super::{offset_for, thumb, THUMB_MIN};
+
+        #[test]
+        fn no_history_no_thumb() {
+            assert_eq!(thumb(0, 24, 0, 400.0), None);
+            assert_eq!(thumb(10, 24, 0, 0.0), None);
+        }
+
+        #[test]
+        fn thumb_is_screen_over_total_and_moves_with_the_offset() {
+            // 76 lines above, 24 on screen: the thumb is 24% of the track.
+            let (top, h) = thumb(76, 24, 0, 400.0).unwrap();
+            assert_eq!((top, h), (304.0, 96.0), "at the bottom");
+            assert_eq!(thumb(76, 24, 76, 400.0).unwrap().0, 0.0, "at the top");
+            let (mid, _) = thumb(76, 24, 38, 400.0).unwrap();
+            assert!((mid - 152.0).abs() < 0.01);
+            assert_eq!(thumb(76, 24, 999, 400.0).unwrap().0, 0.0, "offset past the history");
+        }
+
+        #[test]
+        fn a_long_history_keeps_a_grabbable_thumb() {
+            assert_eq!(thumb(200_000, 24, 0, 400.0).unwrap().1, THUMB_MIN);
+            assert_eq!(thumb(1, 24, 0, 10.0).unwrap().1, 10.0, "never taller than the track");
+        }
+
+        #[test]
+        fn offset_for_inverts_thumb() {
+            for offset in [0, 1, 37, 75, 76] {
+                let (top, _) = thumb(76, 24, offset, 400.0).unwrap();
+                assert_eq!(offset_for(76, 24, top, 400.0), offset);
+            }
+            assert_eq!(offset_for(76, 24, -50.0, 400.0), 76, "dragged above the track");
+            assert_eq!(offset_for(76, 24, 9_999.0, 400.0), 0, "dragged below it");
+            assert_eq!(offset_for(0, 24, 10.0, 400.0), 0);
+        }
+    }
+
     use super::*;
 
     mod handle_left_button_pressed_tests {
