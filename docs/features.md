@@ -101,6 +101,8 @@ The full list, for the technical reader. For the short version, see the [README]
 - Two terminals side by side (`Ctrl+Shift+5` or the split button); click or type in one to give it the focus.
 - Find in the terminal (the magnifier, or *Terminal: find*): plain text, newest match first.
 - `[terminal] scrollback` sets how many lines each tab keeps (10000 by default).
+- A thin scrollbar on the right of each terminal, in its own strip so it never covers text: drag the thumb, or click
+  the track to move a page. It hides on the alternate screen (vim, less, htop).
 - Terminal tabs come back when the IDE reopens: shells by themselves, with their names; agents opened by the
   launcher only after you say so (*Resume all*, *Choose…*, *No*, or later *Terminal: resume agents from the last
   session*). Claude Code and Codex come back to the same conversation; other agents start a new one.

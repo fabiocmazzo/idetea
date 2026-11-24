@@ -106,6 +106,9 @@ L'elenco completo, per chi vuole il dettaglio tecnico. Per la versione breve, ve
   focus.
 - Ricerca nel terminale (la lente, o *Terminale: cerca*): testo semplice, il risultato più recente per primo.
 - `[terminal] scrollback` stabilisce quante righe tiene ogni scheda (10000 per impostazione predefinita).
+- Una sottile barra di scorrimento a destra di ogni terminale, in una striscia propria così non copre mai il testo:
+  trascina il cursore o clicca sulla traccia per spostarti di una pagina. Sparisce nella schermata alternativa (vim,
+  less, htop).
 - Le schede del terminale tornano quando l’IDE si riapre: le shell da sole, con il loro nome; gli agenti aperti dal
   launcher solo se lo vuoi (*Riprendi tutti*, *Scegli…*, *No*, o più tardi *Terminale: riprendi gli agenti della
   sessione precedente*). Claude Code e Codex riprendono la stessa conversazione; gli altri agenti ne iniziano una
