@@ -30,4 +30,8 @@ Escolhida a **B** (decisão do usuário, 2026-11-22). O código do ACP fica na h
 - Cada recurso novo de um agente (comandos, modos, retomada) chega à IDE sem código novo.
 - A IDE não lê a conversa: o estado do agente vem de hooks, do sino/OSC e da saída do processo, não do texto da tela.
 - O terminal passa a ser a peça central: muitas abas, estado por aba, retomada da conversa (RFC 0024).
+- Virou princípio do produto (painel, 2026-11-24): "O agente roda como ele mesmo", na seção 5 do
+  [manifesto](../../MANIFESTO.pt-BR.md). O harness, o contexto, a compactação, a conta e os custos são do agente, e
+  a IDE só acrescenta o que falta ao terminal, por arquivos. Uma RFC que ponha a IDE no meio da conversa precisa
+  dizer por que vale quebrar esse princípio.
 - Reabrir o ACP pede uma ADR nova que substitua esta.

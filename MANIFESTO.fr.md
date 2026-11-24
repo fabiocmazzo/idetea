@@ -44,6 +44,10 @@ demander, des assistants dans leur propre worktree. Les règles sont toujours le
   Les boutons qui comptent attendent que vous ayez fait les étapes.
 - **Des fichiers simples, sans enfermement.** Le protocole est du JSON dans un dossier. Tout agent qui sait lire et
   écrire des fichiers peut l'utiliser, et vous pouvez lire chaque message vous-même.
+- **L'agent tourne tel qu'il est.** Dans le terminal, comme dans le vôtre : avec son propre harnais, son contexte,
+  sa compaction, son compte et ses coûts. IDE TEA ne se place pas au milieu de la conversation et ne parle pas un
+  protocole à la place de l'agent ; elle ajoute seulement, par des fichiers simples, ce qui manque au terminal :
+  questions, approbations, worktrees et signaux. Ce qu'un agent fait bien tout seul, il continue à le faire ici.
 
 ## 6. Libre, pour de vrai
 
