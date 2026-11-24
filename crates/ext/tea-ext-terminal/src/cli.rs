@@ -108,7 +108,7 @@ fn request_path(root: &Path, name: &str) -> PathBuf {
 
 /// Escreve o pedido pelo temporário. Um pedido com o mesmo nome ainda na pasta é recusado (não troca o de
 /// outro agente no meio).
-fn write_request(root: &Path, name: &str, a: &Args, command: &str) -> Result<(), String> {
+fn write_request(root: &Path, name: &str, a: &Args, command: &str, ide: Option<u32>) -> Result<(), String> {
     let path = request_path(root, name);
     if path.exists() || agents::status_path(root, name).exists() {
         return Err(fl!("run-busy", name = name.to_string()));
@@ -122,6 +122,10 @@ fn write_request(root: &Path, name: &str, a: &Args, command: &str) -> Result<(),
     }
     if let Some(w) = &a.worktree {
         req["worktree"] = w.clone().into();
+    }
+    // Saiu de uma aba da IDE que tem este projeto aberto: o pedido é dela (RFC 0024, 2b).
+    if let Some(pid) = ide {
+        req["ide"] = pid.into();
     }
     let tmp = dir.join(format!(".{name}.json.tmp"));
     std::fs::write(&tmp, serde_json::to_string_pretty(&req).unwrap_or_default()).map_err(|e| e.to_string())?;
@@ -211,7 +215,7 @@ pub fn run(args: &[String], cwd: &Path) -> i32 {
         (Some(name), _) => name.clone(),
         (None, Some(command)) => {
             let name = a.name.clone().unwrap_or_else(fresh_name);
-            if let Err(e) = write_request(&root, &name, &a, command) {
+            if let Err(e) = write_request(&root, &name, &a, command, crate::tab_hooks::origin_ide(&root)) {
                 eprintln!("{e}");
                 return EXIT_INVALID;
             }
@@ -260,10 +264,11 @@ mod tests {
         let _ = std::fs::remove_dir_all(&root);
         std::fs::create_dir_all(root.join(".idetea")).unwrap();
         let a = parse(&s(&["--title", "T", "--worktree", "agente/x", "--cwd", "src", "--", "true"])).unwrap();
-        write_request(&root, "um", &a, "true").unwrap();
+        write_request(&root, "um", &a, "true", Some(4242)).unwrap();
         let req: Value = serde_json::from_str(&std::fs::read_to_string(request_path(&root, "um")).unwrap()).unwrap();
         assert_eq!((req["format"].as_str(), req["worktree"].as_str(), req["cwd"].as_str()), (Some(agents::FORMAT), Some("agente/x"), Some("src")));
-        assert!(write_request(&root, "um", &a, "true").is_err(), "não troca um pedido que já está lá");
+        assert_eq!(req["ide"].as_u64(), Some(4242));
+        assert!(write_request(&root, "um", &a, "true", None).is_err(), "não troca um pedido que já está lá");
 
         // Ainda `running`: o prazo vence.
         agents::write_status(&root, "um", &agents::State::Running).unwrap();
@@ -277,7 +282,7 @@ mod tests {
             assert!(!p.exists(), "{}", p.display());
         }
 
-        write_request(&root, "dois", &a, "true").unwrap();
+        write_request(&root, "dois", &a, "true", None).unwrap();
         agents::write_status(&root, "dois", &agents::State::Refused).unwrap();
         let status = wait(&root, "dois", None).unwrap();
         assert_eq!(finish(&root, "dois", &status, true), EXIT_REFUSED);

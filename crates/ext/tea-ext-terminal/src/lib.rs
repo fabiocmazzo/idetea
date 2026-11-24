@@ -1056,6 +1056,8 @@ impl TerminalExtension {
         settings.backend.preamble = std::mem::take(&mut self.next_preamble);
         // Os hooks do agente que roda aqui dizem a esta aba que ele pediu atenção (RFC 0024, M1.1).
         settings.backend.env.insert(tab_hooks::ENV.into(), tab_hooks::env_value(std::process::id(), self.next_id));
+        // E a CLI (`idetea run`) sabe se um pedido feito aqui é para esta IDE (RFC 0024, 2b).
+        settings.backend.env.insert(tab_hooks::ROOT_ENV.into(), self.root.to_string_lossy().into_owned());
         let mut term = Terminal::new(self.next_id, settings)?;
         // Sem medida ainda (nenhum terminal apareceu), o `iced_term` usaria uma área de 80×50 px: umas 10 colunas e
         // 2 linhas, e a saída de um comando curto sumiria espremida antes de o widget medir. Uma estimativa até lá.

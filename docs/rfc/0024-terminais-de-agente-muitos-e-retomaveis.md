@@ -114,8 +114,11 @@ numa versão publicada.
 
 **Passo 1 (para a 0.17.0):** a leitura aceita campos desconhecidos, ignora e os lista na tela de confirmação (um
 `worktre` não passa calado), e já respeita `"ide"`: um pedido de outra IDE aberta fica com ela, sem nem `pending`;
-se ela fechar sem tratar, o status nunca existiu e qualquer IDE atende. **Passo 2 (depois da 0.17.0 publicada):**
-`idetea run` e `idetea agent`, rodando com `IDETEA_TERMINAL`, gravam `"ide"` com o pid da IDE.
+se ela fechar sem tratar, o status nunca existiu e qualquer IDE atende. **Passo 2 (na 0.18.0):**
+`idetea run` e `idetea agent`, rodando numa aba da IDE, gravam `"ide"` com o pid dela, mas só quando o pedido é para
+o projeto que essa IDE tem aberto. Para saber isso, cada aba recebe também `IDETEA_ROOT` (a raiz da IDE). Sem essa
+conferência, um `cd` para outro projeto mandaria o pedido para uma IDE que não olha aquela pasta, e as que olham o
+deixariam esperando. Numa aba de uma IDE até a 0.17.0 (sem `IDETEA_ROOT`), a CLI não grava `ide`.
 
 ### 3. Lado a lado e na área do editor
 
