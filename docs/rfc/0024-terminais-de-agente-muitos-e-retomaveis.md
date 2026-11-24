@@ -112,6 +112,11 @@ pedido é lido com `deny_unknown_fields`, então uma IDE antiga marca como `inva
 de a CLI gravar o campo, a leitura precisa passar a aceitar e ignorar campos desconhecidos, e isso tem que estar
 numa versão publicada.
 
+**Passo 1 (para a 0.17.0):** a leitura aceita campos desconhecidos, ignora e os lista na tela de confirmação (um
+`worktre` não passa calado), e já respeita `"ide"`: um pedido de outra IDE aberta fica com ela, sem nem `pending`;
+se ela fechar sem tratar, o status nunca existiu e qualquer IDE atende. **Passo 2 (depois da 0.17.0 publicada):**
+`idetea run` e `idetea agent`, rodando com `IDETEA_TERMINAL`, gravam `"ide"` com o pid da IDE.
+
 ### 3. Lado a lado e na área do editor
 
 - **Dividir** (`Ctrl+Shift+5`, como no VS Code): duas colunas no painel de baixo, cada uma com a sua aba. Uma

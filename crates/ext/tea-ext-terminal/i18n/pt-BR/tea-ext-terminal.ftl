@@ -91,3 +91,4 @@ terminal-resume-same = mesma conversa
 terminal-resume-new = conversa nova
 terminal-resume-failed = Não deu para retomar a conversa de { $title } (código { $code }). Abra uma conversa nova em "Agentes: iniciar…" (Ctrl+Shift+A).
 terminal-previous-session = — sessão anterior, { $when } —
+agent-request-ignored = Campos que esta versão não conhece (ignorados): { $fields }

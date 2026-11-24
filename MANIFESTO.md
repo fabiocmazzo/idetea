@@ -39,6 +39,10 @@ questions as real forms, terminals they can ask for, helpers in their own worktr
   matter wait until you have done the steps.
 - **Plain files, no lock-in.** The protocol is JSON in a folder. Any agent that can read and write files can use
   it, and you can read every message yourself.
+- **The agent runs as itself.** Agents run in the terminal, the same way they run in yours: with their own
+  harness, context, compaction, account and costs. IDE TEA does not sit in the middle of the conversation or speak
+  a protocol on the agent's behalf; it only adds, through plain files, what a terminal lacks: questions, approvals,
+  worktrees and signals. Whatever an agent does well on its own, it keeps doing here.
 
 ## 6. Free, for real
 

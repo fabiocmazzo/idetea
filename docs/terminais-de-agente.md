@@ -18,6 +18,11 @@ temporário e `mv`:
   Caracteres de controle (menos quebra de linha e tab) são recusados: poderiam esconder parte do comando na tela.
 - `cwd`: relativo à raiz do projeto (padrão: a raiz); precisa existir e ficar dentro do projeto.
 - `title` (até 80) e `source` (até 40) só aparecem na tela.
+- `ide` (desde a 0.17.0): o pid da IDE de onde o pedido saiu. Enquanto ela estiver aberta, as outras IDEs do mesmo
+  projeto deixam o pedido para ela; se ela fechar sem tratar, qualquer uma atende. Quem roda numa aba da IDE acha o
+  pid em `IDETEA_TERMINAL` (`<pid>-<id>`).
+- Campos desconhecidos (desde a 0.17.0) não invalidam o pedido: são ignorados, e a tela de confirmação diz quais.
+  Até a 0.16.0, um campo desconhecido virava `invalid`.
 
 ## Confirmação
 
@@ -48,7 +53,8 @@ A IDE grava `.idetea/agents/<nome>.status.json`:
 | `invalid` | pedido com problema; `error` diz qual. Corrigir e gravar de novo |
 | `lost` | rodava numa IDE que fechou |
 
-`ide` é o pid da IDE que gravou. Com duas IDEs no mesmo projeto, a que viu primeiro fica com o pedido; um
+`ide` é o pid da IDE que gravou. Com duas IDEs no mesmo projeto, a que viu primeiro fica com o pedido (a não ser
+que o pedido diga a sua `ide`, acima); um
 `pending` ou `running` de uma IDE que já fechou é tratado de novo (pergunta outra vez, ou vira `lost`).
 
 ## Pela linha de comando: `idetea run`

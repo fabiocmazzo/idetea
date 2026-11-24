@@ -40,6 +40,10 @@ próprio worktree. As regras são sempre as mesmas:
   importam esperam você fazer os passos.
 - **Arquivos simples, sem amarras.** O protocolo é JSON numa pasta. Qualquer agente que lê e escreve arquivos pode
   usar, e você pode ler cada mensagem.
+- **O agente roda como ele mesmo.** No terminal, do mesmo jeito que no seu: com o próprio harness, contexto,
+  compactação, conta e custos. A IDE TEA não fica no meio da conversa nem fala um protocolo no lugar do agente; ela
+  só acrescenta, por arquivos simples, o que falta ao terminal: perguntas, aprovações, worktrees e sinais. O que um
+  agente faz bem sozinho, continua fazendo aqui.
 
 ## 6. Gratuita de verdade
 

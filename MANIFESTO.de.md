@@ -39,6 +39,10 @@ Fragen als echte Formulare, Terminals, um die sie bitten können, Helfer in ihre
   ankommt, warten, bis Sie die Schritte erledigt haben.
 - **Schlichte Dateien, kein Lock-in.** Das Protokoll ist JSON in einem Ordner. Jeder Agent, der Dateien lesen und schreiben kann, kann es
   nutzen, und Sie können jede Nachricht selbst lesen.
+- **Der Agent läuft als er selbst.** Im Terminal, so wie in Ihrem: mit eigenem Harness, Kontext, eigener
+  Kompaktierung, eigenem Konto und eigenen Kosten. IDE TEA stellt sich nicht in die Mitte des Gesprächs und spricht
+  kein Protokoll an Stelle des Agenten; sie ergänzt nur über schlichte Dateien, was einem Terminal fehlt: Fragen,
+  Freigaben, Worktrees und Signale. Was ein Agent allein gut kann, kann er hier weiterhin.
 
 ## 6. Wirklich frei
 

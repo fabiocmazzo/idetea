@@ -42,6 +42,10 @@ lavoro). Le regole sono sempre le stesse:
   finestra. I pulsanti che contano aspettano che tu abbia fatto i passi.
 - **File semplici, senza vincoli.** Il protocollo è JSON in una cartella. Qualsiasi agente che sa leggere e
   scrivere file può usarlo, e ogni messaggio lo puoi leggere tu.
+- **L'agente gira così com'è.** Nel terminale, come nel tuo: con il proprio harness, contesto, compattazione,
+  account e costi. IDE TEA non si mette in mezzo alla conversazione né parla un protocollo al posto dell'agente;
+  aggiunge solo, con file semplici, ciò che manca al terminale: domande, approvazioni, worktree e segnali. Quello
+  che un agente fa bene da solo, continua a farlo qui.
 
 ## 6. Gratis, sul serio
 
