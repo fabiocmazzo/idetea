@@ -27,7 +27,7 @@ use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
 use iced::futures::channel::mpsc;
-use iced::widget::{Id, button, column, container, keyed_column, mouse_area, operation, row, space, text, text_input};
+use iced::widget::{Id, button, column, container, keyed_column, mouse_area, operation, row, scrollable, space, text, text_input};
 use iced::{Color, Element, Fill, Font, Subscription, Task, Theme};
 use iced_term::actions::Action;
 use iced_term::settings::{BackendSettings, FontSettings, Settings, ThemeSettings};
@@ -1868,7 +1868,8 @@ impl Extension for TerminalExtension {
         // Cada aba: o ponto do estado (RFC 0024, M1.1), o nome e, parando o mouse, o que o ponto quer dizer e o
         // título que o programa mandou. Na aba da tela, só o fim aparece: o resto ela já mostra. Duplo clique
         // renomeia.
-        let mut bar = row![].spacing(4).align_y(iced::Center);
+        // As abas rolam de lado quando não cabem; os botões ficam sempre à vista, à direita (como no editor).
+        let mut tabs = row![].spacing(4).align_y(iced::Center);
         for (shown, id) in self.tabs() {
             let other = self.split.is_some_and(|sp| sp.other == id);
             let on = self.shown == shown || other;
@@ -1904,23 +1905,26 @@ impl Extension for TerminalExtension {
             if let Some(title) = self.activity.get(&id).and_then(activity::Activity::title) {
                 tip.push(title.to_string());
             }
-            bar = bar.push(if tip.is_empty() { b.into() } else { icons::with_tip(b, tip.join(" · ")) });
+            tabs = tabs.push(if tip.is_empty() { b.into() } else { icons::with_tip(b, tip.join(" · ")) });
         }
         if !self.pending.is_empty() {
             let on = self.shown == Shown::Request;
-            bar = bar.push(
+            tabs = tabs.push(
                 button(text(fl!("terminal-tab-request", count = self.pending.len())).size(12))
                     .on_press(Message::ShowRequest)
                     .padding([2, 10])
                     .style(if on { button::primary } else { button::secondary }),
             );
         }
+        let tabs = tea_core::style::scrollable(tabs)
+            .direction(scrollable::Direction::Horizontal(scrollable::Scrollbar::new().width(2).scroller_width(2)))
+            .width(Fill);
+        let mut bar = row![tabs].spacing(4).align_y(iced::Center);
         if self.current().is_some() {
             bar = bar.push(icons::toggle_button(Icon::Search, fl!("cmd-terminal-find"), self.find.is_some(), Message::FindToggle));
         }
         bar = bar.push(icons::toggle_button(Icon::SplitHorizontal, fl!("cmd-terminal-split"), self.split.is_some(), Message::SplitToggle));
         bar = bar.push(icons::icon_button(Icon::Add, fl!("cmd-terminal-new"), Some(Message::Start)));
-        bar = bar.push(space::horizontal());
         // O pedido se recusa pelo botão dele, não pelo ×.
         if self.shown != Shown::Request {
             let close = if self.shown == Shown::Task { fl!("terminal-close-task") } else { fl!("terminal-close") };

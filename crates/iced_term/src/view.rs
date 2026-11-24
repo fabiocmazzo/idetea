@@ -106,7 +106,9 @@ impl<'a> TerminalView<'a> {
         shell: &mut iced_graphics::core::Shell<'_, Event>,
     ) {
         let layout_size = layout.bounds().size();
-        if state.size != layout_size {
+        // Compared with the terminal's own size too: the widget state is reused when another terminal takes this
+        // place on screen (a tab switch), and that terminal may still have the size of somewhere else.
+        if state.size != layout_size || self.term.backend.layout_size() != layout_size {
             state.size = layout_size;
             let cmd = Command::Resize(
                 Some(layout_size),
