@@ -179,29 +179,29 @@
 
 <section id="install"><div class="wrap">
   <h2>Installation</h2>
-  <p><strong>Startklar.</strong> Die aktuelle Version ist <a href="https://github.com/fabiocmazzo/idetea/releases/tag/v0.16.0">v0.16.0</a>.
+  <p><strong>Startklar.</strong> Die aktuelle Version ist <a href="https://github.com/fabiocmazzo/idetea/releases/tag/v0.17.0">v0.17.0</a>.
     <code>SHA256SUMS</code> auf dieser Seite enthält die Prüfsummen. Ändern Sie <code>VERSION</code>, wenn eine neuere erscheint, oder wählen Sie die Datei unter
     <a href="https://github.com/fabiocmazzo/idetea/releases">Releases</a>.</p>
   <div class="cards">
     <article class="card"><h3>Linux</h3><p>x86_64 und aarch64, <code>.tar.gz</code> oder <code>.AppImage</code>. <code>./install.sh</code> legt <code>idetea</code> nach <code>~/.local/bin</code> und ins Anwendungsmenü. Das AppImage braucht <code>chmod +x</code>; <code>--install-desktop</code> fügt den Menüeintrag hinzu.</p></article>
     <article class="card"><h3>macOS</h3><p>Apple Silicon, ein <code>.tar.gz</code> mit <code>IDE TEA.app</code>. <code>idetea --install-desktop</code> legt <code>~/Applications/IDE TEA.app</code> an. Es gibt noch kein Paket für Intel-Macs.</p></article>
-    <article class="card"><h3>Windows</h3><p>x86_64, der Installer <a href="https://github.com/fabiocmazzo/idetea/releases/download/v0.16.0/IDE_TEA-0.16.0-x86_64-setup.exe"><code>-setup.exe</code></a> oder ein portables <a href="https://github.com/fabiocmazzo/idetea/releases/download/v0.16.0/idetea-0.16.0-x86_64-windows.zip"><code>.zip</code></a> (<code>idetea.exe</code> liegt darin). Noch nicht codesigniert: SmartScreen kann beim ersten Start warnen.</p></article>
+    <article class="card"><h3>Windows</h3><p>x86_64, der Installer <a href="https://github.com/fabiocmazzo/idetea/releases/download/v0.17.0/IDE_TEA-0.17.0-x86_64-setup.exe"><code>-setup.exe</code></a> oder ein portables <a href="https://github.com/fabiocmazzo/idetea/releases/download/v0.17.0/idetea-0.17.0-x86_64-windows.zip"><code>.zip</code></a> (<code>idetea.exe</code> liegt darin). Noch nicht codesigniert: SmartScreen kann beim ersten Start warnen.</p></article>
   </div>
   <p><strong>Linux (x86_64)</strong></p>
-<pre><code>VERSION=0.16.0
+<pre><code>VERSION=0.17.0
 curl -fsSL -O "https://github.com/fabiocmazzo/idetea/releases/download/v${VERSION}/idetea-${VERSION}-x86_64-linux.tar.gz"
 tar -xzf idetea-${VERSION}-x86_64-linux.tar.gz
 cd idetea-${VERSION}-x86_64-linux
 ./install.sh</code></pre>
   <p>Für ARM verwenden Sie <code>idetea-${VERSION}-aarch64-linux.tar.gz</code>. Das AppImage ist <code>IDE_TEA-${VERSION}-x86_64.AppImage</code> (oder <code>…-aarch64.AppImage</code>).</p>
   <p><strong>macOS (Apple Silicon)</strong></p>
-<pre><code>VERSION=0.16.0
+<pre><code>VERSION=0.17.0
 curl -fsSL -O "https://github.com/fabiocmazzo/idetea/releases/download/v${VERSION}/idetea-${VERSION}-aarch64-macos.tar.gz"
 tar -xzf idetea-${VERSION}-aarch64-macos.tar.gz
 cd idetea-${VERSION}-aarch64-macos
 ./idetea --install-desktop</code></pre>
   <p><strong>Windows (x86_64), in PowerShell</strong></p>
-<pre><code>$Version = "0.16.0"
+<pre><code>$Version = "0.17.0"
 Invoke-WebRequest -Uri "https://github.com/fabiocmazzo/idetea/releases/download/v$Version/IDE_TEA-$Version-x86_64-setup.exe" -OutFile "IDE_TEA-$Version-x86_64-setup.exe"
 Start-Process ".\IDE_TEA-$Version-x86_64-setup.exe"</code></pre>
   <p><strong>Aus dem Quellcode</strong> (braucht <a href="https://rustup.rs">Rust</a> stable). Das Paket heißt <code>tea-app</code>; die Binärdatei heißt <code>idetea</code>:</p>
