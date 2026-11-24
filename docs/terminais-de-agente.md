@@ -20,7 +20,8 @@ temporário e `mv`:
 - `title` (até 80) e `source` (até 40) só aparecem na tela.
 - `ide` (desde a 0.17.0): o pid da IDE de onde o pedido saiu. Enquanto ela estiver aberta, as outras IDEs do mesmo
   projeto deixam o pedido para ela; se ela fechar sem tratar, qualquer uma atende. Quem roda numa aba da IDE acha o
-  pid em `IDETEA_TERMINAL` (`<pid>-<id>`).
+  pid em `IDETEA_TERMINAL` (`<pid>-<id>`), e a raiz do projeto dessa IDE em `IDETEA_ROOT` (desde a 0.18.0). Só
+  grave `ide` quando o pedido é para esse mesmo projeto: o `idetea run` e o `idetea agent` já fazem isso sozinhos.
 - Campos desconhecidos (desde a 0.17.0) não invalidam o pedido: são ignorados, e a tela de confirmação diz quais.
   Até a 0.16.0, um campo desconhecido virava `invalid`.
 

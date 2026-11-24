@@ -9,6 +9,25 @@ use std::path::{Path, PathBuf};
 
 /// A variável que cada aba recebe.
 pub const ENV: &str = "IDETEA_TERMINAL";
+/// A raiz do projeto da IDE dona da aba (desde a 0.18.0): diz à CLI se um pedido é para esta IDE.
+pub const ROOT_ENV: &str = "IDETEA_ROOT";
+
+/// A IDE de onde sai um pedido feito em `root` (RFC 0024, 2b, passo 2): o pid da aba onde a CLI roda, mas só se a
+/// IDE dessa aba tem `root` aberto. Depois de um `cd` para outro projeto, ou numa aba de uma IDE sem `IDETEA_ROOT`
+/// (até a 0.17.0), `None`: o pedido sairia com o pid de uma IDE que não olha esta pasta, e as outras o deixariam
+/// esperando por ela.
+pub fn origin_ide(root: &Path) -> Option<u32> {
+    origin_ide_from(std::env::var(ENV).ok().as_deref(), std::env::var_os(ROOT_ENV).as_deref().map(Path::new), root)
+}
+
+fn origin_ide_from(tab: Option<&str>, ide_root: Option<&Path>, root: &Path) -> Option<u32> {
+    let (pid, _) = parse_value(tab?)?;
+    let same = |a: &Path, b: &Path| match (a.canonicalize(), b.canonicalize()) {
+        (Ok(a), Ok(b)) => a == b,
+        _ => false,
+    };
+    (pid > 0 && same(ide_root?, root)).then_some(pid)
+}
 
 /// O que o agente disse.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -108,6 +127,22 @@ pub fn take(root: &Path, pid: u32) -> Vec<(u64, Signal)> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn origin_ide_only_for_the_ides_own_project() {
+        let base = std::env::temp_dir().join(format!("idetea-origin-{}", std::process::id()));
+        let (a, b) = (base.join("a"), base.join("b"));
+        std::fs::create_dir_all(&a).unwrap();
+        std::fs::create_dir_all(&b).unwrap();
+        assert_eq!(origin_ide_from(Some("4242-3"), Some(&a), &a), Some(4242));
+        assert_eq!(origin_ide_from(Some("4242-3"), Some(&a.join(".")), &a), Some(4242), "o mesmo caminho escrito de outro jeito");
+        assert_eq!(origin_ide_from(Some("4242-3"), Some(&a), &b), None, "cd para outro projeto");
+        assert_eq!(origin_ide_from(Some("4242-3"), None, &a), None, "aba de uma IDE até a 0.17.0");
+        assert_eq!(origin_ide_from(None, Some(&a), &a), None, "fora da IDE");
+        assert_eq!(origin_ide_from(Some("x-3"), Some(&a), &a), None);
+        assert_eq!(origin_ide_from(Some("0-3"), Some(&a), &a), None);
+        let _ = std::fs::remove_dir_all(&base);
+    }
 
     #[test]
     fn round_trip_only_for_this_ide() {
