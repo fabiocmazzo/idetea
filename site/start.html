@@ -52,12 +52,12 @@
 
 <section id="install">
   <h2>1. Install</h2>
-  <p>The current release is <a href="https://github.com/fabiocmazzo/idetea/releases/tag/v0.17.0">v0.17.0</a>.
+  <p>The current release is <a href="https://github.com/fabiocmazzo/idetea/releases/tag/v0.18.0">v0.18.0</a>.
     <code>SHA256SUMS</code> on that page has the checksums. Change <code>VERSION</code> when a newer one is out, or pick the file from
     <a href="https://github.com/fabiocmazzo/idetea/releases/latest">the latest release</a>.</p>
   <ol class="steps">
     <li><strong>Linux (x86_64).</strong> Unpack and run the installer. It puts <code>idetea</code> in <code>~/.local/bin</code> and adds IDE TEA to your app menu:
-<pre><code>VERSION=0.17.0
+<pre><code>VERSION=0.18.0
 curl -fsSL -O "https://github.com/fabiocmazzo/idetea/releases/download/v${VERSION}/idetea-${VERSION}-x86_64-linux.tar.gz"
 tar -xzf idetea-${VERSION}-x86_64-linux.tar.gz
 cd idetea-${VERSION}-x86_64-linux
@@ -66,18 +66,18 @@ cd idetea-${VERSION}-x86_64-linux
       <code>IDE_TEA-${VERSION}-x86_64.AppImage</code> (or <code>IDE_TEA-${VERSION}-aarch64.AppImage</code>), then <code>chmod +x</code> and open it;
       <code>--install-desktop</code> adds it to the menu.</li>
     <li><strong>macOS (Apple Silicon).</strong> The archive contains <code>IDE TEA.app</code>:
-<pre><code>VERSION=0.17.0
+<pre><code>VERSION=0.18.0
 curl -fsSL -O "https://github.com/fabiocmazzo/idetea/releases/download/v${VERSION}/idetea-${VERSION}-aarch64-macos.tar.gz"
 tar -xzf idetea-${VERSION}-aarch64-macos.tar.gz
 cd idetea-${VERSION}-aarch64-macos
 ./idetea --install-desktop</code></pre>
       <code>--install-desktop</code> creates <code>~/Applications/IDE TEA.app</code>. There is no Intel Mac build yet.</li>
     <li><strong>Windows (x86_64).</strong> Download and run
-      <a href="https://github.com/fabiocmazzo/idetea/releases/download/v0.17.0/IDE_TEA-0.17.0-x86_64-setup.exe">IDE_TEA-0.17.0-x86_64-setup.exe</a>,
+      <a href="https://github.com/fabiocmazzo/idetea/releases/download/v0.18.0/IDE_TEA-0.18.0-x86_64-setup.exe">IDE_TEA-0.18.0-x86_64-setup.exe</a>,
       or unpack the portable
-      <a href="https://github.com/fabiocmazzo/idetea/releases/download/v0.17.0/idetea-0.17.0-x86_64-windows.zip">idetea-0.17.0-x86_64-windows.zip</a>
+      <a href="https://github.com/fabiocmazzo/idetea/releases/download/v0.18.0/idetea-0.18.0-x86_64-windows.zip">idetea-0.18.0-x86_64-windows.zip</a>
       (<code>idetea.exe</code> is inside). In PowerShell:
-<pre><code>$Version = "0.17.0"
+<pre><code>$Version = "0.18.0"
 Invoke-WebRequest -Uri "https://github.com/fabiocmazzo/idetea/releases/download/v$Version/IDE_TEA-$Version-x86_64-setup.exe" -OutFile "IDE_TEA-$Version-x86_64-setup.exe"
 Start-Process ".\IDE_TEA-$Version-x86_64-setup.exe"</code></pre></li>
     <li>If the Linux installer says <code>~/.local/bin</code> is not on your <code>PATH</code>, add it (for example in

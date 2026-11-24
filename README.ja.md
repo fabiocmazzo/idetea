@@ -117,14 +117,14 @@
 ## インストール
 
 **Linux、macOS、Windows。すぐに実行できます。** 現在のリリースは
-[v0.17.0](https://github.com/fabiocmazzo/idetea/releases/tag/v0.17.0) です。
+[v0.18.0](https://github.com/fabiocmazzo/idetea/releases/tag/v0.18.0) です。
 そのページの `SHA256SUMS` にチェックサムがあります。新しい版が出たら `VERSION` を変えるか、
 [Releases](https://github.com/fabiocmazzo/idetea/releases) からファイルを選んでください。
 
 **Linux (x86_64).** 展開して `install.sh` を実行します。`idetea` を `~/.local/bin` に置き、アプリ メニューに追加します:
 
 ```sh
-VERSION=0.17.0
+VERSION=0.18.0
 curl -fsSL -O "https://github.com/fabiocmazzo/idetea/releases/download/v${VERSION}/idetea-${VERSION}-x86_64-linux.tar.gz"
 tar -xzf idetea-${VERSION}-x86_64-linux.tar.gz
 cd idetea-${VERSION}-x86_64-linux
@@ -138,7 +138,7 @@ ARM では `idetea-${VERSION}-aarch64-linux.tar.gz` を使います。単一フ�
 **macOS (Apple Silicon).** アーカイブに `IDE TEA.app` が入っています:
 
 ```sh
-VERSION=0.17.0
+VERSION=0.18.0
 curl -fsSL -O "https://github.com/fabiocmazzo/idetea/releases/download/v${VERSION}/idetea-${VERSION}-aarch64-macos.tar.gz"
 tar -xzf idetea-${VERSION}-aarch64-macos.tar.gz
 cd idetea-${VERSION}-aarch64-macos
@@ -148,13 +148,13 @@ cd idetea-${VERSION}-aarch64-macos
 Intel Mac 向けのビルドはまだありません。
 
 **Windows (x86_64).**
-[IDE_TEA-0.17.0-x86_64-setup.exe](https://github.com/fabiocmazzo/idetea/releases/download/v0.17.0/IDE_TEA-0.17.0-x86_64-setup.exe)
+[IDE_TEA-0.18.0-x86_64-setup.exe](https://github.com/fabiocmazzo/idetea/releases/download/v0.18.0/IDE_TEA-0.18.0-x86_64-setup.exe)
 をダウンロードして実行するか、ポータブルな
-[idetea-0.17.0-x86_64-windows.zip](https://github.com/fabiocmazzo/idetea/releases/download/v0.17.0/idetea-0.17.0-x86_64-windows.zip)
+[idetea-0.18.0-x86_64-windows.zip](https://github.com/fabiocmazzo/idetea/releases/download/v0.18.0/idetea-0.18.0-x86_64-windows.zip)
 を展開します（中に `idetea.exe` があります）。PowerShell では:
 
 ```powershell
-$Version = "0.17.0"
+$Version = "0.18.0"
 Invoke-WebRequest -Uri "https://github.com/fabiocmazzo/idetea/releases/download/v$Version/IDE_TEA-$Version-x86_64-setup.exe" -OutFile "IDE_TEA-$Version-x86_64-setup.exe"
 Start-Process ".\IDE_TEA-$Version-x86_64-setup.exe"
 ```

@@ -52,11 +52,11 @@
 
 <section id="install">
   <h2>1. 安装</h2>
-  <p>当前版本是<a href="https://github.com/fabiocmazzo/idetea/releases/tag/v0.17.0">v0.17.0</a>。
+  <p>当前版本是<a href="https://github.com/fabiocmazzo/idetea/releases/tag/v0.18.0">v0.18.0</a>。
     该页的<code>SHA256SUMS</code>里是校验和。有更新版本时请改<code>VERSION</code>，或到<a href="https://github.com/fabiocmazzo/idetea/releases/latest">最新版本</a>里选文件。</p>
   <ol class="steps">
     <li><strong>Linux (x86_64).</strong> 解压并运行安装脚本。它把<code>idetea</code>放到<code>~/.local/bin</code>，并把IDE TEA加进应用菜单：
-<pre><code>VERSION=0.17.0
+<pre><code>VERSION=0.18.0
 curl -fsSL -O "https://github.com/fabiocmazzo/idetea/releases/download/v${VERSION}/idetea-${VERSION}-x86_64-linux.tar.gz"
 tar -xzf idetea-${VERSION}-x86_64-linux.tar.gz
 cd idetea-${VERSION}-x86_64-linux
@@ -65,18 +65,18 @@ cd idetea-${VERSION}-x86_64-linux
       <code>IDE_TEA-${VERSION}-x86_64.AppImage</code>（或<code>IDE_TEA-${VERSION}-aarch64.AppImage</code>），先<code>chmod +x</code>再打开；
       <code>--install-desktop</code>会把它加进菜单。</li>
     <li><strong>macOS (Apple Silicon).</strong> 压缩包里有<code>IDE TEA.app</code>：
-<pre><code>VERSION=0.17.0
+<pre><code>VERSION=0.18.0
 curl -fsSL -O "https://github.com/fabiocmazzo/idetea/releases/download/v${VERSION}/idetea-${VERSION}-aarch64-macos.tar.gz"
 tar -xzf idetea-${VERSION}-aarch64-macos.tar.gz
 cd idetea-${VERSION}-aarch64-macos
 ./idetea --install-desktop</code></pre>
       <code>--install-desktop</code>会创建<code>~/Applications/IDE TEA.app</code>。目前还没有Intel Mac的包。</li>
     <li><strong>Windows (x86_64).</strong> 下载并运行
-      <a href="https://github.com/fabiocmazzo/idetea/releases/download/v0.17.0/IDE_TEA-0.17.0-x86_64-setup.exe">IDE_TEA-0.17.0-x86_64-setup.exe</a>，
+      <a href="https://github.com/fabiocmazzo/idetea/releases/download/v0.18.0/IDE_TEA-0.18.0-x86_64-setup.exe">IDE_TEA-0.18.0-x86_64-setup.exe</a>，
       或解压便携版
-      <a href="https://github.com/fabiocmazzo/idetea/releases/download/v0.17.0/idetea-0.17.0-x86_64-windows.zip">idetea-0.17.0-x86_64-windows.zip</a>
+      <a href="https://github.com/fabiocmazzo/idetea/releases/download/v0.18.0/idetea-0.18.0-x86_64-windows.zip">idetea-0.18.0-x86_64-windows.zip</a>
       （里面是<code>idetea.exe</code>）。在PowerShell中：
-<pre><code>$Version = "0.17.0"
+<pre><code>$Version = "0.18.0"
 Invoke-WebRequest -Uri "https://github.com/fabiocmazzo/idetea/releases/download/v$Version/IDE_TEA-$Version-x86_64-setup.exe" -OutFile "IDE_TEA-$Version-x86_64-setup.exe"
 Start-Process ".\IDE_TEA-$Version-x86_64-setup.exe"</code></pre></li>
     <li>如果Linux安装脚本说<code>~/.local/bin</code>不在<code>PATH</code>里，把它加进去（例如写在<code>~/.profile</code>），这样你和你的智能体都能从终端运行<code>idetea</code>。</li>
