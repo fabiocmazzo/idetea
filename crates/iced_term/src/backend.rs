@@ -643,6 +643,11 @@ impl Backend {
     }
 
     /// The area the terminal was last sized for (the widget compares it with its own layout).
+    /// The shell's process id (unix only), e.g. to find its current folder.
+    pub fn shell_pid(&self) -> Option<u32> {
+        self.shell_pid
+    }
+
     pub fn layout_size(&self) -> Size<f32> {
         Size::new(self.size.layout_width, self.size.layout_height)
     }

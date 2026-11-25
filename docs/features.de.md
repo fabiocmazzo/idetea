@@ -119,6 +119,8 @@ Die vollständige Liste, für die technische Leserschaft. Die Kurzfassung steht 
   Starter geöffnete Agenten erst, wenn du zustimmst (*Alle fortsetzen*, *Auswählen…*, *Nein* oder später
   *Terminal: Agenten der letzten Sitzung fortsetzen*). Claude Code und Codex setzen dasselbe Gespräch fort,
   andere Agenten beginnen ein neues.
+- Shells öffnen sich wieder in dem Ordner, in dem sie waren (Linux und macOS), und auch die angezeigte
+  Registerkarte und die Teilung kommen zurück.
 - `[terminal] keep_scrollback = true` behält beim Schließen die letzten Zeilen jeder Registerkarte und zeigt sie
   einmal über dem neuen Prompt. Standardmäßig aus: ein Terminal enthält Passwörter und Tokens. Der Text bleibt
   außerhalb des Projekts und ist nur für dich lesbar.

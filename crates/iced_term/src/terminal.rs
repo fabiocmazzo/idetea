@@ -66,6 +66,11 @@ impl Terminal {
         self.backend.text(max_lines)
     }
 
+    /// The shell's process id (unix only; `None` on Windows).
+    pub fn shell_pid(&self) -> Option<u32> {
+        self.backend.shell_pid()
+    }
+
     pub fn widget_id(&self) -> &iced::widget::Id {
         &self.widget_id
     }

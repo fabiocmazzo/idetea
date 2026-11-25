@@ -207,8 +207,9 @@ Os três itens entraram, cada um aprovado em teste manual. Onde o feito difere d
   `$XDG_STATE_HOME/idetea/terminals/<pasta>-<hash da raiz>.toml` (o mesmo nome que o da sessão, por
   `tea_core::os::project_state_file`). A API das extensões não tem gancho de sessão, e o arquivo é gravado a cada
   mudança das abas, então sobrevive a uma IDE que trava. Guarda o tipo, o nome dado, o título e o comando do
-  agente, a worktree e o id da conversa. **Ainda não guarda** a pasta de cada shell (eles voltam na raiz), a aba
-  ativa nem a divisão.
+  agente, a worktree e o id da conversa. Desde 2026-11-25 guarda também a pasta de cada shell (lida do processo,
+  `tea_core::os::process_cwd`, no Linux e no macOS; no Windows eles voltam na raiz), a aba ativa e o lado da
+  divisão. Um agente que estava na tela ou do lado volta para lá quando é retomado.
 - **Retomar:** "Retomar todos / Escolher… / Não", e a paleta "Terminal: retomar agentes da sessão anterior" para
   os que ficaram. Claude Code e Codex como na tabela (`tea_core::coding_agents::{with_new_session,
   resume_command}`); sem id, `claude --continue`. Os outros abrem uma conversa nova. **Não entrou** o `resume` /
