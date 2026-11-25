@@ -363,11 +363,15 @@ impl Extension for FileTreeExtension {
         }
     }
 
-    fn on_event(&mut self, event: &CoreEvent, _ctx: &mut Context) -> Task<Message> {
+    fn on_event(&mut self, event: &CoreEvent, ctx: &mut Context) -> Task<Message> {
         if self.root.as_os_str().is_empty() {
             return Task::none(); // ainda não ativada
         }
         match event {
+            CoreEvent::RevealInTree(path) => {
+                ctx.show_panel(PANEL);
+                self.reveal(path, true)
+            }
             CoreEvent::ActiveFileChanged(path) => {
                 self.active = path.clone();
                 match path {

@@ -1070,6 +1070,8 @@ impl App {
                 }
                 Request::Replace(replace) => tasks.push(self.replace_in_files(&replace)),
                 Request::SearchIn(path) => tasks.push(self.broadcast(CoreEvent::SearchIn(path))),
+                Request::RevealInTree(path) => tasks.push(self.broadcast(CoreEvent::RevealInTree(path))),
+                Request::CopyText(text) => tasks.push(iced::clipboard::write(text)),
                 Request::DiffBase { path, bytes } => {
                     for t in self.tabs.iter_mut().filter(|t| t.editor.path() == Some(path.as_path())) {
                         t.editor.set_diff_base(bytes.as_deref().map(|b| diff_base_text(b, t.editor.encoding())));

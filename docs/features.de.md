@@ -106,6 +106,12 @@ Die vollständige Liste, für die technische Leserschaft. Die Kurzfassung steht 
   ihm den Fokus.
 - Suche im Terminal (die Lupe oder *Terminal: suchen*): einfacher Text, der neueste Treffer zuerst.
 - `[terminal] scrollback` legt fest, wie viele Zeilen jede Registerkarte behält (standardmäßig 10000).
+- `Strg+Klick` (`Cmd+Klick` auf macOS) folgt dem, was das Terminal zeigt. Ein Dateipfad (`src/main.rs:42:5`, `-->`
+  von rustc, `File "x.py", line 3` von Python, `at f (x.ts:8:2)` von Node, `x.cs(10,5)`) öffnet sich in einer
+  Registerkarte an dieser Zeile, aber nur, wenn die Datei existiert; relative Pfade werden im aktuellen Ordner der
+  Shell, im Startordner der Registerkarte und im Projektstamm gesucht. Ein Ordner des Projekts wird im Baum gezeigt.
+  `http(s)`- und `mailto`-Links sowie OSC-8-Links (`ls --hyperlink`, `gh`) öffnen sich im System; andere Schemata
+  (`ssh:`, `magnet:`) werden stattdessen kopiert. Solange `Strg` gedrückt ist, zeigt ein Kasten das Ziel des Links.
 - Eine schmale Bildlaufleiste rechts in jedem Terminal, mit eigenem Streifen, sodass sie nie Text verdeckt: Daumen
   ziehen oder auf die Leiste klicken, um eine Seite zu springen. Auf dem alternativen Bildschirm (vim, less, htop)
   verschwindet sie.

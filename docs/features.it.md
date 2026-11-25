@@ -106,6 +106,12 @@ L'elenco completo, per chi vuole il dettaglio tecnico. Per la versione breve, ve
   focus.
 - Ricerca nel terminale (la lente, o *Terminale: cerca*): testo semplice, il risultato più recente per primo.
 - `[terminal] scrollback` stabilisce quante righe tiene ogni scheda (10000 per impostazione predefinita).
+- `Ctrl+clic` (`Cmd+clic` su macOS) segue ciò che mostra il terminale. Un percorso di file (`src/main.rs:42:5`, il
+  `-->` di rustc, il `File "x.py", line 3` di Python, l'`at f (x.ts:8:2)` di Node, `x.cs(10,5)`) si apre in una
+  scheda a quella riga, solo se il file esiste; un percorso relativo si cerca nella cartella corrente della shell,
+  in quella in cui la scheda si è aperta e nella radice del progetto. Una cartella del progetto viene mostrata
+  nell'albero. I link `http(s)` e `mailto`, e i link OSC 8 (`ls --hyperlink`, `gh`), si aprono nel sistema; gli
+  altri schemi (`ssh:`, `magnet:`) vengono copiati. Finché `Ctrl` è premuto, un riquadro mostra dove porta il link.
 - Una sottile barra di scorrimento a destra di ogni terminale, in una striscia propria così non copre mai il testo:
   trascina il cursore o clicca sulla traccia per spostarti di una pagina. Sparisce nella schermata alternativa (vim,
   less, htop).

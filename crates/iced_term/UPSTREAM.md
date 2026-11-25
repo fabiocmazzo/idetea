@@ -27,3 +27,11 @@ aqui, com o motivo, para dar para comparar com o upstream ou mandar a ele quando
   lugar na tela (troca de aba), e só redimensionava quando o tamanho do layout mudava. Um terminal criado ou
   medido em outro lugar ficava com as colunas antigas (o texto quebrava em ~37 colunas num painel largo). Agora o
   widget compara também com `Backend::layout_size()` (novo).
+- **Links e caminhos** (RFC 0025, 2026-11-24): o `Ctrl+clique` não abre mais nada sozinho (o upstream chamava
+  `open::that` e fazia `panic!` quando falhava; a crate `open` saiu). O backend devolve `Action::OpenLink(Link)`, e
+  quem embute decide. O link sob o mouse vem do OSC 8 da célula (`Cell::hyperlink()`) ou do texto da linha lógica
+  (as linhas quebradas por `WRAPLINE` juntas), pelo módulo novo `links` (URLs, `caminho:linha:coluna`, `-->` do
+  rustc, `File "x", line N` do Python, `at f (x:l:c)` do Node, `x(l,c)` do MSBuild; funções puras, com testes). Um
+  caminho só vira link se `BackendSettings::resolve_path` (novo) o achar no disco; o resolvedor recebe o pid do shell
+  (guardado ao criar o pty, só em unix). Com `Ctrl` apertado, uma caixa mostra o destino
+  (`RenderableContent::hovered_link`). A `URL_REGEX` e o `regex_match_at` do upstream saíram.

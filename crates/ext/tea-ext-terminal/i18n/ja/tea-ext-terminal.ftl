@@ -5,6 +5,8 @@ cmd-terminal-new = ターミナル: 新しいターミナル
 cmd-terminal-close = ターミナル: ターミナルを閉じる
 cmd-terminal-restart = ターミナル: シェルを再起動
 terminal-ended-n = ターミナル { $number } を閉じました
+terminal-link-copied = アドレスをコピーしました（この種類のリンクはターミナルからは開きません）: { $url }
+terminal-link-failed = { $url } を開けませんでした: { $error }
 terminal-not-running = シェルは動いていません。
 terminal-start = ターミナルを開始
 

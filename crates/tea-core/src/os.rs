@@ -252,6 +252,36 @@ pub fn open_url(url: &str) -> std::io::Result<()> {
     open_with_system(OsStr::new(url), true)
 }
 
+/// A pasta atual de um processo (o shell de um terminal, RFC 0025). Linux: `/proc/<pid>/cwd`; macOS:
+/// `proc_pidinfo`; nos outros sistemas, `None`.
+pub fn process_cwd(pid: u32) -> Option<PathBuf> {
+    #[cfg(target_os = "linux")]
+    {
+        std::fs::read_link(format!("/proc/{pid}/cwd")).ok()
+    }
+    #[cfg(target_os = "macos")]
+    {
+        let mut info: libc::proc_vnodepathinfo = unsafe { std::mem::zeroed() };
+        let size = std::mem::size_of::<libc::proc_vnodepathinfo>() as libc::c_int;
+        let pid = libc::c_int::try_from(pid).ok()?;
+        let got = unsafe {
+            libc::proc_pidinfo(pid, libc::PROC_PIDVNODEPATHINFO, 0, (&mut info as *mut libc::proc_vnodepathinfo).cast(), size)
+        };
+        if got != size {
+            return None;
+        }
+        // `vip_path` é um `[c_char; MAXPATHLEN]` em pedaços de 32.
+        let raw: Vec<u8> = info.pvi_cdir.vip_path.iter().flatten().map(|&c| c as u8).take_while(|&c| c != 0).collect();
+        use std::os::unix::ffi::OsStringExt;
+        (!raw.is_empty()).then(|| PathBuf::from(std::ffi::OsString::from_vec(raw)))
+    }
+    #[cfg(not(any(target_os = "linux", target_os = "macos")))]
+    {
+        let _ = pid;
+        None
+    }
+}
+
 /// Abre um arquivo no programa padrão do sistema para o tipo dele.
 pub fn open_path(path: &Path) -> std::io::Result<()> {
     open_with_system(path.as_os_str(), false)
@@ -289,6 +319,12 @@ fn open_with_system(target: &OsStr, is_url: bool) -> std::io::Result<()> {
 
 #[cfg(test)]
 mod tests {
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn process_cwd_of_self() {
+        assert_eq!(super::process_cwd(std::process::id()), std::env::current_dir().ok());
+    }
+
     use super::*;
 
     #[test]

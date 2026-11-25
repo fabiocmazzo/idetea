@@ -15,8 +15,8 @@ iced = { workspace = true, features = ["canvas", "lazy", "advanced"] }
 tokio = { version = "1.50.0", features = ["full"] }
 iced_graphics = { version = "0.14.0", default-features = false }
 iced_core = "0.14.0"
-open = "5.3.3"
 anyhow = "1.0.102"
+regex = { workspace = true }
 
 # O código veio do upstream como está; o clippy do workspace reclamaria deste estilo dele.
 [lints.clippy]

@@ -1,4 +1,5 @@
 use crate::actions::Action;
+use crate::links::{self, Link, PathResolver};
 use crate::settings::BackendSettings;
 use alacritty_terminal::event::{
     Event, EventListener, Notify, OnResize, WindowSize,
@@ -8,9 +9,9 @@ use alacritty_terminal::grid::{Dimensions, Scroll};
 use alacritty_terminal::index::{Column, Direction, Line, Point, Side};
 use alacritty_terminal::selection::{Selection, SelectionRange, SelectionType};
 use alacritty_terminal::sync::FairMutex;
-use alacritty_terminal::term::search::{Match, RegexIter, RegexSearch};
+use alacritty_terminal::term::search::RegexSearch;
 use alacritty_terminal::term::{
-    self, cell::Cell, test::TermSize, viewport_to_point, Term, TermMode,
+    self, cell::{Cell, Flags}, test::TermSize, viewport_to_point, Term, TermMode,
 };
 use alacritty_terminal::{tty, Grid};
 use iced::keyboard::Modifiers;
@@ -18,7 +19,7 @@ use iced_core::Size;
 use std::borrow::Cow;
 use std::cmp::min;
 use std::io::Result;
-use std::ops::{Index, RangeInclusive};
+use std::ops::RangeInclusive;
 use std::sync::Arc;
 use tokio::sync::mpsc;
 
@@ -33,8 +34,6 @@ fn escape_regex(text: &str) -> String {
     }
     out
 }
-
-const URL_REGEX: &str = r#"(ipfs:|ipns:|magnet:|mailto:|gemini://|gopher://|https://|http://|news:|file://|git://|ssh:|ftp://)[^\u{0000}-\u{001F}\u{007F}-\u{009F}<>"\s{-}\^⟨⟩`]+"#;
 
 #[derive(Debug, Clone)]
 pub enum Command {
@@ -156,7 +155,9 @@ pub struct Backend {
     size: TerminalSize,
     notifier: Notifier,
     last_content: RenderableContent,
-    pub(crate) url_regex: RegexSearch,
+    resolve_path: Option<PathResolver>,
+    /// The shell's process, to find its current folder (unix only).
+    shell_pid: Option<u32>,
 }
 
 impl Backend {
@@ -179,6 +180,10 @@ impl Backend {
         };
         let terminal_size = TerminalSize::default();
         let pty = tty::new(&pty_config, terminal_size.into(), id)?;
+        #[cfg(unix)]
+        let shell_pid = Some(pty.child().id());
+        #[cfg(not(unix))]
+        let shell_pid = None;
 
         let event_proxy = EventProxy(pty_event_proxy_sender);
 
@@ -198,6 +203,7 @@ impl Backend {
             terminal_size,
             cursor: cursor.clone(),
             hovered_hyperlink: None,
+            hovered_link: None,
         };
 
         let term = Arc::new(FairMutex::new(term));
@@ -214,7 +220,8 @@ impl Backend {
             size: terminal_size,
             notifier,
             last_content: initial_content,
-            url_regex: RegexSearch::new(URL_REGEX).expect("invalid url regexp"),
+            resolve_path: settings.resolve_path,
+            shell_pid,
         })
     }
 
@@ -254,7 +261,9 @@ impl Backend {
                 self.update_selection(&mut term, x, y);
             },
             Command::ProcessLink(link_action, point) => {
-                self.process_link_action(&term, link_action, point);
+                if let Some(link) = self.process_link_action(&term, link_action, point) {
+                    action = Action::OpenLink(link);
+                }
             },
             Command::MouseReport(button, modifiers, point, pressed) => {
                 self.process_mouse_report(button, modifiers, point, pressed);
@@ -308,41 +317,75 @@ impl Backend {
         terminal: &Term<EventProxy>,
         link_action: LinkAction,
         point: Point,
-    ) {
+    ) -> Option<Link> {
         match link_action {
             LinkAction::Hover => {
-                self.last_content.hovered_hyperlink = self.regex_match_at(
-                    terminal,
-                    point,
-                    &mut self.url_regex.clone(),
-                );
+                self.hover(terminal, point);
+                None
             },
             LinkAction::Clear => {
                 self.last_content.hovered_hyperlink = None;
+                self.last_content.hovered_link = None;
+                None
             },
+            // Opening is the embedder's job (`Action::OpenLink`): the backend never launches programs.
             LinkAction::Open => {
-                self.open_link();
+                self.hover(terminal, point);
+                self.last_content.hovered_link.clone()
             },
-        };
+        }
     }
 
-    fn open_link(&self) {
-        if let Some(range) = &self.last_content.hovered_hyperlink {
-            let start = range.start();
-            let end = range.end();
+    /// The link under `point`: an OSC 8 hyperlink first, then a URL or an existing path in the text.
+    fn hover(&mut self, terminal: &Term<EventProxy>, point: Point) {
+        let found = self.link_at(terminal, point);
+        self.last_content.hovered_hyperlink = found.as_ref().map(|(range, _)| range.clone());
+        self.last_content.hovered_link = found.map(|(_, link)| link);
+    }
 
-            let mut url = String::from(self.last_content.grid.index(*start).c);
-            for indexed in self.last_content.grid.iter_from(*start) {
-                url.push(indexed.c);
-                if indexed.point == *end {
-                    break;
-                }
-            }
-
-            open::that(url).unwrap_or_else(|_| {
-                panic!("link opening is failed");
-            })
+    fn link_at(
+        &self,
+        terminal: &Term<EventProxy>,
+        point: Point,
+    ) -> Option<(RangeInclusive<Point>, Link)> {
+        let grid = terminal.grid();
+        if point.line < grid.topmost_line()
+            || point.line > grid.bottommost_line()
+            || point.column.0 >= grid.columns()
+        {
+            return None;
         }
+        let cells = logical_line(grid, point.line);
+        let index = cells.iter().position(|(p, _)| *p == point)?;
+
+        // OSC 8: the cells around the mouse with the same hyperlink.
+        if let Some(link) = grid[point].hyperlink() {
+            let same = |p: &Point| grid[*p].hyperlink().as_ref() == Some(&link);
+            let start = (0..=index).rev().take_while(|&i| same(&cells[i].0)).last().unwrap_or(index);
+            let end = (index..cells.len()).take_while(|&i| same(&cells[i].0)).last().unwrap_or(index);
+            let target = self.resolve(links::Found::Url(link.uri().to_string()))?;
+            return Some((cells[start].0..=cells[end].0, target));
+        }
+
+        let text: String = cells.iter().map(|(_, c)| *c).collect();
+        let hit = links::at(&text, index)?;
+        let target = self.resolve(hit.found)?;
+        Some((cells[hit.start].0..=cells[hit.end - 1].0, target))
+    }
+
+    /// A URL stays a URL (`file://` becomes its path); a path must exist.
+    fn resolve(&self, found: links::Found) -> Option<Link> {
+        let (path, line, column) = match found {
+            links::Found::Url(url) => match links::file_url_path(&url) {
+                Some(path) => (path, None, None),
+                None if url.starts_with("file:") => return None,
+                None => return Some(Link::Url(url)),
+            },
+            links::Found::Path { path, line, column } => (path, line, column),
+        };
+        let resolver = self.resolve_path.as_ref()?;
+        let path = (resolver.0)(&path, self.shell_pid)?;
+        Some(Link::Path { path, line, column })
     }
 
     fn process_mouse_report(
@@ -607,43 +650,13 @@ impl Backend {
     pub fn renderable_content(&self) -> &RenderableContent {
         &self.last_content
     }
-
-    /// Based on alacritty/src/display/hint.rs > regex_match_at
-    /// Retrieve the match, if the specified point is inside the content matching the regex.
-    fn regex_match_at(
-        &self,
-        terminal: &Term<EventProxy>,
-        point: Point,
-        regex: &mut RegexSearch,
-    ) -> Option<Match> {
-        let x = visible_regex_match_iter(terminal, regex)
-            .find(|rm| rm.contains(&point));
-        x
-    }
-}
-
-/// Copied from alacritty/src/display/hint.rs:
-/// Iterate over all visible regex matches.
-fn visible_regex_match_iter<'a>(
-    term: &'a Term<EventProxy>,
-    regex: &'a mut RegexSearch,
-) -> impl Iterator<Item = Match> + 'a {
-    let viewport_start = Line(-(term.grid().display_offset() as i32));
-    let viewport_end = viewport_start + term.bottommost_line();
-    let mut start =
-        term.line_search_left(Point::new(viewport_start, Column(0)));
-    let mut end = term.line_search_right(Point::new(viewport_end, Column(0)));
-    start.line = start.line.max(viewport_start - 100);
-    end.line = end.line.min(viewport_end + 100);
-
-    RegexIter::new(start, end, Direction::Right, term, regex)
-        .skip_while(move |rm| rm.end().line < viewport_start)
-        .take_while(move |rm| rm.start().line <= viewport_end)
 }
 
 pub struct RenderableContent {
     pub grid: Grid<Cell>,
     pub hovered_hyperlink: Option<RangeInclusive<Point>>,
+    /// Where the hovered link leads (shown while `Ctrl` is held, IDE TEA RFC 0025).
+    pub hovered_link: Option<Link>,
     pub selectable_range: Option<SelectionRange>,
     pub cursor: Cell,
     pub terminal_mode: TermMode,
@@ -655,12 +668,40 @@ impl Default for RenderableContent {
         Self {
             grid: Grid::new(0, 0, 0),
             hovered_hyperlink: None,
+            hovered_link: None,
             selectable_range: None,
             cursor: Cell::default(),
             terminal_mode: TermMode::empty(),
             terminal_size: TerminalSize::default(),
         }
     }
+}
+
+/// The characters of the logical line through `line` (screen lines joined where the text wrapped), with the cell
+/// of each. Wide characters count once. At most 16 screen lines on each side.
+fn logical_line(grid: &Grid<Cell>, line: Line) -> Vec<(Point, char)> {
+    let last = grid.last_column();
+    let wraps = |l: Line| grid[l][last].flags.contains(Flags::WRAPLINE);
+    let mut first = line;
+    while first > grid.topmost_line() && line.0 - first.0 < 16 && wraps(Line(first.0 - 1)) {
+        first = Line(first.0 - 1);
+    }
+    let mut end = line;
+    while end < grid.bottommost_line() && end.0 - line.0 < 16 && wraps(end) {
+        end = Line(end.0 + 1);
+    }
+    let mut cells = Vec::new();
+    for l in first.0..=end.0 {
+        for c in 0..grid.columns() {
+            let point = Point::new(Line(l), Column(c));
+            let cell = &grid[point];
+            if cell.flags.intersects(Flags::WIDE_CHAR_SPACER | Flags::LEADING_WIDE_CHAR_SPACER) {
+                continue;
+            }
+            cells.push((point, cell.c));
+        }
+    }
+    cells
 }
 
 impl Drop for Backend {

@@ -17,6 +17,7 @@ macro_rules! fl {
 
 mod activity;
 mod agents;
+mod links;
 mod saved;
 pub mod tab_hooks;
 pub mod cli;
@@ -445,6 +446,27 @@ impl TerminalExtension {
         Self::default()
     }
 
+    /// `Ctrl+clique` num link (RFC 0025): arquivo numa aba, pasta na árvore, `http(s)`/`mailto` no sistema, os
+    /// outros esquemas na área de transferência.
+    fn follow_link(&self, action: Action, ctx: &mut Context) {
+        let Action::OpenLink(link) = action else { return };
+        match links::follow(link, &self.root) {
+            links::Follow::Open { path, line: 0, .. } => ctx.open_file(path),
+            links::Follow::Open { path, line, column } => ctx.open_file_at(path, line, column.max(1)),
+            links::Follow::Reveal(path) => ctx.reveal_in_tree(path),
+            links::Follow::System(url) => {
+                if let Err(e) = tea_core::os::open_url(&url) {
+                    ctx.notify(fl!("terminal-link-failed", url = url, error = e.to_string()));
+                }
+            }
+            links::Follow::Copy(url) => {
+                ctx.copy_text(url.clone());
+                ctx.notify(fl!("terminal-link-copied", url = url));
+            }
+            links::Follow::Nothing => {}
+        }
+    }
+
     fn settings(&self, program: String, args: Vec<String>, cwd: &Path) -> Settings {
         Settings {
             font: self.font(),
@@ -456,6 +478,7 @@ impl TerminalExtension {
                 working_directory: Some(cwd.to_path_buf()),
                 scrollback: self.scrollback,
                 preamble: Vec::new(),
+                resolve_path: Some(links::resolver(cwd.to_path_buf(), self.root.clone())),
             },
         }
     }
@@ -1720,10 +1743,12 @@ impl TerminalExtension {
                 }
                 if let Some(task) = self.task.as_mut().filter(|t| t.term.id == id) {
                     // A tarefa terminou e o Enter fechou: volta para um shell.
-                    if task.term.handle(iced_term::Command::ProxyToBackend(cmd)) == Action::Shutdown {
+                    let action = task.term.handle(iced_term::Command::ProxyToBackend(cmd));
+                    if action == Action::Shutdown {
                         self.task = None;
                         return self.after_removal(ctx);
                     }
+                    self.follow_link(action, ctx);
                     return Task::none();
                 }
                 if let Some(i) = self.agents.iter().position(|a| a.term.id == id) {
@@ -1731,7 +1756,8 @@ impl TerminalExtension {
                         self.agents[i].last_output = Some(Instant::now());
                     }
                     // Terminou e o Enter fechou (o script já gravou o código no status).
-                    if self.agents[i].term.handle(iced_term::Command::ProxyToBackend(cmd)) == Action::Shutdown {
+                    let action = self.agents[i].term.handle(iced_term::Command::ProxyToBackend(cmd));
+                    if action == Action::Shutdown {
                         let agent = self.agents.remove(i);
                         self.drop_worktree(&agent, ctx);
                         if let Shown::Agent(s) = self.shown
@@ -1741,11 +1767,13 @@ impl TerminalExtension {
                         }
                         return self.after_removal(ctx);
                     }
+                    self.follow_link(action, ctx);
                     return Task::none();
                 }
                 // Evento atrasado de um shell que já saiu: nenhum com esse id.
                 let Some(i) = self.shells.iter().position(|s| s.term.id == id) else { return Task::none() };
-                if self.shells[i].term.handle(iced_term::Command::ProxyToBackend(cmd)) == Action::Shutdown {
+                let action = self.shells[i].term.handle(iced_term::Command::ProxyToBackend(cmd));
+                if action == Action::Shutdown {
                     let number = self.shells[i].number;
                     self.shells.remove(i);
                     // A aba que estava na tela à direita desta escorrega uma posição.
@@ -1757,6 +1785,7 @@ impl TerminalExtension {
                     ctx.notify(fl!("terminal-ended-n", number = number));
                     return self.after_removal(ctx);
                 }
+                self.follow_link(action, ctx);
             }
         }
         Task::none()
