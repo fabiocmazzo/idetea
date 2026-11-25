@@ -226,11 +226,22 @@ pub fn view<'a>(
         let toggle = button(text(label).size(12)).style(button::text).padding(0).on_press(UiMessage::ToggleSelect);
         out = out.push(container(toggle).width(Fill).align_right(Fill));
     }
+    // Os componentes da coluna: sem os que estão dentro de um `columns` e sem os escondidos (`show_if`).
+    let inside: Vec<&str> = doc
+        .components
+        .iter()
+        .filter_map(|c| match &c.kind {
+            Kind::Columns { children } => Some(children.iter().map(String::as_str)),
+            _ => None,
+        })
+        .flatten()
+        .collect();
+    let shown: Vec<&'a Component> =
+        doc.components.iter().filter(|c| !inside.contains(&c.id.as_str()) && state.visible(doc, c)).collect();
     // O comentário fica logo antes dos botões do fim (ou no fim, se o documento não termina em botões).
     let has_buttons = doc.components.iter().any(|c| matches!(c.kind, Kind::Button { .. }));
-    let comment_at = (comment && doc.comment && has_buttons).then(|| {
-        doc.components.iter().rposition(|c| !matches!(c.kind, Kind::Button { .. })).map_or(0, |p| p + 1)
-    });
+    let comment_at = (comment && doc.comment && has_buttons)
+        .then(|| shown.iter().rposition(|c| !matches!(c.kind, Kind::Button { .. })).map_or(0, |p| p + 1));
     let comment_field = || -> Element<'a, UiMessage> {
         let input = text_input(&fl!("ui-comment-placeholder"), &state.comment)
             .id("ui-comment")
@@ -243,13 +254,13 @@ pub fn view<'a>(
         col.into()
     };
     let mut i = 0;
-    while i < doc.components.len() {
+    while i < shown.len() {
         if comment_at == Some(i) {
             out = out.push(comment_field());
         }
         // Botões seguidos: uma linha só (quebra se não couber).
         let buttons: Vec<&Component> =
-            doc.components[i..].iter().take_while(|c| matches!(c.kind, Kind::Button { .. })).collect();
+            shown[i..].iter().copied().take_while(|c| matches!(c.kind, Kind::Button { .. })).collect();
         if !buttons.is_empty() {
             i += buttons.len();
             // O que falta, de todos os botões da linha (normalmente um só espera).
@@ -278,10 +289,10 @@ pub fn view<'a>(
             }
             continue;
         }
-        out = out.push(component_view(doc, state, rendered, media, playback, &doc.components[i], settings));
+        out = out.push(component_view(doc, state, rendered, media, playback, shown[i], settings));
         i += 1;
     }
-    if comment_at == Some(doc.components.len()) {
+    if comment_at == Some(shown.len()) {
         out = out.push(comment_field());
     }
     out.into()
@@ -615,7 +626,82 @@ fn component_view<'a>(
             let list = pick_list(options.as_slice(), selected, move |o: Choice| set(Value::String(o.value)))
                 .placeholder("—")
                 .width(Fill);
-            labeled(label.as_deref(), list)
+            // A nota da opção escolhida; sem escolha, a da recomendada.
+            let note = match selected {
+                Some(o) => o.note.clone(),
+                None => options.iter().find(|o| o.recommended).and_then(|o| {
+                    o.note.as_ref().map(|n| format!("★ {} ({}): {n}", o.label, fl!("ui-recommended")))
+                }),
+            };
+            match note {
+                Some(n) => labeled(label.as_deref(), column![list, text(n).size(12).style(text::secondary)].spacing(4)),
+                None => labeled(label.as_deref(), list),
+            }
+        }
+        Kind::Number { label, value, range, slider } => {
+            let problem = state.number_problem(doc, value, range);
+            let unit = range.unit.clone().unwrap_or_default();
+            let field: Element<'a, UiMessage> = if *slider {
+                let (min, max) = (range.min.unwrap_or(0.0), range.max.unwrap_or(1.0));
+                let current = state.number(doc, value).unwrap_or(min).clamp(min, max);
+                let path = value.clone();
+                let bar = iced::widget::slider(min..=max, current, move |n: f64| UiMessage::Set {
+                    path: path.clone(),
+                    value: crate::state::number_value(n),
+                })
+                .step(range.step.unwrap_or(1.0))
+                .width(Fill);
+                let shown = match state.number(doc, value) {
+                    Some(n) => format!("{} {unit}", crate::state::show_number(n)),
+                    None => "—".to_string(),
+                };
+                row![bar, text(shown.trim_end().to_string()).size(13).width(iced::Length::Shrink)]
+                    .spacing(8)
+                    .align_y(iced::Alignment::Center)
+                    .into()
+            } else {
+                // O texto digitado fica como texto até o clique (assim "1," e "-" não somem enquanto se digita).
+                let typed = match state.value(doc, value) {
+                    Some(Value::String(s)) => s.clone(),
+                    Some(Value::Number(n)) => n.as_f64().map(crate::state::show_number).unwrap_or_default(),
+                    _ => String::new(),
+                };
+                let set = set(value);
+                let input = text_input("", &typed)
+                    .id(format!("ui-input-{}", c.id))
+                    .on_input(move |s| set(Value::String(s)))
+                    .width(Fill);
+                if unit.is_empty() {
+                    input.into()
+                } else {
+                    row![input, text(unit).size(13)].spacing(8).align_y(iced::Alignment::Center).into()
+                }
+            };
+            match problem {
+                Some(p) => labeled(label.as_deref(), column![field, text(p).size(12).style(text::warning)].spacing(4)),
+                None => labeled(label.as_deref(), field),
+            }
+        }
+        Kind::Columns { children } => {
+            let parts: Vec<&'a Component> = children
+                .iter()
+                .filter_map(|id| doc.components.iter().find(|o| &o.id == id))
+                .filter(|o| state.visible(doc, o))
+                .collect();
+            let playback = playback.clone();
+            // Lado a lado quando cada um tem ao menos 220 px; senão, um embaixo do outro.
+            iced::widget::responsive(move |size| {
+                let cells = parts
+                    .iter()
+                    .map(|o| container(component_view(doc, state, rendered, media, &playback, o, settings)).width(Fill).into());
+                if size.width >= 220.0 * parts.len() as f32 {
+                    row(cells).spacing(16).width(Fill).into()
+                } else {
+                    column(cells).spacing(12).width(Fill).into()
+                }
+            })
+            .height(iced::Length::Shrink)
+            .into()
         }
         Kind::Input { label, placeholder, value } => {
             let current = state.value(doc, value).and_then(Value::as_str).unwrap_or("");
@@ -661,6 +747,7 @@ fn component_view<'a>(
             };
             let cells = items.iter().map(|item| {
                 let label = item.label.clone().unwrap_or_else(|| item.id.clone());
+                let label = if item.recommended { format!("{label} ★") } else { label };
                 let on = chosen.contains(&item.id);
                 let choose: Element<'a, UiMessage> = match (pick, value) {
                     (Pick::One, Some(path)) => {
@@ -681,7 +768,11 @@ fn component_view<'a>(
                     }
                     _ => text(label).size(12).style(text::secondary).into(),
                 };
-                watched(column![picture_view(media, &item.path, *look), choose].spacing(4), &item.path, doc.revision)
+                let mut cell = column![picture_view(media, &item.path, *look), choose].spacing(4);
+                if let Some(note) = &item.note {
+                    cell = cell.push(text(note).size(12).style(text::secondary));
+                }
+                watched(cell, &item.path, doc.revision)
             });
             row(cells).spacing(12).wrap().vertical_spacing(12).into()
         }
@@ -817,6 +908,30 @@ mod tests {
         assert_eq!(rendered.plain["t"].selection().as_deref(), Some("Confirme os dados"));
         rendered.act("t", text_editor::Action::Edit(text_editor::Edit::Insert('x')));
         assert_eq!(rendered.plain["t"].text(), "Confirme os dados");
+    }
+
+    #[test]
+    fn decisions_draw_number_warning_hidden_parts_notes_and_columns() {
+        let v = serde_json::json!({
+            "format": "idetea-ui", "version": 1, "revision": 1, "data": {"u": "500"},
+            "components": [
+                { "id": "m", "component": "select", "label": "Modo", "value": "/modo",
+                  "options": ["main", {"value": "branch", "label": "Branch", "recommended": true, "note": "isola a mudança"}] },
+                { "id": "n", "component": "input", "label": "Nome do branch", "value": "/b", "show_if": {"path": "/modo", "equals": "branch"} },
+                { "id": "u", "component": "number", "label": "Usuários", "value": "/u", "min": 1, "max": 100 },
+                { "id": "a", "component": "text", "text": "Opção A" },
+                { "id": "b", "component": "text", "text": "Opção B" },
+                { "id": "cols", "component": "columns", "children": ["a", "b"] }
+            ]
+        });
+        let d = crate::document::parse(v.to_string().as_bytes(), &crate::document::Limits::default()).unwrap();
+        let rendered = Rendered::new(&d);
+        let state = State::new(&d);
+        let mut ui = simulator(view(&d, &state, &rendered, no_media(), no_playback(), &Theme::Dark, true));
+        assert!(ui.find("Nome do branch").is_err(), "escondido pelo show_if");
+        assert!(ui.find("Fora do intervalo: 1–100").is_ok());
+        assert!(ui.find("★ Branch (recomendado): isola a mudança").is_ok(), "sem escolha, a nota da recomendada");
+        assert!(ui.find("Opção A").is_ok() && ui.find("Opção B").is_ok(), "os filhos do columns aparecem (uma vez)");
     }
 
     #[test]

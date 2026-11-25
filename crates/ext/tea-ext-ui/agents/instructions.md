@@ -64,6 +64,11 @@ files as below.
    - Components: `text` (`style`: `muted`, `warning`, `error`), `markdown` (`text`: lists, `code`, emphasis,
      links), `select`, `checkbox` (boolean), `input` (text) and `button` (`style`: `secondary`, `danger`).
      `value` is a JSON pointer to a value in `data`; `data` holds the initial values.
+   - For a decision: `"recommended": true` and `"note": "why"` on a `select` option (or a `gallery` item) mark the one
+     you recommend; `number` and `slider` (`min`, `max`, `step`, `unit`; the value is a JSON number); `"show_if":
+     {"path": "/mode", "equals": "branch"}` on any component (also `not_equals`, `in`, `truthy`) shows it only then,
+     and a hidden field does not hold a `requires`; `{"component": "columns", "children": ["a", "b"]}` puts up to 4
+     components side by side, to compare options.
    - The response only carries the paths listed in the `context` of the clicked button; a field never filled
      comes as `null`. A path to an object (`/review`) brings the whole object, with my changes to the fields
      inside it.

@@ -9,7 +9,7 @@ use std::collections::BTreeMap;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::document::{Attach, Document, Kind, Submit};
+use crate::document::{Attach, Component, Document, Kind, Range, Submit, Test};
 use crate::response::AttachmentKind;
 
 /// Um anexo esperando o clique: o arquivo (caminho absoluto) e de onde veio.
@@ -106,8 +106,50 @@ impl State {
             .count()
     }
 
-    /// O campo em `path` tem valor: escolha feita, texto não vazio, caixa marcada, lista com algo.
+    /// O componente aparece: sem `show_if`, ou com a comparação batendo.
+    pub fn visible(&self, doc: &Document, c: &Component) -> bool {
+        let Some(cond) = &c.show_if else { return true };
+        let v = self.value(doc, &cond.path).unwrap_or(&Value::Null);
+        match &cond.test {
+            Test::Equals(x) => same(v, x),
+            Test::NotEquals(x) => !same(v, x),
+            Test::In(list) => list.iter().any(|x| same(v, x)),
+            Test::Truthy(want) => self.filled(doc, &cond.path) == *want,
+        }
+    }
+
+    /// O número de um `number`/`slider`: o valor, ou o texto digitado lido como número.
+    pub fn number(&self, doc: &Document, path: &str) -> Option<f64> {
+        match self.value(doc, path)? {
+            Value::Number(n) => n.as_f64(),
+            Value::String(s) => parse_number(s),
+            _ => None,
+        }
+    }
+
+    /// O que há de errado no `number`/`slider` em `path` (`None`: vazio ou certo).
+    pub fn number_problem(&self, doc: &Document, path: &str, range: &Range) -> Option<String> {
+        match self.value(doc, path) {
+            None | Some(Value::Null) => None,
+            Some(Value::String(s)) if s.trim().is_empty() => None,
+            _ => match self.number(doc, path) {
+                None => Some(fl!("ui-number-nan")),
+                Some(n) if !range.contains(n) => Some(fl!("ui-number-out", range = describe(range))),
+                Some(_) => None,
+            },
+        }
+    }
+
+    /// O campo em `path` tem valor: escolha feita, texto não vazio, caixa marcada, lista com algo; de um número,
+    /// um número dentro dos limites.
     pub fn filled(&self, doc: &Document, path: &str) -> bool {
+        let number = doc.components.iter().find_map(|c| match &c.kind {
+            Kind::Number { value, range, .. } if value == path => Some(range),
+            _ => None,
+        });
+        if let Some(range) = number {
+            return self.number(doc, path).is_some_and(|n| range.contains(n));
+        }
         match self.value(doc, path) {
             None | Some(Value::Null) => false,
             Some(Value::Bool(b)) => *b,
@@ -137,11 +179,17 @@ impl State {
         }
         for path in requires {
             let Some(c) = doc.components.iter().find(|c| c.kind.binding() == Some(path.as_str())) else { continue };
+            // Um campo escondido (`show_if`) não segura o botão.
+            if !self.visible(doc, c) {
+                continue;
+            }
             match &c.kind {
                 Kind::Steps { .. } => out.steps += self.missing(doc, path),
                 kind if !self.filled(doc, path) => out.fields.push(match kind {
                     Kind::Checkbox { label, .. } => label.clone(),
-                    Kind::Select { label: Some(l), .. } | Kind::Input { label: Some(l), .. } => l.clone(),
+                    Kind::Select { label: Some(l), .. } | Kind::Input { label: Some(l), .. } | Kind::Number { label: Some(l), .. } => {
+                        l.clone()
+                    }
                     _ => c.id.clone(),
                 }),
                 _ => {}
@@ -174,10 +222,66 @@ impl State {
         for (path, value) in local {
             pointer::set(&mut seen, path, value.clone());
         }
-        let values =
-            action.context.iter().map(|p| (p.clone(), pointer::get(&seen, p).cloned().unwrap_or(Value::Null))).collect();
+        let values = action
+            .context
+            .iter()
+            .map(|p| {
+                let mut v = pointer::get(&seen, p).cloned().unwrap_or(Value::Null);
+                // Um número digitado vai como número JSON (o texto, se não for número).
+                let is_number = doc.components.iter().any(|c| matches!(&c.kind, Kind::Number { value, .. } if value == p));
+                if is_number && let Value::String(s) = &v {
+                    v = match parse_number(s) {
+                        Some(n) => number_value(n),
+                        None if s.trim().is_empty() => Value::Null,
+                        None => v,
+                    };
+                }
+                (p.clone(), v)
+            })
+            .collect();
         self.answered = Some(doc.revision);
         Some((action.name.clone(), values))
+    }
+}
+
+/// Igualdade de valores do `show_if`: números pelo valor (`1` e `1.0` são iguais).
+fn same(a: &Value, b: &Value) -> bool {
+    match (a.as_f64(), b.as_f64()) {
+        (Some(x), Some(y)) => x == y,
+        _ => a == b,
+    }
+}
+
+/// Um número digitado: aceita vírgula decimal (`1,5`).
+pub fn parse_number(s: &str) -> Option<f64> {
+    s.trim().replace(',', ".").parse::<f64>().ok().filter(|n| n.is_finite())
+}
+
+/// O número como JSON: inteiro quando não tem fração.
+pub fn number_value(n: f64) -> Value {
+    if n.fract() == 0.0 && n.abs() < 9e15 {
+        Value::from(n as i64)
+    } else {
+        serde_json::Number::from_f64(n).map_or(Value::Null, Value::Number)
+    }
+}
+
+/// O número para mostrar (sem `.0` à toa).
+pub fn show_number(n: f64) -> String {
+    match number_value(n) {
+        Value::Number(x) => x.to_string(),
+        _ => String::new(),
+    }
+}
+
+/// "1–100 usuários", "≥ 1", "≤ 10".
+fn describe(range: &Range) -> String {
+    let unit = range.unit.as_deref().map(|u| format!(" {u}")).unwrap_or_default();
+    match (range.min, range.max) {
+        (Some(a), Some(b)) => format!("{}–{}{unit}", show_number(a), show_number(b)),
+        (Some(a), None) => format!("≥ {}{unit}", show_number(a)),
+        (None, Some(b)) => format!("≤ {}{unit}", show_number(b)),
+        (None, None) => String::new(),
     }
 }
 
@@ -212,6 +316,84 @@ mod tests {
             ]
         });
         parse(v.to_string().as_bytes(), &Limits::default()).unwrap()
+    }
+
+    fn parsed(v: Value) -> Result<Document, String> {
+        parse(v.to_string().as_bytes(), &Limits::default())
+    }
+
+    #[test]
+    fn numbers_go_as_numbers_and_wait_inside_the_range() {
+        let d = parsed(json!({
+            "format": "idetea-ui", "version": 1, "revision": 1, "data": {"r": 3},
+            "components": [
+                { "id": "u", "component": "number", "label": "Usuários", "value": "/u", "min": 1, "max": 100, "unit": "usuários" },
+                { "id": "r", "component": "slider", "label": "Réplicas", "value": "/r", "min": 1, "max": 12 },
+                { "id": "ok", "component": "button", "label": "OK", "requires": ["/u", "/r"], "action": { "name": "ok", "context": ["/u", "/r"] } }
+            ]
+        }))
+        .unwrap();
+        let Kind::Number { range, .. } = &d.components[0].kind else { panic!() };
+        let range = range.clone();
+        let mut s = State::new(&d);
+        assert_eq!(s.waiting(&d, &d.components[2].kind).fields, ["Usuários"], "vazio espera; o slider já tem 3");
+        s.set("/u", json!("abc"));
+        assert!(s.number_problem(&d, "/u", &range).is_some());
+        s.set("/u", json!("500"));
+        assert!(s.number_problem(&d, "/u", &range).unwrap().contains("1–100 usuários"));
+        assert!(s.press(&d, "ok").is_none(), "fora do intervalo, o botão espera");
+        s.set("/u", json!("12,5"));
+        let (_, values) = s.press(&d, "ok").unwrap();
+        assert_eq!(values["/u"], json!(12.5), "vírgula decimal, número JSON");
+        assert_eq!(values["/r"], json!(3));
+    }
+
+    #[test]
+    fn number_and_columns_are_checked_when_read() {
+        let base = |extra: Value| {
+            let mut c = vec![json!({ "id": "a", "component": "input", "value": "/a" }), json!({ "id": "b", "component": "input", "value": "/b" })];
+            c.push(extra);
+            parsed(json!({ "format": "idetea-ui", "version": 1, "revision": 1, "components": c }))
+        };
+        assert!(base(json!({ "id": "s", "component": "slider", "value": "/s", "min": 1 })).is_err(), "slider sem max");
+        assert!(base(json!({ "id": "n", "component": "number", "value": "/n", "min": 5, "max": 1 })).is_err());
+        assert!(base(json!({ "id": "c", "component": "columns", "children": ["a", "b"] })).is_ok());
+        assert!(base(json!({ "id": "c", "component": "columns", "children": ["a", "x"] })).is_err(), "id que não existe");
+        assert!(base(json!({ "id": "c", "component": "columns", "children": ["a", "b", "a", "b", "a"] })).is_err(), "mais de 4");
+        assert!(base(json!({ "id": "c", "component": "columns", "children": ["c"] })).is_err(), "aninhado");
+        let two = parsed(json!({ "format": "idetea-ui", "version": 1, "revision": 1, "components": [
+            { "id": "a", "component": "input", "value": "/a" },
+            { "id": "c1", "component": "columns", "children": ["a"] },
+            { "id": "c2", "component": "columns", "children": ["a"] }]}));
+        assert!(two.is_err(), "o mesmo id em dois columns");
+    }
+
+    #[test]
+    fn show_if_hides_and_frees_the_button() {
+        let d = parsed(json!({
+            "format": "idetea-ui", "version": 1, "revision": 1, "data": {"modo": "main"},
+            "components": [
+                { "id": "m", "component": "select", "value": "/modo", "options": ["main", {"value": "branch", "recommended": true, "note": "isola"}] },
+                { "id": "n", "component": "input", "label": "Branch", "value": "/branch", "show_if": {"path": "/modo", "equals": "branch"} },
+                { "id": "x", "component": "text", "text": "x", "show_if": {"path": "/modo", "in": ["a", "main"]} },
+                { "id": "y", "component": "text", "text": "y", "show_if": {"path": "/branch", "truthy": true} },
+                { "id": "ok", "component": "button", "label": "OK", "requires": "/branch", "action": { "name": "ok", "context": ["/branch"] } }
+            ]
+        }))
+        .unwrap();
+        let Kind::Select { options, .. } = &d.components[0].kind else { panic!() };
+        assert!(options[1].recommended && options[1].note.as_deref() == Some("isola"));
+        let mut s = State::new(&d);
+        let c = &d.components;
+        assert!(!s.visible(&d, &c[1]) && s.visible(&d, &c[2]) && !s.visible(&d, &c[3]));
+        assert!(s.waiting(&d, &c[4].kind).is_empty(), "escondido não segura o botão");
+        s.set("/modo", json!("branch"));
+        assert!(s.visible(&d, &c[1]) && !s.visible(&d, &c[2]));
+        assert_eq!(s.waiting(&d, &c[4].kind).fields, ["Branch"]);
+        s.set("/branch", json!("fix/x"));
+        assert!(s.visible(&d, &c[3]));
+        assert!(parsed(json!({ "format": "idetea-ui", "version": 1, "revision": 1, "components": [
+            { "id": "t", "component": "text", "text": "t", "show_if": {"path": "/a", "equals": 1, "in": [1]} }]})).is_err(), "dois operadores");
     }
 
     #[test]

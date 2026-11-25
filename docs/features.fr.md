@@ -237,6 +237,7 @@ et `CLAUDE.md`.
 - **Sélectionner et copier le texte :** « Sélectionner le texte » en haut d'une interface (ouverte ou dans
   l'historique) montre ses textes dans un éditeur en lecture seule : sélection à la souris, copie avec Ctrl+C ;
   « Afficher mis en forme » revient à l'affichage formaté.
+- **De meilleures décisions dans le panneau :** une option de `select` (ou un élément de `gallery`) peut être `recommended`, avec une `note` qui explique pourquoi ; `number` et `slider` donnent un nombre JSON avec `min`, `max` et un avertissement hors limites ; `show_if` n’affiche un composant que lorsqu’un autre champ a une valeur (une comparaison simple, jamais une expression), et un champ caché ne bloque pas le bouton ; `columns` met jusqu’à 4 composants côte à côte, l’un sous l’autre dans un panneau étroit.
 - **Pièces jointes dans la réponse :** à côté du commentaire, *Joindre une capture de l’IDE* (la fenêtre de l’IDE seulement, au clic) et *Joindre un fichier…* (jusqu’à 8 Mo). Vous voyez une miniature et pouvez la retirer avant de répondre ; l’IDE la copie dans `.idetea/ui/responses/<nom>/anexos/` et la réponse la liste. Un bouton avec `"attach": "screenshot"` en attend une.
 - **Historique des questions :** l'IDE conserve chaque question, votre réponse, votre commentaire et le moment où
   l'agent l'a lue, dans `.idetea/history/` (hors de git, jusqu'à ce que vous l'effaciez). Le panneau **Historique
