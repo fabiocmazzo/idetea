@@ -16,6 +16,8 @@ pub const VERSION: u64 = 1;
 /// Limites de um documento: nada além disso é desenhado.
 /// Extensões que a `table` lê (o resto do projeto não é tabela).
 pub const TABLE_EXTENSIONS: &[&str] = &["csv", "tsv", "tab", "jsonl", "ndjson"];
+/// Quantos componentes cabem lado a lado num `columns`.
+pub const MAX_COLUMNS: usize = 4;
 /// Tabelas por documento: cada uma lê um arquivo inteiro.
 const MAX_TABLES: usize = 8;
 
@@ -83,6 +85,40 @@ pub enum Submit {
 pub struct Component {
     pub id: String,
     pub kind: Kind,
+    /// Só aparece quando o valor de outro campo bate (RFC 0026, etapa 2).
+    pub show_if: Option<ShowIf>,
+}
+
+/// `show_if`: uma comparação simples com o valor de um caminho, nunca uma expressão.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ShowIf {
+    pub path: String,
+    pub test: Test,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum Test {
+    Equals(Value),
+    NotEquals(Value),
+    In(Vec<Value>),
+    /// `truthy: true`: o valor está preenchido (como no `requires`); `false`: está vazio.
+    Truthy(bool),
+}
+
+/// Os limites de um `number` ou `slider`.
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct Range {
+    pub min: Option<f64>,
+    pub max: Option<f64>,
+    pub step: Option<f64>,
+    pub unit: Option<String>,
+}
+
+impl Range {
+    /// O número cabe nos limites.
+    pub fn contains(&self, n: f64) -> bool {
+        n.is_finite() && self.min.is_none_or(|m| n >= m) && self.max.is_none_or(|m| n <= m)
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -98,6 +134,11 @@ pub enum Kind {
     Checkbox { label: String, value: String },
     Select { label: Option<String>, options: Vec<Choice>, value: String },
     Input { label: Option<String>, placeholder: String, value: String },
+    /// Um número (`number`: campo de texto; `slider`: barra, com `min` e `max` obrigatórios). O valor é um número
+    /// JSON; fora dos limites, o campo avisa e o `requires` espera.
+    Number { label: Option<String>, value: String, range: Range, slider: bool },
+    /// Componentes lado a lado (`children`: ids do mesmo documento, até 4), que saem da coluna.
+    Columns { children: Vec<String> },
     /// Um arquivo do projeto: um clique abre na linha e coluna (começando em 1; 0 = início). `path` é relativo à
     /// raiz e não sai dela. `open`: abre sozinho quando a revisão chega.
     File { path: String, line: u64, column: u64, label: Option<String>, open: bool },
@@ -146,6 +187,7 @@ impl Kind {
             Kind::Checkbox { value, .. }
             | Kind::Select { value, .. }
             | Kind::Input { value, .. }
+            | Kind::Number { value, .. }
             | Kind::Steps { value, .. } => Some(value),
             Kind::Gallery { value, .. } | Kind::Table { value, .. } => value.as_deref(),
             _ => None,
@@ -196,6 +238,9 @@ pub struct GalleryItem {
     pub id: String,
     pub path: String,
     pub label: Option<String>,
+    /// A opção que o agente recomenda, e por quê.
+    pub recommended: bool,
+    pub note: Option<String>,
 }
 
 impl Document {
@@ -257,11 +302,14 @@ pub struct Step {
 pub struct Choice {
     pub value: String,
     pub label: String,
+    /// A opção que o agente recomenda (o painel marca), e uma nota que aparece embaixo quando ela está escolhida.
+    pub recommended: bool,
+    pub note: Option<String>,
 }
 
 impl fmt::Display for Choice {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(&self.label)
+        if self.recommended { write!(f, "{} ★", self.label) } else { f.write_str(&self.label) }
     }
 }
 
@@ -373,6 +421,25 @@ pub fn parse(bytes: &[u8], limits: &Limits) -> Result<Document, String> {
                 }
                 ok
             });
+        }
+    }
+
+    // `columns`: ids que existem, que não são outro `columns`, e cada um numa coluna só.
+    let mut placed: Vec<&str> = Vec::new();
+    for (i, c) in components.iter().enumerate() {
+        let Kind::Columns { children } = &c.kind else { continue };
+        let field = format!("components[{i}].children");
+        for child in children {
+            match components.iter().find(|o| &o.id == child) {
+                None => return Err(fl!("ui-columns-unknown", field = field, id = child.clone())),
+                Some(o) if matches!(o.kind, Kind::Columns { .. }) => {
+                    return Err(fl!("ui-columns-nested", field = field, id = child.clone()));
+                }
+                Some(_) if placed.contains(&child.as_str()) => {
+                    return Err(fl!("ui-columns-repeated", field = field, id = child.clone()));
+                }
+                Some(_) => placed.push(child),
+            }
         }
     }
 
@@ -635,6 +702,42 @@ impl Reader {
                     open: self.boolean(obj, "open", field)?,
                 },
             ),
+            kind @ ("number" | "slider") => {
+                let slider = kind == "slider";
+                let range = Range {
+                    min: self.float(obj, "min", field)?,
+                    max: self.float(obj, "max", field)?,
+                    step: self.float(obj, "step", field)?.filter(|s| *s > 0.0),
+                    unit: self.string(obj, "unit", field)?,
+                };
+                if slider && (range.min.is_none() || range.max.is_none()) {
+                    return Err(fl!("ui-missing", field = at(field, if range.min.is_none() { "min" } else { "max" })));
+                }
+                if let (Some(a), Some(b)) = (range.min, range.max)
+                    && a > b
+                {
+                    return Err(fl!("ui-number-range", field = field));
+                }
+                (
+                    &["label", "value", "min", "max", "step", "unit"],
+                    Kind::Number { label: self.string(obj, "label", field)?, value: self.path(obj, "value", field)?, range, slider },
+                )
+            }
+            "columns" => {
+                let f = at(field, "children");
+                let children: Vec<String> = match obj.get("children") {
+                    Some(Value::Array(list)) => list
+                        .iter()
+                        .map(|v| v.as_str().map(str::to_string).ok_or_else(|| fl!("ui-wrong-type", field = f.clone(), expected = "[\"id\"]")))
+                        .collect::<Result<_, _>>()?,
+                    Some(_) => return Err(fl!("ui-wrong-type", field = f, expected = "array")),
+                    None => return Err(fl!("ui-missing", field = f)),
+                };
+                if children.is_empty() || children.len() > MAX_COLUMNS {
+                    return Err(fl!("ui-columns-count", field = f, max = MAX_COLUMNS));
+                }
+                (&["children"], Kind::Columns { children })
+            }
             "input" => (
                 &["label", "placeholder", "value"],
                 Kind::Input {
@@ -646,11 +749,48 @@ impl Reader {
             _ => (&[], Kind::Unknown { component: component.clone() }),
         };
         if !matches!(kind, Kind::Unknown { .. }) {
-            let mut all = vec!["id", "component"];
+            let mut all = vec!["id", "component", "show_if"];
             all.extend_from_slice(known);
             self.known_fields(obj, &all, field);
         }
-        Ok(Component { id, kind })
+        let show_if = self.show_if(obj, field)?;
+        Ok(Component { id, kind, show_if })
+    }
+
+    /// Número com fração (ausente ou `null`: `None`).
+    fn float(&self, obj: &Map<String, Value>, key: &str, field: &str) -> Result<Option<f64>, String> {
+        match obj.get(key) {
+            None | Some(Value::Null) => Ok(None),
+            Some(v) => v.as_f64().filter(|n| n.is_finite()).map(Some).ok_or_else(|| fl!("ui-wrong-type", field = at(field, key), expected = "number")),
+        }
+    }
+
+    /// `show_if`: `{"path": "/x", "equals": v}`, `not_equals`, `in: [..]` ou `truthy: bool`, um operador só.
+    fn show_if(&mut self, obj: &Map<String, Value>, field: &str) -> Result<Option<ShowIf>, String> {
+        let field = at(field, "show_if");
+        let o = match obj.get("show_if") {
+            None | Some(Value::Null) => return Ok(None),
+            Some(Value::Object(o)) => o,
+            Some(_) => return Err(fl!("ui-wrong-type", field = field, expected = "object")),
+        };
+        let ops = ["equals", "not_equals", "in", "truthy"];
+        self.known_fields(o, &["path", "equals", "not_equals", "in", "truthy"], &field);
+        let path = self.path(o, "path", &field)?;
+        let given: Vec<&str> = ops.into_iter().filter(|k| o.contains_key(*k)).collect();
+        let [op] = given.as_slice() else { return Err(fl!("ui-show-if-op", field = field)) };
+        let test = match *op {
+            "equals" => Test::Equals(o["equals"].clone()),
+            "not_equals" => Test::NotEquals(o["not_equals"].clone()),
+            "in" => match &o["in"] {
+                Value::Array(list) => Test::In(list.clone()),
+                _ => return Err(fl!("ui-wrong-type", field = at(&field, "in"), expected = "array")),
+            },
+            _ => match &o["truthy"] {
+                Value::Bool(b) => Test::Truthy(*b),
+                _ => return Err(fl!("ui-wrong-type", field = at(&field, "truthy"), expected = "boolean")),
+            },
+        };
+        Ok(Some(ShowIf { path, test }))
     }
 
     fn attach(&mut self, obj: &Map<String, Value>, field: &str) -> Result<Option<Attach>, String> {
@@ -779,7 +919,7 @@ impl Reader {
             let Value::Object(o) = item else {
                 return Err(fl!("ui-wrong-type", field = item_field, expected = "object"));
             };
-            self.known_fields(o, &["id", "path", "label"], &item_field);
+            self.known_fields(o, &["id", "path", "label", "recommended", "note"], &item_field);
             let id = self.required(o, "id", &item_field)?;
             if !valid_id(&id) {
                 return Err(fl!("ui-bad-id", field = at(&item_field, "id"), id = id));
@@ -787,7 +927,13 @@ impl Reader {
             if out.iter().any(|g| g.id == id) {
                 return Err(fl!("ui-duplicate-id", id = id));
             }
-            out.push(GalleryItem { id, path: self.file_path(o, &item_field)?, label: self.string(o, "label", &item_field)? });
+            out.push(GalleryItem {
+                id,
+                path: self.file_path(o, &item_field)?,
+                label: self.string(o, "label", &item_field)?,
+                recommended: self.boolean(o, "recommended", &item_field)?,
+                note: self.string(o, "note", &item_field)?,
+            });
         }
         Ok(out)
     }
@@ -838,12 +984,13 @@ impl Reader {
         for (i, item) in list.iter().enumerate() {
             let item_field = format!("{field}[{i}]");
             let choice = match item {
-                Value::String(v) => Choice { value: v.clone(), label: v.clone() },
+                Value::String(v) => Choice { value: v.clone(), label: v.clone(), recommended: false, note: None },
                 Value::Object(o) => {
-                    self.known_fields(o, &["value", "label"], &item_field);
+                    self.known_fields(o, &["value", "label", "recommended", "note"], &item_field);
                     let value = self.required(o, "value", &item_field)?;
                     let label = self.string(o, "label", &item_field)?.unwrap_or_else(|| value.clone());
-                    Choice { value, label }
+                    let recommended = self.boolean(o, "recommended", &item_field)?;
+                    Choice { value, label, recommended, note: self.string(o, "note", &item_field)? }
                 }
                 _ => return Err(fl!("ui-wrong-type", field = item_field, expected = "object")),
             };
@@ -893,7 +1040,7 @@ mod tests {
         assert_eq!(d.components.len(), 7);
         assert!(d.warnings.is_empty(), "{:?}", d.warnings);
         let Kind::Select { options, value, .. } = &d.components[2].kind else { panic!() };
-        assert_eq!(options[1], Choice { value: "producao".into(), label: "producao".into() });
+        assert_eq!(options[1], Choice { value: "producao".into(), label: "producao".into(), recommended: false, note: None });
         assert_eq!(value, "/ambiente");
         let Kind::Button { action, style, .. } = &d.components[6].kind else { panic!() };
         assert_eq!((action.name.as_str(), action.context.len(), *style), ("recusar", 0, ButtonStyle::Secondary));

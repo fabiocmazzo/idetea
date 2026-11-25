@@ -197,6 +197,7 @@ All of it is plain files in the project's `.idetea/` folder, so any agent that r
   `.idetea/mascot/mascot.toml` or `~/.config/idetea/mascots/<pack>/mascot.toml` (`[mascot] enabled = true`).
 - **Select and copy text:** "Select text" at the top of an interface (open or in the history) shows its texts in a
   read-only editor: select with the mouse, copy with Ctrl+C; "Show formatted" goes back.
+- **Better decisions in the panel:** a `select` option (or `gallery` item) can be `recommended`, with a `note` on why; `number` and `slider` give a JSON number with `min`, `max` and a warning out of range; `show_if` shows a component only when another field has a value (a plain comparison, never an expression), and a hidden field does not hold the button; `columns` puts up to 4 components side by side, back to one under the other in a narrow panel.
 - **Attachments in the answer:** next to the comment, *Attach IDE screenshot* (the IDE window only, when you click) and *Attach file…* (up to 8 MB). You see a thumbnail and can remove it before answering; the IDE copies it into `.idetea/ui/responses/<name>/anexos/` and the answer lists it, so the agent reads it without access outside the project. A button with `"attach": "screenshot"` waits for one.
 - **History of the questions:** the IDE keeps every question, your answer, your comment and when the agent read
   it, in `.idetea/history/` (out of git, until you clear it). The **Interfaces history** panel on the left (hidden

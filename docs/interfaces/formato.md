@@ -97,15 +97,19 @@ dele; o resto da interface continua.
 
 ### Componentes
 
-Todo componente tem `id` (`[A-Za-z0-9_-]`, até 64, único no documento) e `component`.
+Todo componente tem `id` (`[A-Za-z0-9_-]`, até 64, único no documento) e `component`, e pode ter `show_if` (ver
+[Decisões](#decisões)).
 
 | `component` | Campos | Notas |
 |---|---|---|
 | `text` | `text`, `style` | `style`: `normal` (padrão), `muted`, `warning`, `error`. |
 | `button` | `label`, `action`, `style`, `requires`, `attach` | `style`: `primary` (padrão), `secondary`, `danger`. Botões seguidos ficam na mesma linha. `requires`: um caminho ou uma lista (`["/feitos", "/escolha"]`), cada um o `value` de um componente; o botão fica desligado até os passos obrigatórios de um `steps` estarem marcados e os outros campos preenchidos. `attach`: `screenshot`, `file` ou `any`; o botão espera um anexo desse tipo (ver "Anexos"). |
 | `checkbox` | `label`, `value` | Valor booleano. |
-| `select` | `options`, `value`, `label` | `options`: até 500, cada uma `"x"` ou `{"value": "x", "label": "X"}`. Valor: o `value` escolhido. |
+| `select` | `options`, `value`, `label` | `options`: até 500, cada uma `"x"` ou `{"value": "x", "label": "X", "recommended": true, "note": "…"}`. Valor: o `value` escolhido. Ver [Decisões](#decisões). |
 | `input` | `value`, `label`, `placeholder` | Texto de uma linha. |
+| `number` | `value`, `label`, `min`, `max`, `step`, `unit` | Um número digitado (aceita vírgula decimal). Valor: número JSON. Ver [Decisões](#decisões). |
+| `slider` | `value`, `min`, `max`, `label`, `step`, `unit` | Um número numa barra; `min` e `max` obrigatórios. Valor: número JSON. |
+| `columns` | `children` | Até 4 componentes lado a lado (os ids, que saem da coluna). Ver [Decisões](#decisões). |
 | `file` | `path`, `line`, `column`, `label`, `open` | Um arquivo do projeto. Ver [Arquivos](#arquivos). |
 | `markdown` | `text` | Texto formatado: listas, `código`, ênfase, títulos, links. Ver [Markdown](#markdown). |
 | `image` | `path`, `label`, `pixelated`, `background`, `height` | Uma imagem do projeto dentro do painel. Ver [Imagens](#imagens). |
@@ -145,6 +149,34 @@ ajustar num `input`:
 Preenchido quer dizer: uma escolha feita (não `null`; numa `table`, uma linha marcada), texto com algo além de espaços, `checkbox` marcada, lista
 não vazia. Embaixo dos botões o painel diz o que falta ("Falta preencher: …", pelo `label` do campo, ou pelo `id`).
 Um caminho que não é o `value` de nenhum componente vira aviso e é ignorado.
+
+### Decisões
+
+Para pedir uma escolha com mais contexto (RFC 0026, etapa 2):
+
+```json
+{"id": "modo", "component": "select", "label": "Onde aplicar", "value": "/modo", "options": [
+  "main",
+  {"value": "branch", "label": "Num branch novo", "recommended": true, "note": "isola a mudança até o PR"}]},
+{"id": "nome", "component": "input", "label": "Nome do branch", "value": "/branch",
+ "show_if": {"path": "/modo", "equals": "branch"}},
+{"id": "usuarios", "component": "number", "label": "Usuários simultâneos", "value": "/usuarios", "min": 1, "max": 100000, "unit": "usuários"},
+{"id": "replicas", "component": "slider", "label": "Réplicas", "value": "/replicas", "min": 1, "max": 12, "step": 1},
+{"id": "lado", "component": "columns", "children": ["usuarios", "replicas"]}
+```
+
+- `recommended` e `note` (em `select` e nos itens de `gallery`): o painel marca a opção com ★, e mostra a nota da
+  opção escolhida embaixo (sem escolha, a da recomendada). Escrever "(recomendado)" no rótulo continua valendo.
+- `number` e `slider`: o valor vai como número JSON (`12`, `2.5`). Fora de `min`/`max`, ou um texto que não é
+  número, o campo avisa embaixo e um `requires` com ele espera. Um `slider` começa em `min` na tela, mas só grava
+  valor quando o usuário mexe; para começar em outro, ponha o valor em `data`.
+- `show_if`, em qualquer componente: `{"path": "/x", <operador>}` com um só operador: `equals` (valor), `not_equals`,
+  `in` (lista de valores) ou `truthy` (`true`: preenchido, como no `requires`; `false`: vazio). É uma comparação,
+  nunca uma expressão. Um componente escondido não entra no `requires`; o valor dele vai na resposta se estiver no
+  `context`.
+- `columns`: os `children` (até 4, ids do mesmo documento) aparecem lado a lado, na posição do `columns`, e não
+  mais onde estão na lista. No painel estreito (menos de 220 px por coluna), voltam a ficar um embaixo do outro.
+  Um id só pode estar num `columns`, e `columns` não se aninha.
 
 ### Limites
 
