@@ -212,8 +212,8 @@ Os três itens entraram, cada um aprovado em teste manual. Onde o feito difere d
   divisão. Um agente que estava na tela ou do lado volta para lá quando é retomado.
 - **Retomar:** "Retomar todos / Escolher… / Não", e a paleta "Terminal: retomar agentes da sessão anterior" para
   os que ficaram. Claude Code e Codex como na tabela (`tea_core::coding_agents::{with_new_session,
-  resume_command}`); sem id, `claude --continue`. Os outros abrem uma conversa nova. **Não entrou** o `resume` /
-  `session_arg` em `[agents.launchers]`. Retomada que sai com erro em até 15 s vira um aviso que aponta o
+  resume_command}`); sem id, `claude --continue`. Os outros abrem uma conversa nova. O `resume` em `[agents.launchers]`
+  entrou em 2026-11-25 (`"Nome" = { command = "…", resume = "…" }`); o `session_arg` não. Retomada que sai com erro em até 15 s vira um aviso que aponta o
   lançador (não um botão na aba).
 - **Texto da tela:** os arquivos ficam em `terminals/<pasta>-<hash>/<posição>.txt` (pasta 0700, arquivos 0600),
   com as últimas 2 000 linhas, e são lidos uma vez só. A data da linha de separação é `AAAA-MM-DD HH:MM`. Para

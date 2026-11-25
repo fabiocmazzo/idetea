@@ -136,6 +136,8 @@ La liste complète, pour le lecteur technique. Pour la version courte, voir le [
   agents ouverts par le lanceur seulement si vous le voulez (*Tout reprendre*, *Choisir…*, *Non*, ou plus tard
   *Terminal : reprendre les agents de la session précédente*). Claude Code et Codex reprennent la même
   conversation ; les autres agents en commencent une nouvelle.
+- Tout autre agent reprend aussi sa conversation quand son lanceur dit comment : `"Mon agent" = { command =
+  "mon-agent", resume = "mon-agent --continue" }` dans `[agents.launchers]`.
 - Les shells se rouvrent dans le dossier où ils étaient (Linux et macOS), et l’onglet affiché et la division
   reviennent aussi.
 - `[terminal] keep_scrollback = true` garde les dernières lignes de chaque onglet à la fermeture et les affiche une

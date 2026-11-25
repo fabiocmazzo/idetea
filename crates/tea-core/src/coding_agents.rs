@@ -46,6 +46,24 @@ pub fn with_new_session(command: &str) -> Option<(String, String)> {
     Some((format!("{} --session-id {id}", command.trim()), id))
 }
 
+/// O comando que retoma a conversa de um agente aberto pelo lançador `name` com `command`: o `resume` desse
+/// lançador, se houver; senão, o que a IDE sabe de Claude Code e Codex ([`resume_command`]). O lançador é achado
+/// pelo nome e pelo comando juntos (dois lançadores podem ter o mesmo comando); sem um com esse nome, pelo comando.
+pub fn resume_with(
+    name: &str,
+    command: &str,
+    session: Option<&str>,
+    launchers: &std::collections::BTreeMap<String, crate::config::Launcher>,
+) -> Option<String> {
+    let same = |l: &crate::config::Launcher| l.command().trim() == command.trim();
+    let launcher = match launchers.get(name).filter(|l| same(l)) {
+        Some(l) => Some(l),
+        None if launchers.contains_key(name) => None,
+        None => launchers.values().find(|l| same(l)),
+    };
+    launcher.and_then(|l| l.resume()).map(str::to_string).or_else(|| resume_command(command, session))
+}
+
 /// O comando que retoma a conversa de um agente aberto com `command` (na mesma pasta). `session`: o id que a IDE
 /// escolheu, quando escolheu. `None`: o agente não tem como retomar; abre uma conversa nova.
 pub fn resume_command(command: &str, session: Option<&str>) -> Option<String> {
@@ -89,6 +107,36 @@ pub fn resume_command(command: &str, session: Option<&str>) -> Option<String> {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn a_launcher_resume_wins_over_the_built_in_one() {
+        let text = r#"
+            "Aider" = "aider"
+            "Meu" = { command = "meu-agente --rapido", resume = "meu-agente --continue" }
+            "Claude" = { command = "claude --model opus", resume = "  " }
+        "#;
+        let launchers: std::collections::BTreeMap<String, crate::config::Launcher> = toml::from_str(text).unwrap();
+        assert_eq!(resume_with("Meu", " meu-agente --rapido ", None, &launchers).as_deref(), Some("meu-agente --continue"));
+        assert_eq!(resume_with("Aider", "aider", None, &launchers), None, "sem resume: conversa nova");
+        // `resume` vazio não conta: vale o que a IDE sabe do Claude.
+        assert_eq!(resume_with("Claude", "claude --model opus", None, &launchers).as_deref(), Some("claude --continue --model opus"));
+        // Uma aba numa worktree tem outro título: acha pelo comando.
+        assert_eq!(resume_with("Meu · fix/x", "meu-agente --rapido", None, &launchers).as_deref(), Some("meu-agente --continue"));
+    }
+
+    #[test]
+    fn two_launchers_with_the_same_command_are_told_apart_by_name() {
+        let text = r#"
+            "Agente" = { command = "agente", resume = "agente --continue" }
+            "Sem resume" = "agente"
+        "#;
+        let launchers: std::collections::BTreeMap<String, crate::config::Launcher> = toml::from_str(text).unwrap();
+        assert_eq!(resume_with("Agente", "agente", None, &launchers).as_deref(), Some("agente --continue"));
+        assert_eq!(resume_with("Sem resume", "agente", None, &launchers), None, "o do nome, não o primeiro com o comando");
+        let bad: Result<std::collections::BTreeMap<String, crate::config::Launcher>, _> =
+            toml::from_str(r#""X" = { command = "x", resmue = "x -c" }"#);
+        assert!(bad.is_err(), "campo com erro de digitação é recusado");
+    }
+
     use super::*;
 
     #[test]

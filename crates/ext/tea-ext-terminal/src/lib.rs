@@ -399,6 +399,19 @@ fn terminal_config(_root: &Path) -> tea_core::config::TerminalConfig {
     tea_core::config::TerminalConfig::default()
 }
 
+/// Os lançadores do config do usuário (`[agents.launchers]`), para o `resume` de cada um.
+#[cfg(not(test))]
+fn user_launchers() -> BTreeMap<String, tea_core::config::Launcher> {
+    let Some(global) = tea_core::config::global_config_path() else { return BTreeMap::new() };
+    tea_core::config::Config::load(Some(&global), None).agents.launchers
+}
+
+/// Nos testes, nenhum (o config de quem roda os testes não entra).
+#[cfg(test)]
+fn user_launchers() -> BTreeMap<String, tea_core::config::Launcher> {
+    BTreeMap::new()
+}
+
 /// Nos testes, nada é permitido sem confirmar (o config de quem roda os testes não entra).
 #[cfg(test)]
 fn user_allow_list() -> Vec<String> {
@@ -1349,7 +1362,9 @@ impl TerminalExtension {
     fn resume(&mut self, tab: saved::Tab, ctx: &mut Context) -> Task<Message> {
         let before = self.agents.len();
         let (shown_before, split_before) = (self.shown, self.split);
-        let resume = tea_core::coding_agents::resume_command(&tab.command, tab.session.as_deref());
+        // O título é o nome do lançador (`"Nome · branch"` numa worktree).
+        let launcher = tab.title.split(" · ").next().unwrap_or_default();
+        let resume = tea_core::coding_agents::resume_with(launcher, &tab.command, tab.session.as_deref(), &user_launchers());
         let command = resume.clone().unwrap_or_else(|| tab.command.clone());
         // O agente que retoma a conversa a redesenha; o que abre uma nova mostra o texto da vez anterior.
         if resume.is_none() {

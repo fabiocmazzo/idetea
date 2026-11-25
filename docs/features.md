@@ -112,6 +112,8 @@ The full list, for the technical reader. For the short version, see the [README]
 - Terminal tabs come back when the IDE reopens: shells by themselves, with their names; agents opened by the
   launcher only after you say so (*Resume all*, *Choose…*, *No*, or later *Terminal: resume agents from the last
   session*). Claude Code and Codex come back to the same conversation; other agents start a new one.
+- Any other agent comes back to its conversation too when its launcher says how: `"My agent" = { command =
+  "my-agent", resume = "my-agent --continue" }` in `[agents.launchers]`.
 - Shells reopen in the folder they were in (Linux and macOS), and the tab that was on screen and the split come
   back too.
 - `[terminal] keep_scrollback = true` keeps the last lines of each tab when the IDE closes and shows them above
