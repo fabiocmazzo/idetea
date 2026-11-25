@@ -79,3 +79,8 @@ ui-table-rows = { $count ->
     [one] 1 riga
    *[other] { $count } righe
 }
+ui-attach-needed = un allegato
+ui-attach-needed-screenshot = una cattura dell'IDE
+ui-attach-screenshot = Allega cattura dell'IDE
+ui-attach-file = Allega file…
+ui-attach-remove = Togli questo allegato

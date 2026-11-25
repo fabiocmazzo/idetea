@@ -177,3 +177,6 @@ history-cli-unanswered = sin respuesta (el agente borró la pregunta)
 history-cli-bad = idetea history: "{ $arg }" no es válido.
 history-cli-usage = Uso: idetea history [--name nombre] [--since AAAA-MM-DD] [--last N | --all] [--json]
 history-cli-empty = idetea history: nada en el historial de este proyecto.
+ui-attach-failed = No se pudo adjuntar: { $error }
+ui-attach-dialog = Adjuntar archivo
+ask-attachment = adjunto: { $path }

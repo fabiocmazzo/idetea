@@ -49,6 +49,7 @@
               "label": { "$ref": "#/$defs/text" },
               "style": { "enum": ["primary", "secondary", "danger"] },
               "requires": { "oneOf": [ { "$ref": "#/$defs/binding" }, { "type": "array", "items": { "$ref": "#/$defs/binding" } } ] },
+              "attach": { "enum": ["screenshot", "file", "any"] },
               "action": {
                 "type": "object",
                 "required": ["name"],

@@ -165,3 +165,6 @@ history-cli-unanswered = 回答なし (エージェントが質問を削除し�
 history-cli-bad = idetea history: "{ $arg }" は無効です。
 history-cli-usage = 使い方: idetea history [--name name] [--since YYYY-MM-DD] [--last N | --all] [--json]
 history-cli-empty = idetea history: このプロジェクトの履歴には何もありません。
+ui-attach-failed = 添付できませんでした: { $error }
+ui-attach-dialog = ファイルを添付
+ask-attachment = 添付: { $path }

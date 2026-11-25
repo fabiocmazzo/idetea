@@ -79,3 +79,8 @@ ui-table-rows = { $count ->
     [one] 1 fila
    *[other] { $count } filas
 }
+ui-attach-needed = un adjunto
+ui-attach-needed-screenshot = una captura del IDE
+ui-attach-screenshot = Adjuntar captura del IDE
+ui-attach-file = Adjuntar archivo…
+ui-attach-remove = Quitar este adjunto

@@ -288,6 +288,133 @@ pub fn write_response(root: &Path, response: &Response) -> std::io::Result<PathB
     Ok(path)
 }
 
+/// O maior arquivo que se anexa (RFC 0026): o agente lê o anexo inteiro.
+pub const ATTACHMENT_MAX: u64 = 8 * 1024 * 1024;
+/// Prefixo dos anexos que ainda não foram com uma resposta.
+const PENDING: &str = ".pendente-";
+
+/// `responses/<nome>/anexos/`, recusando symlinks no caminho.
+fn attachments_dir(root: &Path, name: &str) -> std::io::Result<PathBuf> {
+    if !valid_name(name) {
+        return Err(std::io::Error::other("nome inválido"));
+    }
+    let ui = ui_dir(root);
+    let responses = responses_dir(&ui);
+    let dir = responses.join(name);
+    let anexos = dir.join("anexos");
+    for d in [&ui, &responses, &dir, &anexos] {
+        if d.exists() && is_link(d) {
+            return Err(std::io::Error::other(format!("{}: symlink", d.display())));
+        }
+    }
+    std::fs::create_dir_all(&anexos)?;
+    Ok(anexos)
+}
+
+/// A extensão de um anexo: a do arquivo de origem (minúsculas, só letras e números, até 8), ou `bin`.
+fn attachment_ext(path: &Path) -> String {
+    match path.extension().and_then(|e| e.to_str()) {
+        Some(e) if !e.is_empty() && e.len() <= 8 && e.chars().all(|c| c.is_ascii_alphanumeric()) => e.to_ascii_lowercase(),
+        _ => "bin".into(),
+    }
+}
+
+/// Grava um anexo pendente (`anexos/.pendente-<id>.<ext>`), pelo temporário. Devolve o caminho absoluto.
+pub fn save_pending(root: &Path, name: &str, id: &str, ext: &str, bytes: &[u8]) -> std::io::Result<PathBuf> {
+    if bytes.len() as u64 > ATTACHMENT_MAX {
+        return Err(std::io::Error::other(format!("maior que {} MB", ATTACHMENT_MAX / 1024 / 1024)));
+    }
+    let dir = attachments_dir(root, name)?;
+    let path = dir.join(format!("{PENDING}{id}.{ext}"));
+    let tmp = dir.join(format!("{PENDING}{id}.{ext}.tmp"));
+    std::fs::write(&tmp, bytes)?;
+    std::fs::rename(&tmp, &path)?;
+    Ok(path)
+}
+
+/// Copia um arquivo escolhido pelo usuário para os anexos pendentes (até [`ATTACHMENT_MAX`]).
+pub fn copy_pending(root: &Path, name: &str, id: &str, from: &Path) -> std::io::Result<PathBuf> {
+    let meta = std::fs::metadata(from)?;
+    if !meta.is_file() {
+        return Err(std::io::Error::other("não é um arquivo"));
+    }
+    if meta.len() > ATTACHMENT_MAX {
+        return Err(std::io::Error::other(format!("maior que {} MB", ATTACHMENT_MAX / 1024 / 1024)));
+    }
+    let bytes = std::fs::read(from)?;
+    save_pending(root, name, id, &attachment_ext(from), &bytes)
+}
+
+/// Um caminho de anexo pendente desta interface (o estado gravado podia ter sido mexido).
+fn is_pending(root: &Path, name: &str, path: &Path) -> bool {
+    let dir = ui_dir(root).join("responses").join(name).join("anexos");
+    path.parent() == Some(dir.as_path())
+        && path.file_name().and_then(|f| f.to_str()).is_some_and(|f| f.starts_with(PENDING))
+        && !is_link(path)
+}
+
+/// Apaga um anexo pendente (o usuário tirou, ou a interface acabou).
+pub fn remove_pending(root: &Path, name: &str, path: &Path) {
+    if is_pending(root, name, path) {
+        let _ = std::fs::remove_file(path);
+    }
+}
+
+/// Anexos renomeados na resposta: (novo, antigo), para desfazer.
+pub type Moved = Vec<(PathBuf, PathBuf)>;
+
+/// Na hora da resposta: os pendentes viram `anexos/<seq>-<n>.<ext>`. Devolve os anexos, com caminhos relativos
+/// à raiz, e os pares (novo, antigo) para desfazer se a resposta não for gravada.
+pub fn finish_attachments(
+    root: &Path,
+    name: &str,
+    seq: u64,
+    pending: &[tea_declarative_ui::Pending],
+) -> std::io::Result<(Vec<tea_declarative_ui::Attachment>, Moved)> {
+    let mut out = Vec::new();
+    let mut moved = Vec::new();
+    for (i, p) in pending.iter().enumerate() {
+        let old = PathBuf::from(&p.path);
+        let result = (|| {
+            if !is_pending(root, name, &old) {
+                return Err(std::io::Error::other(format!("{}: anexo fora do lugar", old.display())));
+            }
+            let new = old.with_file_name(format!("{seq}-{}.{}", i + 1, attachment_ext(&old)));
+            std::fs::rename(&old, &new)?;
+            Ok(new)
+        })();
+        let new = match result {
+            Ok(new) => new,
+            Err(e) => {
+                undo_attachments(&moved);
+                return Err(e);
+            }
+        };
+        let size = std::fs::metadata(&new).map_or(0, |m| m.len());
+        let (width, height) = image_size(&new).map_or((None, None), |(w, h)| (Some(w), Some(h)));
+        let rel = new.strip_prefix(root).unwrap_or(&new).to_string_lossy().replace('\\', "/");
+        out.push(tea_declarative_ui::Attachment { path: rel, kind: p.kind, size, width, height, from: p.from.clone() });
+        moved.push((new, old));
+    }
+    Ok((out, moved))
+}
+
+/// Desfaz [`finish_attachments`]: os anexos voltam a ser pendentes.
+pub fn undo_attachments(moved: &[(PathBuf, PathBuf)]) {
+    for (new, old) in moved {
+        let _ = std::fs::rename(new, old);
+    }
+}
+
+/// Largura e altura de uma imagem, pelo cabeçalho (sem decodificar).
+fn image_size(path: &Path) -> Option<(u32, u32)> {
+    let ext = path.extension()?.to_str()?;
+    if !["png", "jpg", "jpeg", "gif", "webp", "bmp"].contains(&ext) {
+        return None;
+    }
+    image::image_dimensions(path).ok()
+}
+
 /// Apaga temporários esquecidos há mais de uma hora (queda no meio de uma escrita, nossa ou do agente).
 fn clean_tmp(ui: &Path) {
     let old = |p: &Path| {

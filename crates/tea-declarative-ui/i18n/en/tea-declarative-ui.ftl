@@ -79,3 +79,8 @@ ui-table-rows = { $count ->
     [one] 1 row
    *[other] { $count } rows
 }
+ui-attach-needed = an attachment
+ui-attach-needed-screenshot = a screenshot of the IDE
+ui-attach-screenshot = Attach IDE screenshot
+ui-attach-file = Attach file…
+ui-attach-remove = Remove this attachment

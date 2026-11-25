@@ -42,6 +42,12 @@ pub enum UiMessage {
     ToggleSelect,
     /// Seleção num texto selecionável (componente `id`): quem desenha passa para [`Rendered::act`].
     SelectText(String, text_editor::Action),
+    /// "Anexar captura da IDE" (RFC 0026, etapa 1).
+    AttachScreenshot,
+    /// "Anexar arquivo…".
+    AttachFile,
+    /// Tira o anexo pendente nesta posição.
+    RemoveAttachment(usize),
 }
 
 /// Quanto tempo uma mídia fica à vista para contar como vista (uma rolada rápida por cima não conta).
@@ -230,7 +236,11 @@ pub fn view<'a>(
             .id("ui-comment")
             .on_input_maybe((!locked).then_some(UiMessage::Comment as fn(String) -> UiMessage))
             .width(Fill);
-        column![text(fl!("ui-comment-label")).size(13).style(text::secondary), input].spacing(4).into()
+        let mut col = column![text(fl!("ui-comment-label")).size(13).style(text::secondary), input].spacing(4);
+        if !locked {
+            col = col.push(attachments_view(state));
+        }
+        col.into()
     };
     let mut i = 0;
     while i < doc.components.len() {
@@ -275,6 +285,34 @@ pub fn view<'a>(
         out = out.push(comment_field());
     }
     out.into()
+}
+
+/// Os anexos pendentes (miniatura de imagem ou o nome do arquivo, com "×") e os botões de anexar.
+fn attachments_view(state: &State) -> Element<'_, UiMessage> {
+    let mut items: Vec<Element<'_, UiMessage>> = Vec::new();
+    for (i, a) in state.attachments.iter().enumerate() {
+        let path = std::path::Path::new(&a.path);
+        let is_image = path
+            .extension()
+            .and_then(|e| e.to_str())
+            .is_some_and(|e| ["png", "jpg", "jpeg", "gif", "webp", "bmp"].contains(&e.to_ascii_lowercase().as_str()));
+        let preview: Element<'_, UiMessage> = if is_image {
+            image(image::Handle::from_path(path)).height(64).into()
+        } else {
+            let name = a.from.as_deref().unwrap_or(&a.path);
+            let name = name.rsplit(['/', '\\']).next().unwrap_or(name).to_string();
+            container(text(name).size(12)).padding(8).style(container::bordered_box).into()
+        };
+        let remove = button(text("×").size(12)).style(button::text).padding([0, 4]).on_press(UiMessage::RemoveAttachment(i));
+        let remove = iced::widget::tooltip(remove, text(fl!("ui-attach-remove")).size(12), iced::widget::tooltip::Position::Top);
+        items.push(row![preview, remove].spacing(2).into());
+    }
+    let buttons = row![
+        button(text(fl!("ui-attach-screenshot")).size(12)).style(button::secondary).on_press(UiMessage::AttachScreenshot),
+        button(text(fl!("ui-attach-file")).size(12)).style(button::secondary).on_press(UiMessage::AttachFile),
+    ]
+    .spacing(8);
+    column![row(items).spacing(12).wrap().vertical_spacing(8), buttons].spacing(6).into()
 }
 
 fn button_view(c: &Component, locked: bool) -> Element<'_, UiMessage> {

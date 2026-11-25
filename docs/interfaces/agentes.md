@@ -45,7 +45,7 @@ every question and every terminal.
   waits (10 minutes by default, `--timeout <seconds>`) and prints the answer (`--confirm` prints `yes` or `no` and
   exits 1 on `no`). For a full form, write the document below to a file and run `idetea ask <file.json> --name <name>`
   (`-` reads it from stdin): it prints the whole response; `--json` does that for the short forms too, and
-  `--value /pointer` prints one value. My comment and an outdated-IDE warning go to stderr. Exit codes: 0 answered,
+  `--value /pointer` prints one value. My comment, the attachments and an outdated-IDE warning go to stderr. Exit codes: 0 answered,
   2 the panel would refuse the document (the errors go to stderr), 4 no answer in time (the question stays; `idetea
   ask --resume <name>` waits again). `--keep` leaves the document to show a result in a later revision; `idetea ask
   --close <name>` removes it.
@@ -155,7 +155,10 @@ files as below.
    `clips: true` at 0 dBFS; counts in this revision: `opened` (also `idetea:open` links), `played`, `completed`,
    `stopped` (I clicked Stop), `interrupted` (another sound started), `stepped`, `shown` (it was on screen for
    half a second; without it, I never scrolled to it)). It tells what I did, not what I heard or saw. Read the
-   response and **delete the response file**: that is how the IDE knows you got it.
+   response and **delete the response file**: that is how the IDE knows you got it. If I attached something (a
+   screenshot of the IDE or a file), the response has `"attachments": [{"path": ".idetea/ui/responses/<name>/anexos/1-1.png",
+   "kind": "screenshot", ...}]`: read them (an image with your image reader), then delete them with the response.
+   `"attach": "screenshot"` (or `"file"`, `"any"`) on a button makes it wait for one, when you need to see what I see.
 3. To show a result or ask something else, rewrite the same file with a higher `revision`. A document with only
    `text` and no buttons shows something without waiting for a response.
 4. When you are done, delete `.idetea/ui/<name>.json`. The rest of the folder (`.gitignore`, `responses/`)

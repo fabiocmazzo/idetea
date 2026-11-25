@@ -44,6 +44,10 @@ const WATCH_INTERVAL: Duration = Duration::from_millis(250);
 
 #[derive(Debug, Clone)]
 pub enum Message {
+    /// A captura da janela, para anexar à interface.
+    Shot(String, iced::window::Screenshot),
+    /// O anexo ficou pronto (ou o motivo de não ter ficado); `None`: o usuário desistiu do diálogo.
+    Attached(String, Option<Result<tea_declarative_ui::Pending, String>>),
     /// A pasta como a thread de observação leu.
     Snapshot(Arc<Vec<SurfaceFile>>),
     /// Os agentes que avisam que esperam (`<nome>.wait`), quando algo muda.
@@ -247,7 +251,16 @@ impl UiExtension {
         });
         let recorded = self.record_history(&files);
         // Interface apagada pelo agente: acabou; o estado dela não serve mais.
-        self.saved.retain(|name, _| files.iter().any(|f| &f.name == name));
+        let root = self.root.clone();
+        self.saved.retain(|name, saved| {
+            let keep = files.iter().any(|f| &f.name == name);
+            if !keep {
+                for a in &saved.state.attachments {
+                    store::remove_pending(&root, name, Path::new(&a.path));
+                }
+            }
+            keep
+        });
         let mut before = std::mem::take(&mut self.rendered);
         self.rendered = files
             .iter()
@@ -306,6 +319,53 @@ impl UiExtension {
             changed |= history::record(&self.root, &entry).is_ok();
         }
         changed
+    }
+
+    /// Um id para o nome de um anexo pendente.
+    fn attachment_id(&mut self) -> String {
+        self.counter += 1;
+        let millis = SystemTime::now().duration_since(UNIX_EPOCH).map_or(0, |d| d.as_millis());
+        format!("{millis:x}-{}", self.counter)
+    }
+
+    /// A captura vira PNG e anexo pendente, numa thread (codificar uma tela grande leva um tempo).
+    fn attach_screenshot(&mut self, name: String, shot: iced::window::Screenshot) -> Task<Message> {
+        let (root, id) = (self.root.clone(), self.attachment_id());
+        let (tx, rx) = oneshot::channel();
+        std::thread::spawn(move || {
+            let png = || -> Result<PathBuf, String> {
+                let img = image::RgbaImage::from_raw(shot.size.width, shot.size.height, shot.rgba.to_vec())
+                    .ok_or_else(|| "captura sem pixels".to_string())?;
+                let mut bytes = std::io::Cursor::new(Vec::new());
+                img.write_to(&mut bytes, image::ImageFormat::Png).map_err(|e| e.to_string())?;
+                store::save_pending(&root, &name, &id, "png", bytes.get_ref()).map_err(|e| e.to_string())
+            };
+            let result = png().map(|path| tea_declarative_ui::Pending {
+                path: path.to_string_lossy().into_owned(),
+                kind: tea_declarative_ui::AttachmentKind::Screenshot,
+                from: None,
+            });
+            let _ = tx.send(Message::Attached(name, Some(result)));
+        });
+        Task::future(async move { rx.await.ok() }).and_then(Task::done)
+    }
+
+    /// "Anexar arquivo…": o diálogo do sistema e a cópia para dentro do projeto.
+    fn attach_file(&mut self, name: String) -> Task<Message> {
+        let (root, id) = (self.root.clone(), self.attachment_id());
+        Task::future(async move {
+            let picked = rfd::AsyncFileDialog::new().set_title(fl!("ui-attach-dialog")).pick_file().await?;
+            let from = picked.path().to_path_buf();
+            let result = store::copy_pending(&root, &name, &id, &from).map_err(|e| e.to_string()).map(|path| {
+                tea_declarative_ui::Pending {
+                    path: path.to_string_lossy().into_owned(),
+                    kind: tea_declarative_ui::AttachmentKind::File,
+                    from: Some(tilde(&from)),
+                }
+            });
+            Some(Message::Attached(name, Some(result)))
+        })
+        .and_then(Task::done)
     }
 
     /// Lê o histórico numa thread.
@@ -380,6 +440,15 @@ impl UiExtension {
         let comment = saved.state.comment.trim();
         response.comment = (!comment.is_empty()).then(|| comment.to_string());
         response.media = media;
+        let (attachments, moved) = match store::finish_attachments(&self.root, name, seq, &saved.state.attachments) {
+            Ok(done) => done,
+            Err(e) => {
+                saved.state = before;
+                ctx.notify(fl!("ui-write-failed", error = e.to_string()));
+                return;
+            }
+        };
+        response.attachments = attachments;
         response.ide =
             Some(Ide {
                 pid: std::process::id(),
@@ -399,12 +468,14 @@ impl UiExtension {
                 saved.answered = Some(doc.revision);
                 saved.seq = seq;
                 saved.state.comment.clear(); // foi junto com esta resposta
+                saved.state.attachments.clear();
                 // Já conta como pendente, sem esperar a próxima leitura da pasta.
                 if let Some(f) = Arc::make_mut(&mut self.files).iter_mut().find(|f| f.name == name) {
                     f.pending.push((seq, event));
                 }
             }
             Err(e) => {
+                store::undo_attachments(&moved);
                 saved.state = before;
                 ctx.notify(fl!("ui-write-failed", error = e.to_string()));
             }
@@ -1031,6 +1102,34 @@ impl Extension for UiExtension {
                 self.press(&name, &source, ctx);
                 return self.reload_history();
             }
+            Message::Ui(name, UiMessage::AttachScreenshot) => {
+                return iced::window::latest()
+                    .and_then(iced::window::screenshot)
+                    .map(move |shot| Message::Shot(name.clone(), shot));
+            }
+            Message::Shot(name, shot) => return self.attach_screenshot(name, shot),
+            Message::Ui(name, UiMessage::AttachFile) => return self.attach_file(name),
+            Message::Attached(name, result) => match result {
+                None => {}
+                Some(Ok(pending)) => match self.saved.get_mut(&name) {
+                    Some(saved) => {
+                        saved.state.attachments.push(pending);
+                        self.save();
+                    }
+                    // A interface acabou enquanto o anexo era gravado.
+                    None => store::remove_pending(&self.root, &name, Path::new(&pending.path)),
+                },
+                Some(Err(e)) => ctx.notify(fl!("ui-attach-failed", error = e)),
+            },
+            Message::Ui(name, UiMessage::RemoveAttachment(i)) => {
+                if let Some(saved) = self.saved.get_mut(&name)
+                    && i < saved.state.attachments.len()
+                {
+                    let a = saved.state.attachments.remove(i);
+                    store::remove_pending(&self.root, &name, Path::new(&a.path));
+                    self.save();
+                }
+            }
             Message::Ui(name, UiMessage::Comment(text)) => {
                 if let Some(saved) = self.saved.get_mut(&name) {
                     saved.state.comment = text;
@@ -1194,6 +1293,14 @@ impl Extension for UiExtension {
             subs.push(Subscription::run_with(SpriteClock(every), sprite_ticks));
         }
         Subscription::batch(subs)
+    }
+}
+
+/// O caminho com `~` no lugar da pasta pessoal (para o agente ver de onde veio sem ver o nome do usuário).
+fn tilde(path: &Path) -> String {
+    match tea_core::os::home_dir().and_then(|h| path.strip_prefix(&h).ok().map(Path::to_path_buf)) {
+        Some(rest) => format!("~/{}", rest.to_string_lossy()),
+        None => path.to_string_lossy().into_owned(),
     }
 }
 
@@ -1519,6 +1626,68 @@ mod tests {
         let _ = std::fs::remove_dir_all(&root);
     }
 
+
+    #[test]
+    fn attachments_go_with_the_response_and_the_removed_one_is_deleted() {
+        let root = tmp_root("anexos");
+        test_state();
+        let mut ext = UiExtension::new();
+        let _ = ext.activate(&mut Context::new(&root, None));
+        let doc = r#"{"format": "idetea-ui", "version": 1, "revision": 3, "components": [
+            {"id": "ok", "component": "button", "label": "OK", "attach": "any", "action": {"name": "ok"}}]}"#;
+        std::fs::write(store::ui_dir(&root).join("teste.json"), doc).unwrap();
+        let _ = ext.update(Message::Snapshot(Arc::new(store::scan(&root, &Limits::default()))), &mut Context::new(&root, None));
+        let picked = root.join("erro.txt");
+        std::fs::write(&picked, "falhou").unwrap();
+        let add = |ext: &mut UiExtension, id: &str, kind| {
+            let path = match kind {
+                tea_declarative_ui::AttachmentKind::File => store::copy_pending(&root, "teste", id, &picked).unwrap(),
+                tea_declarative_ui::AttachmentKind::Screenshot => {
+                    let mut png = std::io::Cursor::new(Vec::new());
+                    image::RgbaImage::new(4, 3).write_to(&mut png, image::ImageFormat::Png).unwrap();
+                    store::save_pending(&root, "teste", id, "png", png.get_ref()).unwrap()
+                }
+            };
+            let pending = tea_declarative_ui::Pending { path: path.to_string_lossy().into(), kind, from: Some("~/erro.txt".into()) };
+            let _ = ext.update(Message::Attached("teste".into(), Some(Ok(pending))), &mut Context::new(&root, None));
+            path
+        };
+        let removed = add(&mut ext, "a", tea_declarative_ui::AttachmentKind::File);
+        let _ = add(&mut ext, "b", tea_declarative_ui::AttachmentKind::Screenshot);
+        let _ = add(&mut ext, "c", tea_declarative_ui::AttachmentKind::File);
+        let _ = ext.update(Message::Ui("teste".into(), UiMessage::RemoveAttachment(0)), &mut Context::new(&root, None));
+        assert!(!removed.exists(), "tirar o anexo apaga o arquivo");
+        let _ = ext.update(Message::Ui("teste".into(), UiMessage::Press("ok".into())), &mut Context::new(&root, None));
+        let pending = store::pending(&store::ui_dir(&root), "teste");
+        let file = store::ui_dir(&root).join("responses/teste").join(tea_declarative_ui::file_name(pending[0].0, &pending[0].1));
+        let response: Response = serde_json::from_str(&std::fs::read_to_string(file).unwrap()).unwrap();
+        let paths: Vec<&str> = response.attachments.iter().map(|a| a.path.as_str()).collect();
+        assert_eq!(paths, [".idetea/ui/responses/teste/anexos/1-1.png", ".idetea/ui/responses/teste/anexos/1-2.txt"]);
+        assert_eq!((response.attachments[0].width, response.attachments[0].height), (Some(4), Some(3)));
+        assert_eq!(response.attachments[1].size, 6);
+        assert_eq!(response.attachments[1].from.as_deref(), Some("~/erro.txt"));
+        assert!(paths.iter().all(|p| root.join(p).is_file()));
+        assert!(ext.saved["teste"].state.attachments.is_empty(), "foram com a resposta");
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn attachments_refuse_big_files_and_stray_paths() {
+        let root = tmp_root("anexos-limite");
+        let big = root.join("grande.bin");
+        std::fs::write(&big, vec![0u8; store::ATTACHMENT_MAX as usize + 1]).unwrap();
+        assert!(store::copy_pending(&root, "t", "1", &big).is_err());
+        assert!(store::copy_pending(&root, "t", "1", &root).is_err(), "pasta não é anexo");
+        // Um caminho que não é de anexo pendente (estado gravado mexido) não é apagado nem renomeado.
+        let outside = root.join("importante.txt");
+        std::fs::write(&outside, "x").unwrap();
+        store::remove_pending(&root, "t", &outside);
+        assert!(outside.exists());
+        let stray = tea_declarative_ui::Pending { path: outside.to_string_lossy().into(), kind: tea_declarative_ui::AttachmentKind::File, from: None };
+        assert!(store::finish_attachments(&root, "t", 1, &[stray]).is_err());
+        assert!(outside.exists());
+        let _ = std::fs::remove_dir_all(&root);
+    }
 
     #[test]
     fn sprite_clock_pause_and_step() {

@@ -79,3 +79,8 @@ ui-table-rows = { $count ->
     [one] 1 ligne
    *[other] { $count } lignes
 }
+ui-attach-needed = une pièce jointe
+ui-attach-needed-screenshot = une capture de l’IDE
+ui-attach-screenshot = Joindre une capture de l’IDE
+ui-attach-file = Joindre un fichier…
+ui-attach-remove = Retirer cette pièce jointe

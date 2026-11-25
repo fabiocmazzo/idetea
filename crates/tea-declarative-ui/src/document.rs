@@ -90,7 +90,8 @@ pub enum Kind {
     Text { text: String, style: TextStyle },
     /// `requires`: caminhos que o botão espera. De um `steps`: os passos obrigatórios marcados; de outro campo
     /// (`select`, `input`, `checkbox`, `gallery`): um valor preenchido.
-    Button { label: String, style: ButtonStyle, action: Action, requires: Vec<String> },
+    /// `attach`: o botão espera um anexo do usuário (RFC 0026, etapa 1).
+    Button { label: String, style: ButtonStyle, action: Action, requires: Vec<String>, attach: Option<Attach> },
     /// Passos numerados que o usuário marca. `value`: caminho da lista dos ids marcados.
     Steps { items: Vec<Step>, value: String },
     /// `value`: caminho (ponteiro JSON) do valor em `data`.
@@ -119,6 +120,14 @@ pub enum Kind {
     Table { source: TableSource, label: Option<String>, pick: Pick, value: Option<String>, key: Option<String>, height: Option<u32> },
     /// Componente que esta versão não conhece: um aviso aparece no lugar dele.
     Unknown { component: String },
+}
+
+/// O anexo que um botão espera (`attach`): uma captura da IDE, um arquivo escolhido ou qualquer um dos dois.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Attach {
+    Screenshot,
+    File,
+    Any,
 }
 
 /// De onde vêm as linhas de uma `table`.
@@ -525,12 +534,13 @@ impl Reader {
                 },
             ),
             "button" => (
-                &["label", "style", "action", "requires"],
+                &["label", "style", "action", "requires", "attach"],
                 Kind::Button {
                     label: self.required(obj, "label", field)?,
                     style: self.button_style(obj, field)?,
                     action: self.action(obj, field)?,
                     requires: self.requires(obj, field)?,
+                    attach: self.attach(obj, field)?,
                 },
             ),
             "image" => (
@@ -641,6 +651,19 @@ impl Reader {
             self.known_fields(obj, &all, field);
         }
         Ok(Component { id, kind })
+    }
+
+    fn attach(&mut self, obj: &Map<String, Value>, field: &str) -> Result<Option<Attach>, String> {
+        Ok(match self.string(obj, "attach", field)?.as_deref() {
+            None => None,
+            Some("screenshot") => Some(Attach::Screenshot),
+            Some("file") => Some(Attach::File),
+            Some("any") => Some(Attach::Any),
+            Some(other) => {
+                self.warnings.push(fl!("ui-unknown-value", field = at(field, "attach"), value = other));
+                Some(Attach::Any)
+            }
+        })
     }
 
     fn button_style(&mut self, obj: &Map<String, Value>, field: &str) -> Result<ButtonStyle, String> {

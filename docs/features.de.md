@@ -205,6 +205,7 @@ Alles davon sind schlichte Dateien im Ordner `.idetea/` des Projekts, also kann 
   `.idetea/mascot/mascot.toml` oder `~/.config/idetea/mascots/<Paket>/mascot.toml` (`[mascot] enabled = true`).
 - **Text auswählen und kopieren:** „Text auswählen“ oben an einer Oberfläche (offen oder im Verlauf) zeigt ihre Texte in einem
   Editor nur zum Lesen: mit der Maus auswählen, mit Ctrl+C kopieren; „Formatiert anzeigen“ geht zurück.
+- **Anhänge in der Antwort:** neben dem Kommentar *Bildschirmfoto der IDE anhängen* (nur das IDE-Fenster, nur auf Klick) und *Datei anhängen…* (bis 8 MB). Sie sehen eine Vorschau und können den Anhang vor dem Antworten entfernen; die IDE kopiert ihn nach `.idetea/ui/responses/<name>/anexos/`, und die Antwort listet ihn auf. Ein Button mit `"attach": "screenshot"` wartet auf einen.
 - **Verlauf der Fragen:** die IDE behält jede Frage, Ihre Antwort, Ihren Kommentar und wann der Agent sie gelesen
   hat, in `.idetea/history/` (außerhalb von git, bis Sie ihn leeren). Der Bereich **Verlauf der Interfaces** links (verborgen
   in der Voreinstellung) listet zuerst die offenen Fragen, dann die beantworteten nach Tag, mit Suche; ein Eintrag öffnet nur zum Lesen,

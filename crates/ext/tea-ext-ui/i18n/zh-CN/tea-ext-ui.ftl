@@ -170,3 +170,6 @@ history-cli-unanswered = 没有回答（智能体删掉了提问）
 history-cli-bad = idetea history：“{ $arg }”无效。
 history-cli-usage = 用法：idetea history [--name name] [--since YYYY-MM-DD] [--last N | --all] [--json]
 history-cli-empty = idetea history：这个项目的历史里什么都没有。
+ui-attach-failed = 无法附加：{ $error }
+ui-attach-dialog = 附加文件
+ask-attachment = 附件：{ $path }
