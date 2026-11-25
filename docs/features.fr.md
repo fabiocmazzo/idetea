@@ -237,6 +237,7 @@ et `CLAUDE.md`.
 - **Sélectionner et copier le texte :** « Sélectionner le texte » en haut d'une interface (ouverte ou dans
   l'historique) montre ses textes dans un éditeur en lecture seule : sélection à la souris, copie avec Ctrl+C ;
   « Afficher mis en forme » revient à l'affichage formaté.
+- **Pièces jointes dans la réponse :** à côté du commentaire, *Joindre une capture de l’IDE* (la fenêtre de l’IDE seulement, au clic) et *Joindre un fichier…* (jusqu’à 8 Mo). Vous voyez une miniature et pouvez la retirer avant de répondre ; l’IDE la copie dans `.idetea/ui/responses/<nom>/anexos/` et la réponse la liste. Un bouton avec `"attach": "screenshot"` en attend une.
 - **Historique des questions :** l'IDE conserve chaque question, votre réponse, votre commentaire et le moment où
   l'agent l'a lue, dans `.idetea/history/` (hors de git, jusqu'à ce que vous l'effaciez). Le panneau **Historique
   Interfaces** à gauche (masqué par défaut) liste d'abord les questions ouvertes, puis les questions répondues par

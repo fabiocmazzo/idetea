@@ -106,6 +106,7 @@
 - **给智能体的命令：**`idetea ask`（在面板里提一个问题，并等待回答）、`idetea run`（一个终端，等待结束和助手的回答）、`idetea status`（你打开了什么、未保存的更改、光标）、`idetea open file:line`（给你看一个文件）、`idetea history`（你在面板里回答过什么）和`idetea mascot`（吉祥物的实时状态和对话气泡）。它们用一次调用完成上面的文件操作，批准方式相同。
 - **会反应的吉祥物（Tea）：**右下角一张像素茶杯卡片（可以收进状态栏，也可以用命令面板开关）。它实时监视`.idetea/`（`idle`、`working`、`thinking`、`attention`、`celebrating`、`error`、`sleeping`，悬停、双击或戳一下时还有会互动的`curious`和`annoyed`）。每种情况有好几句短台词；同一句不会连续出现两次。它也会注意到文件保存、调试器构建完成或失败、长时间空闲（它会打盹，你回来就醒），以及一天里的时辰，包括夜里轻轻提醒你休息。点对话气泡会打开界面、终端或问题面板，并且从不抢走焦点。未保存的修改和磁盘变化顶上、git 冲突、终端任务结束、调试会话结束、编码写不下的字符，以及一次全部替换，它各说一句。警告和刚刚清零的错误只在 `chatty` 时出现。设置会写入同样的开关。`idetea mascot setup-hooks` 在项目里安装 Claude Code 的钩子，已有的钩子留着。`[mascot] tips = true`（并且`chatty`不是`quiet`）时，它偶尔会提起一条真实的快捷键。`[mascot] chatty`可以是`quiet`、`normal`或`chatty`。智能体或钩子也可以直接用`idetea mascot <state> [--text "…"] [--source <name>] [--ttl <secs>]`驱动它。自定义精灵包通过`.idetea/mascot/mascot.toml`或`~/.config/idetea/mascots/<pack>/mascot.toml`生效（`[mascot] enabled = true`）。
 - **选择并复制文本：**界面顶部的“选择文本”（当前打开的，或历史里的）会在只读编辑器里显示它的文本：用鼠标选择，用Ctrl+C复制；“显示格式化结果”回到原来的样子。
+- **回答中的附件：**评论旁边有“附加 IDE 截图”（只截 IDE 窗口，只在点击时）和“附加文件…”（最多 8 MB）。回答前可以看到缩略图并移除；IDE 把它复制到`.idetea/ui/responses/<名称>/anexos/`，回答里列出它。带`"attach": "screenshot"`的按钮会等待一个附件。
 - **问题的历史：**IDE保留每一个问题、你的回答、你的评论，以及智能体何时读到它，放在`.idetea/history/`（不进git，直到你清空）。左侧的**界面历史**面板（默认隐藏）先列出未回答的问题，再按天列出已回答的，可以搜索；一条记录以只读方式打开，就是你当时回答的样子。
 - **修好这个项目**（“界面: 修复此项目”）：在崩溃或一次糟糕的编辑之后，把`.idetea/`恢复到能用的状态。**技能：**`idetea skills`把一个git仓库里的智能体技能安装到项目里（[skills.zh-CN.md](skills.zh-CN.md)）。
 

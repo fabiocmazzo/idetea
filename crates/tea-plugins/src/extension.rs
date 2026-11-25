@@ -239,7 +239,8 @@ impl Extension for PluginExtension {
             }
             Message::Ui(UiMessage::Link(url)) => tea_declarative_ui::follow(&url, &self.root, ctx),
             Message::Ui(UiMessage::Copy(code)) => return tea_declarative_ui::copy(code, ctx),
-            Message::Ui(UiMessage::Comment(_)) => {} // o painel de plugin não mostra o comentário
+            // O painel de plugin não mostra o comentário nem os anexos.
+            Message::Ui(UiMessage::Comment(_) | UiMessage::AttachScreenshot | UiMessage::AttachFile | UiMessage::RemoveAttachment(_)) => {}
             Message::Ui(UiMessage::ToggleSelect) => self.rendered.toggle_select(),
             Message::Ui(UiMessage::SelectText(id, action)) => self.rendered.act(&id, action),
             // Nem toca som, nem anima (o sprite fica no primeiro quadro).

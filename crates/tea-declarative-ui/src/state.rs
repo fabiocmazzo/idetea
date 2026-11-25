@@ -9,7 +9,18 @@ use std::collections::BTreeMap;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::document::{Document, Kind, Submit};
+use crate::document::{Attach, Document, Kind, Submit};
+use crate::response::AttachmentKind;
+
+/// Um anexo esperando o clique: o arquivo (caminho absoluto) e de onde veio.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Pending {
+    pub path: String,
+    pub kind: AttachmentKind,
+    /// Arquivo escolhido: o caminho de origem, com `~` no lugar da pasta pessoal.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub from: Option<String>,
+}
 use crate::pointer;
 
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
@@ -25,6 +36,9 @@ pub struct State {
     answered: Option<u64>,
     /// O "comentário para o agente" sendo escrito (vai na próxima resposta e some).
     pub comment: String,
+    /// Anexos prontos para ir na próxima resposta (RFC 0026, etapa 1): o arquivo já está em
+    /// `responses/<nome>/anexos/`, com nome de pendente.
+    pub attachments: Vec<Pending>,
     /// Só para ver (histórico): botões e comentário desligados.
     #[serde(skip)]
     frozen: bool,
@@ -44,6 +58,7 @@ impl State {
             local,
             answered: Some(doc.revision),
             comment: comment.unwrap_or_default().to_string(),
+            attachments: Vec::new(),
             frozen: true,
         }
     }
@@ -59,7 +74,7 @@ impl State {
 
     /// Há algo digitado ou escolhido que o agente ainda não viu.
     pub fn has_changes(&self) -> bool {
-        !self.local.is_empty() || !self.comment.is_empty()
+        !self.local.is_empty() || !self.comment.is_empty() || !self.attachments.is_empty()
     }
 
     /// Passa para uma versão nova do documento (ou a mesma, relida). Valores do usuário em caminhos que o
@@ -106,7 +121,20 @@ impl State {
     /// O que o botão ainda espera (`requires`): passos que faltam e os campos vazios (pelo rótulo).
     pub fn waiting(&self, doc: &Document, button: &Kind) -> Waiting {
         let mut out = Waiting::default();
-        let Kind::Button { requires, .. } = button else { return out };
+        let Kind::Button { requires, attach, .. } = button else { return out };
+        if let Some(attach) = attach {
+            let has = self.attachments.iter().any(|a| match attach {
+                Attach::Any => true,
+                Attach::Screenshot => a.kind == AttachmentKind::Screenshot,
+                Attach::File => a.kind == AttachmentKind::File,
+            });
+            if !has {
+                out.fields.push(match attach {
+                    Attach::Screenshot => fl!("ui-attach-needed-screenshot"),
+                    Attach::File | Attach::Any => fl!("ui-attach-needed"),
+                });
+            }
+        }
         for path in requires {
             let Some(c) = doc.components.iter().find(|c| c.kind.binding() == Some(path.as_str())) else { continue };
             match &c.kind {
@@ -184,6 +212,37 @@ mod tests {
             ]
         });
         parse(v.to_string().as_bytes(), &Limits::default()).unwrap()
+    }
+
+    #[test]
+    fn a_button_with_attach_waits_for_the_right_attachment() {
+        let v = json!({
+            "format": "idetea-ui", "version": 1, "revision": 1,
+            "components": [
+                { "id": "foto", "component": "button", "label": "Enviar", "attach": "screenshot", "action": { "name": "ok" } },
+                { "id": "qualquer", "component": "button", "label": "Outro", "attach": "any", "action": { "name": "ok" } },
+                { "id": "livre", "component": "button", "label": "Sem", "action": { "name": "ok" } }
+            ]
+        });
+        let d = parse(v.to_string().as_bytes(), &Limits::default()).unwrap();
+        let mut s = State::new(&d);
+        let wait = |s: &State, i: usize| s.waiting(&d, &d.components[i].kind).fields.len();
+        assert_eq!((wait(&s, 0), wait(&s, 1), wait(&s, 2)), (1, 1, 0), "sem anexo, os dois esperam");
+        assert!(s.press(&d, "foto").is_none());
+        s.attachments.push(Pending { path: "/x/a.txt".into(), kind: AttachmentKind::File, from: None });
+        assert_eq!((wait(&s, 0), wait(&s, 1)), (1, 0), "um arquivo não é uma captura");
+        s.attachments.push(Pending { path: "/x/b.png".into(), kind: AttachmentKind::Screenshot, from: None });
+        assert_eq!(wait(&s, 0), 0);
+        assert!(s.press(&d, "foto").is_some());
+    }
+
+    #[test]
+    fn an_unknown_attach_warns_and_accepts_any() {
+        let v = json!({"format": "idetea-ui", "version": 1, "revision": 1, "components": [
+            { "id": "b", "component": "button", "label": "B", "attach": "video", "action": { "name": "ok" } }]});
+        let d = parse(v.to_string().as_bytes(), &Limits::default()).unwrap();
+        assert!(matches!(d.components[0].kind, Kind::Button { attach: Some(Attach::Any), .. }));
+        assert_eq!(d.warnings.len(), 1);
     }
 
     #[test]

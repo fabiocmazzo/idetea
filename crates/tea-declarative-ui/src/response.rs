@@ -37,6 +37,37 @@ pub struct Response {
     /// eles nesta revisão. Informação, não prova (o painel não sabe se o som estava baixo).
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub media: BTreeMap<String, Seen>,
+    /// O que o usuário anexou (RFC 0026, etapa 1): arquivos em `responses/<nome>/anexos/`, que o agente lê e apaga
+    /// junto com a resposta.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub attachments: Vec<Attachment>,
+}
+
+/// De onde veio um anexo.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum AttachmentKind {
+    /// Captura da janela da IDE.
+    Screenshot,
+    /// Arquivo escolhido pelo usuário (copiado para dentro do projeto).
+    File,
+}
+
+/// Um anexo na resposta.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct Attachment {
+    /// Relativo à raiz do projeto.
+    pub path: String,
+    pub kind: AttachmentKind,
+    pub size: u64,
+    /// De uma imagem: largura e altura em pixels.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub width: Option<u32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub height: Option<u32>,
+    /// Arquivo escolhido: de onde veio, com `~` no lugar da pasta pessoal.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub from: Option<String>,
 }
 
 /// Uma imagem ou um som, na resposta.
@@ -127,6 +158,7 @@ impl Response {
             comment: None,
             ide: None,
             media: BTreeMap::new(),
+            attachments: Vec::new(),
         }
     }
 }

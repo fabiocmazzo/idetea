@@ -381,6 +381,11 @@ pub fn run(args: &[String], cwd: &Path) -> i32 {
     if let Some(c) = response["comment"].as_str() {
         eprintln!("{}", fl!("ask-comment", comment = c.to_string()));
     }
+    for a in response["attachments"].as_array().into_iter().flatten() {
+        if let Some(path) = a["path"].as_str() {
+            eprintln!("{}", fl!("ask-attachment", path = path.to_string()));
+        }
+    }
     let action = response["action"].as_str().unwrap_or_default().to_string();
     let values = &response["values"];
     if a.json {

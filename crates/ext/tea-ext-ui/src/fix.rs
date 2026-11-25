@@ -115,6 +115,7 @@ pub fn find(root: &Path, now: SystemTime) -> Vec<Problem> {
             }
         }
     }
+    out.extend(orphan_attachments(&ui, &docs, now).into_iter().map(|path| Problem::Leftover { path }));
     for name in waits.keys().filter(|n| !docs.contains(n)) {
         out.push(Problem::Leftover { path: format!(".idetea/ui/{name}.wait") });
     }
@@ -137,6 +138,38 @@ pub fn find(root: &Path, now: SystemTime) -> Vec<Problem> {
     for (file, state) in teach::stale(root, &ours) {
         out.push(Problem::Instructions { file, state });
     }
+    out
+}
+
+/// Anexos que ficaram para trás (RFC 0026): de uma resposta que o agente já leu e apagou, ou pendentes de uma
+/// interface que acabou (há mais de um dia, para não pegar um que a IDE aberta está para mandar).
+fn orphan_attachments(ui: &Path, docs: &[String], now: SystemTime) -> Vec<String> {
+    let mut out = Vec::new();
+    let Ok(entries) = std::fs::read_dir(ui.join("responses")) else { return out };
+    for e in entries.flatten() {
+        let Ok(name) = e.file_name().into_string() else { continue };
+        let dir = e.path().join("anexos");
+        if !store::valid_name(&name) || std::fs::symlink_metadata(&dir).map_or(true, |m| !m.is_dir()) {
+            continue;
+        }
+        let unread: Vec<u64> = store::pending(ui, &name).into_iter().map(|(seq, _)| seq).collect();
+        let Ok(files) = std::fs::read_dir(&dir) else { continue };
+        for f in files.flatten() {
+            let Ok(file) = f.file_name().into_string() else { continue };
+            if !f.file_type().is_ok_and(|t| t.is_file()) {
+                continue;
+            }
+            let orphan = if file.starts_with(".pendente-") {
+                !docs.contains(&name) && age(&f.path(), now).is_some_and(|a| a >= UNTOUCHED_FOR)
+            } else {
+                file.split('-').next().and_then(|s| s.parse::<u64>().ok()).is_none_or(|seq| !unread.contains(&seq))
+            };
+            if orphan {
+                out.push(format!(".idetea/ui/responses/{name}/anexos/{file}"));
+            }
+        }
+    }
+    out.sort();
     out
 }
 
@@ -220,6 +253,25 @@ pub fn run(args: &[String], cwd: &Path) -> i32 {
 
 #[cfg(test)]
 mod tests {
+
+    #[test]
+    fn finds_attachments_left_behind() {
+        let root = std::env::temp_dir().join(format!("idetea-fix-anexos-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        let anexos = store::ui_dir(&root).join("responses/t/anexos");
+        std::fs::create_dir_all(&anexos).unwrap();
+        // A resposta 2 ainda não foi lida; a 1 já foi (o arquivo dela sumiu).
+        std::fs::write(store::ui_dir(&root).join("responses/t/000002-abc.json"), "{}").unwrap();
+        for f in ["1-1.png", "2-1.png", ".pendente-x.png"] {
+            std::fs::write(anexos.join(f), "x").unwrap();
+        }
+        let found = orphan_attachments(&store::ui_dir(&root), &["t".to_string()], SystemTime::now());
+        assert_eq!(found, [".idetea/ui/responses/t/anexos/1-1.png"], "o da resposta por ler e o pendente ficam");
+        let later = SystemTime::now() + Duration::from_secs(2 * 24 * 3600);
+        let found = orphan_attachments(&store::ui_dir(&root), &[], later);
+        assert_eq!(found.len(), 2, "interface acabou: o pendente velho também sai");
+        let _ = std::fs::remove_dir_all(&root);
+    }
     use super::*;
 
     const DOC: &str = r#"{"format": "idetea-ui", "version": 1, "components": []}"#;

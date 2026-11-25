@@ -79,3 +79,8 @@ ui-table-rows = { $count ->
     [one] 1 Zeile
    *[other] { $count } Zeilen
 }
+ui-attach-needed = ein Anhang
+ui-attach-needed-screenshot = ein Bildschirmfoto der IDE
+ui-attach-screenshot = Bildschirmfoto der IDE anhängen
+ui-attach-file = Datei anhängen…
+ui-attach-remove = Diesen Anhang entfernen

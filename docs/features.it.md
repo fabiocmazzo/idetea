@@ -207,6 +207,7 @@ Tutto sono file in chiaro nella cartella `.idetea/` del progetto, così qualsias
   `.idetea/mascot/mascot.toml` o `~/.config/idetea/mascots/<pack>/mascot.toml` (`[mascot] enabled = true`).
 - **Seleziona e copia il testo:** «Seleziona il testo» in cima a un'interfaccia (aperta o nella cronologia) ne mostra i testi in un
   editor di sola lettura: seleziona con il mouse, copia con Ctrl+C; «Mostra formattato» torna indietro.
+- **Allegati nella risposta:** accanto al commento, *Allega cattura dell'IDE* (solo la finestra dell'IDE, al clic) e *Allega file…* (fino a 8 MB). Vedi un'anteprima e puoi toglierlo prima di rispondere; l'IDE lo copia in `.idetea/ui/responses/<nome>/anexos/` e la risposta lo elenca. Un pulsante con `"attach": "screenshot"` ne aspetta uno.
 - **Cronologia delle domande:** l'IDE tiene ogni domanda, la tua risposta, il tuo commento e quando l'agente l'ha letta,
   in `.idetea/history/` (fuori da git, finché non la cancelli). Il pannello **Cronologia delle Interfacce** a sinistra (nascosto
   di default) elenca prima le domande aperte, poi quelle con risposta per giorno, con la ricerca; una voce si apre in sola lettura,

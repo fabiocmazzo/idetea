@@ -102,7 +102,7 @@ Todo componente tem `id` (`[A-Za-z0-9_-]`, até 64, único no documento) e `comp
 | `component` | Campos | Notas |
 |---|---|---|
 | `text` | `text`, `style` | `style`: `normal` (padrão), `muted`, `warning`, `error`. |
-| `button` | `label`, `action`, `style`, `requires` | `style`: `primary` (padrão), `secondary`, `danger`. Botões seguidos ficam na mesma linha. `requires`: um caminho ou uma lista (`["/feitos", "/escolha"]`), cada um o `value` de um componente; o botão fica desligado até os passos obrigatórios de um `steps` estarem marcados e os outros campos preenchidos. |
+| `button` | `label`, `action`, `style`, `requires`, `attach` | `style`: `primary` (padrão), `secondary`, `danger`. Botões seguidos ficam na mesma linha. `requires`: um caminho ou uma lista (`["/feitos", "/escolha"]`), cada um o `value` de um componente; o botão fica desligado até os passos obrigatórios de um `steps` estarem marcados e os outros campos preenchidos. `attach`: `screenshot`, `file` ou `any`; o botão espera um anexo desse tipo (ver "Anexos"). |
 | `checkbox` | `label`, `value` | Valor booleano. |
 | `select` | `options`, `value`, `label` | `options`: até 500, cada uma `"x"` ou `{"value": "x", "label": "X"}`. Valor: o `value` escolhido. |
 | `input` | `value`, `label`, `placeholder` | Texto de uma linha. |
@@ -364,6 +364,7 @@ Um clique grava `.idetea/ui/responses/<nome>/<seq>-<event>.json`:
 - `comment`: o que o usuário escreveu no campo de comentário, se escreveu (sem o campo quando vazio). Pode ser uma
   pergunta de volta ou uma ressalva: responda numa revisão nova ou no chat. Não ponha um campo "observação"
   próprio no documento; o comentário já faz isso.
+- `attachments` (só quando o usuário anexou algo): a lista do que ele anexou, na ordem. Ver "Anexos", abaixo.
 - `ide`: a IDE que gravou a resposta. `pid` é o processo; `outdated: true` quer dizer que o executável foi
   recompilado (ou atualizado) depois que essa IDE abriu, então o clique veio do código antigo. Numa entrega de
   teste, uma resposta com `outdated: true` não vale: peça para reiniciar a IDE (paleta: "Reiniciar a IDE") e
@@ -384,6 +385,28 @@ Um clique grava `.idetea/ui/responses/<nome>/<seq>-<event>.json`:
   ouviu.
 
 Depois de ler, **apague o arquivo da resposta**. Enquanto ele existir, o painel mostra "aguardando o agente ler".
+
+
+### Anexos
+
+Junto do campo de comentário, o painel tem **"Anexar captura da IDE"** (uma captura da janela da IDE, só quando o
+usuário clica) e **"Anexar arquivo…"** (o diálogo do sistema). Antes do clique no botão, o usuário vê a miniatura
+(ou o nome do arquivo) e pode tirar o anexo. A IDE copia o anexo para dentro do projeto, então o agente lê um
+caminho do projeto, mesmo que o arquivo tenha vindo de fora:
+
+```json
+"attachments": [
+  { "path": ".idetea/ui/responses/teste-links/anexos/3-1.png", "kind": "screenshot", "size": 184311, "width": 1920, "height": 1080 },
+  { "path": ".idetea/ui/responses/teste-links/anexos/3-2.txt", "kind": "file", "from": "~/Downloads/log.txt", "size": 5102 }
+]
+```
+
+- `path` é relativo à raiz: `responses/<nome>/anexos/<seq>-<n>.<ext>`. `kind`: `screenshot` ou `file`. `size` em
+  bytes; `width` e `height` só de imagem. `from` só de arquivo escolhido, com `~` no lugar da pasta pessoal.
+- Um arquivo anexado tem até 8 MB.
+- O documento pode exigir um anexo: `"attach": "screenshot"` num `button` deixa o botão desligado até haver uma
+  captura (`"file"`: um arquivo; `"any"`: qualquer um). O painel diz o que falta, como no `requires`.
+- **Leia os anexos e apague-os junto com a resposta** (a pasta `anexos/` é só da IDE escrever; o agente só apaga).
 
 ### Esperar avisando
 
