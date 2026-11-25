@@ -35,3 +35,5 @@ aqui, com o motivo, para dar para comparar com o upstream ou mandar a ele quando
   caminho só vira link se `BackendSettings::resolve_path` (novo) o achar no disco; o resolvedor recebe o pid do shell
   (guardado ao criar o pty, só em unix). Com `Ctrl` apertado, uma caixa mostra o destino
   (`RenderableContent::hovered_link`). A `URL_REGEX` e o `regex_match_at` do upstream saíram.
+- **`Terminal::shell_pid()`** (2026-11-25): o pid do shell (o mesmo que os links usam, só em unix), para a IDE
+  guardar a pasta onde cada shell estava e reabrir nela.

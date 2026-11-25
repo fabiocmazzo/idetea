@@ -119,6 +119,8 @@ L'elenco completo, per chi vuole il dettaglio tecnico. Per la versione breve, ve
   launcher solo se lo vuoi (*Riprendi tutti*, *Scegli…*, *No*, o più tardi *Terminale: riprendi gli agenti della
   sessione precedente*). Claude Code e Codex riprendono la stessa conversazione; gli altri agenti ne iniziano una
   nuova.
+- Le shell si riaprono nella cartella in cui erano (Linux e macOS), e tornano anche la scheda che era sullo schermo
+  e la divisione.
 - `[terminal] keep_scrollback = true` conserva le ultime righe di ogni scheda alla chiusura e le mostra una volta
   sopra il nuovo prompt. Disattivato per impostazione predefinita: un terminale contiene password e token. Il testo
   resta fuori dal progetto, leggibile solo da te.

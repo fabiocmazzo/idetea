@@ -495,9 +495,15 @@ impl TerminalExtension {
 
     /// Abre um shell numa aba nova e mostra.
     fn start(&mut self, ctx: &mut Context) -> bool {
+        let root = self.root.clone();
+        self.start_in(&root, ctx)
+    }
+
+    /// Abre um shell na pasta `dir`, numa aba nova, e mostra.
+    fn start_in(&mut self, dir: &Path, ctx: &mut Context) -> bool {
         self.next_id += 1;
         let shell = default_shell();
-        match self.new_terminal(self.settings(shell, Vec::new(), &self.root.clone())) {
+        match self.new_terminal(self.settings(shell, Vec::new(), dir)) {
             Ok(term) => {
                 // A numeração recomeça quando não sobra nenhum.
                 if self.shells.is_empty() {
@@ -1219,7 +1225,15 @@ impl TerminalExtension {
     /// As abas que valem a pena reabrir: os shells e os agentes do lançador ainda vivos, mais os da sessão anterior
     /// que o usuário ainda não respondeu (fechar a IDE antes de responder não os perde).
     fn snapshot(&self) -> saved::Saved {
-        let shells = self.shells.iter().map(|s| saved::Tab { name: self.names.get(&s.term.id).cloned(), ..saved::Tab::default() });
+        let current = self.current().map(|t| t.id);
+        let beside = |id: u64| self.split.filter(|s| s.other == id).map(|s| s.right);
+        let shells = self.shells.iter().map(|s| saved::Tab {
+            name: self.names.get(&s.term.id).cloned(),
+            dir: s.term.shell_pid().and_then(tea_core::os::process_cwd).filter(|d| *d != self.root && d.is_dir()),
+            active: current == Some(s.term.id),
+            beside: beside(s.term.id),
+            ..saved::Tab::default()
+        });
         let agents = self.agents.iter().filter(|a| a.launched && !a.ended).map(|a| saved::Tab {
             kind: saved::Kind::Agent,
             name: self.names.get(&a.term.id).cloned(),
@@ -1227,7 +1241,9 @@ impl TerminalExtension {
             command: a.command.clone(),
             worktree: a.branch.clone(),
             session: a.session.clone(),
-            text: None,
+            active: current == Some(a.term.id),
+            beside: beside(a.term.id),
+            ..saved::Tab::default()
         });
         saved::Saved { root: self.root.clone(), tabs: shells.chain(agents).chain(self.to_resume.iter().cloned()).collect() }
     }
@@ -1262,23 +1278,35 @@ impl TerminalExtension {
     /// Reabre o que estava aberto: os shells voltam sozinhos; os agentes esperam o usuário (um agente roda comandos,
     /// e nada roda sem ele ver).
     fn restore(&mut self, saved: saved::Saved, ctx: &mut Context) {
+        let mut active = None;
+        let mut beside = None;
         for tab in saved.tabs {
             match tab.kind {
                 saved::Kind::Shell => {
                     self.next_preamble = tab.text.unwrap_or_default();
-                    if self.start(ctx)
-                        && let Some(name) = tab.name
-                        && let Some(id) = self.shells.last().map(|s| s.term.id)
-                    {
+                    // A pasta que sumiu (ou é de outro lugar que não existe mais) vira a raiz.
+                    let dir = tab.dir.filter(|d| d.is_dir()).unwrap_or_else(|| self.root.clone());
+                    if !self.start_in(&dir, ctx) {
+                        continue;
+                    }
+                    let Some(id) = self.shells.last().map(|s| s.term.id) else { continue };
+                    if let Some(name) = tab.name {
                         self.names.insert(id, name);
+                    }
+                    if tab.active {
+                        active = Some(self.shells.len() - 1);
+                    }
+                    if let Some(right) = tab.beside {
+                        beside = Some(Split { other: id, right });
                     }
                 }
                 saved::Kind::Agent => self.to_resume.push(tab),
             }
         }
         if !self.shells.is_empty() {
-            self.shown = Shown::Shell(0);
+            self.shown = Shown::Shell(active.unwrap_or(0));
         }
+        self.split = beside.filter(|s| self.current().is_some_and(|t| t.id != s.other));
         self.ask_resume(ctx);
     }
 
@@ -1320,6 +1348,7 @@ impl TerminalExtension {
     /// sabe retomar (Claude Code, Codex), senão numa conversa nova.
     fn resume(&mut self, tab: saved::Tab, ctx: &mut Context) -> Task<Message> {
         let before = self.agents.len();
+        let (shown_before, split_before) = (self.shown, self.split);
         let resume = tea_core::coding_agents::resume_command(&tab.command, tab.session.as_deref());
         let command = resume.clone().unwrap_or_else(|| tab.command.clone());
         // O agente que retoma a conversa a redesenha; o que abre uma nova mostra o texto da vez anterior.
@@ -1336,6 +1365,18 @@ impl TerminalExtension {
             agent.resumed_at = resume.is_some().then(Instant::now);
             if let Some(name) = tab.name {
                 self.names.insert(agent.term.id, name);
+            }
+            // Abrir mostra o agente; volta ao que estava se não era ele a aba da tela, e ele volta ao lado se
+            // estava lá.
+            let id = agent.term.id;
+            if !tab.active && shown_before != Shown::Request && self.shells.len() + self.agents.len() > 1 {
+                self.shown = shown_before;
+                self.split = split_before;
+            }
+            if let Some(right) = tab.beside
+                && self.current().is_some_and(|t| t.id != id)
+            {
+                self.split = Some(Split { other: id, right });
             }
         }
         task
@@ -2411,6 +2452,39 @@ mod tests {
         assert!(ext.split.is_some());
         let _ = ext.on_command("terminal.split", &mut Context::new(&root, None));
         assert_eq!(ext.split, None);
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    /// Os shells voltam na pasta onde estavam, com a aba da tela e o lado do painel dividido; uma pasta que sumiu
+    /// vira a raiz.
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn shells_come_back_in_their_folder_with_the_active_tab_and_the_split() {
+        let root = std::env::temp_dir().join(format!("idetea-restore-dirs-{}", std::process::id()));
+        let sub = root.join("crates/app");
+        std::fs::create_dir_all(&sub).unwrap();
+        let root = root.canonicalize().unwrap();
+        let sub = sub.canonicalize().unwrap();
+        let mut ext = TerminalExtension::new();
+        let _ = ext.activate(&mut Context::new(&root, None));
+        let shell = |dir: Option<PathBuf>, active: bool, beside: Option<bool>| saved::Tab { dir, active, beside, ..saved::Tab::default() };
+        let saved = saved::Saved {
+            root: root.clone(),
+            tabs: vec![
+                shell(None, false, None),
+                shell(Some(sub.clone()), true, None),
+                shell(Some(root.join("sumiu")), false, Some(true)),
+            ],
+        };
+        ext.restore(saved, &mut Context::new(&root, None));
+        assert_eq!(ext.shown, Shown::Shell(1), "a aba que estava na tela");
+        assert_eq!(ext.split, Some(Split { other: ext.shells[2].term.id, right: true }));
+        let pid = |i: usize| ext.shells[i].term.shell_pid().unwrap();
+        assert_eq!(tea_core::os::process_cwd(pid(1)), Some(sub.clone()), "na pasta onde estava");
+        assert_eq!(tea_core::os::process_cwd(pid(2)), Some(root.clone()), "a pasta sumiu: a raiz");
+        let now = ext.snapshot();
+        let flags: Vec<_> = now.tabs.iter().map(|t| (t.dir.clone(), t.active, t.beside)).collect();
+        assert_eq!(flags, vec![(None, false, None), (Some(sub), true, None), (None, false, Some(true))]);
         let _ = std::fs::remove_dir_all(&root);
     }
 

@@ -30,6 +30,12 @@ pub struct Tab {
     pub worktree: Option<String>,
     /// Agente: o id da conversa, quando a IDE o escolheu (`claude --session-id`).
     pub session: Option<String>,
+    /// Shell: a pasta onde ele estava, quando não era a raiz.
+    pub dir: Option<PathBuf>,
+    /// Era a aba na tela.
+    pub active: bool,
+    /// Estava do outro lado do painel dividido: à direita (`true`) ou à esquerda.
+    pub beside: Option<bool>,
     /// O texto da aba na sessão anterior (`keep_scrollback`), já pronto para mostrar. Fica em arquivo à parte.
     #[serde(skip)]
     pub text: Option<Vec<u8>>,
@@ -153,13 +159,15 @@ mod tests {
         let saved = Saved {
             root: root.clone(),
             tabs: vec![
-                Tab { name: Some("servidor".into()), ..Tab::default() },
+                Tab { name: Some("servidor".into()), dir: Some("/x/app/web".into()), ..Tab::default() },
                 Tab {
                     kind: Kind::Agent,
                     title: "Claude Code".into(),
                     command: "claude".into(),
                     worktree: Some("fix/login".into()),
                     session: Some("6f1c".into()),
+                    active: true,
+                    beside: Some(false),
                     ..Tab::default()
                 },
             ],
