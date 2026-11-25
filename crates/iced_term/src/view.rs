@@ -723,7 +723,13 @@ impl Widget<Event, Theme, iced::Renderer> for TerminalView<'_> {
                 color,
             );
         }
+
+        if let Some(link) = &content.hovered_link {
+            let lines = term_size.screen_lines() as i32;
+            draw_link_target(self.term.font.font_type, lines, renderer, theme, layout.bounds(), link, state, cell_width, cell_height, font_size);
+        }
     }
+
 
     fn update(
         &mut self,
@@ -1434,5 +1440,91 @@ mod tests {
             assert!(matches!(commands[0], Command::Scroll(3)));
             assert_eq!(state.scroll_pixels, 5.4000034);
         }
+    }
+}
+
+/// Where the hovered link leads, in a box at the bottom (or the top, when the mouse is down there): with OSC 8
+/// the text on screen may say anything (IDE TEA RFC 0025).
+#[allow(clippy::too_many_arguments)]
+fn draw_link_target(
+    font: iced::Font,
+    screen_lines: i32,
+    renderer: &mut iced::Renderer,
+    theme: &Theme,
+    bounds: Rectangle,
+    link: &crate::links::Link,
+    state: &TerminalViewState,
+    cell_width: f32,
+    cell_height: f32,
+    font_size: f32,
+) {
+    use iced::advanced::graphics::geometry::Renderer as _;
+    let label = link_label(link);
+    let pad = 6.0;
+    let max_chars = (((bounds.width - 4.0 * pad) / cell_width.max(1.0)) as usize).max(8);
+    let label = keep_tail(&label, max_chars);
+    let width = label.chars().count() as f32 * cell_width + 2.0 * pad;
+    let height = cell_height + pad;
+    let mouse_low = state.mouse_position_on_grid.line.0 >= screen_lines / 2;
+    let y = if mouse_low { bounds.y + pad } else { bounds.y + bounds.height - height - pad };
+    let top_left = Point::new(bounds.x + pad, y);
+
+    let palette = theme.extended_palette();
+    let mut frame = iced::widget::canvas::Frame::new(renderer, bounds.size());
+    frame.fill(
+        &iced::widget::canvas::Path::rounded_rectangle(top_left, Size::new(width, height), 4.0.into()),
+        palette.background.strong.color,
+    );
+    frame.fill_text(Text {
+        content: label,
+        position: Point::new(top_left.x + pad, top_left.y + height / 2.0),
+        font,
+        size: iced_core::Pixels(font_size),
+        color: palette.background.strong.text,
+        align_x: Alignment::Left,
+        align_y: Vertical::Center,
+        shaping: Shaping::Advanced,
+        ..Default::default()
+    });
+    renderer.draw_geometry(frame.into_geometry());
+}
+
+/// The text shown for a link: the address, or the full path with `:line:column`.
+fn link_label(link: &crate::links::Link) -> String {
+    match link {
+        crate::links::Link::Url(url) => url.clone(),
+        crate::links::Link::Path { path, line, column } => {
+            let mut s = path.display().to_string();
+            if let Some(l) = line {
+                s.push_str(&format!(":{l}"));
+                if let Some(c) = column {
+                    s.push_str(&format!(":{c}"));
+                }
+            }
+            s
+        },
+    }
+}
+
+/// At most `max` characters, keeping the end (the file name, the last part of the address).
+fn keep_tail(s: &str, max: usize) -> String {
+    let n = s.chars().count();
+    if n <= max {
+        return s.to_string();
+    }
+    let tail: String = s.chars().skip(n - (max - 1)).collect();
+    format!("…{tail}")
+}
+
+#[cfg(test)]
+mod link_label_tests {
+    use super::*;
+
+    #[test]
+    fn labels_keep_the_end() {
+        let link = crate::links::Link::Path { path: "/a/b/c.rs".into(), line: Some(3), column: Some(2) };
+        assert_eq!(link_label(&link), "/a/b/c.rs:3:2");
+        assert_eq!(keep_tail("/home/x/projeto/src/main.rs", 10), "…c/main.rs");
+        assert_eq!(keep_tail("curto", 10), "curto");
     }
 }

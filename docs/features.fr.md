@@ -122,6 +122,13 @@ La liste complète, pour le lecteur technique. Pour la version courte, voir le [
 - Recherche dans le terminal (la loupe, ou *Terminal : rechercher*) : texte simple, le résultat le plus récent
   d'abord.
 - `[terminal] scrollback` fixe le nombre de lignes que garde chaque onglet (10000 par défaut).
+- `Ctrl+clic` (`Cmd+clic` sur macOS) suit ce que montre le terminal. Un chemin de fichier (`src/main.rs:42:5`, le
+  `-->` de rustc, le `File "x.py", line 3` de Python, le `at f (x.ts:8:2)` de Node, `x.cs(10,5)`) s’ouvre dans un
+  onglet à cette ligne, seulement si le fichier existe ; un chemin relatif est cherché dans le dossier courant du
+  shell, le dossier où l’onglet s’est ouvert et la racine du projet. Un dossier du projet est montré dans l’arbre.
+  Les liens `http(s)` et `mailto`, et les liens OSC 8 (`ls --hyperlink`, `gh`), s’ouvrent dans le système ; les
+  autres schémas (`ssh:`, `magnet:`) sont copiés à la place. Tant que `Ctrl` est enfoncé, un cadre montre la
+  destination du lien.
 - Une fine barre de défilement à droite de chaque terminal, dans sa propre bande pour ne jamais cacher le texte :
   faites glisser le curseur, ou cliquez sur la piste pour avancer d’une page. Elle disparaît sur l’écran alternatif
   (vim, less, htop).

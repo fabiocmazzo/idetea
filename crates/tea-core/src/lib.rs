@@ -115,6 +115,8 @@ pub enum CoreEvent {
     SendToAgent { text: String },
     /// Abre a busca no projeto limitada a este caminho (arquivo ou pasta). Quem mostra é a extensão de busca.
     SearchIn(PathBuf),
+    /// Mostra este caminho (arquivo ou pasta do projeto) na árvore, expandindo até ele. Quem mostra é a árvore.
+    RevealInTree(PathBuf),
 }
 
 /// O que uma lista de lugares ([`CoreEvent::Locations`]) mostra.
@@ -220,6 +222,10 @@ pub enum Request {
     SendToAgent(String),
     /// Repassa [`CoreEvent::SearchIn`] às extensões (a árvore pede, a busca escuta).
     SearchIn(PathBuf),
+    /// Repassa [`CoreEvent::RevealInTree`] às extensões (o terminal pede, a árvore escuta).
+    RevealInTree(PathBuf),
+    /// Copia o texto para a área de transferência.
+    CopyText(String),
     /// Muda a visibilidade de um painel desta extensão. `None` alterna.
     PanelVisibility { id: PanelId, visible: Option<bool> },
     /// A extensão renomeou um arquivo ou pasta no disco: o app atualiza as abas.
@@ -488,6 +494,16 @@ impl<'a> Context<'a> {
     /// Abre a busca no projeto limitada a este arquivo ou pasta.
     pub fn search_in(&mut self, path: impl Into<PathBuf>) {
         self.requests.push(Request::SearchIn(path.into()));
+    }
+
+    /// Mostra o caminho na árvore (RFC 0025: `Ctrl+clique` numa pasta no terminal).
+    pub fn reveal_in_tree(&mut self, path: impl Into<PathBuf>) {
+        self.requests.push(Request::RevealInTree(path.into()));
+    }
+
+    /// Copia o texto para a área de transferência.
+    pub fn copy_text(&mut self, text: impl Into<String>) {
+        self.requests.push(Request::CopyText(text.into()));
     }
 
     pub fn into_requests(self) -> Vec<Request> {

@@ -27,6 +27,9 @@ pub struct BackendSettings {
     /// Output shown before the program starts (bytes as a program would write them, escape sequences included),
     /// e.g. the text of a previous session. Never sent to the program.
     pub preamble: Vec<u8>,
+    /// Turns a path written in the terminal into an existing file or folder (IDE TEA RFC 0025). Without it, paths
+    /// are not links.
+    pub resolve_path: Option<crate::links::PathResolver>,
 }
 
 impl Default for BackendSettings {
@@ -38,6 +41,7 @@ impl Default for BackendSettings {
             working_directory: None,
             scrollback: 10_000,
             preamble: Vec::new(),
+            resolve_path: None,
         }
     }
 }

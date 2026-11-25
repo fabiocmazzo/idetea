@@ -5,6 +5,8 @@ cmd-terminal-new = Terminal: new terminal
 cmd-terminal-close = Terminal: close the terminal
 cmd-terminal-restart = Terminal: restart the shell
 terminal-ended-n = Terminal { $number } closed
+terminal-link-copied = Address copied (this kind of link does not open from the terminal): { $url }
+terminal-link-failed = Could not open { $url }: { $error }
 terminal-not-running = The shell is not running.
 terminal-start = Start terminal
 

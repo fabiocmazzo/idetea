@@ -5,6 +5,8 @@ cmd-terminal-new = 终端: 新建终端
 cmd-terminal-close = 终端: 关闭终端
 cmd-terminal-restart = 终端: 重启shell
 terminal-ended-n = 终端 { $number } 已关闭
+terminal-link-copied = 已复制地址（此类链接不会从终端打开）：{ $url }
+terminal-link-failed = 无法打开 { $url }：{ $error }
 terminal-not-running = shell没有在运行。
 terminal-start = 启动终端
 

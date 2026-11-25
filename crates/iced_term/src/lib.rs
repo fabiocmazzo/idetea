@@ -4,6 +4,7 @@ pub mod settings;
 
 mod backend;
 mod font;
+pub mod links;
 mod terminal;
 mod theme;
 mod view;

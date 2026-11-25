@@ -101,6 +101,12 @@ The full list, for the technical reader. For the short version, see the [README]
 - Two terminals side by side (`Ctrl+Shift+5` or the split button); click or type in one to give it the focus.
 - Find in the terminal (the magnifier, or *Terminal: find*): plain text, newest match first.
 - `[terminal] scrollback` sets how many lines each tab keeps (10000 by default).
+- `Ctrl+click` (`Cmd+click` on macOS) follows what the terminal shows. A file path (`src/main.rs:42:5`, rustc's
+  `-->`, Python's `File "x.py", line 3`, Node's `at f (x.ts:8:2)`, `x.cs(10,5)`) opens in a tab at that line, but
+  only if the file exists; relative paths are looked up in the shell's current folder, the folder the tab opened in
+  and the project root. A folder of the project is shown in the tree. `http(s)` and `mailto` links, and OSC 8 links
+  (`ls --hyperlink`, `gh`), open in the system; other schemes (`ssh:`, `magnet:`) are copied instead. While `Ctrl`
+  is held, a box shows where the link leads.
 - A thin scrollbar on the right of each terminal, in its own strip so it never covers text: drag the thumb, or click
   the track to move a page. It hides on the alternate screen (vim, less, htop).
 - Terminal tabs come back when the IDE reopens: shells by themselves, with their names; agents opened by the
