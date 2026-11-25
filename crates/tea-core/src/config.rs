@@ -128,6 +128,8 @@ allow = []
 
 [agents.launchers]
 # "Claude (Opus)" = "claude --model opus"
+# Com o comando que retoma a conversa ao reabrir a IDE (Claude Code e Codex a IDE já sabe retomar):
+# "Meu agente" = { command = "meu-agente", resume = "meu-agente --continue" }
 
 # CSV, TSV e JSONL abrem como tabela (RFC 0020) até este tamanho; acima dele, só o texto. 0 desliga a tabela.
 [table]
@@ -360,8 +362,44 @@ pub struct AgentsConfig {
     /// O agente que vem primeiro no "Agentes: iniciar…" (o binário de um conhecido, como `claude`, ou o nome de um
     /// lançador).
     pub default: Option<String>,
-    /// Lançadores a mais no "Agentes: iniciar…": nome mostrado → comando (RFC 0016).
-    pub launchers: std::collections::BTreeMap<String, String>,
+    /// Lançadores a mais no "Agentes: iniciar…": nome mostrado → comando (RFC 0016), ou uma tabela com o comando e o
+    /// de retomar a conversa.
+    pub launchers: std::collections::BTreeMap<String, Launcher>,
+}
+
+/// Um lançador de `[agents.launchers]`: só o comando (`"Aider" = "aider"`) ou uma tabela
+/// (`"OpenCode" = { command = "opencode", resume = "opencode --continue" }`).
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+#[serde(untagged)]
+pub enum Launcher {
+    Command(String),
+    Full(LauncherFull),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct LauncherFull {
+    pub command: String,
+    /// O comando que retoma a conversa ao reabrir a IDE (na mesma pasta). Sem ele, a IDE só sabe retomar Claude
+    /// Code e Codex; os outros abrem uma conversa nova.
+    #[serde(default)]
+    pub resume: Option<String>,
+}
+
+impl Launcher {
+    pub fn command(&self) -> &str {
+        match self {
+            Launcher::Command(c) => c,
+            Launcher::Full(f) => &f.command,
+        }
+    }
+
+    pub fn resume(&self) -> Option<&str> {
+        match self {
+            Launcher::Command(_) => None,
+            Launcher::Full(f) => f.resume.as_deref().map(str::trim).filter(|r| !r.is_empty()),
+        }
+    }
 }
 
 /// Quanto o mascote fala além do que o estado pede (`[mascot] chatty`).

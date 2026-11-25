@@ -42,7 +42,11 @@ impl Choice {
 
 /// Os agentes para a lista: os do config (na ordem do nome) e os conhecidos achados por `found`, com o `default`
 /// primeiro. Um lançador do config com o mesmo nome de um conhecido fica no lugar dele.
-pub fn list(launchers: &BTreeMap<String, String>, default: Option<&str>, found: impl Fn(&str) -> bool) -> Vec<Launcher> {
+pub fn list(
+    launchers: &BTreeMap<String, tea_core::config::Launcher>,
+    default: Option<&str>,
+    found: impl Fn(&str) -> bool,
+) -> Vec<Launcher> {
     let mut out: Vec<Launcher> = KNOWN
         .iter()
         .filter(|(bin, name)| found(bin) && !launchers.contains_key(*name))
@@ -51,8 +55,8 @@ pub fn list(launchers: &BTreeMap<String, String>, default: Option<&str>, found: 
     out.extend(
         launchers
             .iter()
-            .filter(|(_, cmd)| !cmd.trim().is_empty())
-            .map(|(name, cmd)| Launcher { name: name.clone(), command: cmd.trim().into(), key: name.clone() }),
+            .filter(|(_, l)| !l.command().trim().is_empty())
+            .map(|(name, l)| Launcher { name: name.clone(), command: l.command().trim().into(), key: name.clone() }),
     );
     if let Some(d) = default
         && let Some(i) = out.iter().position(|l| l.key == d || l.name == d)
@@ -221,9 +225,9 @@ mod tests {
     #[test]
     fn config_launchers_come_after_and_replace_a_known_one_with_the_same_name() {
         let config = BTreeMap::from([
-            ("Codex".to_string(), "codex --profile fast".to_string()),
-            ("Claude (Opus)".to_string(), "claude --model opus".to_string()),
-            ("vazio".to_string(), "  ".to_string()),
+            ("Codex".to_string(), tea_core::config::Launcher::Command("codex --profile fast".to_string())),
+            ("Claude (Opus)".to_string(), tea_core::config::Launcher::Command("claude --model opus".to_string())),
+            ("vazio".to_string(), tea_core::config::Launcher::Command("  ".to_string())),
         ]);
         let list = list(&config, None, |_| true);
         assert_eq!(
@@ -235,7 +239,7 @@ mod tests {
 
     #[test]
     fn the_default_comes_first_by_binary_or_name() {
-        let config = BTreeMap::from([("Claude (Opus)".to_string(), "claude --model opus".to_string())]);
+        let config = BTreeMap::from([("Claude (Opus)".to_string(), tea_core::config::Launcher::Command("claude --model opus".to_string()))]);
         let found = |bin: &str| bin == "claude" || bin == "codex";
         assert_eq!(names(&list(&config, Some("codex"), found)), ["Codex", "Claude Code", "Claude (Opus)"]);
         assert_eq!(names(&list(&config, Some("Claude (Opus)"), found)), ["Claude (Opus)", "Claude Code", "Codex"]);

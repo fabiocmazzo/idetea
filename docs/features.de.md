@@ -119,6 +119,8 @@ Die vollständige Liste, für die technische Leserschaft. Die Kurzfassung steht 
   Starter geöffnete Agenten erst, wenn du zustimmst (*Alle fortsetzen*, *Auswählen…*, *Nein* oder später
   *Terminal: Agenten der letzten Sitzung fortsetzen*). Claude Code und Codex setzen dasselbe Gespräch fort,
   andere Agenten beginnen ein neues.
+- Auch jeder andere Agent setzt sein Gespräch fort, wenn sein Starter sagt, wie: `"Mein Agent" = { command =
+  "mein-agent", resume = "mein-agent --continue" }` in `[agents.launchers]`.
 - Shells öffnen sich wieder in dem Ordner, in dem sie waren (Linux und macOS), und auch die angezeigte
   Registerkarte und die Teilung kommen zurück.
 - `[terminal] keep_scrollback = true` behält beim Schließen die letzten Zeilen jeder Registerkarte und zeigt sie

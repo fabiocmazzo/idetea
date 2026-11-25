@@ -125,12 +125,21 @@ Um agente que não usa os hooks do mascote pode gravar o mesmo arquivo (pelo tem
 RFC 0024, M2. As abas de terminal ficam em `$XDG_STATE_HOME/idetea/terminals/<pasta>-<hash>.toml`, gravado a cada
 mudança. Ao reabrir:
 
-- Os shells voltam sozinhos, com o nome dado (na raiz do projeto).
+- Os shells voltam sozinhos, com o nome dado, na pasta onde estavam (Linux e macOS; no Windows, na raiz). A aba
+  que estava na tela e a divisão voltam como estavam.
 - Os agentes abertos pelo lançador esperam "Retomar os agentes?" (*Retomar todos*, *Escolher…*, *Não*); a paleta
   "Terminal: retomar agentes da sessão anterior" mostra os que ficaram. Cada um volta na mesma pasta ou worktree.
 - O Claude Code abre com `--session-id <uuid>` escolhido pela IDE e volta com `claude --resume <uuid>`; o Codex,
-  com `codex resume --last` (a conversa mais recente daquela pasta). Os outros abrem uma conversa nova. Se a
-  retomada sair com erro em até 15 s, a IDE avisa.
+  com `codex resume --last` (a conversa mais recente daquela pasta). Um lançador do config do usuário pode dizer
+  como retomar o seu agente, e isso vale também por cima do que a IDE sabe:
+
+  ```toml
+  [agents.launchers]
+  "Meu agente" = { command = "meu-agente", resume = "meu-agente --continue" }
+  ```
+
+  Sem isso, os outros abrem uma conversa nova. Se a retomada sair com erro em até 15 s, a IDE avisa e aponta o
+  lançador.
 - Tarefas e terminais pedidos por agentes não voltam: o pedido vira `lost`, e quem pediu decide se pede de novo.
 
 Com `[terminal] keep_scrollback = true`, as últimas 2 000 linhas de cada aba são gravadas ao fechar (fora do

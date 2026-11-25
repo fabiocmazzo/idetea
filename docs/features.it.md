@@ -119,6 +119,8 @@ L'elenco completo, per chi vuole il dettaglio tecnico. Per la versione breve, ve
   launcher solo se lo vuoi (*Riprendi tutti*, *Scegli…*, *No*, o più tardi *Terminale: riprendi gli agenti della
   sessione precedente*). Claude Code e Codex riprendono la stessa conversazione; gli altri agenti ne iniziano una
   nuova.
+- Anche ogni altro agente riprende la sua conversazione quando il suo launcher dice come: `"Il mio agente" = {
+  command = "mio-agente", resume = "mio-agente --continue" }` in `[agents.launchers]`.
 - Le shell si riaprono nella cartella in cui erano (Linux e macOS), e tornano anche la scheda che era sullo schermo
   e la divisione.
 - `[terminal] keep_scrollback = true` conserva le ultime righe di ogni scheda alla chiusura e le mostra una volta
