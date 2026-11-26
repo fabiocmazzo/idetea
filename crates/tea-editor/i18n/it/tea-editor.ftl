@@ -51,3 +51,11 @@ table-rows-picked = { $count ->
     [one] 1 riga scelta
    *[other] { $count } righe scelte
 }
+table-add-row = + Riga
+table-delete-rows = Elimina righe
+table-add-column = + Colonna
+table-delete-column = Elimina colonna
+table-new-column = colonna { $number }
+table-duplicate-column = Esiste già una colonna con questo nome.
+table-no-header = Senza intestazione, le colonne non hanno nome.
+table-empty-name = Il nome della colonna non può essere vuoto.

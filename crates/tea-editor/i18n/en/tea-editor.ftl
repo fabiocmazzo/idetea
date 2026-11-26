@@ -51,3 +51,11 @@ table-rows-picked = { $count ->
     [one] 1 row picked
    *[other] { $count } rows picked
 }
+table-add-row = + Row
+table-delete-rows = Delete rows
+table-add-column = + Column
+table-delete-column = Delete column
+table-new-column = column { $number }
+table-duplicate-column = There is already a column with that name.
+table-no-header = Without a header, the columns have no names.
+table-empty-name = The column name cannot be empty.

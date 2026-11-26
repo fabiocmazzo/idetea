@@ -821,18 +821,25 @@ impl Editor {
                 self.focus();
                 wrap(task)
             }
-            table_view::Action::Edit(edit) => {
-                // A troca é sobre o texto lido pela tabela, que é o de agora (`sync_table` roda depois de cada
-                // mensagem); se não for, a edição é descartada e a tabela relida.
+            table_view::Action::Edit(edits) => {
+                // As trocas são sobre o texto lido pela tabela, que é o de agora (`sync_table` roda depois de cada
+                // mensagem); se não for, a edição é descartada e a tabela relida. Todas juntas: um passo só no
+                // desfazer.
                 let text = self.inner.content();
                 if t.revision() != self.text_revision() {
                     return Task::none();
                 }
-                let range = iced_code_editor::LspRange {
-                    start: lsp_position(&text, edit.range.start),
-                    end: lsp_position(&text, edit.range.end),
-                };
-                self.inner.apply_lsp_text_edits(&[LspTextChange { range, text: edit.text }]);
+                let changes: Vec<LspTextChange> = edits
+                    .into_iter()
+                    .map(|edit| LspTextChange {
+                        range: iced_code_editor::LspRange {
+                            start: lsp_position(&text, edit.range.start),
+                            end: lsp_position(&text, edit.range.end),
+                        },
+                        text: edit.text,
+                    })
+                    .collect();
+                self.inner.apply_lsp_text_edits(&changes);
                 self.focus();
                 Task::none()
             }

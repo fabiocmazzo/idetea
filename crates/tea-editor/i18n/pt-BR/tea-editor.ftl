@@ -51,3 +51,11 @@ table-rows-picked = { $count ->
     [one] 1 linha escolhida
    *[other] { $count } linhas escolhidas
 }
+table-add-row = + Linha
+table-delete-rows = Apagar linhas
+table-add-column = + Coluna
+table-delete-column = Apagar coluna
+table-new-column = coluna { $number }
+table-duplicate-column = Já existe uma coluna com esse nome.
+table-no-header = Sem cabeçalho, as colunas não têm nome.
+table-empty-name = O nome da coluna não pode ficar vazio.

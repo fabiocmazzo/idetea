@@ -51,3 +51,11 @@ table-rows-picked = { $count ->
     [one] 1 Zeile gewählt
    *[other] { $count } Zeilen gewählt
 }
+table-add-row = + Zeile
+table-delete-rows = Zeilen löschen
+table-add-column = + Spalte
+table-delete-column = Spalte löschen
+table-new-column = Spalte { $number }
+table-duplicate-column = Es gibt schon eine Spalte mit diesem Namen.
+table-no-header = Ohne Kopfzeile haben die Spalten keine Namen.
+table-empty-name = Der Spaltenname darf nicht leer sein.
