@@ -138,4 +138,16 @@ cabe faz o salvar recusar, dizendo qual, a linha e a coluna.
 alterações não tem marcas. O caractere que não cabe abre um diálogo com **Salvar como UTF-8**, e salvar com outro
 encoding avisa o git como um salvar comum.
 
-**Falta:** só a opção C (detecção com `chardetng`), se a reserva errar muito na prática.
+**2026-11-26: a opção C, só para CJK** ([issue #11](https://github.com/fabiocmazzo/idetea/issues/11)). Depois do
+UTF-8 e da checagem de binário, o `chardetng` dá um palpite. Ele só vale quando:
+
+- é um encoding CJK de vários bytes (Shift_JIS, EUC-JP, GBK, GB18030, Big5, EUC-KR);
+- decodifica sem nenhum byte inválido;
+- o texto tem ao menos dois caracteres CJK, e quase todo o resto que não é ASCII também é CJK.
+
+Fora isso, vale a reserva, como antes. Um palpite de um byte só (Latin-1, cirílico) nunca troca a reserva: em texto
+curto o detector erra entre eles, e a reserva é a escolha do usuário. Com uma reserva CJK, não há palpite. ISO-2022-JP
+fica de fora, porque os bytes dele são ASCII e o arquivo já abre como UTF-8. Os testes cobrem as seis codificações e
+textos latinos curtos que também seriam Shift_JIS válido (`ação` em Windows-1252).
+
+**Falta:** nada desta RFC.

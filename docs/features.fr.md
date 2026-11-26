@@ -36,7 +36,8 @@ La liste complète, pour le lecteur technique. Pour la version courte, voir le [
   lignes choisies), *+ Colonne* et *Supprimer la colonne* ; deux clics sur un nom de colonne le renomment (en JSONL,
   la clé dans chaque objet). Chaque action est un pas dans l’annulation, et le reste du texte ne bouge pas.
 - Conserve les CRLF. Les fichiers dans d'autres encodages s'ouvrent et s'enregistrent dans le leur (BOM, UTF-16,
-  `charset` de `.editorconfig`, sinon `[editor] fallback_encoding`, `windows-1252` par défaut) ; un clic sur l'encodage
+  `charset` de `.editorconfig`, un encodage CJK deviné comme Shift_JIS, GBK, Big5 ou EUC-KR
+  quand le texte le confirme, sinon `[editor] fallback_encoding`, `windows-1252` par défaut) ; un clic sur l'encodage
   dans la barre d'état rouvre ou enregistre avec un autre. Un caractère qui ne rentre pas est refusé à
   l'enregistrement, jamais changé en `?`. Les fichiers binaires ne s'ouvrent pas.
 - Gros fichiers : un fichier de 50 Mo s'ouvre en moins de 0,1 s. Un fichier d'une seule ligne géante (JSON ou JS

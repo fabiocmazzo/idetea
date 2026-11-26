@@ -33,7 +33,8 @@ L'elenco completo, per chi vuole il dettaglio tecnico. Per la versione breve, ve
   ed *Elimina colonna*; due clic sul nome di una colonna la rinominano (in JSONL, la chiave in ogni oggetto). Ogni
   azione è un passo nell'annulla, e il resto del testo resta com'era.
 - Conserva i CRLF. I file in altre codifiche si aprono e si salvano nella loro (BOM, UTF-16, `charset` di
-  `.editorconfig`, altrimenti `[editor] fallback_encoding`, `windows-1252` di default); un clic sulla codifica nella
+  `.editorconfig`, una codifica CJK riconosciuta come Shift_JIS, GBK, Big5 o EUC-KR quando il
+  testo la conferma, altrimenti `[editor] fallback_encoding`, `windows-1252` di default); un clic sulla codifica nella
   barra di stato riapre o salva con un'altra. Un carattere che non ci sta viene rifiutato al salvataggio, mai
   cambiato in `?`. I file binari non si aprono.
 - File grandi: un file da 50 MB si apre in meno di 0,1 s. Un file con una riga enorme (JSON o JS minificato) si apre in una

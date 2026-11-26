@@ -33,7 +33,8 @@ Die vollständige Liste, für die technische Leserschaft. Die Kurzfassung steht 
   Zeilen), *+ Spalte* und *Spalte löschen*; zwei Klicks auf einen Spaltennamen benennen ihn um (in JSONL den Schlüssel
   in jedem Objekt). Jede Aktion ist ein Schritt im Rückgängig, der Rest des Texts bleibt, wie er war.
 - CRLF bleibt erhalten. Dateien in anderen Kodierungen öffnen und speichern in ihrer eigenen (BOM, UTF-16, `charset`
-  aus `.editorconfig`, sonst `[editor] fallback_encoding`, Standard `windows-1252`); ein Klick auf die Kodierung in
+  aus `.editorconfig`, eine erkannte CJK-Kodierung wie Shift_JIS, GBK, Big5 oder EUC-KR,
+  wenn der Text sie bestätigt, sonst `[editor] fallback_encoding`, Standard `windows-1252`); ein Klick auf die Kodierung in
   der Statusleiste öffnet neu oder speichert mit einer anderen. Ein Zeichen, das nicht passt, wird beim Speichern
   abgelehnt, nie zu `?`. Binärdateien werden nicht geöffnet.
 - Große Dateien: eine Datei von 50 MB öffnet in unter 0,1 s. Eine Datei mit einer riesigen Zeile (minifiziertes JSON oder JS) öffnet in einem Leichtmodus,

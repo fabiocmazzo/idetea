@@ -1,7 +1,8 @@
 //! Ler e gravar texto em outros encodings além de UTF-8 (RFC 0021).
 //!
 //! Ao abrir, nesta ordem: o BOM; o `charset` do `.editorconfig` (`hint`); UTF-8 válido; bytes nulos (binário,
-//! recusado); o encoding de reserva (`[editor] fallback_encoding`, padrão Windows-1252). Ao gravar, o mesmo encoding
+//! recusado); um encoding CJK de vários bytes, quando o detector (`chardetng`) aponta um e o texto confirma (ver
+//! [`guess_cjk`]); o encoding de reserva (`[editor] fallback_encoding`, padrão Windows-1252). Ao gravar, o mesmo encoding
 //! e o mesmo BOM; um caractere que não cabe é um erro, nunca um `?`.
 
 use std::path::Path;
@@ -118,8 +119,58 @@ pub fn decode(bytes: &[u8], hint: Option<TextEncoding>, fallback: &'static Encod
     if bytes[..bytes.len().min(BINARY_SNIFF)].contains(&0) {
         return Err(DecodeError::Binary);
     }
+    if let Some(found) = guess_cjk(bytes, fallback) {
+        return Ok(found);
+    }
     let enc = TextEncoding { encoding: fallback, bom: false };
     decode_as(bytes, enc).map(|t| (t, enc))
+}
+
+/// Encodings que o palpite pode escolher: os CJK de vários bytes. Um de um byte só (Latin-1, cirílico…) nunca troca a
+/// reserva configurada, porque em texto curto o detector erra entre eles e o usuário já disse qual quer.
+const GUESSABLE: [&Encoding; 6] =
+    [encoding_rs::SHIFT_JIS, encoding_rs::EUC_JP, encoding_rs::GBK, encoding_rs::GB18030, encoding_rs::BIG5, encoding_rs::EUC_KR];
+
+/// Caracteres CJK que o texto precisa ter para o palpite valer.
+const MIN_CJK: usize = 2;
+
+/// Um encoding CJK para bytes que não são UTF-8, se o detector aponta um e o texto confirma: decodifica sem nenhum
+/// byte inválido, tem ao menos [`MIN_CJK`] caracteres CJK (kana, hangul, ideogramas) e quase todo o resto que não é
+/// ASCII também é CJK. Senão, `None` (fica a reserva). A reserva sendo ela mesma CJK, não há o que adivinhar.
+fn guess_cjk(bytes: &[u8], fallback: &'static Encoding) -> Option<(String, TextEncoding)> {
+    if GUESSABLE.contains(&fallback) {
+        return None;
+    }
+    let mut detector = chardetng::EncodingDetector::new(chardetng::Iso2022JpDetection::Deny);
+    detector.feed(bytes, true);
+    let encoding = detector.guess(None, chardetng::Utf8Detection::Deny);
+    if !GUESSABLE.contains(&encoding) {
+        return None;
+    }
+    let enc = TextEncoding { encoding, bom: false };
+    let text = decode_as(bytes, enc).ok()?;
+    let (mut cjk, mut other) = (0usize, 0usize);
+    for c in text.chars().filter(|c| !c.is_ascii()) {
+        if is_cjk(c) {
+            cjk += 1;
+        } else {
+            other += 1;
+        }
+    }
+    (cjk >= MIN_CJK && other * 10 <= cjk).then_some((text, enc))
+}
+
+/// Kana, hangul, ideogramas e a pontuação e as formas largas que andam com eles.
+fn is_cjk(c: char) -> bool {
+    matches!(c as u32,
+        0x3000..=0x30FF      // pontuação CJK, hiragana, katakana
+        | 0x3130..=0x318F    // jamo de compatibilidade
+        | 0x3400..=0x4DBF    // ideogramas, extensão A
+        | 0x4E00..=0x9FFF    // ideogramas
+        | 0xAC00..=0xD7AF    // hangul
+        | 0xF900..=0xFAFF    // ideogramas de compatibilidade
+        | 0xFF00..=0xFFEF    // formas largas e meia-largura
+        | 0x20000..=0x2FA1F) // ideogramas, extensões B em diante
 }
 
 /// Os bytes (sem BOM) num encoding escolhido, sem trocar nada por `�`: inválido é erro (salvar depois corromperia).
@@ -243,12 +294,46 @@ mod tests {
         let sjis = b"\x82\xb1\x82\xf1\x82\xc9\x82\xbf\x82\xcd";
         let hint = TextEncoding::from_label("shift_jis");
         assert_eq!(decode(sjis, hint, WINDOWS_1252).unwrap(), ("こんにちは".to_string(), hint.unwrap()));
-        // Sem a dica, a reserva lê (errado, mas sem perder bytes: reabrir com Shift_JIS conserta).
-        let (wrong, enc) = decode(sjis, None, WINDOWS_1252).unwrap();
-        assert_eq!(enc.encoding, WINDOWS_1252);
-        assert_eq!(decode_as(&encode(&wrong, enc).unwrap(), hint.unwrap()).unwrap(), "こんにちは");
+        // Sem a dica, o palpite acha o Shift_JIS (issue #11).
+        assert_eq!(decode(sjis, None, WINDOWS_1252).unwrap(), ("こんにちは".to_string(), hint.unwrap()));
         // Uma dica em que os bytes não valem é ignorada (no ISO-2022-JP, nenhum byte passa de 0x7F).
         assert_eq!(decode("ação".as_bytes(), TextEncoding::from_label("iso-2022-jp"), WINDOWS_1252).unwrap().1, TextEncoding::UTF8);
+    }
+
+    #[test]
+    fn cjk_encodings_are_guessed_and_latin_text_keeps_the_fallback() {
+        let samples = [
+            ("shift_jis", "こんにちは、世界。日本語のファイルです。\n"),
+            ("shift_jis", "設定ファイル\n"),
+            ("euc-jp", "これはテストです。漢字とかなが入っています。\n"),
+            ("gbk", "你好，世界。这是一个简体中文的文件。\n"),
+            ("big5", "你好，世界。這是一個繁體中文的檔案。\n"),
+            ("euc-kr", "안녕하세요. 한국어 파일입니다.\n"),
+        ];
+        for (label, text) in samples {
+            let enc = TextEncoding::from_label(label).unwrap();
+            let bytes = encode(text, enc).unwrap();
+            assert_eq!(decode(&bytes, None, WINDOWS_1252).unwrap(), (text.to_string(), enc), "{label}: {text}");
+        }
+        // Texto latino em Windows-1252 continua na reserva, mesmo o que também seria Shift_JIS válido.
+        let latin = [
+            &b"a\xE7\xE3o \x80\n"[..],
+            b"a\xE7\xE3o",
+            b"n\xE3o \xE9 a\xE7\xFAcar\n",
+            b"Fran\xE7ais: \xE9t\xE9, ann\xE9e, gar\xE7on\n",
+            b"Gr\xFC\xDFe aus M\xFCnchen, sch\xF6ne Stra\xDFe\n",
+            b"Configura\xE7\xE3o padr\xE3o do m\xF3dulo de exporta\xE7\xE3o\n",
+            b"\xBFQu\xE9 tal? Ma\xF1ana, se\xF1or\n",
+        ];
+        for bytes in latin {
+            assert_eq!(decode(bytes, None, WINDOWS_1252).unwrap().1.encoding, WINDOWS_1252, "{bytes:?}");
+        }
+        // Com uma reserva CJK, ela é que vale (nada a adivinhar); cirílico nunca é palpite.
+        let sjis = encode("日本語のファイルです。", TextEncoding::from_label("shift_jis").unwrap()).unwrap();
+        assert!(guess_cjk(&sjis, encoding_rs::EUC_JP).is_none());
+        assert!(guess_cjk(&sjis, WINDOWS_1252).is_some());
+        let cyrillic = encode("Привет, мир\n", TextEncoding::from_label("windows-1251").unwrap()).unwrap();
+        assert_eq!(decode(&cyrillic, None, WINDOWS_1252).unwrap().1.encoding, WINDOWS_1252);
     }
 
     #[test]
