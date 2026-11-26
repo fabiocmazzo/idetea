@@ -20,7 +20,7 @@ every question and every terminal.
   waits (10 minutes by default, `--timeout <seconds>`) and prints the answer (`--confirm` prints `yes` or `no` and
   exits 1 on `no`). For a full form, write the document below to a file and run `idetea ask <file.json> --name <name>`
   (`-` reads it from stdin): it prints the whole response; `--json` does that for the short forms too, and
-  `--value /pointer` prints one value. My comment and an outdated-IDE warning go to stderr. Exit codes: 0 answered,
+  `--value /pointer` prints one value. My comment, the attachments and an outdated-IDE warning go to stderr. Exit codes: 0 answered,
   2 the panel would refuse the document (the errors go to stderr), 4 no answer in time (the question stays; `idetea
   ask --resume <name>` waits again). `--keep` leaves the document to show a result in a later revision; `idetea ask
   --close <name>` removes it.
@@ -65,6 +65,11 @@ files as below.
    - Components: `text` (`style`: `muted`, `warning`, `error`), `markdown` (`text`: lists, `code`, emphasis,
      links), `select`, `checkbox` (boolean), `input` (text) and `button` (`style`: `secondary`, `danger`).
      `value` is a JSON pointer to a value in `data`; `data` holds the initial values.
+   - For a decision: `"recommended": true` and `"note": "why"` on a `select` option (or a `gallery` item) mark the one
+     you recommend; `number` and `slider` (`min`, `max`, `step`, `unit`; the value is a JSON number); `"show_if":
+     {"path": "/mode", "equals": "branch"}` on any component (also `not_equals`, `in`, `truthy`) shows it only then,
+     and a hidden field does not hold a `requires`; `{"component": "columns", "children": ["a", "b"]}` puts up to 4
+     components side by side, to compare options.
    - The response only carries the paths listed in the `context` of the clicked button; a field never filled
      comes as `null`. A path to an object (`/review`) brings the whole object, with my changes to the fields
      inside it.
@@ -130,7 +135,10 @@ files as below.
    `clips: true` at 0 dBFS; counts in this revision: `opened` (also `idetea:open` links), `played`, `completed`,
    `stopped` (I clicked Stop), `interrupted` (another sound started), `stepped`, `shown` (it was on screen for
    half a second; without it, I never scrolled to it)). It tells what I did, not what I heard or saw. Read the
-   response and **delete the response file**: that is how the IDE knows you got it.
+   response and **delete the response file**: that is how the IDE knows you got it. If I attached something (a
+   screenshot of the IDE or a file), the response has `"attachments": [{"path": ".idetea/ui/responses/<name>/anexos/1-1.png",
+   "kind": "screenshot", ...}]`: read them (an image with your image reader), then delete them with the response.
+   `"attach": "screenshot"` (or `"file"`, `"any"`) on a button makes it wait for one, when you need to see what I see.
 3. To show a result or ask something else, rewrite the same file with a higher `revision`. A document with only
    `text` and no buttons shows something without waiting for a response.
 4. When you are done, delete `.idetea/ui/<name>.json`. The rest of the folder (`.gitignore`, `responses/`)
@@ -223,5 +231,5 @@ consequences. Don't rewrite an accepted ADR to change the decision: write a new 
 Write these files in the language of the project's documentation. They go into git like any other change, so
 never put secrets, credentials or personal data in them.
 
-Instructions version: `e2fab562`
+Instructions version: `ca075579`
 <!-- idetea-ui:end -->
