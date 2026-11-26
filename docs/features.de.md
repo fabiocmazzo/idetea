@@ -15,6 +15,10 @@ Die vollständige Liste, für die technische Leserschaft. Die Kurzfassung steht 
   [Ziex](https://ziex.dev) `.zx` …); helle und dunkle Designs (dazu die Designs von iced: Nord, Dracula …). Weitere Sprachen:
   `.sublime-syntax`-Dateien nach `~/.config/idetea/syntaxes/` legen (gelesen, wenn die IDE öffnet).
 - Suchen und Ersetzen, Gehe zu Zeile, Rückgängig/Wiederholen, Mehrfachcursor, Codefaltung und ein optionaler Vim-Modus.
+- Spaltenauswahl: `Shift+Alt+Ziehen` oder Ziehen mit der mittleren Taste gibt einen Cursor pro Zeile, jeder mit seinem
+  Teil ausgewählt (Tabs und breite Zeichen halten das Rechteck gerade); `Strg+Shift+Alt+Pfeile` vergrößert es per
+  Tastatur. `Strg+Alt+Hoch`/`Runter` fügt einen Cursor darüber/darunter hinzu und hält die Spalte auf dem Bildschirm,
+  auch an kurzen Zeilen vorbei.
 - Vorübergehender Editor-Zoom (`Ctrl+=` / `Ctrl++`, `Ctrl+-`, `Ctrl+0` oder `Ctrl+wheel`), gemeinsam für offene Registerkarten und Teilungen;
   das Terminal und die eingestellte Grundgröße bleiben unverändert.
 - Markdown- und SVG-Vorschau neben dem Editor (`Ctrl+Shift+V` oder die Schaltfläche in der Registerkartenleiste), aktualisiert sich beim Tippen.

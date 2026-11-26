@@ -87,6 +87,7 @@ impl EditorMessage {
                     | Inner::DoubleClick(_)
                     | Inner::TripleClick(_)
                     | Inner::AltClick(_)
+                    | Inner::ColumnSelectStart(_)
                     | Inner::JumpClick(_)
                     | Inner::ContextMenuRequested(_)
             ) | Msg::ToggleBreakpoint(_)
