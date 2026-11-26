@@ -13,6 +13,9 @@ The full list, for the technical reader. For the short version, see the [README]
   [Ziex](https://ziex.dev) `.zx`…); light and dark themes (plus iced's themes: Nord, Dracula…). More languages:
   put `.sublime-syntax` files in `~/.config/idetea/syntaxes/` (read when the IDE opens).
 - Find and replace, go to line, undo/redo, multi-cursor, code folding and an optional vim mode.
+- Column selection: `Shift+Alt+drag` or drag with the middle button gives one cursor per line, each with its part
+  selected (tabs and wide characters keep the rectangle straight); `Ctrl+Shift+Alt+arrows` grows it from the keyboard.
+  `Ctrl+Alt+Up`/`Down` adds a cursor above/below and keeps the column on screen past short lines.
 - Temporary editor zoom (`Ctrl+=` / `Ctrl++`, `Ctrl+-`, `Ctrl+0` or `Ctrl+wheel`), shared by open tabs and splits;
   the terminal and the configured base size stay unchanged.
 - Markdown and SVG preview next to the editor (`Ctrl+Shift+V` or the button on the tab bar), updated as you type.

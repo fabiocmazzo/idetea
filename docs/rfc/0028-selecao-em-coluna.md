@@ -1,6 +1,7 @@
 # RFC 0028 — Seleção em coluna no editor
 
-- **Status:** aprovada em 2026-11-26 (pelo painel); ver [Decisões](#decisões).
+- **Status:** aprovada em 2026-11-26 (pelo painel); ver [Decisões](#decisões). **Implementada** (ver
+  [Andamento](#andamento)).
 - **Onde:** na fork do `iced-code-editor` ([ADR 0001](../decisions/0001-iced-code-editor-como-dependencia.md)), com
   a IDE só ligando os atalhos.
 
@@ -88,3 +89,19 @@ Aprovadas no painel em 2026-11-26:
 1. **Mouse:** `Shift+Alt+arrastar`, e também arrastar com o **botão do meio**.
 2. **Teclado:** `Ctrl+Shift+Alt+setas`.
 3. **Quebra de linha:** o retângulo segue as linhas do arquivo.
+
+## Andamento
+
+**2026-11-26:** implementada na fork (`input/update/column_select.rs`), como proposto:
+
+- `Shift+Alt+arrastar` e o botão do meio começam o retângulo; `Ctrl+Shift+Alt+setas` o aumentam (para os lados, ele
+  continua crescendo depois do fim da linha do cursor, para as linhas mais longas em volta).
+- **Tabulações:** a largura delas na tela é fixa (`TAB_WIDTH` células, não paradas de tabulação), e a conta de x já a
+  usava; o risco da RFC não se confirmou. Um teste cobre tabulação, CJK e texto comum na mesma coluna.
+- **Quebra de linha:** o x conta do começo da linha do arquivo, somando o trecho da tela onde o mouse está.
+- **Linhas curtas:** ficam de fora; a linha do mouse sempre fica com um cursor. Teto de 10 000 cursores, guardando as
+  linhas perto do mouse (sem aviso por enquanto).
+- **`Ctrl+Alt+↑`/`↓`:** guardam o x da tela do primeiro cursor da série enquanto o cursor principal for o último
+  acrescentado.
+- Desligada no modo Vim (o `Shift+Alt+clique` vira clique comum, como o `Alt+clique` já fazia).
+- Na IDE: a janela de ajuda (F1) lista os atalhos.

@@ -13,6 +13,7 @@
 - 选项卡带已修改标记；打开（`Ctrl+O`）、保存和另存为，使用系统文件对话框。
 - 大约200种语言和文件类型的语法高亮（TOML、`.env`、INI、Dockerfile、TypeScript、Zig、[Ziex](https://ziex.dev)的`.zx`……）；浅色和深色主题（另有iced的主题：Nord、Dracula……）。更多语言：把`.sublime-syntax`文件放进`~/.config/idetea/syntaxes/`（IDE打开时读取）。
 - 查找和替换、转到行、撤消/重做、多光标、代码折叠，以及可选的vim模式。
+- 列选择：`Shift+Alt+拖动`或用鼠标中键拖动，每行得到一个光标，各自选中自己的部分（有制表符和全角字符时矩形也保持笔直）；`Ctrl+Shift+Alt+方向键`用键盘扩大。`Ctrl+Alt+上`/`下`在上方/下方添加光标，经过较短的行后仍保持屏幕上的列。
 - 编辑器临时缩放（`Ctrl+=` / `Ctrl++`、`Ctrl+-`、`Ctrl+0`或`Ctrl+滚轮`），已打开的选项卡和分屏共用；终端和配置的基础字号不变。
 - Markdown和SVG预览开在编辑器旁边（`Ctrl+Shift+V`，或选项卡栏上的按钮），随输入更新。
 - 图像（png、jpg、gif、webp、bmp、ico……）在选项卡里打开，可以用滚轮缩放，可以拖动。

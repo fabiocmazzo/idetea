@@ -15,6 +15,10 @@ L'elenco completo, per chi vuole il dettaglio tecnico. Per la versione breve, ve
   [Ziex](https://ziex.dev) `.zx`…); temi chiaro e scuro (più i temi di iced: Nord, Dracula…). Altri linguaggi:
   metti i file `.sublime-syntax` in `~/.config/idetea/syntaxes/` (letti all'apertura dell'IDE).
 - Cerca e sostituisci, vai alla riga, annulla/ripeti, più cursori, riduzione dei blocchi e una modalità vim facoltativa.
+- Selezione in colonna: `Maiusc+Alt+trascina` o trascinare col tasto centrale dà un cursore per riga, ognuno con la sua
+  parte selezionata (tabulazioni e caratteri larghi tengono il rettangolo dritto); `Ctrl+Maiusc+Alt+frecce` lo allarga
+  da tastiera. `Ctrl+Alt+Su`/`Giù` aggiunge un cursore sopra/sotto e tiene la colonna sullo schermo anche dopo righe
+  corte.
 - Zoom temporaneo dell'editor (`Ctrl+=` / `Ctrl++`, `Ctrl+-`, `Ctrl+0` o `Ctrl+wheel`), condiviso dalle schede aperte e dalle divisioni;
   il terminale e la dimensione di base configurata restano com'erano.
 - Anteprima di Markdown e SVG accanto all'editor (`Ctrl+Shift+V` o il pulsante sulla barra delle schede), aggiornata mentre scrivi.

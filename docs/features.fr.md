@@ -17,6 +17,10 @@ La liste complète, pour le lecteur technique. Pour la version courte, voir le [
   langages : placez des fichiers `.sublime-syntax` dans `~/.config/idetea/syntaxes/` (lus à l'ouverture de l'IDE).
 - Rechercher et remplacer, aller à la ligne, annuler/rétablir, curseurs multiples, repli du code et un mode vim
   facultatif.
+- Sélection en colonne : `Maj+Alt+glisser` ou glisser avec le bouton du milieu donne un curseur par ligne, chacun avec
+  sa partie sélectionnée (les tabulations et les caractères larges gardent le rectangle droit) ; `Ctrl+Maj+Alt+flèches`
+  l’agrandit au clavier. `Ctrl+Alt+Haut`/`Bas` ajoute un curseur au-dessus/en dessous et garde la colonne à l’écran,
+  même après des lignes courtes.
 - Zoom temporaire de l'éditeur (`Ctrl+=` / `Ctrl++`, `Ctrl+-`, `Ctrl+0` ou `Ctrl+molette`), partagé par les onglets
   ouverts et les divisions ; le terminal et la taille de base configurée ne changent pas.
 - Aperçu Markdown et SVG à côté de l'éditeur (`Ctrl+Shift+V` ou le bouton de la barre d'onglets), mis à jour pendant
