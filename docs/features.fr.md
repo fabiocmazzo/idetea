@@ -28,6 +28,9 @@ La liste complète, pour le lecteur technique. Pour la version courte, voir le [
   `Ctrl+Z` l'annule). En JSONL, une cellule prend du JSON, et une valeur invalide est refusée.
   Glisser le bord d'une colonne la redimensionne ; cliquer les numéros de ligne (Maj étend), `Ctrl+C` les copie
   en TSV, `Ctrl+Maj+C` en CSV. `[table] max_mb` (50 par défaut) fixe la taille maximale.
+  Lignes et colonnes depuis la barre : *+ Ligne* après la ligne choisie, *Supprimer les lignes* (ou `Suppr` sur les
+  lignes choisies), *+ Colonne* et *Supprimer la colonne* ; deux clics sur un nom de colonne le renomment (en JSONL,
+  la clé dans chaque objet). Chaque action est un pas dans l’annulation, et le reste du texte ne bouge pas.
 - Conserve les CRLF. Les fichiers dans d'autres encodages s'ouvrent et s'enregistrent dans le leur (BOM, UTF-16,
   `charset` de `.editorconfig`, sinon `[editor] fallback_encoding`, `windows-1252` par défaut) ; un clic sur l'encodage
   dans la barre d'état rouvre ou enregistre avec un autre. Un caractère qui ne rentre pas est refusé à

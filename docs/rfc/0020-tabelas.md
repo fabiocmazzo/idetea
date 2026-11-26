@@ -1,6 +1,7 @@
 # RFC 0020 — Tabelas
 
-- **Status:** aprovada em 2026-11-17 (pelo painel): opção B. **Implementada** (degrau B); a opção C fica para depois.
+- **Status:** aprovada em 2026-11-17 (pelo painel): opção B. **Implementada** (degrau B); a opção C entrou em
+  2026-11-26 (sem mover linhas e colunas).
 - **Origem:** comentário no painel (2026-11-17) sobre um cliente de banco de dados. Depois da primeira versão
   desta RFC (sobre banco), no painel: "a IDE deveria mostrar as tabelas. Acho que devemos mudar o CSV para tabelas,
   e sem nada relacionado a banco, mas conseguir exibir csv, tsv, jsonl e inclusive editar". Banco de dados ficou
@@ -186,7 +187,16 @@ do cabeçalho (dois cliques voltam à medida); linhas escolhidas pelo número (S
 todas) e copiadas como TSV (`Ctrl+C`) ou CSV (`Ctrl+Shift+C`); a caixa "Primeira linha é o cabeçalho" no CSV e no
 TSV; do texto para a tabela, a célula do cursor fica escolhida; `[table] max_mb` na configuração (0 desliga).
 
-**Falta:** a opção C (acrescentar, apagar e renomear linhas e colunas).
+**2026-11-26: a opção C**, escolhida no painel: na barra, **+ Linha** (depois da escolhida, ou no fim), **Apagar
+linhas** (as escolhidas pelo número, ou a da célula; também `Delete`), **+ Coluna** (depois da escolhida, com um nome
+livre que já fica escolhido para o Enter renomear) e **Apagar coluna**. Dois cliques num nome de coluna renomeiam:
+no CSV/TSV, o campo do cabeçalho; no JSONL, a chave em todo objeto (uma chave repetida é recusada). Cada operação é
+uma lista de trocas em `tea-table` (`insert_row`, `delete_rows`, `insert_column`, `delete_column`,
+`rename_column`), que o editor aplica como um passo só no desfazer; o resto do texto fica igual, com os mesmos
+cuidados da edição de célula (aspas, `\r\n`, a última linha sem quebra). Um registro curto do CSV continua curto.
+No JSONL, a coluna nova entra no fim de cada objeto, com `null`.
+
+**Falta:** mover linhas e colunas.
 
 ## Banco de dados (fora)
 

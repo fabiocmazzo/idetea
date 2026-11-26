@@ -48,14 +48,21 @@ pub enum Msg {
     ResizeEnd,
     /// Dois cliques na borda: a largura volta à medida pela amostra.
     AutoFit(usize),
+    /// Linhas e colunas (RFC 0020, opção C): uma linha nova depois da escolhida (ou no fim); apagar as linhas
+    /// escolhidas (ou a da célula); uma coluna nova depois da escolhida (ou no fim); apagar a coluna da célula.
+    AddRow,
+    DeleteRows,
+    AddColumn,
+    DeleteColumn,
 }
 
 /// O que o editor faz depois de uma mensagem da tabela.
 pub enum Action {
     None,
     Task(Task<Msg>),
-    /// Trocar estes bytes do texto (já validado). O editor aplica, e a tabela é relida.
-    Edit(Edit),
+    /// Trocar estes bytes do texto (já validados; em ordem, sem se sobrepor). O editor aplica todos como um passo
+    /// só no desfazer, e a tabela é relida.
+    Edit(Vec<Edit>),
     /// Voltar para o texto, com o cursor neste byte (a célula escolhida), se houver.
     ShowText(Option<usize>),
     /// Mudar a seleção pede foco no editor (as setas só valem com a aba focada).
@@ -101,6 +108,8 @@ pub struct TableView {
     custom: Vec<Option<f32>>,
     /// Erro da última edição (JSON inválido...), mostrado na barra até a próxima ação.
     error: Option<String>,
+    /// A célula a escolher quando a tabela for relida (a linha ou a coluna que acabou de entrar).
+    pending: Option<(RowRef, usize)>,
     scroll: (f32, f32),
     viewport: f32,
     /// O tamanho da fonte do editor (o editor atualiza antes de cada mensagem), para saber a altura das linhas.
@@ -130,6 +139,7 @@ impl TableView {
             resize: None,
             custom: Vec::new(),
             error: None,
+            pending: None,
             scroll: (0.0, 0.0),
             viewport: 600.0,
             font_size: 14.0,
@@ -165,6 +175,50 @@ impl TableView {
         self.refresh_order();
         if self.rows.is_some_and(|(a, b, _)| a.max(b) >= self.order.len()) {
             self.rows = None;
+        }
+        if let Some((row, col)) = self.pending.take()
+            && col < self.table.columns.len()
+            && (matches!(row, RowRef::Header) || matches!(row, RowRef::Row(r) if r < self.table.rows.len()))
+        {
+            self.selected = Some((row, col));
+            self.rows = None;
+        }
+    }
+
+    /// A linha (em `table.rows`) da célula escolhida.
+    fn selected_row(&self) -> Option<usize> {
+        match self.selected? {
+            (RowRef::Row(r), _) => Some(r),
+            _ => None,
+        }
+    }
+
+    /// As linhas que "apagar" apaga: as escolhidas pelo número, ou a da célula.
+    fn rows_to_delete(&self) -> Vec<usize> {
+        match self.rows {
+            Some((a, b, _)) => self.order[a.min(b)..=a.max(b).min(self.order.len().saturating_sub(1))].to_vec(),
+            None => self.selected_row().into_iter().collect(),
+        }
+    }
+
+    /// O nome de uma coluna nova que ainda não existe (`coluna 3`, `coluna 4`…).
+    fn new_column_name(&self) -> String {
+        (self.table.columns.len() + 1..)
+            .map(|n| fl!("table-new-column", number = n))
+            .find(|n| !self.table.columns.contains(n))
+            .unwrap_or_default()
+    }
+
+    /// O resultado de uma operação: as trocas, ou o erro na barra.
+    fn edits(&mut self, result: Result<Vec<Edit>, EditError>) -> Action {
+        match result {
+            Ok(edits) if edits.is_empty() => Action::None,
+            Ok(edits) => Action::Edit(edits),
+            Err(err) => {
+                self.pending = None;
+                self.error = Some(error_text(err));
+                Action::None
+            }
         }
     }
 
@@ -314,20 +368,58 @@ impl TableView {
             }
             Msg::CommitEdit => {
                 let Some(e) = self.editing.take() else { return Action::None };
-                match self.table.edit(&self.text, e.row, e.col, &e.value) {
-                    Ok(edit) if self.text[edit.range.clone()] == edit.text => Action::None,
-                    Ok(edit) => Action::Edit(edit),
+                // No cabeçalho, renomear a coluna (no JSONL, a chave em todo objeto).
+                let result = match e.row {
+                    RowRef::Header if self.table.columns.get(e.col) == Some(&e.value) => Ok(Vec::new()),
+                    RowRef::Header => self.table.rename_column(&self.text, e.col, &e.value),
+                    row => self.table.edit(&self.text, row, e.col, &e.value).map(|edit| vec![edit]),
+                };
+                match result {
+                    Ok(edits) if edits.iter().all(|edit| self.text[edit.range.clone()] == edit.text) => Action::None,
+                    Ok(edits) => Action::Edit(edits),
                     Err(err) => {
-                        self.error = Some(match err {
-                            EditError::InvalidJson(m) => fl!("table-invalid-json", error = m),
-                            EditError::BrokenRow => fl!("table-broken-row"),
-                            EditError::OutOfRange => fl!("table-out-of-range"),
-                        });
+                        self.error = Some(error_text(err));
                         // Continua editando, para corrigir.
                         self.editing = Some(e);
                         Action::Task(operation::focus(self.input_id.clone()))
                     }
                 }
+            }
+            Msg::AddRow => {
+                self.editing = None;
+                let at = self.selected_row().map_or(self.table.rows.len(), |r| r + 1);
+                self.pending = Some((RowRef::Row(at), self.selected.map_or(0, |(_, c)| c)));
+                let result = self.table.insert_row(&self.text, at);
+                self.edits(result)
+            }
+            Msg::DeleteRows => {
+                self.editing = None;
+                let rows = self.rows_to_delete();
+                if rows.is_empty() {
+                    return Action::None;
+                }
+                self.rows = None;
+                self.selected = None;
+                let result = self.table.delete_rows(&self.text, &rows);
+                self.edits(result)
+            }
+            Msg::AddColumn => {
+                self.editing = None;
+                let at = self.selected.map_or(self.table.columns.len(), |(_, c)| c + 1);
+                let named = self.table.header.is_some() || matches!(self.format, Format::Jsonl);
+                // Com nome, a célula do nome fica escolhida: Enter renomeia.
+                self.pending = Some((if named { RowRef::Header } else { RowRef::Row(0) }, at));
+                let name = self.new_column_name();
+                let result = self.table.insert_column(&self.text, at, &name);
+                self.edits(result)
+            }
+            Msg::DeleteColumn => {
+                self.editing = None;
+                let Some((_, col)) = self.selected else { return Action::None };
+                self.selected = None;
+                self.sort = None;
+                let result = self.table.delete_column(&self.text, col);
+                self.edits(result)
             }
             Msg::Sort(col) => {
                 self.sort = match self.sort {
@@ -373,7 +465,11 @@ impl TableView {
             return Action::None;
         }
         self.selected = Some((row, col));
-        let value = self.table.raw(&self.text, row, col).map(Cow::into_owned).unwrap_or_default();
+        let value = match row {
+            // O nome da coluna (no JSONL, a chave; não há linha de cabeçalho no texto).
+            RowRef::Header => self.table.columns[col].clone(),
+            _ => self.table.raw(&self.text, row, col).map(Cow::into_owned).unwrap_or_default(),
+        };
         self.editing = Some(Editing { row, col, value });
         Action::Focus(Task::batch([operation::focus(self.input_id.clone()), operation::select_all(self.input_id.clone())]))
     }
@@ -425,7 +521,13 @@ impl TableView {
                 Some(p) if p + 1 < self.order.len() => (to_row(Some(p + 1)), col),
                 _ => (row, col),
             },
-            Named::Enter | Named::F2 => return self.start_edit(row, col),
+            Named::Enter | Named::F2 => {
+                if row == RowRef::Header && !self.renames() {
+                    return Action::None;
+                }
+                return self.start_edit(row, col);
+            }
+            Named::Delete if self.rows.is_some() => return self.update(Msg::DeleteRows),
             Named::Escape => {
                 if self.rows.take().is_none() {
                     self.selected = None;
@@ -457,6 +559,11 @@ impl TableView {
         Action::Task(operation::scroll_to(self.body_id.clone(), operation::AbsoluteOffset { x: None, y: Some(y) }))
     }
 
+    /// O cabeçalho tem nomes para mudar: CSV/TSV com cabeçalho, ou JSONL (as chaves).
+    fn renames(&self) -> bool {
+        self.table.header.is_some() || matches!(self.format, Format::Jsonl)
+    }
+
     /// As teclas que a tabela quer quando a aba está focada.
     pub fn wants(&self, key: Named) -> bool {
         match key {
@@ -464,6 +571,7 @@ impl TableView {
             Named::ArrowUp | Named::ArrowDown | Named::ArrowLeft | Named::ArrowRight | Named::Enter | Named::F2 => {
                 self.editing.is_none()
             }
+            Named::Delete => self.editing.is_none() && self.rows.is_some(),
             _ => false,
         }
     }
@@ -504,6 +612,18 @@ impl TableView {
         if !matches!(self.format, Format::Jsonl) {
             bar = bar.push(checkbox(self.header).label(fl!("table-header-row")).text_size(size * 0.85).size(size * 0.9).on_toggle(Msg::ToggleHeader));
         }
+        // Linhas e colunas: agem na célula escolhida (ou nas linhas escolhidas pelo número).
+        let small = |label: String, msg: Option<Msg>| button(text(label).size(size * 0.85)).style(button::secondary).padding([2, 8]).on_press_maybe(msg);
+        let has_rows = self.rows.is_some() || self.selected_row().is_some();
+        bar = bar.push(
+            row![
+                small(fl!("table-add-row"), Some(Msg::AddRow)),
+                small(fl!("table-delete-rows"), has_rows.then_some(Msg::DeleteRows)),
+                small(fl!("table-add-column"), Some(Msg::AddColumn)),
+                small(fl!("table-delete-column"), self.selected.is_some().then_some(Msg::DeleteColumn)),
+            ]
+            .spacing(4),
+        );
         bar = bar.push(text(info).size(size * 0.85).color(muted));
         if let Some(e) = &self.error {
             bar = bar.push(text(e.clone()).size(size * 0.85).color(palette.danger.base.color));
@@ -529,7 +649,7 @@ impl TableView {
                     .clip(true)
                     .style(move |_| cell_style(is_selected.then_some(selected_bg), border));
                 let mut area = mouse_area(label).on_press(Msg::Sort(c));
-                if self.table.header.is_some() {
+                if self.renames() {
                     area = area.on_double_click(Msg::StartEdit(RowRef::Header, c)).on_right_press(Msg::Select(RowRef::Header, c));
                 }
                 // A borda direita: arrastar muda a largura; dois cliques voltam à medida.
@@ -647,6 +767,17 @@ impl TableView {
             .padding([1, 5])
             .width(width.max(160.0))
             .into()
+    }
+}
+
+fn error_text(err: EditError) -> String {
+    match err {
+        EditError::InvalidJson(m) => fl!("table-invalid-json", error = m),
+        EditError::BrokenRow => fl!("table-broken-row"),
+        EditError::OutOfRange => fl!("table-out-of-range"),
+        EditError::DuplicateColumn => fl!("table-duplicate-column"),
+        EditError::NoHeader => fl!("table-no-header"),
+        EditError::EmptyName => fl!("table-empty-name"),
     }
 }
 
@@ -768,13 +899,62 @@ mod tests {
     }
 
     #[test]
+    fn rows_and_columns_from_the_bar() {
+        let text = "nome,n\nana,1\nbia,2\n";
+        let mut t = view(text);
+        // Linha nova depois da escolhida; depois de reler, a célula dela fica escolhida.
+        let _ = t.update(Msg::Select(RowRef::Row(0), 1));
+        let Action::Edit(edits) = t.update(Msg::AddRow) else { panic!() };
+        let text = tea_table::apply_all(text, &edits);
+        assert_eq!(text, "nome,n\nana,1\n,\nbia,2\n");
+        t.reload(&text, 2);
+        assert_eq!(t.selected, Some((RowRef::Row(1), 1)));
+        // Apagar as linhas escolhidas pelo número (Delete).
+        let _ = t.update(Msg::SelectRow(1));
+        assert!(t.wants(Named::Delete));
+        let Action::Edit(edits) = t.update(Msg::Key(Named::Delete)) else { panic!() };
+        let text = tea_table::apply_all(&text, &edits);
+        assert_eq!(text, "nome,n\nana,1\nbia,2\n");
+        t.reload(&text, 3);
+        // Coluna nova depois da escolhida, com o nome escolhido para renomear (Enter).
+        let _ = t.update(Msg::Select(RowRef::Row(0), 0));
+        let Action::Edit(edits) = t.update(Msg::AddColumn) else { panic!() };
+        let text = tea_table::apply_all(&text, &edits);
+        assert_eq!(text, format!("nome,{},n\nana,,1\nbia,,2\n", fl!("table-new-column", number = 3)));
+        t.reload(&text, 4);
+        assert_eq!(t.selected, Some((RowRef::Header, 1)));
+        let _ = t.update(Msg::Key(Named::Enter));
+        let _ = t.update(Msg::EditInput("obs".into()));
+        let Action::Edit(edits) = t.update(Msg::CommitEdit) else { panic!() };
+        let text = tea_table::apply_all(&text, &edits);
+        assert_eq!(text, "nome,obs,n\nana,,1\nbia,,2\n");
+        t.reload(&text, 5);
+        let _ = t.update(Msg::Select(RowRef::Row(1), 2));
+        let Action::Edit(edits) = t.update(Msg::DeleteColumn) else { panic!() };
+        assert_eq!(tea_table::apply_all(&text, &edits), "nome,obs\nana,\nbia,\n");
+    }
+
+    #[test]
+    fn jsonl_header_renames_the_key() {
+        let text = "{\"id\": 1}\n{\"id\": 2, \"x\": 0}\n";
+        let mut t = TableView::new(Format::Jsonl, text, 1);
+        let _ = t.update(Msg::StartEdit(RowRef::Header, 0));
+        let _ = t.update(Msg::EditInput("x".into()));
+        assert!(matches!(t.update(Msg::CommitEdit), Action::Task(_)), "chave repetida: continua editando, com o erro");
+        assert!(t.error.is_some());
+        let _ = t.update(Msg::EditInput("codigo".into()));
+        let Action::Edit(edits) = t.update(Msg::CommitEdit) else { panic!() };
+        assert_eq!(tea_table::apply_all(text, &edits), "{\"codigo\": 1}\n{\"codigo\": 2, \"x\": 0}\n");
+    }
+
+    #[test]
     fn commit_returns_the_edit_and_reload_follows() {
         let text = "nome,n\nana,1\n";
         let mut t = view(text);
         let _ = t.update(Msg::StartEdit(RowRef::Row(0), 0));
         let _ = t.update(Msg::EditInput("ana, b".into()));
-        let Action::Edit(edit) = t.update(Msg::CommitEdit) else { panic!("sem edição") };
-        let new = tea_table::apply(text, &edit);
+        let Action::Edit(edits) = t.update(Msg::CommitEdit) else { panic!("sem edição") };
+        let new = tea_table::apply_all(text, &edits);
         assert_eq!(new, "nome,n\n\"ana, b\",1\n");
         t.reload(&new, 2);
         assert_eq!(t.value(RowRef::Row(0), 0).as_deref(), Some("ana, b"));

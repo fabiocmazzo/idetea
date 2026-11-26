@@ -23,6 +23,9 @@ The full list, for the technical reader. For the short version, see the [README]
   JSONL a cell takes JSON, and an invalid value is refused.
   Drag a column border to resize it; click row numbers (Shift extends) and `Ctrl+C` copies them as TSV,
   `Ctrl+Shift+C` as CSV. `[table] max_mb` (default 50) sets the size limit.
+  Rows and columns from the bar: *+ Row* after the selected one, *Delete rows* (or `Delete` on the picked rows),
+  *+ Column* and *Delete column*; two clicks on a column name rename it (in JSONL, the key in every object). Each is
+  one step in undo, and the rest of the text stays as it was.
 - Keeps CRLF. Files in other encodings open and save in their own encoding (BOM, UTF-16, `.editorconfig` `charset`,
   else `[editor] fallback_encoding`, default `windows-1252`); click the encoding on the status bar to reopen or save
   with another one. A character that does not fit is refused on save, never turned into `?`. Binary files are not opened.

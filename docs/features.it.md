@@ -25,6 +25,9 @@ L'elenco completo, per chi vuole il dettaglio tecnico. Per la versione breve, ve
   mantenute, `Ctrl+Z` la annulla). In JSONL una cella accetta JSON, e un valore non valido viene rifiutato.
   Trascinare il bordo di una colonna ne cambia la larghezza; cliccare i numeri di riga (Maiusc estende), `Ctrl+C`
   le copia come TSV, `Ctrl+Maiusc+C` come CSV. `[table] max_mb` (50 di default) fissa il limite di dimensione.
+  Righe e colonne dalla barra: *+ Riga* dopo quella scelta, *Elimina righe* (o `Canc` sulle righe scelte), *+ Colonna*
+  ed *Elimina colonna*; due clic sul nome di una colonna la rinominano (in JSONL, la chiave in ogni oggetto). Ogni
+  azione è un passo nell'annulla, e il resto del testo resta com'era.
 - Conserva i CRLF. I file in altre codifiche si aprono e si salvano nella loro (BOM, UTF-16, `charset` di
   `.editorconfig`, altrimenti `[editor] fallback_encoding`, `windows-1252` di default); un clic sulla codifica nella
   barra di stato riapre o salva con un'altra. Un carattere che non ci sta viene rifiutato al salvataggio, mai

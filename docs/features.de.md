@@ -25,6 +25,9 @@ Die vollständige Liste, für die technische Leserschaft. Die Kurzfassung steht 
   bleiben, `Strg+Z` macht es rückgängig). In JSONL nimmt eine Zelle JSON an; ein ungültiger Wert wird abgelehnt.
   Spaltenbreite durch Ziehen am Rand; Zeilennummern anklicken (Shift erweitert), `Strg+C` kopiert sie als TSV,
   `Strg+Shift+C` als CSV. `[table] max_mb` (Standard 50) setzt die Größengrenze.
+  Zeilen und Spalten über die Leiste: *+ Zeile* nach der gewählten, *Zeilen löschen* (oder `Entf` auf den gewählten
+  Zeilen), *+ Spalte* und *Spalte löschen*; zwei Klicks auf einen Spaltennamen benennen ihn um (in JSONL den Schlüssel
+  in jedem Objekt). Jede Aktion ist ein Schritt im Rückgängig, der Rest des Texts bleibt, wie er war.
 - CRLF bleibt erhalten. Dateien in anderen Kodierungen öffnen und speichern in ihrer eigenen (BOM, UTF-16, `charset`
   aus `.editorconfig`, sonst `[editor] fallback_encoding`, Standard `windows-1252`); ein Klick auf die Kodierung in
   der Statusleiste öffnet neu oder speichert mit einer anderen. Ein Zeichen, das nicht passt, wird beim Speichern

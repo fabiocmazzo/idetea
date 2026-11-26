@@ -78,6 +78,8 @@ pub struct Cell {
     pub span: Range<usize>,
     /// O campo estava entre aspas (CSV).
     pub quoted: bool,
+    /// No JSONL, a chave (com as aspas); `None` nos outros formatos.
+    pub key: Option<Range<usize>>,
 }
 
 /// Uma linha da tabela (um registro).
@@ -86,6 +88,8 @@ pub struct Row {
     /// A linha do arquivo onde o registro começa (0 é a primeira). Um campo com quebra de linha faz um registro
     /// ocupar mais de uma.
     pub line: usize,
+    /// O byte onde o registro começa (o começo da linha).
+    pub start: usize,
     /// As células, uma por coluna; `None` onde o registro não tem a coluna (linha curta no CSV, chave ausente no
     /// JSONL).
     pub cells: Vec<Option<Cell>>,
@@ -122,6 +126,12 @@ pub enum EditError {
     BrokenRow,
     /// No JSONL, o valor novo não é JSON (a mensagem do erro).
     InvalidJson(String),
+    /// Já existe uma coluna com esse nome (JSONL: a chave repetiria).
+    DuplicateColumn,
+    /// Sem cabeçalho, as colunas não têm nome para mudar.
+    NoHeader,
+    /// O nome da coluna está vazio.
+    EmptyName,
 }
 
 /// Que linha da tabela: o cabeçalho ou um registro.
@@ -350,6 +360,7 @@ fn parse_delimited(text: &str, format: Format) -> Vec<Row> {
     let mut line = 0;
     while i < bytes.len() {
         let start_line = line;
+        let record_start = i;
         let mut cells = Vec::new();
         let end;
         loop {
@@ -386,7 +397,7 @@ fn parse_delimited(text: &str, format: Format) -> Vec<Row> {
             if at_line_end && field_end > start && bytes[field_end - 1] == b'\r' {
                 field_end -= 1;
             }
-            cells.push(Some(Cell { span: start..field_end, quoted }));
+            cells.push(Some(Cell { span: start..field_end, quoted, key: None }));
             if at_line_end {
                 end = field_end;
                 if i < bytes.len() {
@@ -397,7 +408,7 @@ fn parse_delimited(text: &str, format: Format) -> Vec<Row> {
             }
             i += 1; // o separador
         }
-        rows.push(Row { line: start_line, cells, end, error: None });
+        rows.push(Row { line: start_line, start: record_start, cells, end, error: None });
     }
     rows
 }
@@ -406,7 +417,7 @@ fn parse_delimited(text: &str, format: Format) -> Vec<Row> {
 /// aparecem pela primeira vez.
 fn parse_jsonl(text: &str) -> Table {
     let mut columns: Vec<String> = Vec::new();
-    let mut parsed: Vec<(usize, Result<Object, String>)> = Vec::new();
+    let mut parsed: Vec<(usize, usize, Result<Object, String>)> = Vec::new();
     let mut offset = 0;
     for (line, raw) in text.split('\n').enumerate() {
         let start = offset;
@@ -417,40 +428,44 @@ fn parse_jsonl(text: &str) -> Table {
         }
         let result = match serde_json::from_str::<serde_json::Value>(content) {
             Ok(serde_json::Value::Object(_)) => scan_object(content).map(|(fields, close)| {
-                (fields.into_iter().map(|(k, r)| (k, r.start + start..r.end + start)).collect::<Vec<_>>(), close + start)
+                let fields = fields
+                    .into_iter()
+                    .map(|(k, key, r)| (k, key.start + start..key.end + start, r.start + start..r.end + start))
+                    .collect::<Vec<_>>();
+                (fields, close + start)
             }),
             Ok(_) => Err("não é um objeto".to_string()),
             Err(e) => Err(e.to_string()),
         };
         if let Ok((fields, _)) = &result {
-            for (key, _) in fields.iter() {
+            for (key, _, _) in fields.iter() {
                 if !columns.contains(key) {
                     columns.push(key.clone());
                 }
             }
         }
-        parsed.push((line, result));
+        parsed.push((line, start, result));
     }
     let rows = parsed
         .into_iter()
-        .map(|(line, result)| match result {
+        .map(|(line, start, result)| match result {
             Ok((fields, close)) => {
                 let mut cells = vec![None; columns.len()];
-                for (key, span) in fields {
+                for (key, key_span, span) in fields {
                     if let Some(c) = columns.iter().position(|k| *k == key) {
-                        cells[c] = Some(Cell { span, quoted: false });
+                        cells[c] = Some(Cell { span, quoted: false, key: Some(key_span) });
                     }
                 }
-                Row { line, cells, end: close, error: None }
+                Row { line, start, cells, end: close, error: None }
             }
-            Err(e) => Row { line, cells: Vec::new(), end: 0, error: Some(e) },
+            Err(e) => Row { line, start, cells: Vec::new(), end: start, error: Some(e) },
         })
         .collect();
     Table { format: Format::Jsonl, columns, header: None, rows }
 }
 
-/// As chaves de um objeto JSON com o intervalo de cada valor, e a posição do `}`.
-type Object = (Vec<(String, Range<usize>)>, usize);
+/// As chaves de um objeto JSON com o intervalo da chave e do valor, e a posição do `}`.
+type Object = (Vec<(String, Range<usize>, Range<usize>)>, usize);
 
 /// As chaves de um objeto JSON (já validado) com o intervalo de cada valor, e a posição do `}`.
 fn scan_object(s: &str) -> Result<Object, String> {
@@ -472,6 +487,7 @@ fn scan_object(s: &str) -> Result<Object, String> {
             Some(b'"') => {}
             _ => return Err("objeto malformado".into()),
         }
+        let key_start = i;
         let key_end = skip_string(b, i);
         let key: String = serde_json::from_str(&s[i..key_end]).map_err(|e| e.to_string())?;
         i = skip_ws(b, key_end);
@@ -480,7 +496,7 @@ fn scan_object(s: &str) -> Result<Object, String> {
         }
         i = skip_ws(b, i + 1);
         let value_end = skip_value(b, i);
-        fields.push((key, i..value_end));
+        fields.push((key, key_start..key_end, i..value_end));
         i = value_end;
     }
 }
@@ -609,6 +625,187 @@ impl Table {
         }
         out
     }
+}
+
+/// Linhas e colunas (RFC 0020, opção C). Cada operação devolve as trocas no texto, em ordem e sem se sobrepor:
+/// o editor aplica todas como um passo só no desfazer. Como na edição de célula, o resto do texto (aspas, fins de
+/// linha, a última linha sem quebra) fica como estava.
+impl Table {
+    /// O fim de linha do arquivo: `\r\n` se ele já usa, senão `\n`.
+    fn newline(text: &str) -> &'static str {
+        if text.contains("\r\n") { "\r\n" } else { "\n" }
+    }
+
+    /// Onde o registro ocupa o texto, com o fim de linha.
+    fn extent(text: &str, row: &Row) -> Range<usize> {
+        let from = row.end.max(row.start);
+        let end = text[from..].find('\n').map_or(text.len(), |i| from + i + 1);
+        row.start..end
+    }
+
+    /// Um registro vazio antes do registro `at` (`at` igual ao número de registros: no fim).
+    pub fn insert_row(&self, text: &str, at: usize) -> Result<Vec<Edit>, EditError> {
+        if at > self.rows.len() {
+            return Err(EditError::OutOfRange);
+        }
+        let nl = Self::newline(text);
+        let empty = match self.format {
+            Format::Jsonl => "{}".to_string(),
+            f => (f.delimiter() as char).to_string().repeat(self.columns.len().saturating_sub(1)),
+        };
+        let edit = match self.rows.get(at) {
+            Some(row) => Edit { range: row.start..row.start, text: format!("{empty}{nl}") },
+            // No fim: um arquivo sem quebra na última linha continua sem.
+            None if text.is_empty() || text.ends_with('\n') => Edit { range: text.len()..text.len(), text: format!("{empty}{nl}") },
+            None => Edit { range: text.len()..text.len(), text: format!("{nl}{empty}") },
+        };
+        Ok(vec![edit])
+    }
+
+    /// Apaga estes registros (índices em `rows`, em qualquer ordem).
+    pub fn delete_rows(&self, text: &str, rows: &[usize]) -> Result<Vec<Edit>, EditError> {
+        let mut rows: Vec<usize> = rows.to_vec();
+        rows.sort_unstable();
+        rows.dedup();
+        if rows.iter().any(|&r| r >= self.rows.len()) {
+            return Err(EditError::OutOfRange);
+        }
+        let mut ranges: Vec<Range<usize>> = rows.iter().map(|&r| Self::extent(text, &self.rows[r])).collect();
+        // O último registro sem quebra de linha: leva junto a quebra de antes, para não sobrar uma linha em branco
+        // no fim (a não ser que ele seja o único que sobrou no arquivo).
+        if let Some(last) = ranges.last_mut()
+            && last.end == text.len()
+            && !text.ends_with('\n')
+            && last.start > 0
+        {
+            let before = &text[..last.start];
+            last.start -= if before.ends_with("\r\n") { 2 } else { 1 };
+        }
+        // Registros vizinhos viram uma troca só.
+        let mut merged: Vec<Range<usize>> = Vec::new();
+        for r in ranges {
+            match merged.last_mut() {
+                Some(prev) if prev.end >= r.start => prev.end = prev.end.max(r.end),
+                _ => merged.push(r),
+            }
+        }
+        Ok(merged.into_iter().map(|range| Edit { range, text: String::new() }).collect())
+    }
+
+    /// Os registros que contam numa operação de coluna: o cabeçalho e os que foram lidos.
+    fn records(&self) -> impl Iterator<Item = &Row> {
+        self.header.iter().chain(self.rows.iter().filter(|r| r.error.is_none()))
+    }
+
+    /// Uma coluna nova antes da coluna `at` (`at` igual ao número de colunas: no fim). `name` vai no cabeçalho; no
+    /// JSONL, é a chave, com `null` em todo objeto (no fim do objeto: a ordem das chaves não importa).
+    pub fn insert_column(&self, text: &str, at: usize, name: &str) -> Result<Vec<Edit>, EditError> {
+        if at > self.columns.len() {
+            return Err(EditError::OutOfRange);
+        }
+        if self.format == Format::Jsonl {
+            let name = name.trim();
+            if name.is_empty() {
+                return Err(EditError::EmptyName);
+            }
+            if self.columns.iter().any(|c| c == name) {
+                return Err(EditError::DuplicateColumn);
+            }
+            let key = serde_json::to_string(name).unwrap_or_default();
+            let edits = self
+                .records()
+                .map(|r| {
+                    let empty = r.cells.iter().all(Option::is_none);
+                    let at = text[..r.end].trim_end().len();
+                    Edit { range: at..at, text: format!("{}{key}: null", if empty { "" } else { ", " }) }
+                })
+                .collect();
+            return Ok(edits);
+        }
+        let d = self.format.delimiter() as char;
+        let mut edits = Vec::new();
+        for r in self.records() {
+            let is_header = self.header.as_ref().is_some_and(|h| std::ptr::eq(h, r));
+            let value = if is_header { encode(self.format, name, false) } else { String::new() };
+            match r.cells.get(at).and_then(Option::as_ref) {
+                // Antes da célula que está lá: o valor e um separador.
+                Some(cell) => edits.push(Edit { range: cell.span.start..cell.span.start, text: format!("{value}{d}") }),
+                // Coluna nova no fim, num registro que tem todas as outras: um separador e o valor.
+                None if r.cells.len() == at && at == self.columns.len() => edits.push(Edit { range: r.end..r.end, text: format!("{d}{value}") }),
+                // Registro curto: a coluna nova já falta nele, como as outras.
+                None => {}
+            }
+        }
+        Ok(edits)
+    }
+
+    /// Apaga a coluna `col` de todo registro que a tem, com um separador (ou, no JSONL, a chave e a vírgula).
+    pub fn delete_column(&self, text: &str, col: usize) -> Result<Vec<Edit>, EditError> {
+        if col >= self.columns.len() {
+            return Err(EditError::OutOfRange);
+        }
+        let mut edits = Vec::new();
+        for r in self.records() {
+            let Some(cell) = r.cells.get(col).and_then(Option::as_ref) else { continue };
+            let range = if self.format == Format::Jsonl {
+                let key = cell.key.clone().unwrap_or(cell.span.clone());
+                let b = text.as_bytes();
+                let after = skip_ws(b, cell.span.end);
+                if b.get(after) == Some(&b',') {
+                    key.start..skip_ws(b, after + 1)
+                } else {
+                    // A última chave: leva a vírgula de antes, se houver.
+                    let before = text[..key.start].trim_end();
+                    if before.ends_with(',') { before.len() - 1..cell.span.end } else { key.start..cell.span.end }
+                }
+            } else {
+                let next = r.cells.get(col + 1).and_then(Option::as_ref);
+                let prev = col.checked_sub(1).and_then(|p| r.cells.get(p)).and_then(Option::as_ref);
+                match (next, prev) {
+                    (Some(n), _) => cell.span.start..n.span.start,
+                    (None, Some(p)) => p.span.end..cell.span.end,
+                    (None, None) => cell.span.clone(),
+                }
+            };
+            edits.push(Edit { range, text: String::new() });
+        }
+        Ok(edits)
+    }
+
+    /// Renomeia a coluna `col`: o campo do cabeçalho (CSV/TSV) ou a chave em todo objeto que a tem (JSONL).
+    pub fn rename_column(&self, text: &str, col: usize, name: &str) -> Result<Vec<Edit>, EditError> {
+        if col >= self.columns.len() {
+            return Err(EditError::OutOfRange);
+        }
+        if self.format != Format::Jsonl {
+            if self.header.is_none() {
+                return Err(EditError::NoHeader);
+            }
+            return self.edit(text, RowRef::Header, col, name).map(|e| vec![e]);
+        }
+        let name = name.trim();
+        if name.is_empty() {
+            return Err(EditError::EmptyName);
+        }
+        if self.columns.iter().enumerate().any(|(i, c)| i != col && c == name) {
+            return Err(EditError::DuplicateColumn);
+        }
+        let key = serde_json::to_string(name).unwrap_or_default();
+        Ok(self
+            .records()
+            .filter_map(|r| r.cells.get(col)?.as_ref()?.key.clone())
+            .map(|range| Edit { range, text: key.clone() })
+            .collect())
+    }
+}
+
+/// Aplica várias trocas (em ordem, sem se sobrepor) de uma vez.
+pub fn apply_all(text: &str, edits: &[Edit]) -> String {
+    let mut out = text.to_string();
+    for e in edits.iter().rev() {
+        out.replace_range(e.range.clone(), &e.text);
+    }
+    out
 }
 
 /// A posição (linha, coluna em caracteres) de um byte do texto, começando em 0.
@@ -751,6 +948,61 @@ mod tests {
         assert_eq!(set(&t, text, RowRef::Row(2), 0, "7"), "{\"id\": 1,  \"nome\": \"ana\"}\r\n{\"id\": 2}\n{\"id\": 7}\n");
         assert!(matches!(t.edit(text, RowRef::Row(0), 1, "ana"), Err(EditError::InvalidJson(_))));
         assert_eq!(t.edit(text, RowRef::Row(0), 9, "1"), Err(EditError::OutOfRange));
+    }
+
+    fn run(t: &Table, text: &str, edits: Result<Vec<Edit>, EditError>) -> String {
+        let _ = t;
+        apply_all(text, &edits.unwrap())
+    }
+
+    #[test]
+    fn rows_are_added_and_deleted_keeping_the_rest() {
+        let text = "a,b\r\n1,\"x\"\r\n2,y\r\n3,z";
+        let t = csv(text);
+        assert_eq!(run(&t, text, t.insert_row(text, 1)), "a,b\r\n1,\"x\"\r\n,\r\n2,y\r\n3,z");
+        assert_eq!(run(&t, text, t.insert_row(text, 3)), "a,b\r\n1,\"x\"\r\n2,y\r\n3,z\r\n,", "no fim, sem quebra como antes");
+        assert_eq!(run(&t, text, t.delete_rows(text, &[1, 0])), "a,b\r\n3,z", "vizinhos numa troca só");
+        assert_eq!(run(&t, text, t.delete_rows(text, &[2])), "a,b\r\n1,\"x\"\r\n2,y", "o último leva a quebra de antes");
+        assert_eq!(t.delete_rows(text, &[0, 1]).unwrap().len(), 1);
+        let j = "{\"id\": 1}\n{\"id\": 2}\n";
+        let t = Table::parse(j, Format::Jsonl, true);
+        assert_eq!(run(&t, j, t.insert_row(j, 2)), "{\"id\": 1}\n{\"id\": 2}\n{}\n");
+        assert_eq!(run(&t, j, t.delete_rows(j, &[0])), "{\"id\": 2}\n");
+    }
+
+    #[test]
+    fn csv_columns_are_added_deleted_and_renamed() {
+        let text = "a,b\n1,\"x, y\"\n2\n";
+        let t = csv(text);
+        assert_eq!(run(&t, text, t.insert_column(text, 1, "nova")), "a,nova,b\n1,,\"x, y\"\n2\n");
+        assert_eq!(run(&t, text, t.insert_column(text, 2, "c d")), "a,b,c d\n1,\"x, y\",\n2\n", "registro curto fica curto");
+        assert_eq!(run(&t, text, t.insert_column(text, 0, "x,y")), "\"x,y\",a,b\n,1,\"x, y\"\n,2\n");
+        assert_eq!(run(&t, text, t.delete_column(text, 0)), "b\n\"x, y\"\n\n");
+        assert_eq!(run(&t, text, t.delete_column(text, 1)), "a\n1\n2\n");
+        assert_eq!(run(&t, text, t.rename_column(text, 1, "obs")), "a,obs\n1,\"x, y\"\n2\n");
+        let sem = Table::parse(text, Format::Csv(b','), false);
+        assert_eq!(sem.rename_column(text, 0, "x"), Err(EditError::NoHeader));
+        let tsv = "a\tb\n1\t2\n";
+        let t = Table::parse(tsv, Format::Tsv, true);
+        assert_eq!(run(&t, tsv, t.insert_column(tsv, 2, "c")), "a\tb\tc\n1\t2\t\n");
+    }
+
+    #[test]
+    fn jsonl_columns_are_keys() {
+        let text = "{\"id\": 1, \"nome\": \"ana\"}\n{\"nome\":\"bia\",\"id\":2}\n{}\nquebrado\n";
+        let t = Table::parse(text, Format::Jsonl, true);
+        assert_eq!(
+            run(&t, text, t.insert_column(text, 2, "ativo")),
+            "{\"id\": 1, \"nome\": \"ana\", \"ativo\": null}\n{\"nome\":\"bia\",\"id\":2, \"ativo\": null}\n{\"ativo\": null}\nquebrado\n"
+        );
+        assert_eq!(run(&t, text, t.delete_column(text, 0)), "{\"nome\": \"ana\"}\n{\"nome\":\"bia\"}\n{}\nquebrado\n");
+        assert_eq!(run(&t, text, t.delete_column(text, 1)), "{\"id\": 1}\n{\"id\":2}\n{}\nquebrado\n");
+        assert_eq!(
+            run(&t, text, t.rename_column(text, 1, "quem")),
+            "{\"id\": 1, \"quem\": \"ana\"}\n{\"quem\":\"bia\",\"id\":2}\n{}\nquebrado\n"
+        );
+        assert_eq!(t.rename_column(text, 1, "id"), Err(EditError::DuplicateColumn));
+        assert_eq!(t.insert_column(text, 0, " "), Err(EditError::EmptyName));
     }
 
     #[test]
