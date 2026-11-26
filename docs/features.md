@@ -30,7 +30,8 @@ The full list, for the technical reader. For the short version, see the [README]
   *+ Column* and *Delete column*; two clicks on a column name rename it (in JSONL, the key in every object). Each is
   one step in undo, and the rest of the text stays as it was.
 - Keeps CRLF. Files in other encodings open and save in their own encoding (BOM, UTF-16, `.editorconfig` `charset`,
-  else `[editor] fallback_encoding`, default `windows-1252`); click the encoding on the status bar to reopen or save
+  a guessed CJK encoding such as Shift_JIS, GBK, Big5 or EUC-KR when the text confirms it, else
+  `[editor] fallback_encoding`, default `windows-1252`); click the encoding on the status bar to reopen or save
   with another one. A character that does not fit is refused on save, never turned into `?`. Binary files are not opened.
 - Big files: a 50 MB file opens in under 0.1 s. A file with one giant line (minified JSON or JS) opens in a light
   mode, without colors and with wrapping, so the window does not freeze.
