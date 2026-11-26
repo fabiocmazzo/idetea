@@ -127,14 +127,14 @@ themselves are in `assets/`.
 ## Install
 
 **Linux, macOS and Windows, ready to run.** The current release is
-[v0.20.0](https://github.com/fabiocmazzo/idetea/releases/tag/v0.20.0).
+[v0.21.0](https://github.com/fabiocmazzo/idetea/releases/tag/v0.21.0).
 `SHA256SUMS` on that page has the checksums. Change `VERSION` when a newer one is out, or pick the file from
 [Releases](https://github.com/fabiocmazzo/idetea/releases).
 
 **Linux (x86_64).** Unpack and run `install.sh`. It puts `idetea` in `~/.local/bin` and adds it to the app menu:
 
 ```sh
-VERSION=0.20.0
+VERSION=0.21.0
 curl -fsSL -O "https://github.com/fabiocmazzo/idetea/releases/download/v${VERSION}/idetea-${VERSION}-x86_64-linux.tar.gz"
 tar -xzf idetea-${VERSION}-x86_64-linux.tar.gz
 cd idetea-${VERSION}-x86_64-linux
@@ -148,7 +148,7 @@ For ARM, use `idetea-${VERSION}-aarch64-linux.tar.gz` instead. If you prefer a s
 **macOS (Apple Silicon).** The archive contains `IDE TEA.app`:
 
 ```sh
-VERSION=0.20.0
+VERSION=0.21.0
 curl -fsSL -O "https://github.com/fabiocmazzo/idetea/releases/download/v${VERSION}/idetea-${VERSION}-aarch64-macos.tar.gz"
 tar -xzf idetea-${VERSION}-aarch64-macos.tar.gz
 cd idetea-${VERSION}-aarch64-macos
@@ -158,13 +158,13 @@ cd idetea-${VERSION}-aarch64-macos
 There is no Intel Mac build yet.
 
 **Windows (x86_64).** Download and run
-[IDE_TEA-0.20.0-x86_64-setup.exe](https://github.com/fabiocmazzo/idetea/releases/download/v0.20.0/IDE_TEA-0.20.0-x86_64-setup.exe),
+[IDE_TEA-0.21.0-x86_64-setup.exe](https://github.com/fabiocmazzo/idetea/releases/download/v0.21.0/IDE_TEA-0.21.0-x86_64-setup.exe),
 or unpack the portable
-[idetea-0.20.0-x86_64-windows.zip](https://github.com/fabiocmazzo/idetea/releases/download/v0.20.0/idetea-0.20.0-x86_64-windows.zip)
+[idetea-0.21.0-x86_64-windows.zip](https://github.com/fabiocmazzo/idetea/releases/download/v0.21.0/idetea-0.21.0-x86_64-windows.zip)
 (`idetea.exe` is inside). In PowerShell:
 
 ```powershell
-$Version = "0.20.0"
+$Version = "0.21.0"
 Invoke-WebRequest -Uri "https://github.com/fabiocmazzo/idetea/releases/download/v$Version/IDE_TEA-$Version-x86_64-setup.exe" -OutFile "IDE_TEA-$Version-x86_64-setup.exe"
 Start-Process ".\IDE_TEA-$Version-x86_64-setup.exe"
 ```

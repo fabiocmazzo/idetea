@@ -128,14 +128,14 @@ dentro il README. I poster aprono il clip sul sito, con l'audio. I file sono in 
 ## Installazione
 
 **Linux, macOS e Windows, pronto all'uso.** La versione attuale è
-[v0.20.0](https://github.com/fabiocmazzo/idetea/releases/tag/v0.20.0).
+[v0.21.0](https://github.com/fabiocmazzo/idetea/releases/tag/v0.21.0).
 `SHA256SUMS` in quella pagina ha le somme di controllo. Cambia `VERSION` quando ne esce una più nuova, oppure scegli
 il file dalle [Release](https://github.com/fabiocmazzo/idetea/releases).
 
 **Linux (x86_64).** Decomprimi ed esegui `install.sh`. Mette `idetea` in `~/.local/bin` e nel menu delle applicazioni:
 
 ```sh
-VERSION=0.20.0
+VERSION=0.21.0
 curl -fsSL -O "https://github.com/fabiocmazzo/idetea/releases/download/v${VERSION}/idetea-${VERSION}-x86_64-linux.tar.gz"
 tar -xzf idetea-${VERSION}-x86_64-linux.tar.gz
 cd idetea-${VERSION}-x86_64-linux
@@ -149,7 +149,7 @@ Su ARM usa `idetea-${VERSION}-aarch64-linux.tar.gz`. Se preferisci un solo file,
 **macOS (Apple Silicon).** L'archivio contiene `IDE TEA.app`:
 
 ```sh
-VERSION=0.20.0
+VERSION=0.21.0
 curl -fsSL -O "https://github.com/fabiocmazzo/idetea/releases/download/v${VERSION}/idetea-${VERSION}-aarch64-macos.tar.gz"
 tar -xzf idetea-${VERSION}-aarch64-macos.tar.gz
 cd idetea-${VERSION}-aarch64-macos
@@ -159,13 +159,13 @@ cd idetea-${VERSION}-aarch64-macos
 Non c'è ancora un pacchetto per i Mac Intel.
 
 **Windows (x86_64).** Scarica ed esegui
-[IDE_TEA-0.20.0-x86_64-setup.exe](https://github.com/fabiocmazzo/idetea/releases/download/v0.20.0/IDE_TEA-0.20.0-x86_64-setup.exe),
+[IDE_TEA-0.21.0-x86_64-setup.exe](https://github.com/fabiocmazzo/idetea/releases/download/v0.21.0/IDE_TEA-0.21.0-x86_64-setup.exe),
 oppure decomprimi lo
-[idetea-0.20.0-x86_64-windows.zip](https://github.com/fabiocmazzo/idetea/releases/download/v0.20.0/idetea-0.20.0-x86_64-windows.zip)
+[idetea-0.21.0-x86_64-windows.zip](https://github.com/fabiocmazzo/idetea/releases/download/v0.21.0/idetea-0.21.0-x86_64-windows.zip)
 portatile (`idetea.exe` è dentro). In PowerShell:
 
 ```powershell
-$Version = "0.20.0"
+$Version = "0.21.0"
 Invoke-WebRequest -Uri "https://github.com/fabiocmazzo/idetea/releases/download/v$Version/IDE_TEA-$Version-x86_64-setup.exe" -OutFile "IDE_TEA-$Version-x86_64-setup.exe"
 Start-Process ".\IDE_TEA-$Version-x86_64-setup.exe"
 ```
