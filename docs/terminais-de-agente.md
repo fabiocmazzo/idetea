@@ -34,6 +34,11 @@ nada pega o teclado: um Enter digitado em outro lugar não permite nada.
 O que aparece e o que roda saem da mesma cópia em memória. Se o arquivo é regravado enquanto espera, a tela mostra
 a versão nova (e um clique na versão antiga não roda nada); regravar depois de permitido não muda o que roda.
 
+Com **dois ou mais** pedidos esperando (desde a 0.22.0, [RFC 0029](rfc/0029-aprovacao-em-lote-dos-terminais.md)), a
+aba lista todos, cada um inteiro e com os seus botões, e em cima **Permitir todos (N)** e **Recusar todos**. O
+clique leva as cópias que estavam na tela: um pedido regravado depois, ou um que chegou depois, fica esperando. Cada
+pedido permitido roda na sua aba, e o ponto da aba mostra o fim e o código.
+
 Não há lista de comandos permitidos: todo pedido é confirmado (decisão da RFC 0005).
 
 ## Status
@@ -73,6 +78,9 @@ idetea run --title "Revisor" --worktree agente/revisao -- "claude -p 'Review the
   o terminal segue).
 - Limpa na ordem certa: o pedido, e só depois o status e a resposta. `--keep` deixa tudo.
 - `--no-wait` só pede (imprime o nome); `--wait <nome>` espera depois; `--stop <nome>` encerra.
+- Um lote (desde a 0.22.0): um `--no-wait` por comando, depois `--wait a b c`. Os pedidos aparecem juntos na tela;
+  ele espera cada um na ordem (com um `--timeout` só para todos), diz o fim de cada um no stderr, põe a resposta de
+  cada um no stdout depois de `==> nome <==` e sai com o primeiro código diferente de 0 (ou 0).
 - Um nome que já tem pedido ou status é recusado (não troca o pedido de outro agente).
 
 ## Um agente pede algo a outro (worktree e resposta)

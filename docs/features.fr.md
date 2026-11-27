@@ -194,6 +194,9 @@ et `CLAUDE.md`.
   progression va dans `<name>.status.json` (`pending`, `running`, `exited` avec le code, `refused`, `closed`,
   `invalid`, `lost`) ; supprimer la demande arrête le terminal (si la commande est déjà terminée, l'onglet reste
   jusqu'à ce que vous le fermiez).
+- **Autoriser un lot :** avec deux demandes ou plus en attente, l'onglet les liste toutes, en entier, avec
+  **Tout autoriser** et **Tout refuser** ; seules les copies affichées s'exécutent, chacune dans son onglet.
+  `idetea run --wait a b c` attend un lot et affiche le code de chacune.
 - **Liste d'autorisation :** `[agents] allow = ["npm run dev", "claude *"]` dans votre configuration utilisateur
   exécute ces commandes sans demander : la commande exacte, ou un préfixe suivi seulement d'arguments simples (pas de
   `;`, `&`, `|`, `$`, accents graves, redirections…). Dans une configuration de projet, elle est ignorée, avec un

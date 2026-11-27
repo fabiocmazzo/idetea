@@ -26,7 +26,9 @@ every question and every terminal.
 - `idetea run --title "…" -- <command>` asks for an IDE terminal (see below), waits for the end, prints the answer the
   command wrote to `$IDETEA_ANSWER`, cleans up and exits with the command's code (5 refused, 6 closed by me or lost,
   2 invalid request). `--worktree <branch>` runs it in its own worktree; `--no-wait`, then `idetea run --wait <name>`
-  or `idetea run --stop <name>`.
+  or `idetea run --stop <name>`. Several commands I should approve together: one `--no-wait` each, then
+  `idetea run --wait a b c` (I see them all on one screen; it prints each one's code and exits with the first that is
+  not 0).
 - `idetea agent [name] [--worktree <branch>]` asks for an IDE terminal tab with a coding agent (`claude`, `codex`…
   or one of my launchers; `--list` shows them), with the same approval as `idetea run`. It prints the request name;
   `idetea run --wait <name>` waits for the end.

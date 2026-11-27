@@ -34,13 +34,12 @@ agent-worktree-kept = Le worktree { $path } a été conservé : { $error }
 agent-request-warning = Elle s'exécute avec vos permissions, comme si vous l'aviez saisie. N'autorisez que ce que vous reconnaissez.
 agent-request-allow = Autoriser et exécuter
 agent-request-refuse = Refuser
-agent-request-more = { $count ->
-    [one] { $count } demande de plus après celle-ci.
-   *[other] { $count } demandes de plus après celle-ci.
-}
+agent-request-batch = { $count } demandes de terminal attendent. Vérifiez chaque commande : « Tout autoriser » exécute exactement celles de cet écran, chacune dans son onglet.
+agent-request-allow-all = Tout autoriser ({ $count })
+agent-request-refuse-all = Tout refuser
 agent-done = Terminé avec le code { $code }. Entrée ferme l'onglet.
 run-bad-arg = idetea run : "{ $arg }" n'est pas valide.
-run-usage = Usage : idetea run [--title T] [--name name] [--cwd folder] [--worktree branch] [--keep] [--no-wait] [--timeout seconds] -- <command> ; idetea run --wait <name> ; idetea run --stop <name>
+run-usage = Usage : idetea run [--title T] [--name name] [--cwd folder] [--worktree branch] [--keep] [--no-wait] [--timeout seconds] -- <command> ; idetea run --wait <name>... ; idetea run --stop <name>
 run-busy = idetea run : il y a déjà une demande "{ $name }" (ou son statut) ; choisissez un autre --name ou attendez avec idetea run --wait { $name }
 run-asked = idetea run : la demande "{ $name }" est dans le panneau Terminal ; en attente que vous l'autorisiez et que la commande se termine
 run-exited = idetea run : "{ $name }" s'est terminé avec le code { $code }

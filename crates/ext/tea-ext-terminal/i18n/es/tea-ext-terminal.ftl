@@ -34,13 +34,12 @@ agent-worktree-kept = El worktree { $path } se quedó: { $error }
 agent-request-warning = Se ejecuta con tus permisos, como si lo escribieras tú. Permite solo lo que reconoces.
 agent-request-allow = Permitir y ejecutar
 agent-request-refuse = Rechazar
-agent-request-more = { $count ->
-    [one] Y un pedido más después de este.
-   *[other] Y { $count } pedidos más después de este.
-}
+agent-request-batch = { $count } pedidos de terminal esperan. Revise cada comando: "Permitir todos" ejecuta exactamente los de esta pantalla, cada uno en su pestaña.
+agent-request-allow-all = Permitir todos ({ $count })
+agent-request-refuse-all = Rechazar todos
 agent-done = Terminó con código { $code }. Enter cierra la pestaña.
 run-bad-arg = idetea run: "{ $arg }" no vale.
-run-usage = Uso: idetea run [--title T] [--name nombre] [--cwd carpeta] [--worktree rama] [--keep] [--no-wait] [--timeout segundos] -- <comando>; idetea run --wait <nombre>; idetea run --stop <nombre>
+run-usage = Uso: idetea run [--title T] [--name nombre] [--cwd carpeta] [--worktree rama] [--keep] [--no-wait] [--timeout segundos] -- <comando>; idetea run --wait <nombre>...; idetea run --stop <nombre>
 run-busy = idetea run: ya hay un pedido "{ $name }" (o su estado); elige otro --name o espera con idetea run --wait { $name }
 run-asked = idetea run: pedido "{ $name }" en el panel de la terminal; esperando que el usuario lo permita y que el comando termine
 run-exited = idetea run: "{ $name }" terminó con código { $code }

@@ -30,7 +30,8 @@ struct Args {
     keep: bool,
     no_wait: bool,
     timeout: Option<Duration>,
-    wait: Option<String>,
+    /// `--wait a b c`: os nomes, na ordem (RFC 0029).
+    wait: Vec<String>,
     stop: Option<String>,
 }
 
@@ -66,16 +67,23 @@ fn parse(args: &[String]) -> Result<Args, String> {
             "--keep" => a.keep = true,
             "--no-wait" => a.no_wait = true,
             "--timeout" => a.timeout = Some(Duration::from_secs(next(arg)?.parse().map_err(|_| arg.clone())?)),
-            "--wait" => a.wait = Some(next(arg)?),
+            "--wait" => {
+                // Os nomes até a próxima opção: `--wait a b c` espera um lote (também `--wait a --wait b`).
+                a.wait.push(next(arg)?);
+                while let Some(more) = it.as_slice().first().filter(|n| !n.starts_with("--")) {
+                    a.wait.push(more.clone());
+                    it.next();
+                }
+            }
             "--stop" => a.stop = Some(next(arg)?),
             other => return Err(other.to_string()),
         }
     }
-    let modes = [a.command.is_some(), a.wait.is_some(), a.stop.is_some()].iter().filter(|m| **m).count();
+    let modes = [a.command.is_some(), !a.wait.is_empty(), a.stop.is_some()].iter().filter(|m| **m).count();
     if modes != 1 {
         return Err(String::new());
     }
-    for name in [&a.name, &a.wait, &a.stop].into_iter().flatten() {
+    for name in [&a.name, &a.stop].into_iter().flatten().chain(&a.wait) {
         if !agents::valid_name(name) {
             return Err(name.clone());
         }
@@ -211,9 +219,9 @@ pub fn run(args: &[String], cwd: &Path) -> i32 {
         clean(&root, name);
         return 0;
     }
-    let name = match (&a.wait, &a.command) {
-        (Some(name), _) => name.clone(),
-        (None, Some(command)) => {
+    let names = match &a.command {
+        None => a.wait.clone(),
+        Some(command) => {
             let name = a.name.clone().unwrap_or_else(fresh_name);
             if let Err(e) = write_request(&root, &name, &a, command, crate::tab_hooks::origin_ide(&root)) {
                 eprintln!("{e}");
@@ -224,17 +232,35 @@ pub fn run(args: &[String], cwd: &Path) -> i32 {
                 println!("{name}");
                 return 0;
             }
-            name
+            vec![name]
         }
-        (None, None) => return EXIT_INVALID,
     };
-    match wait(&root, &name, a.timeout) {
-        Some(status) => finish(&root, &name, &status, a.keep),
-        None => {
-            eprintln!("{}", fl!("run-timeout", name = name.clone()));
-            EXIT_TIMEOUT
+    wait_all(&root, &names, a.timeout, a.keep)
+}
+
+/// Espera cada nome na ordem, com um prazo só para todos, e mostra o fim de cada um (o código no stderr). Com vários
+/// nomes, a resposta de cada um sai no stdout depois de `==> nome <==`. Sai com o primeiro código diferente de 0
+/// (o prazo vencido conta como 4), ou 0 se todos deram 0.
+fn wait_all(root: &Path, names: &[String], timeout: Option<Duration>, keep: bool) -> i32 {
+    let end = timeout.map(|t| Instant::now() + t);
+    let mut worst = 0;
+    for name in names {
+        let left = end.map(|e| e.saturating_duration_since(Instant::now()));
+        if names.len() > 1 {
+            println!("==> {name} <==");
+        }
+        let code = match wait(root, name, left) {
+            Some(status) => finish(root, name, &status, keep),
+            None => {
+                eprintln!("{}", fl!("run-timeout", name = name.clone()));
+                EXIT_TIMEOUT
+            }
+        };
+        if worst == 0 {
+            worst = code;
         }
     }
+    worst
 }
 
 #[cfg(test)]
@@ -255,6 +281,9 @@ mod tests {
         assert!(parse(&s(&["--", "x", "--wait", "y"])).is_ok(), "depois de -- é comando");
         assert!(parse(&s(&["--wait", "A B"])).is_err());
         assert!(parse(&s(&["--stop", "x"])).is_ok());
+        let a = parse(&s(&["--wait", "a", "b", "--timeout", "5", "--wait", "c"])).unwrap();
+        assert_eq!(a.wait, ["a", "b", "c"], "um lote: os nomes até a próxima opção, e --wait de novo");
+        assert!(parse(&s(&["--wait", "a", "B C"])).is_err(), "todo nome do lote é conferido");
         assert!(parse(&s(&["--wat"])).is_err());
     }
 
@@ -287,6 +316,16 @@ mod tests {
         let status = wait(&root, "dois", None).unwrap();
         assert_eq!(finish(&root, "dois", &status, true), EXIT_REFUSED);
         assert!(request_path(&root, "dois").exists(), "--keep deixa tudo");
+
+        // Um lote: o primeiro código diferente de 0, depois de esperar todos.
+        for (name, state) in [("l1", agents::State::Exited(0)), ("l2", agents::State::Exited(7)), ("l3", agents::State::Refused)] {
+            write_request(&root, name, &a, "true", None).unwrap();
+            agents::write_status(&root, name, &state).unwrap();
+        }
+        assert_eq!(wait_all(&root, &s(&["l1", "l2", "l3"]), Some(Duration::from_secs(2)), true), 7);
+        agents::write_status(&root, "l2", &agents::State::Exited(0)).unwrap();
+        assert_eq!(wait_all(&root, &s(&["l1", "l2", "l3"]), Some(Duration::from_secs(2)), true), EXIT_REFUSED);
+        assert_eq!(wait_all(&root, &s(&["l1", "nada"]), Some(Duration::from_millis(300)), true), EXIT_TIMEOUT);
         let _ = std::fs::remove_dir_all(&root);
     }
 }

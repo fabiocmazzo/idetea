@@ -125,6 +125,9 @@ pub enum Message {
     /// O usuário permitiu este pedido (a cópia que estava na tela).
     Allow(Box<agents::Request>),
     Refuse(String),
+    /// "Permitir todos" (RFC 0029): as cópias que estavam na tela; só rodam as que ainda esperam iguais.
+    AllowAll(Vec<agents::Request>),
+    RefuseAll(Vec<String>),
     /// Hora de ver se a aba de agente que acabou de abrir já pode receber a colagem do `Ctrl+L`.
     PasteTick,
     /// A tarefa pode ter gravado o código de saída (o script ainda espera o Enter).
@@ -1029,9 +1032,42 @@ impl TerminalExtension {
         self.after_removal(ctx)
     }
 
-    /// A tela do pedido: tudo o que vai rodar, e os dois botões.
+    /// A tela do pedido: tudo o que vai rodar, e os dois botões. Com dois ou mais esperando (RFC 0029), a lista de
+    /// todos, cada um com os seus botões, e "Permitir todos" e "Recusar todos" em cima.
     fn request_view(&self) -> Element<'_, Message> {
-        let Some(request) = self.pending.values().next() else { return space::vertical().into() };
+        let mut col = column![].spacing(8).padding(8);
+        if self.pending.len() > 1 {
+            let all: Vec<agents::Request> = self.pending.values().cloned().collect();
+            let names: Vec<String> = self.pending.keys().cloned().collect();
+            let count = all.len();
+            col = col.push(column![
+                text(fl!("agent-request-batch", count = count)).size(14),
+                text(fl!("agent-request-warning")).size(12).style(text::warning),
+                row![
+                    button(text(fl!("agent-request-allow-all", count = count)).size(13))
+                        .on_press(Message::AllowAll(all))
+                        .padding([3, 12])
+                        .style(button::primary),
+                    button(text(fl!("agent-request-refuse-all")).size(13))
+                        .on_press(Message::RefuseAll(names))
+                        .padding([3, 12])
+                        .style(button::secondary),
+                ]
+                .spacing(8),
+            ]
+            .spacing(8));
+            for request in self.pending.values() {
+                col = col.push(container(self.request_card(request, false)).padding(8).width(Fill).style(container::bordered_box));
+            }
+        } else if let Some(request) = self.pending.values().next() {
+            col = col.push(self.request_card(request, true));
+        }
+        tea_core::style::scrollable(col).height(Fill).into()
+    }
+
+    /// Um pedido: quem pede, o comando exato, a pasta, o worktree e os botões (o aviso só quando está sozinho; na
+    /// lista ele fica em cima, uma vez).
+    fn request_card<'a>(&self, request: &'a agents::Request, alone: bool) -> Element<'a, Message> {
         let who = request.source.as_deref().map_or_else(|| fl!("agent-request-someone"), str::to_string);
         let cwd = request
             .cwd
@@ -1048,8 +1084,7 @@ impl TerminalExtension {
                 .style(container::bordered_box),
             text(fl!("agent-request-cwd", cwd = cwd)).size(12),
         ]
-        .spacing(8)
-        .padding(8);
+        .spacing(8);
         if let Some(branch) = &request.worktree {
             let path = format!("{}/{}", worktree::DIR, request.name);
             col = col.push(text(fl!("agent-request-worktree", branch = branch.as_str(), path = path)).size(12));
@@ -1057,8 +1092,10 @@ impl TerminalExtension {
         if !request.ignored.is_empty() {
             col = col.push(text(fl!("agent-request-ignored", fields = request.ignored.join(", "))).size(12).style(text::warning));
         }
-        col = col.push(column![
-            text(fl!("agent-request-warning")).size(12).style(text::warning),
+        if alone {
+            col = col.push(text(fl!("agent-request-warning")).size(12).style(text::warning));
+        }
+        col.push(
             row![
                 button(text(fl!("agent-request-allow")).size(13))
                     .on_press(Message::Allow(Box::new(request.clone())))
@@ -1070,13 +1107,8 @@ impl TerminalExtension {
                     .style(button::secondary),
             ]
             .spacing(8),
-        ]
-        .spacing(8));
-        if self.pending.len() > 1 {
-            let count = self.pending.len() - 1;
-            col = col.push(text(fl!("agent-request-more", count = count)).size(12).style(text::secondary));
-        }
-        tea_core::style::scrollable(col).height(Fill).into()
+        )
+        .into()
     }
 
     /// Mostra um shell (abre um, se não houver) e pega o teclado.
@@ -1781,6 +1813,19 @@ impl TerminalExtension {
             }
             Message::Allow(request) => return self.allow(*request, ctx),
             Message::Refuse(name) => return self.refuse(&name, ctx),
+            Message::AllowAll(requests) => {
+                let tasks: Vec<_> = requests.into_iter().map(|r| self.allow(r, ctx)).collect();
+                return Task::batch(tasks);
+            }
+            Message::RefuseAll(names) => {
+                for name in &names {
+                    if let Some(request) = self.pending.remove(name) {
+                        let _ = agents::write_status(&self.root, name, &agents::State::Refused);
+                        self.handled.insert(name.clone(), Ok(request));
+                    }
+                }
+                return self.after_removal(ctx);
+            }
             Message::Term(iced_term::Event::BackendCall(id, cmd)) => {
                 if let iced_term::BackendCommand::Resize(Some(size), _) = &cmd {
                     self.size = Some(*size);
@@ -2352,10 +2397,11 @@ mod tests {
         let root = std::env::temp_dir().join(format!("idetea-agent-click-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&root);
         std::fs::create_dir_all(root.join(agents::DIR)).unwrap();
-        for name in ["ola", "recusar"] {
+        let put = |name: &str| {
             let doc = serde_json::json!({"format": agents::FORMAT, "version": 1, "title": name, "command": "true"});
             std::fs::write(root.join(agents::DIR).join(format!("{name}.json")), doc.to_string()).unwrap();
-        }
+        };
+        put("ola");
         let mut ext = TerminalExtension::new();
         let _ = ext.activate(&mut Context::new(&root, None));
         let _ = ext.update(Message::Requests(agents::scan(&root)), &mut Context::new(&root, None));
@@ -2373,9 +2419,63 @@ mod tests {
         // `true` termina logo: o script pode já ter gravado `exited`.
         assert!(["running", "exited"].contains(&status(&root, "ola").as_str()));
 
+        put("recusar");
+        let _ = ext.update(Message::Requests(agents::scan(&root)), &mut Context::new(&root, None));
         let _ = ext.update(Message::ShowRequest, &mut Context::new(&root, None));
         let msgs = click(&ext, fl!("agent-request-refuse"));
         assert!(matches!(msgs.as_slice(), [Message::Refuse(n)] if n == "recusar"), "{msgs:?}");
+    }
+
+    /// RFC 0029: com vários pedidos esperando, a tela lista todos; "Permitir todos" roda só as cópias que estavam na
+    /// tela (um pedido regravado depois fica esperando), e "Recusar todos" recusa os que sobraram.
+    #[cfg(unix)]
+    #[test]
+    fn allow_all_runs_the_copies_on_screen() {
+        let root = std::env::temp_dir().join(format!("idetea-agent-batch-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        std::fs::create_dir_all(root.join(agents::DIR)).unwrap();
+        let put = |name: &str, command: &str| {
+            let doc = serde_json::json!({"format": agents::FORMAT, "version": 1, "title": name, "command": command});
+            std::fs::write(root.join(agents::DIR).join(format!("{name}.json")), doc.to_string()).unwrap();
+        };
+        for name in ["a", "b", "c"] {
+            put(name, "true");
+        }
+        let mut ext = TerminalExtension::new();
+        let _ = ext.activate(&mut Context::new(&root, None));
+        let _ = ext.update(Message::Requests(agents::scan(&root)), &mut Context::new(&root, None));
+        assert_eq!(ext.pending.len(), 3);
+
+        let click = |ext: &TerminalExtension, label: String| -> Vec<Message> {
+            let mut ui = iced_test::simulator(ext.view(PANEL));
+            ui.click(label.as_str()).unwrap();
+            ui.into_messages().collect()
+        };
+        let msgs = click(&ext, fl!("agent-request-allow-all", count = 3));
+        assert!(matches!(msgs.as_slice(), [Message::AllowAll(r)] if r.len() == 3), "{msgs:?}");
+        // "c" muda depois do clique e chega "d": nenhum dos dois roda.
+        put("c", "sleep 30");
+        put("d", "true");
+        let _ = ext.update(Message::Requests(agents::scan(&root)), &mut Context::new(&root, None));
+        for m in msgs {
+            let _ = ext.update(m, &mut Context::new(&root, None));
+        }
+        for name in ["a", "b"] {
+            assert!(["running", "exited"].contains(&status(&root, name).as_str()), "{name}");
+        }
+        assert_eq!(ext.pending.keys().collect::<Vec<_>>(), ["c", "d"]);
+        assert_eq!(ext.pending["c"].command, "sleep 30");
+        assert_eq!(ext.agents.len(), 2);
+
+        let _ = ext.update(Message::ShowRequest, &mut Context::new(&root, None));
+        let msgs = click(&ext, fl!("agent-request-refuse-all"));
+        assert!(matches!(msgs.as_slice(), [Message::RefuseAll(n)] if n == &["c", "d"]), "{msgs:?}");
+        for m in msgs {
+            let _ = ext.update(m, &mut Context::new(&root, None));
+        }
+        assert!(ext.pending.is_empty());
+        assert_eq!((status(&root, "c"), status(&root, "d")), ("refused".into(), "refused".into()));
+        let _ = std::fs::remove_dir_all(&root);
     }
 
     /// O script do agente grava o status `exited` com o código, num JSON que a IDE lê.
