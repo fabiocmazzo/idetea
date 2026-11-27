@@ -98,6 +98,7 @@
 
 - **界面**（`.idetea/ui/<name>.json`）：智能体写一份文档，IDE把它显示成表单（文本、Markdown、选择、复选框、输入、按钮、手工测试的步骤、要编辑的文件、图像、图库、动画精灵、带波形和峰值的声音、可选择行的表格），并把你的回答写到`.idetea/ui/responses/`。面板会显示智能体是否还在等。格式见[interfaces/formato.md](interfaces/formato.md)（葡萄牙语）。
 - **智能体终端**（`.idetea/agents/<name>.json`）：智能体带一条命令来要终端；IDE在“终端请求”选项卡里显示完整请求，只有你允许之后才运行。进度写到`<name>.status.json`（`pending`、`running`、带退出码的`exited`、`refused`、`closed`、`invalid`、`lost`）；删掉请求就会停掉终端（如果命令已经结束，选项卡会留到你关掉它）。
+- **批量允许：**有两个或更多请求在等待时，选项卡会完整列出全部请求，并提供**全部允许**和**全部拒绝**；只运行页面上的那些，每个在自己的选项卡里。`idetea run --wait a b c`等待一批请求，并打印每个的退出码。
 - **允许列表：**用户配置里的`[agents] allow = ["npm run dev", "claude *"]`会直接运行这些命令，不再询问：要么是整条命令，要么是一个前缀，后面只能跟普通参数（不能有`;`、`&`、`|`、`$`、反引号、重定向……）。写在项目配置里会被忽略，并给出警告。
 - **启动智能体**（`Ctrl+Shift+A`，欢迎页上也有）：PATH里找到的编程智能体（Claude Code、Codex、Gemini CLI、OpenCode、Aider、Cursor Agent），加上你自己的`[agents.launchers]`，在终端标签页里启动，位置可以是项目文件夹，也可以是新的工作树（`.idetea/worktrees/launch-<branch>`，关闭标签页时如果没有改动就会移除；分支保留）。`[agents] default`排在最前。启动器只在用户配置里生效。如果`AGENTS.md`/`CLAUDE.md`里没有这个IDE的说明，会先问：写入、只打开，或在这个项目里不再询问。
 - **把上下文发给智能体**（编辑器里按`Ctrl+L`）：光标的位置（或选中内容，文本放在代码块里）以及这些行上的问题，会粘贴到屏幕上的智能体标签页，或最近用过的那个，不会直接发送。没有智能体标签页时，先打开启动器。在问题面板里右键可以发送单个问题。`idetea agent [名称] [--worktree <branch>]`从终端请求一个智能体标签页（`--list`列出可用的）。

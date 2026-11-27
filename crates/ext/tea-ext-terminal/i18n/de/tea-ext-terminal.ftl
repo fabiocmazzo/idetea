@@ -34,13 +34,12 @@ agent-worktree-kept = Der Worktree { $path } wurde behalten: { $error }
 agent-request-warning = Er läuft mit Ihren Rechten, als hätten Sie ihn eingegeben. Lassen Sie nur zu, was Sie erkennen.
 agent-request-allow = Zulassen und ausführen
 agent-request-refuse = Ablehnen
-agent-request-more = { $count ->
-    [one] Danach noch { $count } Anfrage.
-   *[other] Danach noch { $count } Anfragen.
-}
+agent-request-batch = { $count } Terminal-Anfragen warten. Prüfen Sie jeden Befehl: „Alle zulassen“ führt genau die auf diesem Bildschirm aus, jede in einem eigenen Tab.
+agent-request-allow-all = Alle zulassen ({ $count })
+agent-request-refuse-all = Alle ablehnen
 agent-done = Beendet mit Code { $code }. Eingabe schließt die Registerkarte.
 run-bad-arg = idetea run: "{ $arg }" ist ungültig.
-run-usage = Aufruf: idetea run [--title T] [--name Name] [--cwd Ordner] [--worktree Branch] [--keep] [--no-wait] [--timeout Sekunden] -- <Befehl>; idetea run --wait <Name>; idetea run --stop <Name>
+run-usage = Aufruf: idetea run [--title T] [--name Name] [--cwd Ordner] [--worktree Branch] [--keep] [--no-wait] [--timeout Sekunden] -- <Befehl>; idetea run --wait <Name>...; idetea run --stop <Name>
 run-busy = idetea run: es gibt bereits eine Anfrage "{ $name }" (oder ihren Status); wählen Sie ein anderes --name oder warten Sie mit idetea run --wait { $name }
 run-asked = idetea run: Anfrage "{ $name }" liegt im Terminalbereich; es wird gewartet, bis Sie sie zulassen und der Befehl endet
 run-exited = idetea run: "{ $name }" endete mit Code { $code }

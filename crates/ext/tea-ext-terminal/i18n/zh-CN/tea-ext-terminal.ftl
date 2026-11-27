@@ -33,12 +33,12 @@ agent-worktree-kept = 工作树 { $path } 保留了下来：{ $error }
 agent-request-warning = 它会用你的权限运行，就跟你自己敲进去一样。只允许你认得的命令。
 agent-request-allow = 允许并运行
 agent-request-refuse = 拒绝
-agent-request-more = { $count ->
-   *[other] 此后还有 { $count } 个请求。
-}
+agent-request-batch = 有 { $count } 个终端请求在等待。请检查每条命令：“全部允许”只运行此页面上的请求，每个在自己的选项卡里。
+agent-request-allow-all = 全部允许（{ $count }）
+agent-request-refuse-all = 全部拒绝
 agent-done = 已结束，代码 { $code }。按Enter关闭选项卡。
 run-bad-arg = idetea run：“{ $arg }”无效。
-run-usage = 用法：idetea run [--title T] [--name name] [--cwd folder] [--worktree branch] [--keep] [--no-wait] [--timeout seconds] -- <command>；idetea run --wait <name>；idetea run --stop <name>
+run-usage = 用法：idetea run [--title T] [--name name] [--cwd folder] [--worktree branch] [--keep] [--no-wait] [--timeout seconds] -- <command>；idetea run --wait <name>...；idetea run --stop <name>
 run-busy = idetea run：已有请求“{ $name }”（或其状态）；请另选--name，或用idetea run --wait { $name } 等待
 run-asked = idetea run：请求“{ $name }”已在终端面板里；正在等用户允许，并等命令结束
 run-exited = idetea run：“{ $name }”已结束，代码 { $code }

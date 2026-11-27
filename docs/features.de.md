@@ -171,6 +171,9 @@ Alles davon sind schlichte Dateien im Ordner `.idetea/` des Projekts, also kann 
   die ganze Anfrage in einer Registerkarte „Terminalanfrage“ und führt sie erst aus, nachdem Sie sie zulassen. Der Fortschritt geht nach
   `<Name>.status.json` (`pending`, `running`, `exited` mit dem Code, `refused`, `closed`, `invalid`, `lost`);
   das Löschen der Anfrage stoppt das Terminal (ist der Befehl schon zu Ende, bleibt die Registerkarte, bis Sie sie schließen).
+- **Stapel freigeben:** warten zwei oder mehr Anfragen, listet der Tab alle vollständig auf, mit **Alle zulassen**
+  und **Alle ablehnen**; es laufen nur die Kopien auf dem Bildschirm, jede in einem eigenen Tab. `idetea run --wait a b c`
+  wartet auf einen Stapel und gibt den Code jeder Anfrage aus.
 - **Zulassungsliste:** `[agents] allow = ["npm run dev", "claude *"]` in Ihrer Benutzerkonfiguration führt diese Befehle ohne
   Nachfrage aus: der genaue Befehl oder ein Präfix, dem nur schlichte Argumente folgen (kein `;`, `&`, `|`, `$`, keine Backticks,
   keine Umleitungen …). In einer Projektkonfiguration wird sie ignoriert, mit einer Warnung.

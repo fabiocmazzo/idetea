@@ -171,6 +171,9 @@ Tutto sono file in chiaro nella cartella `.idetea/` del progetto, così qualsias
   la richiesta intera in una scheda «Richiesta di terminale» e la esegue solo dopo che tu la consenti. L'avanzamento va in
   `<name>.status.json` (`pending`, `running`, `exited` con il codice, `refused`, `closed`, `invalid`, `lost`);
   cancellare la richiesta ferma il terminale (se il comando è già finito, la scheda resta finché non la chiudi).
+- **Consentire un lotto:** con due o più richieste in attesa, la scheda le elenca tutte, complete, con **Consenti tutte**
+  e **Rifiuta tutte**; vengono eseguite solo le copie sullo schermo, ognuna nella sua scheda. `idetea run --wait a b c`
+  attende un lotto e stampa il codice di ciascuna.
 - **Elenco consentiti:** `[agents] allow = ["npm run dev", "claude *"]` nella tua config utente esegue quei comandi senza
   chiedere: il comando esatto, o un prefisso seguito solo da argomenti semplici (niente `;`, `&`, `|`, `$`, backtick,
   reindirizzamenti…). In una config di progetto viene ignorato, con un avviso.

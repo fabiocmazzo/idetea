@@ -34,13 +34,12 @@ agent-worktree-kept = Il worktree { $path } è stato tenuto: { $error }
 agent-request-warning = Viene eseguito con i tuoi permessi, come se lo avessi scritto tu. Consenti solo ciò che riconosci.
 agent-request-allow = Consenti ed esegui
 agent-request-refuse = Rifiuta
-agent-request-more = { $count ->
-    [one] { $count } altra richiesta dopo questa.
-   *[other] { $count } altre richieste dopo questa.
-}
+agent-request-batch = { $count } richieste di terminale in attesa. Controlla ogni comando: "Consenti tutte" esegue esattamente quelle in questa schermata, ognuna nella sua scheda.
+agent-request-allow-all = Consenti tutte ({ $count })
+agent-request-refuse-all = Rifiuta tutte
 agent-done = Terminato con codice { $code }. Invio chiude la scheda.
 run-bad-arg = idetea run: "{ $arg }" non è valido.
-run-usage = Uso: idetea run [--title T] [--name nome] [--cwd cartella] [--worktree ramo] [--keep] [--no-wait] [--timeout secondi] -- <comando>; idetea run --wait <nome>; idetea run --stop <nome>
+run-usage = Uso: idetea run [--title T] [--name nome] [--cwd cartella] [--worktree ramo] [--keep] [--no-wait] [--timeout secondi] -- <comando>; idetea run --wait <nome>...; idetea run --stop <nome>
 run-busy = idetea run: c'è già una richiesta "{ $name }" (o il suo stato); scegli un altro --name oppure attendi con idetea run --wait { $name }
 run-asked = idetea run: la richiesta "{ $name }" è nel pannello del terminale; in attesa che tu la consenta e che il comando finisca
 run-exited = idetea run: "{ $name }" è terminato con codice { $code }
