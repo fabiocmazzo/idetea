@@ -52,12 +52,12 @@
 
 <section id="install">
   <h2>1. Instalar</h2>
-  <p>A versão atual é a <a href="https://github.com/fabiocmazzo/idetea/releases/tag/v0.21.0">v0.21.0</a>.
+  <p>A versão atual é a <a href="https://github.com/fabiocmazzo/idetea/releases/tag/v0.22.0">v0.22.0</a>.
     O <code>SHA256SUMS</code> nessa página tem as somas de verificação. Troque o <code>VERSION</code> quando sair uma mais nova, ou pegue o arquivo na
     <a href="https://github.com/fabiocmazzo/idetea/releases/latest">versão mais recente</a>.</p>
   <ol class="steps">
     <li><strong>Linux (x86_64).</strong> Descompacte e rode o instalador. Ele põe o <code>idetea</code> em <code>~/.local/bin</code> e a IDE TEA no menu de aplicativos:
-<pre><code>VERSION=0.21.0
+<pre><code>VERSION=0.22.0
 curl -fsSL -O "https://github.com/fabiocmazzo/idetea/releases/download/v${VERSION}/idetea-${VERSION}-x86_64-linux.tar.gz"
 tar -xzf idetea-${VERSION}-x86_64-linux.tar.gz
 cd idetea-${VERSION}-x86_64-linux
@@ -66,18 +66,18 @@ cd idetea-${VERSION}-x86_64-linux
       <code>IDE_TEA-${VERSION}-x86_64.AppImage</code> (ou <code>IDE_TEA-${VERSION}-aarch64.AppImage</code>), dê <code>chmod +x</code> e execute;
       <code>--install-desktop</code> põe no menu.</li>
     <li><strong>macOS (Apple Silicon).</strong> O arquivo traz o <code>IDE TEA.app</code>:
-<pre><code>VERSION=0.21.0
+<pre><code>VERSION=0.22.0
 curl -fsSL -O "https://github.com/fabiocmazzo/idetea/releases/download/v${VERSION}/idetea-${VERSION}-aarch64-macos.tar.gz"
 tar -xzf idetea-${VERSION}-aarch64-macos.tar.gz
 cd idetea-${VERSION}-aarch64-macos
 ./idetea --install-desktop</code></pre>
       <code>--install-desktop</code> cria <code>~/Applications/IDE TEA.app</code>. Ainda não há pacote para Mac com Intel.</li>
     <li><strong>Windows (x86_64).</strong> Baixe e execute o
-      <a href="https://github.com/fabiocmazzo/idetea/releases/download/v0.21.0/IDE_TEA-0.21.0-x86_64-setup.exe">IDE_TEA-0.21.0-x86_64-setup.exe</a>,
+      <a href="https://github.com/fabiocmazzo/idetea/releases/download/v0.22.0/IDE_TEA-0.22.0-x86_64-setup.exe">IDE_TEA-0.22.0-x86_64-setup.exe</a>,
       ou descompacte o
-      <a href="https://github.com/fabiocmazzo/idetea/releases/download/v0.21.0/idetea-0.21.0-x86_64-windows.zip">idetea-0.21.0-x86_64-windows.zip</a>
+      <a href="https://github.com/fabiocmazzo/idetea/releases/download/v0.22.0/idetea-0.22.0-x86_64-windows.zip">idetea-0.22.0-x86_64-windows.zip</a>
       portátil (o <code>idetea.exe</code> está dentro). No PowerShell:
-<pre><code>$Version = "0.21.0"
+<pre><code>$Version = "0.22.0"
 Invoke-WebRequest -Uri "https://github.com/fabiocmazzo/idetea/releases/download/v$Version/IDE_TEA-$Version-x86_64-setup.exe" -OutFile "IDE_TEA-$Version-x86_64-setup.exe"
 Start-Process ".\IDE_TEA-$Version-x86_64-setup.exe"</code></pre></li>
     <li>Se o instalador do Linux disser que <code>~/.local/bin</code> não está no <code>PATH</code>, adicione-o (por exemplo no
