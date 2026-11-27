@@ -213,7 +213,7 @@ th { color: var(--muted); font-weight: 600; }
 
 footer { border-top: 1px solid var(--line); margin-top: 28px; padding: 26px 0 40px; color: var(--muted); font-size: 14.5px; }
 footer .wrap { display: flex; gap: 16px; flex-wrap: wrap; justify-content: space-between; }
-footer .featured { flex-basis: 100%; }
+footer .featured { flex-basis: 100%; display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
 
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
