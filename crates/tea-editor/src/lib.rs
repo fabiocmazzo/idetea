@@ -1256,10 +1256,7 @@ impl Editor {
     /// escopo, ou cujo escopo o tema não pinta, fica com a cor da gramática.
     fn push_semantic_tokens(&mut self) {
         let mut colors: HashMap<&'static str, Option<iced::Color>> = HashMap::new();
-        let mutable = self.inner.scope_color(MUTABLE);
-        if mutable == self.inner.scope_color("variable.other.readwrite") {
-            colors.insert(MUTABLE, None);
-        }
+        let dark = self.theme.extended_palette().is_dark;
         let mut styles = Vec::new();
         for t in &self.semantic_tokens {
             let (start, end) = (t.range.start, t.range.end);
@@ -1269,7 +1266,7 @@ impl Editor {
             }
             let color = semantic_scopes(&t.kind, &t.modifiers)
                 .iter()
-                .find_map(|scope| *colors.entry(scope).or_insert_with(|| self.inner.scope_color(scope)));
+                .find_map(|scope| *colors.entry(scope).or_insert_with(|| self.semantic_color(scope, dark)));
             if let Some(color) = color {
                 styles.push(iced_code_editor::RangeStyle {
                     line: start.line as usize,
@@ -1280,6 +1277,24 @@ impl Editor {
             }
         }
         self.inner.set_range_styles("semantic-tokens", styles);
+    }
+
+    /// A cor de um escopo de semantic token: a do tema quando ele dá uma que se distingue; senão a de reserva
+    /// (`contrast_fallback`). O `base16-ocean` pinta todo `variable.*` igual, não tem regra para tipos e módulos
+    /// e pinta a chamada de função quase como a gramática (RFC 0019).
+    fn semantic_color(&self, scope: &'static str, dark: bool) -> Option<iced::Color> {
+        let themed = self.inner.scope_color(scope);
+        let fallback = contrast_fallback(scope, dark);
+        match scope {
+            MUTABLE if themed == self.inner.scope_color("variable.other.readwrite") => fallback,
+            "entity.name.function" => match (themed, self.inner.scope_color(GRAMMAR_NAME)) {
+                (Some(t), Some(g)) if color_distance(t, g) >= MIN_DISTANCE => Some(t),
+                (Some(_), Some(_)) | (None, _) => fallback,
+                (Some(t), None) => Some(t),
+            },
+            "entity.name.type" | "entity.name.namespace" => themed.or(fallback),
+            _ => themed,
+        }
     }
 
     /// Sem servidor, a revisão do texto não andaria: a tabela liga um cliente que só conta as edições. Um servidor de
@@ -1890,9 +1905,36 @@ fn file_stamp(path: &Path) -> Option<(u64, Option<std::time::SystemTime>)> {
     std::fs::metadata(path).ok().map(|m| (m.len(), m.modified().ok()))
 }
 
-/// O escopo de uma variável mutável. Só vale quando o tema dá a ele uma cor própria, diferente da de uma variável
-/// comum (o `base16-ocean` não dá: pinta todo `variable.*` igual).
+/// O escopo de uma variável mutável. Se o tema não dá a ele uma cor diferente da de uma variável comum (o
+/// `base16-ocean` não dá: pinta todo `variable.*` igual), vale a cor de reserva de `contrast_fallback`.
 const MUTABLE: &str = "variable.other.mutable";
+
+/// O escopo que dá à gramática a cor de um identificador qualquer: a chamada de função tem de se distinguir dele.
+const GRAMMAR_NAME: &str = "entity.name";
+
+/// Distância mínima (RGB, 0 a 1) entre a cor de uma chamada de função e a do identificador da gramática.
+const MIN_DISTANCE: f32 = 0.25;
+
+fn color_distance(a: iced::Color, b: iced::Color) -> f32 {
+    ((a.r - b.r).powi(2) + (a.g - b.g).powi(2) + (a.b - b.b).powi(2)).sqrt()
+}
+
+/// Cores de reserva para os escopos que o tema padrão não distingue: mutável, tipo, módulo e chamada de função.
+/// Duas paletas, para o tema escuro e para o claro.
+fn contrast_fallback(scope: &str, dark: bool) -> Option<iced::Color> {
+    let (r, g, b) = match (scope, dark) {
+        (MUTABLE, true) => (0xD0, 0x87, 0x70),
+        (MUTABLE, false) => (0xB5, 0x54, 0x1F),
+        ("entity.name.type", true) => (0xEB, 0xCB, 0x8B),
+        ("entity.name.type", false) => (0x8A, 0x6A, 0x00),
+        ("entity.name.namespace", true) => (0xB4, 0x8E, 0xAD),
+        ("entity.name.namespace", false) => (0x7B, 0x4E, 0xA0),
+        ("entity.name.function", true) => (0x6F, 0xB3, 0xF2),
+        ("entity.name.function", false) => (0x1F, 0x5F, 0xBF),
+        _ => return None,
+    };
+    Some(iced::Color::from_rgb8(r, g, b))
+}
 
 /// Os escopos TextMate de um semantic token, em ordem de preferência (RFC 0019): o primeiro que o tema pinta
 /// dá a cor. Vazio para o que a gramática já pinta bem (comentários, strings, números, operadores) e para tipos que
@@ -2204,6 +2246,24 @@ mod tests {
     }
 
     #[test]
+    fn semantic_colors_set_types_modules_calls_and_mutables_apart() {
+        let mut editor = Editor::from_text(&tmp("semantic-colors.rs"), "fn soma() {}\n");
+        for theme in [Theme::Dark, Theme::Light] {
+            editor.set_theme(&theme);
+            let dark = theme.extended_palette().is_dark;
+            let color = |scope: &'static str| editor.semantic_color(scope, dark).unwrap_or_else(|| panic!("{scope}"));
+            assert_ne!(Some(color(MUTABLE)), editor.inner.scope_color("variable.other.readwrite"));
+            assert!(editor.semantic_color("entity.name.type", dark).is_some());
+            assert!(editor.semantic_color("entity.name.namespace", dark).is_some());
+            if let Some(grammar) = editor.inner.scope_color(GRAMMAR_NAME) {
+                assert!(color_distance(color("entity.name.function"), grammar) >= MIN_DISTANCE, "{dark}");
+            }
+            // O que o tema pinta bem fica como está.
+            assert_eq!(editor.semantic_color("variable.parameter", dark), editor.inner.scope_color("variable.parameter"));
+        }
+    }
+
+    #[test]
     fn semantic_tokens_color_ranges_and_follow_the_text() {
         use tea_lsp::{Position, Range, SemanticToken};
         let mut editor = Editor::from_text(&tmp("semantic.rs"), "fn soma(a: i32) -> i32 {\n    let mut t = a;\n    t\n}\n");
@@ -2241,9 +2301,13 @@ mod tests {
         );
         let styles = shown(&editor);
         assert!(styles.contains(&(1, 8, 9)), "{styles:?}");
-        // O tema padrão não tem uma cor própria para variável mutável: ela fica com a da gramática.
+        // O tema padrão não tem uma cor própria para variável mutável: ela ganha a de reserva, que não é a de uma
+        // variável comum.
         assert_eq!(editor.inner.scope_color("variable.other.mutable"), editor.inner.scope_color("variable.other.readwrite"));
-        assert!(!styles.contains(&(2, 12, 13)), "{styles:?}");
+        let mutable = editor.inner.range_styles("semantic-tokens").iter().find(|s| (s.line, s.start, s.end) == (2, 12, 13)).map(|s| s.color);
+        assert_eq!(mutable, contrast_fallback(MUTABLE, editor.theme.extended_palette().is_dark));
+        assert_ne!(mutable, editor.inner.scope_color("variable.other.readwrite"));
+        assert!(styles.contains(&(2, 12, 13)), "{styles:?}");
         assert!(!styles.iter().any(|s| s.1 == 0), "sem estilo para o comentário: {styles:?}");
         assert_eq!(editor.inner.range_styles("semantic-tokens")[0].color, parameter);
 
